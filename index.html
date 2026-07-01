@@ -163,6 +163,8 @@ button{font-family:inherit;cursor:pointer;}
 .race-run-timer{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--red-txt);}
 .race-progress-wrap{height:8px;border-radius:4px;background:rgba(0,0,0,.18);margin-bottom:10px;overflow:hidden;}
 .race-progress-bar{height:100%;border-radius:4px;background:var(--red-txt);transition:width .1s linear;}
+.course-profile-wrap{margin-bottom:10px;border-radius:var(--radius);overflow:hidden;background:rgba(0,0,0,.06);}
+.course-profile-svg{width:100%;height:84px;display:block;}
 .race-commentary{font-size:13px;font-weight:600;color:var(--red-txt);text-align:center;margin-bottom:10px;min-height:18px;}
 .race-pos-row{display:flex;justify-content:space-between;font-size:12px;color:var(--red-txt);opacity:.85;}
 .race-result-card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius-lg);
@@ -562,6 +564,7 @@ button{font-family:inherit;cursor:pointer;}
   </div>
   <div id="tab-race" style="display:none">
     <div id="weather-banner-wrap"></div>
+    <div id="rival-wrap"></div>
     <div id="race-setup-wrap"></div>
     <div id="cat-card-wrap"></div>
     <div id="active-race-wrap"></div>
@@ -753,18 +756,27 @@ const TRAINING = [
    flavour:'Maximum neuromuscular effort...'},
 ];
 
+// Each race type carries a `profile` — an elevation shape (0-100 values, low to
+// high) used to draw the course graphic during an active race. Kept as plain data
+// (not a drawing function) so that when multiple named courses are added per race
+// type later, each course just needs its own profile + commentary array; the
+// rendering code (buildCourseProfileSVG) never needs to change.
 const RACE_TYPES = [
   {id:'crit',name:'Criterium',icon:'🔄',desc:'Fast circuit race. Sprint crucial at the finish.',
-   weights:{ftp:0.35,vo2:0.20,sprint:0.45},animMs:40000,cooldown:120,
+   weights:{ftp:0.35,vo2:0.20,sprint:0.45},animMs:40000,cooldown:120,colorVar:'purple',
+   profile:[20,35,18,38,16,40,20,36,18,42,22,38,16,40,20,44,24,40,18,46,26,50,30,55],
    commentary:['Rolling out from the start line...','Riders jostling for position through the corners...','Attacks flying off the front of the bunch!','Final lap — the bell rings!','Sprint begins — everything on the line!']},
   {id:'road',name:'Road Race',icon:'🛣️',desc:'Point-to-point. Balanced demands across all stats.',
-   weights:{ftp:0.55,vo2:0.30,sprint:0.15},animMs:60000,cooldown:180,
+   weights:{ftp:0.55,vo2:0.30,sprint:0.15},animMs:60000,cooldown:180,colorVar:'green',
+   profile:[10,18,14,28,22,15,25,40,32,20,30,48,38,25,35,52,42,28,38,55,45,60,50,65],
    commentary:['Peloton rolls out from the start town...','A break forms off the front...','The bunch begins to organise the chase...','Final 10km — race is wide open!','Last kilometre — everything hurts!']},
   {id:'tt',name:'Time Trial',icon:'⏱️',desc:'Race of truth. Pure FTP — no drafting, no excuses.',
-   weights:{ftp:0.85,vo2:0.15,sprint:0.00},animMs:50000,cooldown:180,
+   weights:{ftp:0.85,vo2:0.15,sprint:0.00},animMs:50000,cooldown:180,colorVar:'blue',
+   profile:[15,17,16,19,18,20,19,22,21,20,23,22,24,23,25,24,26,25,27,26,28,27,29,30],
    commentary:['Countdown... 3, 2, 1 — GO!','Building to threshold pace through the first sector...','Locked in the aero position, holding every watt...','Halfway — the legs are talking but you push on...','Final push — empty absolutely everything!']},
   {id:'hill',name:'Hill Climb',icon:'⛰️',desc:'Straight up the mountain. Power-to-weight rules.',
-   weights:{ftp:0.75,vo2:0.25,sprint:0.00},animMs:55000,cooldown:240,
+   weights:{ftp:0.75,vo2:0.25,sprint:0.00},animMs:55000,cooldown:240,colorVar:'red',
+   profile:[8,14,20,18,26,32,30,38,44,42,50,56,54,62,68,66,74,80,78,86,90,88,95,100],
    commentary:['The climb begins in earnest...','Gradient ramps up to 8% — the pace goes savage...','Riders yo-yo off the back as the group thins...','Over halfway — lungs burning, legs screaming...','The summit is in sight — dig deep!']},
 ];
 
@@ -1908,18 +1920,40 @@ function completeRace(){
   }
 
   state.raceActive=false; state.raceData=null;
+  // Rival tracking — only for normal category races (not calendar events, which
+  // use a fixed elite field with no rival slot). Compared against the ORIGINAL
+  // simulated result (rd.result.rival), not the decision-adjusted finalPos, since
+  // the rival race happened at the same instant as the base simulation and player
+  // decisions during the race don't retroactively change what the rival did.
+  let rivalMsg='';
+  if(!isCalEvent && rd.result.rival){
+    const riv=rd.result.rival;
+    if(riv.beat){
+      state.rival.wins=(state.rival.wins||0)+1;
+      if(!state.rival.firstWinAchieved){
+        state.rival.firstWinAchieved=true;
+        rivalMsg=` · 🎯 You finally beat ${riv.name}!`;
+      } else {
+        rivalMsg=` · Beat ${riv.name} (${riv.position}${ordinal(riv.position)})`;
+      }
+    } else {
+      state.rival.losses=(state.rival.losses||0)+1;
+      rivalMsg=` · ${riv.name} finished ${riv.position}${ordinal(riv.position)}`;
+    }
+  }
   // Win ceremony — enqueued BEFORE checkCategoryPromotion() so if a single race
   // both wins AND triggers a promotion, the win celebration plays first and the
   // promotion celebration follows immediately after (FIFO ceremony queue).
   if(rd.result.position===1){
-    enqueueCeremony({type:'win', raceTypeName:raceTypeNameForDisplay, catName:catNameForDisplay, prize:rd.result.prize});
+    enqueueCeremony({type:'win', raceTypeName:raceTypeNameForDisplay, catName:catNameForDisplay, prize:rd.result.prize,
+      rivalBeatText: (!isCalEvent && rd.result.rival && rd.result.rival.beat) ? rivalMsg.replace(' · ','') : null});
   }
   updateActivityDots(); checkCategoryPromotion(); checkAchievements(); updateSponsorBadge(); updateCalendarBadge(); recalc(); saveGame();
   // The full-screen win ceremony already communicates position + prize, so the
   // small bottom toast is suppressed for 1st place to avoid showing the same
   // information twice in two different UI styles at once.
   if(rd.result.position!==1){
-    showToast(`${rd.result.prize>0?'+'+fmtMoney(rd.result.prize):'No prize'} · ${rd.result.position}${ordinal(rd.result.position)} / ${rd.result.fieldSize}`);
+    showToast(`${rd.result.prize>0?'+'+fmtMoney(rd.result.prize):'No prize'} · ${rd.result.position}${ordinal(rd.result.position)} / ${rd.result.fieldSize}${rivalMsg}`);
   }
 }
 
@@ -2627,6 +2661,10 @@ function handlePrestige(){
   state.categoryPoints=0; state.raceCooldowns={}; state.lastRaceResult=null;
   state.specialisation=null;
   state.energySpentToday=0; // fresh season — clean fatigue slate
+  // Force rival recalibration next race — FTP just reset to 50w base, so the
+  // rival must recalibrate down to match rather than staying at an old,
+  // now-wildly-unbeatable number from the previous season's top category.
+  state.rival.categoryIndexAtAssignment=-1;
   checkAchievements(); updateActivityDots(); recalc(); updateUI(); saveGame();
 }
 function confirmReset(){
@@ -2710,13 +2748,17 @@ function animateCountUp(elId, target, durationMs, formatFn){
   requestAnimationFrame(tick);
 }
 
-function renderWinCeremony({raceTypeName, catName, prize}){
+function renderWinCeremony({raceTypeName, catName, prize, rivalBeatText}){
   const card=document.getElementById('ceremony-card');
+  const rivalBanner = rivalBeatText
+    ? `<div style="background:var(--amber-bg);border:.5px solid var(--amber-bd);border-radius:var(--radius);padding:8px 12px;margin-bottom:14px;font-size:13px;font-weight:700;color:var(--amber-txt)">🎯 ${rivalBeatText}</div>`
+    : '';
   card.innerHTML=`
     <div class="ceremony-eyebrow">🏆 Race Victory</div>
     <div class="ceremony-icon">🥇</div>
     <div class="ceremony-title">You Won!</div>
     <div class="ceremony-subtitle">${raceTypeName} — ${catName}</div>
+    ${rivalBanner}
     <div class="ceremony-money" id="ceremony-money-val">${fmtMoney(0)}</div>
     <div class="ceremony-money-label">Prize Money</div>
     <button class="ceremony-btn" onclick="dismissCeremony(event)">Nice one! 🚴</button>
@@ -3058,7 +3100,22 @@ function renderWeatherBanner(){
   </div>`;
 }
 
-function renderRaceTab(){ renderWeatherBanner(); renderRaceSetupCard(); renderCategoryCard(); renderActiveRaceBlock(); renderRaceResultBlock(); renderRaceTypes(); renderRaceHistory(); }
+function renderRaceTab(){ renderWeatherBanner(); renderRivalCard(); renderRaceSetupCard(); renderCategoryCard(); renderActiveRaceBlock(); renderRaceResultBlock(); renderRaceTypes(); renderRaceHistory(); }
+
+function renderRivalCard(){
+  const wrap=document.getElementById('rival-wrap');
+  recalibrateRivalIfNeeded();
+  const riv=state.rival;
+  const playerFtp=getRiderStats().ftp;
+  const gap=riv.ftp-playerFtp;
+  const gapText = gap>0 ? `${gap}w ahead of you` : gap<0 ? `${Math.abs(gap)}w behind you` : 'dead even with you';
+  const gapColor = gap>10 ? 'var(--red-txt)' : gap>0 ? 'var(--amber-txt)' : 'var(--green-txt)';
+  wrap.innerHTML=`<div class="race-setup-card" style="border-left:3px solid ${gapColor}">
+    <div class="race-setup-head"><span class="race-setup-title">🎯 Your Rival</span><span class="race-setup-hint">${riv.wins||0}W – ${riv.losses||0}L</span></div>
+    <div class="race-setup-row"><span class="race-setup-icon">🚴</span><span class="race-setup-label">${riv.name}</span><span class="race-setup-name" style="color:${gapColor}">${riv.ftp}w FTP</span></div>
+    <div style="font-size:11px;color:${gapColor};font-weight:600;margin-top:2px">${gapText}</div>
+  </div>`;
+}
 
 function renderRaceSetupCard(){
   const wrap=document.getElementById('race-setup-wrap');
@@ -3093,6 +3150,83 @@ function renderCategoryCard(){
   </div>`;
 }
 
+// ─── COURSE PROFILE VISUALIZATION ────────────────────────────
+// Draws the race's elevation profile as a filled mountain-silhouette SVG, with
+// a rider marker that climbs/descends along the actual terrain shape as the
+// race progresses, and small stage-decision flags planted at their trigger
+// points. Reads purely from rt.profile (data) — never hardcodes a shape — so
+// adding more named courses later is just adding more profile arrays, no
+// changes needed here.
+function smoothTerrainPath(pts){
+  let d=`M ${pts[0].x} ${pts[0].y}`;
+  for(let i=1;i<pts.length-1;i++){
+    const mx=(pts[i].x+pts[i+1].x)/2, my=(pts[i].y+pts[i+1].y)/2;
+    d+=` Q ${pts[i].x} ${pts[i].y} ${mx} ${my}`;
+  }
+  const last=pts[pts.length-1];
+  d+=` L ${last.x} ${last.y}`;
+  return d;
+}
+
+function buildCourseProfileSVG(rt, progress, stages){
+  const profile=rt.profile||[20,20,20,20];
+  const N=profile.length;
+  const VB_W=320, VB_H=84;
+  const CHART_TOP=16, CHART_BOTTOM=66, CHART_LEFT=4, CHART_RIGHT=316;
+  const CHART_H=CHART_BOTTOM-CHART_TOP, CHART_W=CHART_RIGHT-CHART_LEFT;
+  const cv=rt.colorVar||'blue';
+
+  const svgY=val=>CHART_BOTTOM-(val/100)*CHART_H;
+  const pts=profile.map((val,i)=>({x:CHART_LEFT+(i/(N-1))*CHART_W, y:svgY(val)}));
+  const lineD=smoothTerrainPath(pts);
+  const fillD=`${lineD} L ${CHART_RIGHT} ${CHART_BOTTOM} L ${CHART_LEFT} ${CHART_BOTTOM} Z`;
+
+  // Interpolate rider's y-position on the terrain curve at the current x fraction,
+  // so the marker visually sits ON the climb/descent rather than floating in space.
+  const idxF=Math.max(0,Math.min(N-1,progress*(N-1)));
+  const idxLow=Math.floor(idxF), idxHigh=Math.min(N-1,idxLow+1), frac=idxF-idxLow;
+  const riderVal=profile[idxLow]+(profile[idxHigh]-profile[idxLow])*frac;
+  const riderX=CHART_LEFT+progress*CHART_W, riderY=svgY(riderVal);
+
+  // Traveled portion gets a brighter fill via a clip rect — gives a clear "distance
+  // covered" read at a glance, similar to a Strava/Zwift route completion visual.
+  const clipId=`cp-clip-${rt.id}`;
+  const gradId=`cp-grad-${rt.id}`;
+
+  // Stage decision flags — small pennant markers planted at each trigger point,
+  // sitting just above the terrain line, coloured amber once fired (matches the
+  // existing pip convention used elsewhere in the race UI).
+  const flagsHtml=(stages||[]).map(s=>{
+    const idxFS=Math.max(0,Math.min(N-1,s.triggerPct*(N-1)));
+    const iLow=Math.floor(idxFS), iHigh=Math.min(N-1,iLow+1), fr=idxFS-iLow;
+    const val=profile[iLow]+(profile[iHigh]-profile[iLow])*fr;
+    const fx=CHART_LEFT+s.triggerPct*CHART_W, fy=svgY(val);
+    const col=s.fired?'var(--amber-txt)':'var(--txt3)';
+    return `<line x1="${fx}" y1="${fy}" x2="${fx}" y2="${fy-10}" stroke="${col}" stroke-width="1.5"/>
+      <circle cx="${fx}" cy="${fy-10}" r="3" fill="${col}"/>`;
+  }).join('');
+
+  return `<svg viewBox="0 0 ${VB_W} ${VB_H}" class="course-profile-svg" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="var(--${cv}-txt)" stop-opacity="0.55"/>
+        <stop offset="100%" stop-color="var(--${cv}-txt)" stop-opacity="0.08"/>
+      </linearGradient>
+      <clipPath id="${clipId}"><rect x="0" y="0" width="${riderX}" height="${VB_H}"/></clipPath>
+    </defs>
+    <line x1="${CHART_LEFT}" y1="${CHART_BOTTOM}" x2="${CHART_RIGHT}" y2="${CHART_BOTTOM}" stroke="var(--border)" stroke-width="1"/>
+    <path d="${fillD}" fill="url(#${gradId})"/>
+    <path d="${lineD}" fill="none" stroke="var(--${cv}-txt)" stroke-width="2" stroke-opacity="0.35"/>
+    <g clip-path="url(#${clipId})">
+      <path d="${fillD}" fill="var(--${cv}-txt)" fill-opacity="0.30"/>
+      <path d="${lineD}" fill="none" stroke="var(--${cv}-txt)" stroke-width="2.5"/>
+    </g>
+    ${flagsHtml}
+    <circle cx="${riderX}" cy="${riderY}" r="7" fill="var(--bg)" stroke="var(--${cv}-txt)" stroke-width="2.5"/>
+    <text x="${riderX}" y="${riderY+3.2}" font-size="8" text-anchor="middle">🚴</text>
+  </svg>`;
+}
+
 function renderActiveRaceBlock(){
   const wrap=document.getElementById('active-race-wrap');
   if(!state.raceActive||!state.raceData){ wrap.innerHTML=''; return; }
@@ -3109,12 +3243,10 @@ function renderActiveRaceBlock(){
     if(ev){ headIcon=ev.icon; headName=ev.name; }
   }
 
-  // Stage marker pips overlaid on the progress bar
+  // Stage decision trigger points — now drawn as flags directly on the course
+  // profile SVG (see buildCourseProfileSVG) rather than as pips on a plain bar.
   const stages=rd.stages||[];
-  const pipHtml=stages.map(s=>{
-    const col=s.fired?'var(--amber-txt)':'var(--border)';
-    return `<div class="race-stage-pip" style="left:${s.triggerPct*100}%;background:${col}"></div>`;
-  }).join('');
+  const courseProfileSvg=buildCourseProfileSVG(rt, progress, stages);
 
   // Race Legs bar
   const legs=rd.raceLegs??100;
@@ -3175,12 +3307,7 @@ function renderActiveRaceBlock(){
 
   wrap.innerHTML=`<div class="active-race">
     <div class="race-run-head"><span style="font-size:18px">${headIcon}</span><span class="race-run-name">${headName}</span><span class="race-run-timer">${remaining}s</span></div>
-    <div class="race-stage-row" style="position:relative">
-      <div class="race-progress-wrap" style="flex:1;position:relative">
-        <div class="race-progress-bar" style="width:${Math.round(progress*100)}%"></div>
-        ${pipHtml}
-      </div>
-    </div>
+    <div class="course-profile-wrap">${courseProfileSvg}</div>
     <div class="race-legs-row">
       <span class="race-legs-label">🔥 Race Legs</span>
       <div class="race-legs-track"><div class="race-legs-fill" style="width:${legsPct}%;background:${legsCol}"></div></div>
@@ -4326,6 +4453,7 @@ function saveGame(){
       bought:[...state.boughtUpgrades], attributes:attrs,
       trainCooldowns:state.trainCooldowns, raceCooldowns:state.raceCooldowns,
       raceCategory:state.raceCategory, categoryPoints:state.categoryPoints,
+      rival:state.rival,
       raceHistory:state.raceHistory, lastRaceResult:state.lastRaceResult,
       equippedBike:state.equippedBike, ownedBikes:[...state.ownedBikes],
       equippedWheels:state.equippedWheels, ownedWheels:[...state.ownedWheels],
@@ -4368,6 +4496,7 @@ function loadGame(){
     state.energy=d.energy??DAILY_ENERGY; state.maxEnergy=d.maxEnergy||DAILY_ENERGY; state.lastEnergyReset=d.lastEnergyReset||0;
     state.boughtUpgrades=new Set(d.bought||[]); state.trainCooldowns=d.trainCooldowns||{}; state.raceCooldowns=d.raceCooldowns||{};
     state.raceCategory=d.raceCategory||0; state.categoryPoints=d.categoryPoints||0;
+    state.rival = d.rival || { name:null, ftp:0, categoryIndexAtAssignment:-1, wins:0, losses:0, firstWinAchieved:false };
     state.raceHistory=d.raceHistory||[]; state.lastRaceResult=d.lastRaceResult||null; state._lastSavedAt=d.lastSavedAt||0;
     state.equippedBike   = d.equippedBike   || 'starter';
     state.ownedBikes     = new Set(d.ownedBikes   || ['starter']);
