@@ -380,6 +380,24 @@ button{font-family:inherit;cursor:pointer;}
   border:none;cursor:pointer;background:var(--amber-txt);color:#fff;white-space:nowrap;}
 .lifetime-placeholder{text-align:center;padding:2.5rem 1rem;color:var(--txt3);font-size:13px;line-height:1.5;}
 .lifetime-placeholder-icon{font-size:40px;margin-bottom:.5rem;}
+/* ── Lifetime Goals — deliberately distinct from the task-card / ach-card look:
+   purple-toned progress tracks rather than a checklist grid, reinforcing that
+   these are slow career counters, not one-off badges. ── */
+.goal-track-card{border:.5px solid var(--border);border-radius:var(--radius);background:var(--bg);
+  padding:14px;margin-bottom:10px;}
+.goal-track-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.goal-track-icon{font-size:22px;}
+.goal-track-name{font-size:14px;font-weight:700;flex:1;}
+.goal-track-value{font-size:12px;font-weight:700;color:var(--purple-txt);white-space:nowrap;}
+.goal-tier-pips{display:flex;align-items:center;gap:2px;margin-bottom:8px;}
+.goal-tier-pip{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;position:relative;}
+.goal-tier-sep{flex:1;height:2px;margin-top:12px;}
+.goal-tier-pip.uncollected{cursor:pointer;}
+.goal-track-next{font-size:11px;color:var(--txt3);}
+.title-chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem;}
+.title-chip{font-size:11px;font-weight:600;padding:7px 12px;border-radius:99px;cursor:pointer;
+  border:1.5px solid var(--border);background:var(--bg);color:var(--txt2);}
+.title-chip.active{border-color:var(--purple-bd);background:var(--purple-bg);color:var(--purple-txt);font-weight:800;}
 /* SPONSORSHIP TAB — reuses spec-banner / spec-choice-card / lifetime-placeholder / cat-bar / task-card / growth-summary patterns */
 .alert-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;
   background:var(--amber-bg);border:.5px solid var(--amber-bd);border-radius:var(--radius);
@@ -589,8 +607,6 @@ button{font-family:inherit;cursor:pointer;}
     <div id="attr-cards"></div>
     <div class="section-lbl" style="margin-top:1rem">Season Progress</div>
     <div id="prestige-area"></div>
-    <div class="section-lbl" style="margin-top:1rem">Achievements</div>
-    <div id="ach-area"></div>
     <div class="section-lbl" style="margin-top:1rem">Career Stats</div>
     <div class="stats-grid" id="stats-grid"></div>
     <div style="text-align:center;margin-top:1rem">
@@ -608,7 +624,13 @@ button{font-family:inherit;cursor:pointer;}
   <div id="tab-growth" style="display:none">
     <div class="gear-nav" id="growth-nav"></div>
     <div id="growth-section-daily"></div>
-    <div id="growth-section-lifetime" style="display:none"></div>
+    <div id="growth-section-lifetime" style="display:none">
+      <div id="lifetime-title-area"></div>
+      <div class="section-lbl">Lifetime Goals</div>
+      <div id="lifetime-goals-area"></div>
+      <div class="section-lbl" style="margin-top:1rem">Achievements</div>
+      <div id="ach-area"></div>
+    </div>
   </div>
   <div id="tab-sponsors" style="display:none">
     <div id="sponsors-content"></div>
@@ -802,7 +824,7 @@ const COURSES = {
         { id:'sector_entry', triggerPct:0.22, headline:'🪨 First cobbled sector approaching!',
           situation:'Crashes and pile-ups always happen at the entrance. Position here matters enormously.',
           choices:[
-            {id:'fight_front', label:'⚡ Fight for the front',   detail:'Burn hard to enter the stones first and dodge the chaos behind you.', raceLegsConst:32, defaultChoice:false,
+            {id:'fight_front', label:'⚡ Fight for the front',   detail:'Burn hard to enter the stones first and dodge the chaos behind you.', raceLegsConst:42, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<40)d=-1; if(spec==='rouleur')d-=1; return d; }},
             {id:'hang_back',   label:'🧘 Hang back, stay safe', detail:'Let others take the risk. You might get caught behind a crash.', raceLegsConst:0, defaultChoice:true,
              deltaFn:(legs,spec)=>{ return Math.random()<0.3?3:1; }},
@@ -810,7 +832,7 @@ const COURSES = {
         { id:'puncture', triggerPct:0.52, headline:'💥 Puncture on the roughest stones!',
           situation:'Your rear tyre has gone flat right in the middle of the sector. Every second costs places.',
           choices:[
-            {id:'ride_flat',  label:'🔥 Ride it to the team car', detail:'Push on the flat tyre until the neutral zone — brutal on the rim but saves time.', raceLegsConst:30, defaultChoice:false,
+            {id:'ride_flat',  label:'🔥 Ride it to the team car', detail:'Push on the flat tyre until the neutral zone — brutal on the rim but saves time.', raceLegsConst:40, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+1; if(spec==='rouleur')d-=1; return d; }},
             {id:'stop_wait',  label:'🛑 Stop and wait for the wheel', detail:'Safe wheel change, but you lose real time standing still.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+2},
@@ -818,7 +840,7 @@ const COURSES = {
         { id:'velodrome', triggerPct:0.82, headline:'🏟️ Onto the velodrome for the finish!',
           situation:'Smooth track at last, after five hours of shaking. Everyone\'s arms are dead.',
           choices:[
-            {id:'attack_early', label:'🚀 Attack on the smooth track', detail:'Go long before the sprint — surprise riders still recovering from the cobbles.', raceLegsConst:34, defaultChoice:false,
+            {id:'attack_early', label:'🚀 Attack on the smooth track', detail:'Go long before the sprint — surprise riders still recovering from the cobbles.', raceLegsConst:46, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<35)d=+1; if(spec==='sprinter')d-=1; return d; }},
             {id:'power_sprint', label:'💪 Out-muscle them at the line', detail:'Save it for a pure power sprint after the shaking stops.', raceLegsConst:16, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=2; return d; }},
@@ -830,7 +852,7 @@ const COURSES = {
         { id:'roller_pace', triggerPct:0.22, headline:'⛰️ An exhausting pace over the rollers',
           situation:'The bunch is going hard over every short climb. Nobody is getting a moment to recover.',
           choices:[
-            {id:'match_pace',  label:'🔥 Match the aggressive pace', detail:'Stay glued to the front group — exhausting but keeps you in the race.', raceLegsConst:28, defaultChoice:false,
+            {id:'match_pace',  label:'🔥 Match the aggressive pace', detail:'Stay glued to the front group — exhausting but keeps you in the race.', raceLegsConst:42, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+1; if(spec==='climber')d-=1; return d; }},
             {id:'drop_back',   label:'🧘 Drop back and conserve', detail:'Ease off and let the group go. Costly if they never come back.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+1},
@@ -838,7 +860,7 @@ const COURSES = {
         { id:'punchy_attack', triggerPct:0.52, headline:'⚡ Attack on a narrow 15% ramp!',
           situation:'A pure climber explodes out of the saddle on the steepest pitch of the day.',
           choices:[
-            {id:'explode_follow', label:'💥 Explode out of the saddle', detail:'Match the attack instantly — very costly but keeps the front group honest.', raceLegsConst:38, defaultChoice:false,
+            {id:'explode_follow', label:'💥 Explode out of the saddle', detail:'Match the attack instantly — very costly but keeps the front group honest.', raceLegsConst:56, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-4; if(legs<45)d=-1; if(legs<25)d=+2; if(spec==='climber')d-=1; return d; }},
             {id:'own_tempo',   label:'🎯 Ride your own tempo', detail:'Let them go and hope to catch them on the descent.', raceLegsConst:10, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=0; if(spec==='climber')d=-1; return d; }},
@@ -846,7 +868,7 @@ const COURSES = {
         { id:'downhill_sprint', triggerPct:0.82, headline:'🏁 A downhill sprint to the line!',
           situation:'The finish comes at the bottom of a fast, technical descent. Corners are everything.',
           choices:[
-            {id:'risk_corners', label:'🏍️ Take huge risks in the corners', detail:'Carry maximum speed through every bend to open a gap before the line.', raceLegsConst:20, defaultChoice:false,
+            {id:'risk_corners', label:'🏍️ Take huge risks in the corners', detail:'Carry maximum speed through every bend to open a gap before the line.', raceLegsConst:30, defaultChoice:false,
              deltaFn:(legs,spec)=>{ return Math.random()<0.25 ? +3 : -3; }},
             {id:'trust_speed',  label:'🎯 Trust your top-end speed', detail:'Ride the corners safely and rely on raw speed in the final 200m.', raceLegsConst:14, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=2; return d; }},
@@ -858,7 +880,7 @@ const COURSES = {
         { id:'wind_shift', triggerPct:0.22, headline:'💨 The wind swings into a crosswind!',
           situation:'The road turns and the wind now hits from the side. The peloton is about to split into echelons.',
           choices:[
-            {id:'fight_gutter', label:'⚡ Fight for the gutter', detail:'Battle hard to stay protected in the front echelon.', raceLegsConst:30, defaultChoice:false,
+            {id:'fight_gutter', label:'⚡ Fight for the gutter', detail:'Battle hard to stay protected in the front echelon.', raceLegsConst:42, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<35)d=0; if(spec==='rouleur')d-=1; return d; }},
             {id:'sit_up',       label:'🧘 Sit up, accept group two', detail:'Save the legs but risk being dropped into the second group.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+2},
@@ -866,7 +888,7 @@ const COURSES = {
         { id:'feed_chaos', triggerPct:0.52, headline:'🥤 Feed zone chaos in the crosswind',
           situation:'Team cars swarm the road. Riders are distracted grabbing bottles and food.',
           choices:[
-            {id:'attack_now',  label:'🚀 Attack while they\'re distracted', detail:'Skip the feed and go now — nobody is watching the front.', raceLegsConst:26, defaultChoice:false,
+            {id:'attack_now',  label:'🚀 Attack while they\'re distracted', detail:'Skip the feed and go now — nobody is watching the front.', raceLegsConst:36, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<30)d=+1; return d; }},
             {id:'grab_food',   label:'🍞 Dive in and grab supplies', detail:'You need the energy for later — skip the opportunity.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>0},
@@ -874,7 +896,7 @@ const COURSES = {
         { id:'headwind_grind', triggerPct:0.82, headline:'🌬️ A brutal headwind sprint to the line',
           situation:'The final straight runs directly into a wall of wind. This is going to be slow and painful.',
           choices:[
-            {id:'launch_early', label:'⚡ Launch early and survive', detail:'Go long into the wind — high risk but denies others your wheel.', raceLegsConst:34, defaultChoice:false,
+            {id:'launch_early', label:'⚡ Launch early and survive', detail:'Go long into the wind — high risk but denies others your wheel.', raceLegsConst:48, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<35)d=+1; if(spec==='sprinter')d-=1; return d; }},
             {id:'hide_slipstream', label:'🎯 Hide until the last second', detail:'Stay tucked in the wind shadow as long as possible.', raceLegsConst:14, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=2; return d; }},
@@ -886,7 +908,7 @@ const COURSES = {
         { id:'break_gap', triggerPct:0.22, headline:'🚴 The breakaway has 10 minutes!',
           situation:'A huge group of underdogs is up the road. Someone needs to start organising the chase.',
           choices:[
-            {id:'send_early',  label:'⚡ Send teammates to work early', detail:'Start the chase now before the gap grows even further.', raceLegsConst:24, defaultChoice:false,
+            {id:'send_early',  label:'⚡ Send teammates to work early', detail:'Start the chase now before the gap grows even further.', raceLegsConst:34, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=0; return d; }},
             {id:'bluff_rivals', label:'🎭 Bluff and let rivals work', detail:'Sit tight and force other teams to do the hard work instead.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>Math.random()<0.4?2:0},
@@ -894,7 +916,7 @@ const COURSES = {
         { id:'gap_stall', triggerPct:0.52, headline:'⏱️ The gap isn\'t closing fast enough',
           situation:'Time is running out. The breakaway could genuinely survive to the finish.',
           choices:[
-            {id:'personal_turns', label:'🔥 Take massive turns yourself', detail:'Move to the front and personally drag the bunch back into contention.', raceLegsConst:36, defaultChoice:false,
+            {id:'personal_turns', label:'🔥 Take massive turns yourself', detail:'Move to the front and personally drag the bunch back into contention.', raceLegsConst:52, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<40)d=-1; if(legs<20)d=+2; if(spec==='rouleur')d-=1; return d; }},
             {id:'save_legs',      label:'🧘 Save your legs, risk it', detail:'Let the breakaway possibly stay away rather than empty the tank.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>Math.random()<0.35?3:1},
@@ -902,7 +924,7 @@ const COURSES = {
         { id:'catch_chaos', triggerPct:0.82, headline:'🏁 Caught with 1km to go — everyone is exhausted!',
           situation:'The breakaway is finally reeled in right before the line. It\'s absolute carnage.',
           choices:[
-            {id:'sprint_front',  label:'🚀 Sprint straight from the front', detail:'No time to think — just go, right now, into the chaos.', raceLegsConst:30, defaultChoice:false,
+            {id:'sprint_front',  label:'🚀 Sprint straight from the front', detail:'No time to think — just go, right now, into the chaos.', raceLegsConst:42, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<30)d=+1; if(spec==='sprinter')d-=1; return d; }},
             {id:'navigate_pack', label:'🎯 Navigate through the fading riders', detail:'Thread through exhausted riders falling backward through the bunch.', raceLegsConst:16, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=1; return d; }},
@@ -918,7 +940,7 @@ const COURSES = {
           choices:[
             {id:'brake_early', label:'🛡️ Brake early, lose position', detail:'Play it safe through the corner and accept losing a few wheels.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+1},
-            {id:'rail_corner', label:'⚡ Trust the tyres, rail it', detail:'Carry full speed through the corner and hold your position.', raceLegsConst:18, defaultChoice:false,
+            {id:'rail_corner', label:'⚡ Trust the tyres, rail it', detail:'Carry full speed through the corner and hold your position.', raceLegsConst:34, defaultChoice:false,
              deltaFn:(legs,spec)=>{ return Math.random()<0.2 ? +3 : -3; }},
           ]},
         { id:'spray_blind', triggerPct:0.52, headline:'💦 Road spray is blinding you mid-pack',
@@ -926,7 +948,7 @@ const COURSES = {
           choices:[
             {id:'ride_blind',   label:'🌫️ Ride blind in the slipstream', detail:'Stay tucked in and trust the wheel ahead of you.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>0},
-            {id:'move_front',   label:'🔥 Fight to the front for clean air', detail:'Spend the energy to get out of the spray entirely.', raceLegsConst:24, defaultChoice:false,
+            {id:'move_front',   label:'🔥 Fight to the front for clean air', detail:'Spend the energy to get out of the spray entirely.', raceLegsConst:46, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<30)d=0; return d; }},
           ]},
         { id:'slick_sprint', triggerPct:0.82, headline:'🏁 Sprinting on slick, rain-soaked tarmac',
@@ -934,7 +956,7 @@ const COURSES = {
           choices:[
             {id:'stay_seated', label:'🪑 Stay seated, weight on the back', detail:'Slower but far less likely to lose the rear wheel.', raceLegsConst:14, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=0; if(spec==='sprinter')d=-1; return d; }},
-            {id:'stand_sprint', label:'💥 Stand and sprint at max power', detail:'Full power out of the saddle — huge risk of the rear tyre stepping out.', raceLegsConst:26, defaultChoice:false,
+            {id:'stand_sprint', label:'💥 Stand and sprint at max power', detail:'Full power out of the saddle — huge risk of the rear tyre stepping out.', raceLegsConst:48, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let base=-4; if(spec==='sprinter')base-=1; return Math.random()<0.22 ? Math.abs(base) : base; }},
           ]}]},
     { id:'twilight_race', name:'The Twilight Race', icon:'🌆',
@@ -944,7 +966,7 @@ const COURSES = {
         { id:'fast_start', triggerPct:0.22, headline:'⚡ An insanely fast start off the line!',
           situation:'The whole field went out at max effort from the gun. Nobody is easing off.',
           choices:[
-            {id:'max_sprint',  label:'🔥 60-second max effort', detail:'Match the brutal opening pace right from the gun.', raceLegsConst:26, defaultChoice:false,
+            {id:'max_sprint',  label:'🔥 60-second max effort', detail:'Match the brutal opening pace right from the gun.', raceLegsConst:44, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+1; if(spec==='sprinter')d-=1; return d; }},
             {id:'ease_in',     label:'🧘 Ease in, hope it settles', detail:'Ride your own pace and trust the speed will drop.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+1},
@@ -952,7 +974,7 @@ const COURSES = {
         { id:'shadow_attack', triggerPct:0.52, headline:'🌑 A rider attacks through the dark section',
           situation:'Someone has gone clear right where the floodlights don\'t reach. Hard to judge the gap.',
           choices:[
-            {id:'chase_shadow', label:'🏃 Chase them into the shadows', detail:'React immediately, even half-blind.', raceLegsConst:28, defaultChoice:false,
+            {id:'chase_shadow', label:'🏃 Chase them into the shadows', detail:'React immediately, even half-blind.', raceLegsConst:48, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<30)d=+1; return d; }},
             {id:'wait_lights',  label:'💡 Wait until the lights reveal the gap', detail:'Hold position until you can actually see how big the gap is.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+1},
@@ -960,7 +982,7 @@ const COURSES = {
         { id:'blinding_corner', triggerPct:0.82, headline:'🏁 The final corner under blinding lights',
           situation:'The finish-line floodlights are dazzling. Which line do you take?',
           choices:[
-            {id:'inside_dive', label:'⚡ Dive down the inside', detail:'Aggressive, tight line — huge gains if it comes off clean.', raceLegsConst:20, defaultChoice:false,
+            {id:'inside_dive', label:'⚡ Dive down the inside', detail:'Aggressive, tight line — huge gains if it comes off clean.', raceLegsConst:34, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let base=-3; return Math.random()<0.2?2:base; }},
             {id:'outside_sweep', label:'🎯 Take the sweeping outside line', detail:'Safer, wider line with a smoother, more controlled exit.', raceLegsConst:14, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=1; return d; }},
@@ -972,7 +994,7 @@ const COURSES = {
         { id:'corner_surge', triggerPct:0.22, headline:'💥 The accordion effect out of turn one',
           situation:'Every corner exit is a full-gas power spike. The group is stretching like elastic.',
           choices:[
-            {id:'power_spike', label:'⚡ Massive spike to stay near the front', detail:'Match the surge with everything you\'ve got.', raceLegsConst:30, defaultChoice:false,
+            {id:'power_spike', label:'⚡ Massive spike to stay near the front', detail:'Match the surge with everything you\'ve got.', raceLegsConst:46, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+1; if(spec==='sprinter')d-=1; return d; }},
             {id:'coast_back',   label:'🧘 Coast through the back, save energy', detail:'Let the surge stretch the group and stay comfortable further back.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+1},
@@ -980,7 +1002,7 @@ const COURSES = {
         { id:'crosswind_straight', triggerPct:0.52, headline:'💨 Crosswind hits the long back straight',
           situation:'The wind is side-on down the longest section of the course. Echelons could form here too.',
           choices:[
-            {id:'form_echelon', label:'⚡ Form an echelon with rivals', detail:'Work together across the road to share the effort in the wind.', raceLegsConst:22, defaultChoice:false,
+            {id:'form_echelon', label:'⚡ Form an echelon with rivals', detail:'Work together across the road to share the effort in the wind.', raceLegsConst:34, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<30)d=0; if(spec==='rouleur')d-=1; return d; }},
             {id:'refuse_work',   label:'🛡️ Sit on wheels, refuse to work', detail:'Let others do the work in the crosswind and save every watt.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>Math.random()<0.3?2:0},
@@ -990,7 +1012,7 @@ const COURSES = {
           choices:[
             {id:'latch_train',  label:'🎯 Latch onto the fastest wheel', detail:'Fight to get onto the strongest lead-out train in the race.', raceLegsConst:18, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=2; return d; }},
-            {id:'solo_flyer',    label:'🚀 Surprise them with a solo flyer', detail:'Go alone from 1km out before the trains fully organise.', raceLegsConst:32, defaultChoice:false,
+            {id:'solo_flyer',    label:'🚀 Surprise them with a solo flyer', detail:'Go alone from 1km out before the trains fully organise.', raceLegsConst:48, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<35)d=+1; return d; }},
           ]}]},
     { id:'uphill_finish', name:'The Uphill Finish Circuit', icon:'📈',
@@ -1000,7 +1022,7 @@ const COURSES = {
         { id:'first_drag', triggerPct:0.22, headline:'📈 Feeling out the uphill drag, lap one',
           situation:'The finishing climb repeats every lap. How you handle it now shapes your whole race.',
           choices:[
-            {id:'test_legs',  label:'⚡ Test the legs, scare the sprinters', detail:'A small dig on the drag to see who\'s struggling already.', raceLegsConst:16, defaultChoice:false,
+            {id:'test_legs',  label:'⚡ Test the legs, scare the sprinters', detail:'A small dig on the drag to see who\'s struggling already.', raceLegsConst:28, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='climber')d-=1; return d; }},
             {id:'ride_passive', label:'🧘 Ride it completely passively', detail:'Save everything — no need to show your hand yet.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>0},
@@ -1008,7 +1030,7 @@ const COURSES = {
         { id:'uphill_attack', triggerPct:0.52, headline:'⚡ Someone attacks hard on the drag!',
           situation:'A climber has gone on the uphill section, right where it hurts the sprinters most.',
           choices:[
-            {id:'follow_burn', label:'🔥 Follow immediately, lactic acid and all', detail:'Go with them right now, however much it burns.', raceLegsConst:30, defaultChoice:false,
+            {id:'follow_burn', label:'🔥 Follow immediately, lactic acid and all', detail:'Go with them right now, however much it burns.', raceLegsConst:52, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<35)d=+1; if(spec==='climber')d-=1; return d; }},
             {id:'wait_descent', label:'🎯 Wait for the descent to reconnect', detail:'Let them go and try to catch back on the way down.', raceLegsConst:10, defaultChoice:true,
              deltaFn:()=>Math.random()<0.4?2:0},
@@ -1018,7 +1040,7 @@ const COURSES = {
           choices:[
             {id:'spin_small',  label:'⚙️ Click down and spin to the line', detail:'Small gear, high cadence — smoother but less raw power.', raceLegsConst:16, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='climber')d-=1; return d; }},
-            {id:'muscle_big',  label:'💪 Leave it big and muscle it over', detail:'Maximum torque, maximum risk of blowing up before the line.', raceLegsConst:28, defaultChoice:false,
+            {id:'muscle_big',  label:'💪 Leave it big and muscle it over', detail:'Maximum torque, maximum risk of blowing up before the line.', raceLegsConst:48, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<30)d=+2; if(spec==='sprinter')d-=1; return d; }},
           ]}]},
   ],
@@ -1030,7 +1052,7 @@ const COURSES = {
         { id:'wall_entry', triggerPct:0.22, headline:'🧱 Hitting the stones at the bottom',
           situation:'The transition from flat road onto the cobbled wall is violent and sudden.',
           choices:[
-            {id:'carry_speed', label:'⚡ Carry speed onto the climb', detail:'Hit the wall fast — momentum helps, but it costs a lot early.', raceLegsConst:30, defaultChoice:false,
+            {id:'carry_speed', label:'⚡ Carry speed onto the climb', detail:'Hit the wall fast — momentum helps, but it costs a lot early.', raceLegsConst:42, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+1; if(spec==='climber')d-=1; return d; }},
             {id:'hit_slow',     label:'🧘 Hit it slow, save for the top', detail:'Ease onto the cobbles and ration your effort for later.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+1},
@@ -1040,13 +1062,13 @@ const COURSES = {
           choices:[
             {id:'stay_seated', label:'🪑 Stay seated for traction', detail:'Keep weight over the rear wheel — slower but far more stable.', raceLegsConst:14, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=0; if(spec==='climber')d=-1; return d; }},
-            {id:'stand_risk',   label:'💥 Stand and risk the spin-out', detail:'More power, but the rear tyre could lose grip completely on the stones.', raceLegsConst:28, defaultChoice:false,
+            {id:'stand_risk',   label:'💥 Stand and risk the spin-out', detail:'More power, but the rear tyre could lose grip completely on the stones.', raceLegsConst:38, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let base=-3; return Math.random()<0.25?3:base; }},
           ]},
         { id:'summit_church', triggerPct:0.82, headline:'⛪ The final metres to the church at the top',
           situation:'The summit is agonisingly close. Everything left in the tank goes here.',
           choices:[
-            {id:'empty_tank',  label:'💥 Completely empty the tank', detail:'Give absolutely everything — no reserve left if someone comes past.', raceLegsConst:34, defaultChoice:false,
+            {id:'empty_tank',  label:'💥 Completely empty the tank', detail:'Give absolutely everything — no reserve left if someone comes past.', raceLegsConst:48, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-4; if(legs<30)d=+1; if(spec==='climber')d-=1; return d; }},
             {id:'hold_reserve', label:'🛡️ Hold a tiny reserve', detail:'Keep just enough in case a late attack comes.', raceLegsConst:20, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='climber')d-=1; return d; }},
@@ -1060,13 +1082,13 @@ const COURSES = {
           choices:[
             {id:'draft_bigger', label:'🌀 Hide in a bigger rider\'s slipstream', detail:'Drafting genuinely matters on a long, steady climb like this.', raceLegsConst:0, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=0; if(spec==='rouleur')d=-1; return d; }},
-            {id:'ride_front',    label:'🔥 Ride on the front, dictate pace', detail:'Take control of the pace from the start — expensive but commanding.', raceLegsConst:24, defaultChoice:false,
+            {id:'ride_front',    label:'🔥 Ride on the front, dictate pace', detail:'Take control of the pace from the start — expensive but commanding.', raceLegsConst:36, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<30)d=0; return d; }},
           ]},
         { id:'altitude_hit', triggerPct:0.52, headline:'🫁 Passing 2,000m — breathing gets hard',
           situation:'The air is thin up here. Every rider\'s lungs are starting to burn differently.',
           choices:[
-            {id:'push_normal', label:'💪 Ignore it, push your normal power', detail:'Ride through the altitude as if nothing has changed.', raceLegsConst:26, defaultChoice:false,
+            {id:'push_normal', label:'💪 Ignore it, push your normal power', detail:'Ride through the altitude as if nothing has changed.', raceLegsConst:38, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<30)d=+2; if(spec==='climber')d-=1; return d; }},
             {id:'back_off',     label:'🫀 Back off 5% to protect the lungs', detail:'A small sacrifice now to avoid completely blowing up later.', raceLegsConst:8, defaultChoice:true,
              deltaFn:()=>0},
@@ -1074,7 +1096,7 @@ const COURSES = {
         { id:'final_hairpin', triggerPct:0.82, headline:'🏁 The final hairpin, through the snowbanks',
           situation:'The summit is just above. This is where high-altitude attacks either land or completely fail.',
           choices:[
-            {id:'altitude_attack', label:'⚡ Launch a devastating attack', detail:'Everything, right here, right at altitude — huge reward if the legs hold.', raceLegsConst:36, defaultChoice:false,
+            {id:'altitude_attack', label:'⚡ Launch a devastating attack', detail:'Everything, right here, right at altitude — huge reward if the legs hold.', raceLegsConst:54, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-4; if(legs<40)d=-1; if(legs<20)d=+2; if(spec==='climber')d-=1; return d; }},
             {id:'survive_debt',    label:'🧘 Just survive the oxygen debt', detail:'Ride your own pace and get to the line however you can.', raceLegsConst:12, defaultChoice:true,
              deltaFn:()=>0},
@@ -1086,7 +1108,7 @@ const COURSES = {
         { id:'first_ramp', triggerPct:0.22, headline:'📈 The first steep ramp of the day',
           situation:'No warm-up here — straight into a brutal 12% pitch.',
           choices:[
-            {id:'attack_ramp', label:'⚡ Attack hard, drop people early', detail:'Use the first ramp to immediately thin out the group.', raceLegsConst:28, defaultChoice:false,
+            {id:'attack_ramp', label:'⚡ Attack hard, drop people early', detail:'Use the first ramp to immediately thin out the group.', raceLegsConst:44, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+1; if(spec==='climber')d-=1; return d; }},
             {id:'steady_tempo', label:'🧘 Ride a steady tempo', detail:'Don\'t panic on the first ramp — there are more to come.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>0},
@@ -1096,7 +1118,7 @@ const COURSES = {
           choices:[
             {id:'use_recover',  label:'🥤 Drink, eat, lower heart rate', detail:'Use the flat section exactly as intended — to recover.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>0},
-            {id:'attack_flat',  label:'⚡ Shift up and attack while resting', detail:'Everyone else is recovering — this is the perfect moment to strike.', raceLegsConst:22, defaultChoice:false,
+            {id:'attack_flat',  label:'⚡ Shift up and attack while resting', detail:'Everyone else is recovering — this is the perfect moment to strike.', raceLegsConst:36, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<25)d=+1; return d; }},
           ]},
         { id:'final_step', triggerPct:0.82, headline:'🏁 The final "step" to the top',
@@ -1104,7 +1126,7 @@ const COURSES = {
           choices:[
             {id:'anticipate_shift', label:'⚙️ Anticipate it, shift early', detail:'Smooth gear change before the wall hits — technically efficient.', raceLegsConst:16, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='climber')d-=1; return d; }},
-            {id:'carry_momentum',   label:'💥 Carry momentum into the wall', detail:'Hit it at speed and hope the legs can handle the shock.', raceLegsConst:30, defaultChoice:false,
+            {id:'carry_momentum',   label:'💥 Carry momentum into the wall', detail:'Hit it at speed and hope the legs can handle the shock.', raceLegsConst:48, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<30)d=+2; if(spec==='climber')d-=1; return d; }},
           ]}]},
     { id:'goat_track', name:'The Goat Track', icon:'🐐',
@@ -1114,7 +1136,7 @@ const COURSES = {
         { id:'narrow_sprint', triggerPct:0.22, headline:'🐐 The sprint to the base of the climb',
           situation:'The road is one lane wide. Once it narrows, passing is nearly impossible.',
           choices:[
-            {id:'burn_first',  label:'🔥 Burn energy to be first onto the road', detail:'Guarantee a clean run by getting there first.', raceLegsConst:28, defaultChoice:false,
+            {id:'burn_first',  label:'🔥 Burn energy to be first onto the road', detail:'Guarantee a clean run by getting there first.', raceLegsConst:52, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<30)d=+1; return d; }},
             {id:'start_back',   label:'🧘 Start at the back, hope for the best', detail:'Save the energy but risk getting stuck behind slower riders.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>Math.random()<0.35?2:0},
@@ -1122,7 +1144,7 @@ const COURSES = {
         { id:'blocked_rider', triggerPct:0.52, headline:'🚧 Stuck behind a cracking rider',
           situation:'The rider ahead is fading fast and slowing everyone down on the narrow track.',
           choices:[
-            {id:'ditch_pass',  label:'🌾 Risk the muddy ditch to pass', detail:'Go around through the rough verge — risky but decisive.', raceLegsConst:20, defaultChoice:false,
+            {id:'ditch_pass',  label:'🌾 Risk the muddy ditch to pass', detail:'Go around through the rough verge — risky but decisive.', raceLegsConst:36, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let base=-3; return Math.random()<0.2?2:base; }},
             {id:'yell_wait',   label:'📢 Yell at them to move, and wait', detail:'Safer, but you lose real time stuck behind them.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+1},
@@ -1132,7 +1154,7 @@ const COURSES = {
           choices:[
             {id:'watch_wheel',  label:'👁️ Stare at your front wheel', detail:'Pick the smoothest line by focusing purely on the road ahead.', raceLegsConst:14, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='climber')d-=1; return d; }},
-            {id:'watch_rivals',  label:'👀 Look up to track your rivals', detail:'Know where the competition is, at the cost of picking a rougher line.', raceLegsConst:22, defaultChoice:false,
+            {id:'watch_rivals',  label:'👀 Look up to track your rivals', detail:'Know where the competition is, at the cost of picking a rougher line.', raceLegsConst:40, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let base=-2; return Math.random()<0.2?2:base; }},
           ]}]},
   ],
@@ -1144,7 +1166,7 @@ const COURSES = {
         { id:'first_corner', triggerPct:0.22, headline:'🏙️ The very first corner off the start ramp',
           situation:'A tight city-centre corner, seconds after leaving the ramp. Every second matters here.',
           choices:[
-            {id:'fast_corner', label:'⚡ Take it dangerously fast', detail:'Carry maximum speed through — gain a second, risk everything.', raceLegsConst:14, defaultChoice:false,
+            {id:'fast_corner', label:'⚡ Take it dangerously fast', detail:'Carry maximum speed through — gain a second, risk everything.', raceLegsConst:28, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let base=-2; return Math.random()<0.15?2:base; }},
             {id:'safe_corner',  label:'🛡️ Take it safe', detail:'Controlled, reliable — no drama, no risk.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>0},
@@ -1152,7 +1174,7 @@ const COURSES = {
         { id:'early_burn', triggerPct:0.52, headline:'🫁 Lungs already burning at minute two',
           situation:'This short and brutal — there\'s no easing into it.',
           choices:[
-            {id:'go_deep',   label:'🔥 Go deep into the red zone', detail:'Push past the point of comfort right now.', raceLegsConst:22, defaultChoice:false,
+            {id:'go_deep',   label:'🔥 Go deep into the red zone', detail:'Push past the point of comfort right now.', raceLegsConst:46, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<25)d=+1; return d; }},
             {id:'flush_ten',  label:'🧘 Flush the legs for 10 seconds', detail:'A tiny recovery window before committing fully again.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+1},
@@ -1162,7 +1184,7 @@ const COURSES = {
           choices:[
             {id:'aero_tuck',   label:'🎯 Stay locked in the aero tuck', detail:'Maximum aerodynamics despite the pain of holding the position.', raceLegsConst:16, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='rouleur')d-=1; return d; }},
-            {id:'stand_sprint', label:'💪 Stand and sprint like a road bike', detail:'Abandon the aero position entirely for raw power to the line.', raceLegsConst:26, defaultChoice:false,
+            {id:'stand_sprint', label:'💪 Stand and sprint like a road bike', detail:'Abandon the aero position entirely for raw power to the line.', raceLegsConst:54, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(spec==='sprinter')d-=2; return d; }},
           ]}]},
     { id:'hilly_tt', name:'The Hilly TT', icon:'🚵',
@@ -1172,7 +1194,7 @@ const COURSES = {
         { id:'flat_valley', triggerPct:0.22, headline:'🏞️ Pacing the flat valley approach',
           situation:'A flat run-in before the mountain begins. How hard do you go before the climbing starts?',
           choices:[
-            {id:'full_gas_flat', label:'⚡ Full gas in the aero bars', detail:'Push hard on the flat — but you\'ll pay for it on the climb.', raceLegsConst:22, defaultChoice:false,
+            {id:'full_gas_flat', label:'⚡ Full gas in the aero bars', detail:'Push hard on the flat — but you\'ll pay for it on the climb.', raceLegsConst:46, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<30)d=+1; return d; }},
             {id:'save_mountain',  label:'🧘 Save energy for the mountain', detail:'Ride comfortably now, knowing the real test is still ahead.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>0},
@@ -1182,13 +1204,13 @@ const COURSES = {
           choices:[
             {id:'swap_bike',   label:'🔄 Stop and swap to a road bike', detail:'Lose 10 seconds in the pit, but climb far more efficiently after.', raceLegsConst:6, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='climber')d-=1; return d; }},
-            {id:'suffer_heavy', label:'💪 Suffer up on the heavy TT bike', detail:'No time lost in a pit, but the climb will hurt far more.', raceLegsConst:28, defaultChoice:true,
+            {id:'suffer_heavy', label:'💪 Suffer up on the heavy TT bike', detail:'No time lost in a pit, but the climb will hurt far more.', raceLegsConst:60, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(legs<30)d=+1; return d; }},
           ]},
         { id:'tt_descent', triggerPct:0.82, headline:'⚠️ The terrifying descent to the finish',
           situation:'Time trial bikes have notoriously poor brakes. This descent is not for the faint-hearted.',
           choices:[
-            {id:'descend_risk', label:'🏍️ Take huge risks descending', detail:'Push the limits of a TT bike\'s handling on the way down.', raceLegsConst:10, defaultChoice:false,
+            {id:'descend_risk', label:'🏍️ Take huge risks descending', detail:'Push the limits of a TT bike\'s handling on the way down.', raceLegsConst:22, defaultChoice:false,
              deltaFn:(legs,spec)=>{ return Math.random()<0.22 ? +3 : -3; }},
             {id:'descend_easy',  label:'🛡️ Take it easy, lose some time', detail:'Ride within your limits and accept the time loss.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+1},
@@ -1200,7 +1222,7 @@ const COURSES = {
         { id:'tailwind_out', triggerPct:0.22, headline:'💨 Flying out with a massive tailwind',
           situation:'The wind is fully behind you on the way out. Speeds are climbing fast.',
           choices:[
-            {id:'push_gear',  label:'⚡ Push a massive gear', detail:'Ride the tailwind at maximum speed — pure aggression.', raceLegsConst:20, defaultChoice:false,
+            {id:'push_gear',  label:'⚡ Push a massive gear', detail:'Ride the tailwind at maximum speed — pure aggression.', raceLegsConst:50, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<25)d=+1; return d; }},
             {id:'let_wind',    label:'🧘 Let the wind do the work', detail:'Ease off slightly and let the tailwind carry you.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>0},
@@ -1208,7 +1230,7 @@ const COURSES = {
         { id:'uturn', triggerPct:0.52, headline:'↩️ The 180-degree turnaround point',
           situation:'A tight U-turn in the middle of the course. Braking technique matters enormously here.',
           choices:[
-            {id:'brake_late',  label:'🏍️ Brake late, slide through', detail:'Carry more speed into the turn at the risk of overshooting.', raceLegsConst:14, defaultChoice:false,
+            {id:'brake_late',  label:'🏍️ Brake late, slide through', detail:'Carry more speed into the turn at the risk of overshooting.', raceLegsConst:34, defaultChoice:false,
              deltaFn:(legs,spec)=>{ return Math.random()<0.2 ? +2 : -2; }},
             {id:'brake_early',  label:'🎯 Brake early, accelerate smooth', detail:'Controlled, reliable, no drama through the turn.', raceLegsConst:8, defaultChoice:true,
              deltaFn:()=>0},
@@ -1216,7 +1238,7 @@ const COURSES = {
         { id:'headwind_return', triggerPct:0.82, headline:'🌬️ Grinding into the wall of headwind',
           situation:'The return leg is a straight fight against the wind you enjoyed on the way out.',
           choices:[
-            {id:'turtle_tuck', label:'🐢 Stay turtle-tucked, hard to breathe', detail:'Maximum aero despite the discomfort of the position.', raceLegsConst:18, defaultChoice:true,
+            {id:'turtle_tuck', label:'🐢 Stay turtle-tucked, hard to breathe', detail:'Maximum aero despite the discomfort of the position.', raceLegsConst:44, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='rouleur')d-=1; return d; }},
             {id:'sit_up_breathe', label:'🫁 Sit up slightly to breathe', detail:'Open your lungs but catch more wind resistance.', raceLegsConst:8, defaultChoice:false,
              deltaFn:()=>+1},
@@ -1228,7 +1250,7 @@ const COURSES = {
         { id:'wet_lines', triggerPct:0.22, headline:'🎨 Wet painted lines and crosswalks',
           situation:'Painted road markings are lethally slippery in the rain, right in your aero line.',
           choices:[
-            {id:'stay_aero',   label:'🎯 Stay in the aero bars over the paint', detail:'Maximum speed, accepting the slip risk on the markings.', raceLegsConst:12, defaultChoice:false,
+            {id:'stay_aero',   label:'🎯 Stay in the aero bars over the paint', detail:'Maximum speed, accepting the slip risk on the markings.', raceLegsConst:46, defaultChoice:false,
              deltaFn:(legs,spec)=>{ return Math.random()<0.18 ? +2 : -2; }},
             {id:'hands_brakes', label:'🛡️ Sit up, hands on the brakes', detail:'Safer through the painted sections, but noticeably slower.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>+1},
@@ -1236,7 +1258,7 @@ const COURSES = {
         { id:'fogged_visor', triggerPct:0.52, headline:'😤 The visor is fogging up badly',
           situation:'Humidity has completely fogged your vision. Something has to give.',
           choices:[
-            {id:'wipe_visor',  label:'🧤 Reach up and wipe it', detail:'Clears your vision but ruins your aero profile for a moment.', raceLegsConst:6, defaultChoice:false,
+            {id:'wipe_visor',  label:'🧤 Reach up and wipe it', detail:'Clears your vision but ruins your aero profile for a moment.', raceLegsConst:22, defaultChoice:false,
              deltaFn:()=>-1},
             {id:'squint_fog',   label:'😖 Just squint through the fog', detail:'Keep the aero position and ride mostly blind.', raceLegsConst:0, defaultChoice:true,
              deltaFn:()=>Math.random()<0.25?1:0},
@@ -1246,7 +1268,7 @@ const COURSES = {
           choices:[
             {id:'lean_hard',   label:'🏍️ Lean the bike hard on wet tyres', detail:'Full commitment through the chicane — fast if it holds.', raceLegsConst:14, defaultChoice:false,
              deltaFn:(legs,spec)=>{ return Math.random()<0.2 ? +2 : -3; }},
-            {id:'near_stop',    label:'🛑 Nearly stop, sprint out', detail:'Slow right down through the chicane, then power out the other side.', raceLegsConst:16, defaultChoice:true,
+            {id:'near_stop',    label:'🛑 Nearly stop, sprint out', detail:'Slow right down through the chicane, then power out the other side.', raceLegsConst:60, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=0; if(spec==='sprinter')d=-1; return d; }},
           ]}]},
   ],
@@ -1737,6 +1759,59 @@ function achUnlocked(s,achId){
   return !!checks[achId];
 }
 
+// ─── LIFETIME GOALS ───────────────────────────────────────────
+// Deliberately separate from Achievements: tiered career-long counters that
+// never reset (not even on prestige) rather than one-off badges. Each track
+// has 4 tiers escalating from a modest cash+XP reward, to an exclusive kit
+// colour, to a small permanent perk, to a unique title. statFn reads a stat
+// that only ever goes up. Tier rewards use the same tap-to-collect ceremony
+// as Achievements (see collectGoalTierReward) but are visually and thematically
+// their own thing — progress tracks, not a badge grid.
+const LIFETIME_GOALS = [
+  { id:'category', name:'Climbing the Ranks', icon:'🚵', statFn:s=>s.highestCategoryReached||0,
+    tiers:[
+      {threshold:2, reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:4, reward:{type:'color',  colorId:'obsidian', label:'Unlock Summit Obsidian kit colour'}},
+      {threshold:5, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:6, reward:{type:'title',  titleId:'legend_mountains', titleText:'Legend of the Mountains', label:'Unlock the title "Legend of the Mountains"'}},
+    ]},
+  { id:'wins', name:"Winner's Circle", icon:'🥇', statFn:s=>Object.values(s.raceWinsByType).reduce((a,b)=>a+b,0),
+    tiers:[
+      {threshold:10,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:50,  reward:{type:'color',  colorId:'inferno', label:'Unlock Inferno Orange kit colour'}},
+      {threshold:150, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:500, reward:{type:'title',  titleId:'serial_winner', titleText:'Serial Winner', label:'Unlock the title "Serial Winner"'}},
+    ]},
+  { id:'podiums', name:'Consistency', icon:'🥉', statFn:s=>s.totalPodiums||0,
+    tiers:[
+      {threshold:25,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:100,  reward:{type:'color',  colorId:'platinum', label:'Unlock Podium Platinum kit colour'}},
+      {threshold:400,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:1500, reward:{type:'title',  titleId:'the_metronome', titleText:'The Metronome', label:'Unlock the title "The Metronome"'}},
+    ]},
+  { id:'starts', name:'The Long Road', icon:'🛣️', statFn:s=>s.totalRaces||0,
+    tiers:[
+      {threshold:100,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:500,   reward:{type:'color',  colorId:'bronze', label:'Unlock Iron Bronze kit colour'}},
+      {threshold:2000,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:10000, reward:{type:'title',  titleId:'iron_rider', titleText:'Iron Rider', label:'Unlock the title "Iron Rider"'}},
+    ]},
+  { id:'earnings', name:'Prize Fund', icon:'💰', statFn:s=>s.lifetimeMoney||0,
+    tiers:[
+      {threshold:50000,    reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:500000,   reward:{type:'color',  colorId:'emerald', label:'Unlock Fortune Emerald kit colour'}},
+      {threshold:5000000,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:50000000, reward:{type:'title',  titleId:'prize_hunter', titleText:'Prize Hunter', label:'Unlock the title "Prize Hunter"'}},
+    ]},
+  { id:'seasons', name:'Years as a Pro', icon:'🔄', statFn:s=>s.seasonsCompleted||0,
+    tiers:[
+      {threshold:1,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:3,  reward:{type:'color',  colorId:'royal', label:'Unlock Legacy Royal kit colour'}},
+      {threshold:7,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:15, reward:{type:'title',  titleId:'career_legend', titleText:'Career Legend', label:'Unlock the title "Career Legend"'}},
+    ]},
+];
+
 // ─── SPECIALISATIONS ────────────────────────────────────────
 const SPECIALISATIONS = [
   {id:'climber', name:'Climbing Specialist', icon:'⛰️', color:'teal',
@@ -1775,6 +1850,15 @@ const KIT_COLORS = [
   {id:'blue',    hex:'#185fa5', label:'Aero Blue'},
   {id:'green',   hex:'#3b6d11', label:'Peloton Green'},
   {id:'gold',    hex:'#b8860b', label:'Champion Gold'},
+  // Legacy colours — exclusively unlocked via Lifetime Goal tiers (Growth tab),
+  // never achievements. Deliberately more exotic than the achievement palette
+  // above, so a "legacy" kit visually reads as rarer at a glance.
+  {id:'obsidian',hex:'#1a1a1a', label:'Summit Obsidian'},
+  {id:'inferno', hex:'#ff4500', label:'Inferno Orange'},
+  {id:'platinum',hex:'#c8c8d0', label:'Podium Platinum'},
+  {id:'bronze',  hex:'#8b5a2b', label:'Iron Bronze'},
+  {id:'emerald', hex:'#0f9960', label:'Fortune Emerald'},
+  {id:'royal',   hex:'#6a1b9a', label:'Legacy Royal'},
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -1804,8 +1888,16 @@ const state = {
   raceActive:false, raceData:null, lastRaceResult:null, _lastSavedAt:0,
   // Achievements & progression
   earnedAchievements: new Set(),
+  uncollectedAchievements: new Set(), // earned but reward not yet tapped-to-collect
+  // Lifetime Goals — separate progression system, see LIFETIME_GOALS below.
+  highestCategoryReached: 0, // never decreases, even across prestige — tracks career-best category index
+  claimedGoalTiers: new Set(),      // 'trackId:tierIndex' keys whose reward has been collected
+  uncollectedGoalTiers: new Set(),  // earned but not yet tapped-to-collect (same pattern as achievements)
+  unlockedTitles: new Set(),        // title ids earned via top-tier Lifetime Goals
+  equippedTitle: null,              // currently displayed title id, or null
   totalRaces: 0, totalPodiums: 0,
   raceWinsByType: {crit:0, road:0, tt:0, hill:0},
+  winsSincePrestige: 0, // season-scoped win count — gates sponsor tiers; resets on prestige. raceWinsByType above stays lifetime, untouched, for Lifetime Goals.
   // Specialisation
   specialisation: null,
   // Energy inventory — array of purchased instances, each with its own locked-in
@@ -1858,7 +1950,7 @@ const state = {
   // Capped at 90 entries to keep the save file lean. Each entry: {ts, ftp, pwkg, weight}
   ftpHistory: [],
 };
-const D = { sponsorPerSec:0, sessionMult:1 };
+const D = { sponsorPerSec:0, sessionMult:1, legacyPrizeMult:1 };
 
 // ═══════════════════════════════════════════════════════════
 // DERIVED STATS
@@ -1926,6 +2018,17 @@ function recalc(){
   // Achievement rewards are one-time prize money bonuses, not passive income.
   D.sponsorPerSec = sp * state.prestigeMult;
   D.sessionMult   = 1 + state.attributes.threshold.level * 0.08;
+  // Lifetime Goal perks — each track's tier-3 grants a small permanent boost to
+  // race prize money, stacking across tracks. Read from claimedGoalTiers so it
+  // survives prestige and reload with no separate state needed. Max +12% if
+  // every track's perk tier has been claimed (6 tracks × 2%).
+  let legacyPct=0;
+  LIFETIME_GOALS.forEach(track=>{
+    track.tiers.forEach((tier,idx)=>{
+      if(tier.reward.type==='perk' && state.claimedGoalTiers.has(track.id+':'+idx)) legacyPct+=tier.reward.pct;
+    });
+  });
+  D.legacyPrizeMult = 1+legacyPct;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1944,6 +2047,7 @@ function addXP(attrId, amount){
     recordFtpSnapshot();
     // FTP milestones and all-attrs achievement checked on level-up
     checkAchievements();
+    checkLifetimeGoals();
   }
 }
 
@@ -2331,7 +2435,7 @@ function simulateRaceResult(raceTypeId){
   // Rival's own finishing position: ranked against every OTHER ai rider plus the player.
   const othersBeatingRival=aiScores.filter((s,idx)=>idx!==0&&s>rivalScore).length;
   const rivalPosition=othersBeatingRival+(playerScore>rivalScore?1:0)+1;
-  const prize=Math.round((cat.prizes[Math.min(position-1,cat.prizes.length-1)]||0)*state.prestigeMult);
+  const prize=Math.round((cat.prizes[Math.min(position-1,cat.prizes.length-1)]||0)*state.prestigeMult*D.legacyPrizeMult);
   return {position,fieldSize,prize,points:cat.ptsPerPos[Math.min(position-1,cat.ptsPerPos.length-1)]||0,equipBonus,weightFactor,weatherMult,
     rival:{name:state.rival.name, beat:playerScore>rivalScore, position:rivalPosition}};
 }
@@ -2404,7 +2508,7 @@ function completeRace(){
   state.totalRaces++;
   incrementSponsorProgress('prize_money', rd.result.prize);
   if(rd.result.position<=3){ state.totalPodiums++; markTaskProgress('podium_race'); incrementSponsorProgress('podiums',1); }
-  if(rd.result.position===1){ markTaskProgress('win_race'); if(rt) state.raceWinsByType[rt.id]=(state.raceWinsByType[rt.id]||0)+1; incrementSponsorProgress('win_races',1); }
+  if(rd.result.position===1){ markTaskProgress('win_race'); if(rt) state.raceWinsByType[rt.id]=(state.raceWinsByType[rt.id]||0)+1; state.winsSincePrestige=(state.winsSincePrestige||0)+1; incrementSponsorProgress('win_races',1); }
 
   const raceTypeNameForDisplay = isCalEvent ? `${calEvent.icon} ${calEvent.name}` : (rt?rt.name:rd.typeId);
   const catNameForDisplay = isCalEvent ? (calEvent.tier==='pro'?'Pro Calendar':'Semi-Pro Calendar') : cat.shortName;
@@ -2453,7 +2557,7 @@ function completeRace(){
     enqueueCeremony({type:'win', raceTypeName:raceTypeNameForDisplay, catName:catNameForDisplay, prize:rd.result.prize,
       rivalBeatText: (!isCalEvent && rd.result.rival && rd.result.rival.beat) ? rivalMsg.replace(' · ','') : null});
   }
-  updateActivityDots(); checkCategoryPromotion(); checkAchievements(); updateSponsorBadge(); updateCalendarBadge(); recalc(); saveGame();
+  updateActivityDots(); checkCategoryPromotion(); checkAchievements(); checkLifetimeGoals(); updateSponsorBadge(); updateCalendarBadge(); recalc(); saveGame();
   // The full-screen win ceremony already communicates position + prize, so the
   // small bottom toast is suppressed for 1st place to avoid showing the same
   // information twice in two different UI styles at once.
@@ -2467,6 +2571,10 @@ function checkCategoryPromotion(){
   if(state.categoryPoints>=cat.ptsToPromote&&state.raceCategory<RACE_CATEGORIES.length-1){
     const oldCat=cat;
     state.raceCategory++; state.categoryPoints=0;
+    // Career-best category, tracked independently of state.raceCategory since
+    // THAT resets to 0 every prestige. This is what feeds the "Climbing the
+    // Ranks" Lifetime Goal — it only ever goes up, across the whole career.
+    state.highestCategoryReached=Math.max(state.highestCategoryReached||0, state.raceCategory);
     const newCat=RACE_CATEGORIES[state.raceCategory];
     enqueueCeremony({type:'promotion', oldCat, newCat});
     ensureCalendarSeasonStarted();
@@ -2491,18 +2599,84 @@ function checkAchievements(){
   for(const ach of ACHIEVEMENTS){
     if(!state.earnedAchievements.has(ach.id) && achUnlocked(state,ach.id)){
       state.earnedAchievements.add(ach.id);
+      state.uncollectedAchievements.add(ach.id);
       newlyEarned.push(ach);
-      if(ach.reward.type==='color')  state.unlockedKitColors.add(ach.reward.val);
-      if(ach.reward.type==='money')  earnMoney(ach.reward.val);
     }
   }
   if(newlyEarned.length){
-    // Stagger toasts so they don't overwrite each other
-    newlyEarned.forEach((ach,i)=>{
-      setTimeout(()=>showToast(`🏅 ${ach.name}: ${ach.reward.label}`), i*2800);
-    });
-    if(currentTab==='rider') setTimeout(()=>{ renderAchievements(); renderStats(); },100);
+    // Reward is granted only when the player taps "Collect Reward" on the
+    // full-screen ceremony (see collectAchievementReward) — never here. This
+    // makes every achievement a deliberate, felt moment rather than a silent
+    // background credit. Multiple simultaneous unlocks queue and show one at
+    // a time via the same FIFO ceremony queue used for wins/promotions.
+    newlyEarned.forEach(ach=>enqueueCeremony({type:'achievement', achievementId:ach.id}));
+    saveGame();
+    if(currentTab==='growth') renderGrowthTab();
   }
+}
+
+// Lifetime Goals — parallel system to checkAchievements, but tiered: a single
+// track can cross multiple tiers in one call (e.g. a huge prize payout jumping
+// lifetimeMoney past two thresholds at once), so every tier is checked every
+// time rather than stopping at the first newly-met one.
+function checkLifetimeGoals(){
+  const newlyEarned=[];
+  LIFETIME_GOALS.forEach(track=>{
+    const val=track.statFn(state);
+    track.tiers.forEach((tier,idx)=>{
+      const key=track.id+':'+idx;
+      if(val>=tier.threshold && !state.claimedGoalTiers.has(key) && !state.uncollectedGoalTiers.has(key)){
+        state.uncollectedGoalTiers.add(key);
+        newlyEarned.push({trackId:track.id, tierIndex:idx});
+      }
+    });
+  });
+  if(newlyEarned.length){
+    newlyEarned.forEach(e=>enqueueCeremony({type:'lifetimegoal', trackId:e.trackId, tierIndex:e.tierIndex}));
+    saveGame();
+    if(currentTab==='growth') renderGrowthTab();
+  }
+}
+
+// Grants a Lifetime Goal tier's reward, mirroring collectAchievementReward.
+// Same forced-collect pattern — the ceremony backdrop is blocked for this
+// type too (see dismissCeremony), so nothing is ever silently skipped.
+function collectGoalTierReward(trackId, tierIndex){
+  const track=LIFETIME_GOALS.find(t=>t.id===trackId); if(!track) return;
+  const tier=track.tiers[tierIndex]; if(!tier) return;
+  const key=trackId+':'+tierIndex;
+  if(!state.uncollectedGoalTiers.has(key)) return; // guard against double-tap
+  const r=tier.reward;
+  if(r.type==='cashxp'){ earnMoney(r.cash); ATTR_ORDER.forEach(a=>addXP(a,r.xp)); }
+  else if(r.type==='color'){ state.unlockedKitColors.add(r.colorId); }
+  else if(r.type==='title'){
+    state.unlockedTitles.add(r.titleId);
+    if(!state.equippedTitle) state.equippedTitle=r.titleId; // auto-equip the first title ever earned
+  }
+  // 'perk' rewards need no direct action here — recalc() reads claimedGoalTiers
+  // directly, so simply marking this tier as claimed (below) activates it.
+  state.uncollectedGoalTiers.delete(key);
+  state.claimedGoalTiers.add(key);
+  recalc();
+  saveGame();
+  showToast(`🏆 ${r.label} collected!`);
+  updateHeader();
+  if(currentTab==='growth') renderGrowthTab();
+  // Force-dismiss (bypassing the lifetimegoal backdrop-tap guard) and advance
+  document.getElementById('ceremony-overlay').style.display='none';
+  document.getElementById('ceremony-confetti').innerHTML='';
+  ceremonyShowing=false;
+  currentCeremonyType=null;
+  processCeremonyQueue();
+}
+
+// Switches the player's currently displayed title. Only unlocked titles are
+// selectable — see the title chip row in renderLifetimeTasks.
+function equipTitle(titleId){
+  if(titleId!==null && !state.unlockedTitles.has(titleId)) return;
+  state.equippedTitle=titleId;
+  saveGame();
+  if(currentTab==='growth') renderGrowthTab();
 }
 
 function ordinal(n){ const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
@@ -2512,10 +2686,12 @@ function ordinal(n){ const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%1
 // ═══════════════════════════════════════════════════════════
 function totalWins(){ return Object.values(state.raceWinsByType).reduce((a,b)=>a+b,0); }
 
-// Highest tier index the player's lifetime win count qualifies for, or -1 if none yet.
+// Highest tier index the player's SEASON win count qualifies for, or -1 if none
+// yet. Deliberately uses winsSincePrestige, not totalWins() (lifetime) — sponsor
+// access re-locks every prestige, same spirit as the FTP reset.
 function getCurrentSponsorTierIndex(){
   let idx=-1;
-  SPONSOR_TIERS.forEach((t,i)=>{ if(totalWins()>=t.winsRequired) idx=i; });
+  SPONSOR_TIERS.forEach((t,i)=>{ if((state.winsSincePrestige||0)>=t.winsRequired) idx=i; });
   return idx;
 }
 
@@ -3184,7 +3360,21 @@ function handlePrestige(){
   // rival must recalibrate down to match rather than staying at an old,
   // now-wildly-unbeatable number from the previous season's top category.
   state.rival.categoryIndexAtAssignment=-1;
-  checkAchievements(); updateActivityDots(); recalc(); updateUI(); saveGame();
+  // Sponsorship reset: back to no sponsor, and the win gate re-locks — the
+  // player needs fresh wins THIS season to attract a sponsor again, same
+  // spirit as the FTP reset. This is a clean reset, not a termination, so
+  // no cooling-off lockout is applied (that's reserved for voluntarily
+  // walking out on a contract mid-season).
+  state.winsSincePrestige=0;
+  state.sponsor={
+    activeId:null, activeTierIdx:-1, weekStart:0,
+    progress:{win_races:0,enter_races:0,podiums:0,sessions:0,prize_money:0},
+    claimed:{}, bonusClaimed:false,
+    totalEarned:state.sponsor.totalEarned||0, // lifetime earnings from sponsors stays a career stat
+    terminatedAt:0, lateralCooldownUntil:0,
+  };
+  updateSponsorBadge();
+  checkAchievements(); checkLifetimeGoals(); updateActivityDots(); recalc(); updateUI(); saveGame();
   showToast(`🏆 Season ${state.season} begins! FTP reset · Prize ×${next}`);
 }
 function confirmReset(){
@@ -3210,6 +3400,7 @@ function showToast(msg){ const el=document.getElementById('toast');el.textConten
 // ═══════════════════════════════════════════════════════════
 let ceremonyQueue=[];
 let ceremonyShowing=false;
+let currentCeremonyType=null; // tracks which ceremony is on screen, used to gate backdrop-tap dismissal
 
 function enqueueCeremony(ceremony){
   ceremonyQueue.push(ceremony);
@@ -3220,18 +3411,25 @@ function processCeremonyQueue(){
   if(ceremonyShowing||ceremonyQueue.length===0) return;
   const next=ceremonyQueue.shift();
   ceremonyShowing=true;
+  currentCeremonyType=next.type;
   if(next.type==='win') renderWinCeremony(next);
   else if(next.type==='promotion') renderPromotionCeremony(next);
+  else if(next.type==='achievement') renderAchievementCeremony(next);
+  else if(next.type==='lifetimegoal') renderLifetimeGoalCeremony(next);
   spawnConfetti();
   document.getElementById('ceremony-overlay').style.display='flex';
 }
 
 function dismissCeremony(e){
-  // Allow tapping the dim backdrop OR the explicit button to dismiss.
-  // Taps inside the card itself are stopped via stopPropagation in the HTML.
+  // Allow tapping the dim backdrop OR the explicit button to dismiss — EXCEPT
+  // for achievement and lifetime-goal ceremonies, which must be collected via
+  // their explicit "Collect Reward" button. This guarantees every reward is
+  // actually claimed, never accidentally skipped by a stray backdrop tap.
+  if(currentCeremonyType==='achievement'||currentCeremonyType==='lifetimegoal') return;
   document.getElementById('ceremony-overlay').style.display='none';
   document.getElementById('ceremony-confetti').innerHTML='';
   ceremonyShowing=false;
+  currentCeremonyType=null;
   processCeremonyQueue(); // show the next queued ceremony, if any
 }
 
@@ -3300,6 +3498,68 @@ function renderPromotionCeremony({oldCat, newCat}){
     <div class="ceremony-subtitle">You're racing in <strong>${newCat.name}</strong> now</div>
     <button class="ceremony-btn" onclick="dismissCeremony(event)">Let's go! 🚀</button>
   `;
+}
+
+// Achievement ceremony — deliberately the ONLY ceremony type with no backdrop-tap
+// dismissal (see dismissCeremony). The reward is not granted until the player
+// actively taps "Collect Reward", mirroring the training-session collect-card
+// mechanic: the tap itself is the dopamine moment, not a passive notification.
+function renderAchievementCeremony({achievementId}){
+  const ach=ACHIEVEMENTS.find(a=>a.id===achievementId); if(!ach) return;
+  const card=document.getElementById('ceremony-card');
+  const rewardIcon = ach.reward.type==='color' ? '🎨' : '💰';
+  card.innerHTML=`
+    <div class="ceremony-eyebrow">🏅 Achievement Unlocked</div>
+    <div class="ceremony-icon">${ach.icon}</div>
+    <div class="ceremony-title">${ach.name}</div>
+    <div class="ceremony-subtitle">${ach.desc}</div>
+    <div style="background:var(--amber-bg);border:.5px solid var(--amber-bd);border-radius:var(--radius);padding:12px 14px;margin-bottom:18px">
+      <div style="font-size:16px;font-weight:800;color:var(--amber-txt)">${rewardIcon} ${ach.reward.label}</div>
+    </div>
+    <button class="ceremony-btn" onclick="collectAchievementReward('${ach.id}')">🎁 Collect Reward</button>
+  `;
+}
+
+// Lifetime Goal ceremony — purple/legacy tone to visually separate it from
+// the amber achievement ceremony, matching the "feels separate" requirement.
+function renderLifetimeGoalCeremony({trackId, tierIndex}){
+  const track=LIFETIME_GOALS.find(t=>t.id===trackId); if(!track) return;
+  const tier=track.tiers[tierIndex]; if(!tier) return;
+  const r=tier.reward;
+  const card=document.getElementById('ceremony-card');
+  const rewardIcon = r.type==='color'?'🎨':r.type==='perk'?'⚡':r.type==='title'?'👑':'💰';
+  card.innerHTML=`
+    <div class="ceremony-eyebrow">🏆 Career Milestone</div>
+    <div class="ceremony-icon">${track.icon}</div>
+    <div class="ceremony-title">${track.name}</div>
+    <div class="ceremony-subtitle">Tier ${tierIndex+1} of 4 — ${fmt(tier.threshold)} reached</div>
+    <div style="background:var(--purple-bg);border:.5px solid var(--purple-bd);border-radius:var(--radius);padding:12px 14px;margin-bottom:18px">
+      <div style="font-size:16px;font-weight:800;color:var(--purple-txt)">${rewardIcon} ${r.label}</div>
+    </div>
+    <button class="ceremony-btn" onclick="collectGoalTierReward('${track.id}',${tierIndex})">🎁 Collect Reward</button>
+  `;
+}
+
+// Grants the achievement's reward (money or a kit colour unlock), removes it
+// from the uncollected set, then force-dismisses the ceremony and advances
+// the queue. This is the ONLY path that both grants an achievement reward and
+// closes its ceremony — the backdrop tap is deliberately blocked for this type.
+function collectAchievementReward(achId){
+  const ach=ACHIEVEMENTS.find(a=>a.id===achId); if(!ach) return;
+  if(!state.uncollectedAchievements.has(achId)) return; // already collected — guard against double-tap
+  if(ach.reward.type==='color') state.unlockedKitColors.add(ach.reward.val);
+  if(ach.reward.type==='money') earnMoney(ach.reward.val);
+  state.uncollectedAchievements.delete(achId);
+  saveGame();
+  showToast(`🏅 ${ach.reward.label} collected!`);
+  updateHeader();
+  if(currentTab==='growth'){ renderAchievements(); }
+  // Force-dismiss (bypassing the achievement backdrop-tap guard) and move on
+  document.getElementById('ceremony-overlay').style.display='none';
+  document.getElementById('ceremony-confetti').innerHTML='';
+  ceremonyShowing=false;
+  currentCeremonyType=null;
+  processCeremonyQueue();
 }
 const TABS=['train','race','rider','gear','growth','sponsors','calendar'];
 let currentTab='train';
@@ -3933,7 +4193,7 @@ function renderRaceHistory(){
 // ═══════════════════════════════════════════════════════════
 // RIDER TAB
 // ═══════════════════════════════════════════════════════════
-function renderRiderTab(){ renderRiderStats(); renderFtpChart(); renderSpecialisation(); renderAttrCards(); renderPrestige(); renderAchievements(); renderStats(); }
+function renderRiderTab(){ renderRiderStats(); renderFtpChart(); renderSpecialisation(); renderAttrCards(); renderPrestige(); renderStats(); }
 
 // Chart.js instance — held in module scope so we can destroy and recreate cleanly
 // when the tab re-renders (avoids the "canvas already in use" error).
@@ -4229,19 +4489,28 @@ function renderSpecialisation(){
 function renderAchievements(){
   const area=document.getElementById('ach-area'); if(!area) return;
   const earned=state.earnedAchievements.size, total=ACHIEVEMENTS.length;
-  const totalPrize=ACHIEVEMENTS.filter(a=>a.reward.type==='money'&&state.earnedAchievements.has(a.id)).reduce((s,a)=>s+a.reward.val,0);
+  // Only count money actually collected — an earned-but-uncollected achievement
+  // hasn't paid out yet, so it shouldn't inflate this total.
+  const totalPrize=ACHIEVEMENTS.filter(a=>a.reward.type==='money'&&state.earnedAchievements.has(a.id)&&!state.uncollectedAchievements.has(a.id)).reduce((s,a)=>s+a.reward.val,0);
   const headerHtml=`<div style="font-size:12px;color:var(--txt2);margin-bottom:.6rem"><strong>${earned}</strong> / ${total} unlocked${totalPrize>0?' · '+fmtMoney(totalPrize)+' earned in achievement prizes':''}</div>`;
   const cardsHtml=ACHIEVEMENTS.map(ach=>{
     const done=state.earnedAchievements.has(ach.id);
+    const uncollected=state.uncollectedAchievements.has(ach.id);
     const prog=ach.progress?ach.progress(state):null;
-    const rewardColor=ach.reward.type==='color'?'var(--purple-txt)':'var(--green-txt)';
-    return `<div class="ach-card ${done?'earned':'locked'}">
-      <div class="ach-check">${done?'✅':''}</div>
+    const collectedColor=ach.reward.type==='color'?'var(--purple-txt)':'var(--green-txt)';
+    const rewardColor=uncollected?'var(--amber-txt)':done?collectedColor:'var(--txt3)';
+    // Earned-but-uncollected cards are tappable — re-opens the collect ceremony,
+    // covering the rare case where a player closed the app before tapping
+    // Collect on the original popup (also auto-requeued at boot, see BOOT section).
+    const clickAttr=uncollected?`onclick="enqueueCeremony({type:'achievement',achievementId:'${ach.id}'})" style="cursor:pointer"`:'';
+    return `<div class="ach-card ${done?'earned':'locked'}" ${clickAttr}>
+      <div class="ach-check">${uncollected?'🎁':done?'✅':''}</div>
       <div class="ach-icon">${ach.icon}</div>
       <div class="ach-name">${ach.name}</div>
       <div class="ach-desc">${ach.desc}</div>
       ${prog&&!done?`<div class="ach-prog">${prog}</div>`:''}
-      <div class="ach-reward" style="color:${done?rewardColor:'var(--txt3)'}">${ach.reward.label}</div>
+      ${uncollected?`<div class="ach-prog" style="color:var(--amber-txt);font-weight:700">Tap to collect!</div>`:''}
+      <div class="ach-reward" style="color:${rewardColor}">${ach.reward.label}</div>
     </div>`;
   }).join('');
   area.innerHTML=headerHtml+`<div class="ach-grid">${cardsHtml}</div>`;
@@ -4255,7 +4524,7 @@ function renderPrestige(){
     : `<button class="prestige-btn" onclick="handlePrestige()">🏆 Start Season ${state.season+1} — Prize ×${state.prestigeMult*2}</button>`;
   area.innerHTML=`<div class="prestige-card">
     ${ready
-      ?`${btnHtml}<div class="prestige-info">Resets money &amp; category. FTP <strong>resets</strong> to default. Bikes, wheels &amp; kit are <strong>kept</strong>. +10 daily energy.</div>`
+      ?`${btnHtml}<div class="prestige-info">Resets money, category &amp; sponsorship. FTP <strong>resets</strong> to default. Bikes, wheels &amp; kit are <strong>kept</strong>. +10 daily energy.</div>`
       :`<div class="prestige-info" style="margin-bottom:8px">Season goal: <strong>${pct}%</strong> — earn ${fmtMoney(thresh)} this season to unlock New Season.</div>`}
     <div class="prestige-prog-wrap"><div class="prestige-prog-bar" style="width:${pct}%"></div></div>
   </div>`;
@@ -4589,13 +4858,53 @@ function renderDailyTasks(){
 }
 
 function renderLifetimeTasks(){
-  const wrap=document.getElementById('growth-section-lifetime');
-  wrap.innerHTML=`<div class="lifetime-placeholder">
-    <div class="lifetime-placeholder-icon">🏆</div>
-    <strong style="color:var(--txt2)">Lifetime Goals coming soon</strong><br><br>
-    Long-term milestones like reaching Cat 5, Cat 4, Cat 3 and beyond will live here —
-    one-time career goals that track your whole journey, separate from the daily reset above.
-  </div>`;
+  renderTitleSelector();
+  renderGoalTracks();
+  renderAchievements();
+}
+
+function renderTitleSelector(){
+  const wrap=document.getElementById('lifetime-title-area');
+  if(state.unlockedTitles.size===0){ wrap.innerHTML=''; return; }
+  const chips=[...state.unlockedTitles].map(tid=>{
+    let text=tid;
+    for(const track of LIFETIME_GOALS) for(const tier of track.tiers)
+      if(tier.reward.type==='title' && tier.reward.titleId===tid) text=tier.reward.titleText;
+    const active=state.equippedTitle===tid;
+    return `<button class="title-chip${active?' active':''}" onclick="equipTitle(${active?'null':`'${tid}'`})">👑 ${text}</button>`;
+  }).join('');
+  wrap.innerHTML=`<div class="section-lbl">Your Title</div><div class="title-chip-row">${chips}</div>`;
+}
+
+function renderGoalTracks(){
+  const wrap=document.getElementById('lifetime-goals-area'); wrap.innerHTML='';
+  LIFETIME_GOALS.forEach(track=>{
+    const val=track.statFn(state);
+    const pips=track.tiers.map((tier,idx)=>{
+      const key=track.id+':'+idx;
+      const collected=state.claimedGoalTiers.has(key);
+      const uncollected=state.uncollectedGoalTiers.has(key);
+      const reached=val>=tier.threshold;
+      const icon=tier.reward.type==='color'?'🎨':tier.reward.type==='perk'?'⚡':tier.reward.type==='title'?'👑':'💰';
+      const sep=idx>0?`<div class="goal-tier-sep" style="background:${reached?'var(--purple-bd)':'var(--border)'}"></div>`:'';
+      const clickAttr=uncollected?`onclick="enqueueCeremony({type:'lifetimegoal',trackId:'${track.id}',tierIndex:${idx}})"`:'';
+      return `${sep}<div class="goal-tier-pip${uncollected?' uncollected':''}" ${clickAttr}>
+        <span style="font-size:${uncollected?'20px':'15px'};filter:${collected||uncollected?'none':'grayscale(1)'};opacity:${collected||uncollected?'1':'0.4'}">${uncollected?'🎁':icon}</span>
+        <span style="font-size:9px;font-weight:700;color:${collected?'var(--purple-txt)':uncollected?'var(--amber-txt)':'var(--txt3)'}">${fmt(tier.threshold)}</span>
+      </div>`;
+    }).join('');
+    const nextTier=track.tiers.find((tier,idx)=>!state.claimedGoalTiers.has(track.id+':'+idx)&&!state.uncollectedGoalTiers.has(track.id+':'+idx));
+    const nextText=nextTier?`Next: ${nextTier.reward.label} at ${fmt(nextTier.threshold)}`:'All tiers claimed — legendary!';
+    wrap.innerHTML+=`<div class="goal-track-card">
+      <div class="goal-track-head">
+        <span class="goal-track-icon">${track.icon}</span>
+        <span class="goal-track-name">${track.name}</span>
+        <span class="goal-track-value">${fmt(val)}</span>
+      </div>
+      <div class="goal-tier-pips">${pips}</div>
+      <div class="goal-track-next">${nextText}</div>
+    </div>`;
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4607,7 +4916,7 @@ function setSponsorViewMode(mode){ sponsorViewMode=mode; renderSponsorsTab(); }
 
 function renderSponsorsTab(){
   const wrap=document.getElementById('sponsors-content'); if(!wrap) return;
-  const wins=totalWins(), tierIdx=getCurrentSponsorTierIndex();
+  const wins=state.winsSincePrestige||0, tierIdx=getCurrentSponsorTierIndex();
 
   // ── Termination cooldown ──────────────────────────────────────
   const terminateMsLeft=getSponsorTerminateCooldownRemaining();
@@ -4995,8 +5304,15 @@ function saveGame(){
       equippedKitColor:state.equippedKitColor,
       unlockedKitColors:[...state.unlockedKitColors],
       earnedAchievements:[...state.earnedAchievements],
+      uncollectedAchievements:[...state.uncollectedAchievements],
+      highestCategoryReached:state.highestCategoryReached,
+      claimedGoalTiers:[...state.claimedGoalTiers],
+      uncollectedGoalTiers:[...state.uncollectedGoalTiers],
+      unlockedTitles:[...state.unlockedTitles],
+      equippedTitle:state.equippedTitle,
       totalRaces:state.totalRaces, totalPodiums:state.totalPodiums,
       raceWinsByType:state.raceWinsByType,
+      winsSincePrestige:state.winsSincePrestige,
       specialisation:state.specialisation,
       energyInventory:state.energyInventory,
       lastDailyBar:state.lastDailyBar,
@@ -5041,9 +5357,21 @@ function loadGame(){
     state.equippedKitColor   = d.equippedKitColor   || 'default';
     state.unlockedKitColors  = new Set(d.unlockedKitColors || ['default']);
     state.earnedAchievements = new Set(d.earnedAchievements || []);
+    state.uncollectedAchievements = new Set(d.uncollectedAchievements || []);
+    // Fallback for saves predating this field: seed from current raceCategory
+    // so an existing mid-career player doesn't lose credit for where they are.
+    state.highestCategoryReached = Math.max(d.highestCategoryReached||0, state.raceCategory||0);
+    state.claimedGoalTiers     = new Set(d.claimedGoalTiers || []);
+    state.uncollectedGoalTiers = new Set(d.uncollectedGoalTiers || []);
+    state.unlockedTitles       = new Set(d.unlockedTitles || []);
+    state.equippedTitle        = d.equippedTitle || null;
     state.totalRaces    = d.totalRaces    || 0;
     state.totalPodiums  = d.totalPodiums  || 0;
     state.raceWinsByType= d.raceWinsByType|| {crit:0,road:0,tt:0,hill:0};
+    // Fallback for saves predating this field: default to the player's lifetime
+    // win count so an existing player with an active sponsor doesn't suddenly
+    // find themselves locked out just from loading an old save.
+    state.winsSincePrestige = d.winsSincePrestige ?? Object.values(state.raceWinsByType).reduce((a,b)=>a+b,0);
     state.specialisation= d.specialisation|| null;
     // energyInventory format changed from {itemId: count} to an array of purchased
     // instances (each with its own locked-in benefit + purchase date for perishing).
@@ -5304,6 +5632,20 @@ checkDailyReset();
 if(state.pendingMorningReward && currentTab==='train') renderEnergyCard();
 applyOfflineProgress();
 recordFtpSnapshot(); // seed a baseline point for players loading an existing save
+// Re-queue any achievements that were earned but never collected — e.g. the
+// app was closed before the player tapped "Collect Reward" on the ceremony.
+// Guarantees every achievement reward is always eventually claimable, never
+// silently lost just because the tab closed at the wrong moment.
+if(state.uncollectedAchievements && state.uncollectedAchievements.size>0){
+  [...state.uncollectedAchievements].forEach(id=>enqueueCeremony({type:'achievement', achievementId:id}));
+}
+// Same guarantee for Lifetime Goal tiers.
+if(state.uncollectedGoalTiers && state.uncollectedGoalTiers.size>0){
+  [...state.uncollectedGoalTiers].forEach(key=>{
+    const [trackId,tierIndex]=key.split(':');
+    enqueueCeremony({type:'lifetimegoal', trackId, tierIndex:Number(tierIndex)});
+  });
+}
 updateUI();
 updateActivityDots();
 updateGrowthBadge();
