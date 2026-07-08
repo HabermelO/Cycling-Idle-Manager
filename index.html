@@ -185,6 +185,8 @@ button{font-family:inherit;cursor:pointer;}
 .result-reward-pts{background:var(--amber-bg);color:var(--amber-txt);}
 .result-reward-none{background:var(--bg3);color:var(--txt3);}
 .result-cat-progress{margin-top:.75rem;font-size:12px;color:var(--txt2);}
+.result-hint{margin-top:.6rem;font-size:12px;color:var(--txt2);font-style:italic;
+  background:var(--bg2);border-radius:var(--radius);padding:9px 12px;line-height:1.45;}
 .history-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg);
   border:.5px solid var(--border);border-radius:var(--radius);margin-bottom:6px;}
 .history-pos{font-size:13px;font-weight:800;width:40px;font-variant-numeric:tabular-nums;flex-shrink:0;}
@@ -554,6 +556,45 @@ button{font-family:inherit;cursor:pointer;}
   90% {opacity:1;}
   100%{transform:translateY(115vh) rotate(540deg);opacity:0;}
 }
+
+/* ── Onboarding tour — spotlight overlay for new players ── */
+#onboard-layer{position:fixed;inset:0;z-index:2500;pointer-events:none;}
+.onboard-spotlight{
+  position:fixed;border-radius:14px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.68);
+  transition:top .3s ease,left .3s ease,width .3s ease,height .3s ease;
+  pointer-events:none;
+}
+.onboard-spotlight.no-target{
+  /* Welcome/completion screens have no target — dim the whole screen evenly */
+  top:50%;left:50%;width:0;height:0;
+}
+.onboard-card{
+  position:fixed;max-width:320px;width:calc(100% - 2.5rem);
+  background:var(--bg);border-radius:16px;padding:1.25rem;
+  box-shadow:0 12px 40px rgba(0,0,0,.35);
+  transition:top .3s ease,left .3s ease;
+  pointer-events:auto;
+}
+.onboard-eyebrow{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--green-txt);margin-bottom:6px;}
+.onboard-title{font-size:16px;font-weight:800;color:var(--txt);margin-bottom:6px;line-height:1.25;}
+.onboard-body{font-size:13px;color:var(--txt2);line-height:1.5;margin-bottom:14px;}
+.onboard-next-btn{width:100%;padding:11px;border-radius:var(--radius);border:none;cursor:pointer;
+  background:var(--green-txt);color:#fff;font-size:13px;font-weight:700;}
+.onboard-next-btn:active{opacity:.85;}
+.onboard-action-hint{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;
+  color:var(--amber-txt);background:var(--amber-bg);border:.5px solid var(--amber-bd);
+  border-radius:var(--radius);padding:9px 12px;}
+.onboard-action-dot{width:8px;height:8px;border-radius:50%;background:var(--amber-txt);
+  flex-shrink:0;animation:onboard-pulse 1s ease-in-out infinite;}
+@keyframes onboard-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.onboard-progress{display:flex;gap:4px;margin-bottom:10px;}
+.onboard-progress-dot{flex:1;height:3px;border-radius:2px;background:var(--bg3);}
+.onboard-progress-dot.done{background:var(--green-txt);}
+.onboard-skip{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:14px;z-index:2501;
+  font-size:11px;font-weight:600;color:rgba(255,255,255,.75);background:rgba(0,0,0,.3);
+  border:none;border-radius:99px;padding:6px 12px;cursor:pointer;pointer-events:auto;}
 </style>
 </head>
 <body>
@@ -570,8 +611,8 @@ button{font-family:inherit;cursor:pointer;}
   <div class="main-tabs">
     <button class="main-tab active" id="tab-btn-train" onclick="showTab('train')">🚴 Train</button>
     <button class="main-tab" id="tab-btn-race" onclick="showTab('race')">🏁 Race</button>
-    <button class="main-tab" onclick="showTab('rider')">👤 Rider</button>
-    <button class="main-tab" onclick="showTab('gear')">⚙️ Gear</button>
+    <button class="main-tab" id="tab-btn-rider" onclick="showTab('rider')">👤 Rider</button>
+    <button class="main-tab" id="tab-btn-gear" onclick="showTab('gear')">⚙️ Gear</button>
     <button class="main-tab" id="tab-btn-growth" onclick="showTab('growth')">📋 Tasks</button>
     <button class="main-tab" id="tab-btn-sponsors" onclick="showTab('sponsors')">🤝 Sponsors</button>
     <button class="main-tab" id="tab-btn-calendar" onclick="showTab('calendar')">📅 Calendar</button>
@@ -650,6 +691,20 @@ button{font-family:inherit;cursor:pointer;}
 <div id="ceremony-overlay" class="ceremony-overlay" style="display:none" onclick="dismissCeremony(event)">
   <div class="ceremony-confetti" id="ceremony-confetti"></div>
   <div class="ceremony-card" id="ceremony-card" onclick="event.stopPropagation()"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ONBOARDING TOUR — a "spotlight" overlay for new players. Two
+     pieces: #onboard-spotlight is a transparent box positioned exactly
+     over the target element, using a giant box-shadow to dim everything
+     ELSE on screen (a well-known lightweight spotlight technique — no
+     canvas/SVG masking needed). #onboard-card is the instruction tooltip,
+     positioned above or below the spotlight depending on available space.
+═══════════════════════════════════════════════════════════ -->
+<div id="onboard-layer" style="display:none">
+  <div id="onboard-spotlight" class="onboard-spotlight"></div>
+  <div id="onboard-card" class="onboard-card"></div>
+  <button id="onboard-skip" class="onboard-skip" onclick="skipOnboarding()">Skip intro ✕</button>
 </div>
 
 <script>
@@ -787,17 +842,37 @@ const TRAINING = [
 // (not a drawing function) so that when multiple named courses are added per race
 // type later, each course just needs its own profile + commentary array; the
 // rendering code (buildCourseProfileSVG) never needs to change.
+// Soft coaching nudges shown ONLY after a poor result (outside the podium) —
+// deliberately vague, never naming exact weight percentages. The player is
+// meant to work out each race type's real demands through results over time,
+// not read them off a badge. Several variants per type so it doesn't feel
+// like a repeated canned message.
+const RACE_STAT_HINTS = {
+  hill:[ "Unlucky on the climb — riders who dominate hill climbs usually have an excellent power-to-weight ratio. Worth thinking about.",
+         "Off the pace on the mountain today. Watts-per-kilo tends to separate the field on hill climbs.",
+         "Tough day on the slopes. A lighter, punchier rider often has the edge in hill climbs." ],
+  crit:[ "Not quite enough in the legs for that bunch finish. Criteriums reward a big aerobic ceiling — maybe your VO₂ Max needs work.",
+         "Tough one in the crit today. Riders with a strong VO₂ Max tend to thrive over these fast, punchy laps.",
+         "Off the back in that one. A high VO₂ Max is usually what wins criteriums." ],
+  road:[ "A tough day in the bunch. Road racing rewards a well-rounded rider more than any single strength — keep building broadly.",
+         "Not your day out there. Road races don't favour one specialism — balance across your attributes tends to pay off.",
+         "Unlucky in the road race. No shortcuts here — it rewards an all-round engine." ],
+  tt:[   "Not your day against the clock. Time trials reward riders with the biggest raw FTP — that's the number to chase.",
+         "Off the pace in the race of truth. Pure power output tends to be what wins time trials.",
+         "Tough one against the watch. FTP is king in a time trial." ],
+};
+
 const RACE_TYPES = [
   {id:'crit',name:'Criterium',icon:'🔄',desc:'Fast circuit race. Sprint crucial at the finish.',
-   weights:{ftp:0.35,vo2:0.20,sprint:0.45},animMs:40000,cooldown:120,colorVar:'purple',
+   weights:{ftp:0.20,vo2:0.60,sprint:0.20},animMs:40000,cooldown:120,colorVar:'purple',
    profile:[20,35,18,38,16,40,20,36,18,42,22,38,16,40,20,44,24,40,18,46,26,50,30,55],
    commentary:['Rolling out from the start line...','Riders jostling for position through the corners...','Attacks flying off the front of the bunch!','Final lap — the bell rings!','Sprint begins — everything on the line!']},
   {id:'road',name:'Road Race',icon:'🛣️',desc:'Point-to-point. Balanced demands across all stats.',
-   weights:{ftp:0.55,vo2:0.30,sprint:0.15},animMs:60000,cooldown:180,colorVar:'green',
+   weights:{ftp:0.40,vo2:0.35,sprint:0.25},animMs:60000,cooldown:180,colorVar:'green',
    profile:[10,18,14,28,22,15,25,40,32,20,30,48,38,25,35,52,42,28,38,55,45,60,50,65],
    commentary:['Peloton rolls out from the start town...','A break forms off the front...','The bunch begins to organise the chase...','Final 10km — race is wide open!','Last kilometre — everything hurts!']},
   {id:'tt',name:'Time Trial',icon:'⏱️',desc:'Race of truth. Pure FTP — no drafting, no excuses.',
-   weights:{ftp:0.85,vo2:0.15,sprint:0.00},animMs:50000,cooldown:180,colorVar:'blue',
+   weights:{ftp:0.95,vo2:0.05,sprint:0.00},animMs:50000,cooldown:180,colorVar:'blue',
    profile:[15,17,16,19,18,20,19,22,21,20,23,22,24,23,25,24,26,25,27,26,28,27,29,30],
    commentary:['Countdown... 3, 2, 1 — GO!','Building to threshold pace through the first sector...','Locked in the aero position, holding every watt...','Halfway — the legs are talking but you push on...','Final push — empty absolutely everything!']},
   {id:'hill',name:'Hill Climb',icon:'⛰️',desc:'Straight up the mountain. Power-to-weight rules.',
@@ -1866,6 +1941,7 @@ const KIT_COLORS = [
 // ═══════════════════════════════════════════════════════════
 const state = {
   money:0, seasonMoney:0, lifetimeMoney:0,
+  onboarding: {step:0, done:false}, // brand-new state default; existing saves get done:true in loadGame
   season:1, seasonsCompleted:0, prestigeMult:1,
   energy:DAILY_ENERGY, maxEnergy:DAILY_ENERGY, lastEnergyReset:0,
   boughtUpgrades: new Set(),
@@ -2218,6 +2294,7 @@ function startSession(id){
   state.session={active:true,typeId:id,startTime:Date.now(),duration:t.duration*1000};
   // FIX 5a: Save immediately so energy deduction persists if page closes mid-session
   saveGame(); updateActivityDots(); renderTrainTab();
+  notifyOnboardingAction('started_session');
 }
 
 function completeSession(){
@@ -2515,6 +2592,7 @@ function completeRace(){
 
   const histEntry={
     raceTypeName: raceTypeNameForDisplay,
+    raceTypeId: rd.typeId, isCalEvent,
     catName: catNameForDisplay,
     position:rd.result.position,fieldSize:rd.result.fieldSize,
     prize:rd.result.prize,points:isCalEvent?0:rd.result.points,ts:Date.now()};
@@ -3217,6 +3295,7 @@ function buyEnergyItem(id){
   if(currentTab==='train') renderEnergyCard();
   saveGame();
   showToast(`${item.icon} ${item.name} added to inventory! (+${benefit.energy} energy when used)`);
+  notifyOnboardingAction('bought_item');
 }
 
 function useEnergyItem(id){
@@ -3391,6 +3470,177 @@ function fmtTime(ms){ const s=Math.ceil(ms/1000); return s>60?Math.ceil(s/60)+'m
 function timeToReset(){ const now=new Date(),mid=new Date(now);mid.setHours(24,0,0,0);const ms=mid-now,h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);return h>0?`${h}h ${m}m`:`${m}m`; }
 let toastTimer=null;
 function showToast(msg){ const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2500); }
+
+// ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// ONBOARDING TOUR — guided first-run walkthrough for new players.
+// Spotlights a real DOM element, explains it, and for the two most
+// important actions (starting a training session, buying an energy
+// item) actually WAITS for the player to do it rather than letting
+// them tap past with a Next button — see actionEvent below.
+// ═══════════════════════════════════════════════════════════
+const ONBOARDING_STEPS = [
+  { id:'welcome', tab:null, target:null,
+    eyebrow:'👋 Welcome', title:'Welcome to Cycling Idle Manager!',
+    body:'Train, race, and build your rider from a complete unknown into a professional cyclist. This quick tour covers the basics — takes about a minute.' },
+
+  { id:'energy', tab:'train', target:'#energy-card-wrap',
+    eyebrow:'Step 1', title:'Your Daily Energy',
+    body:'Training and racing both cost energy. It refills every morning — spend it wisely, or top it up with items from the Gear shop.' },
+
+  { id:'start_session', tab:'train', target:'#training-list',
+    eyebrow:'Step 2 · Try it', title:'Start a Training Session',
+    body:'Tap any session below to begin — try Aerobic Base first. Training builds your attributes, which raise your FTP (power output).',
+    actionEvent:'started_session' },
+
+  { id:'race_intro', tab:'race', target:'#race-list',
+    eyebrow:'Step 3', title:'Race for Prize Money',
+    body:'Races earn prize money and category points. Win enough points and you\'ll be promoted to a tougher category with bigger prizes.' },
+
+  { id:'rival_intro', tab:'race', target:'#rival-wrap',
+    eyebrow:'Step 4', title:'Your Rival',
+    body:'A named rider follows you through your whole career. Beat them enough times and the bragging rights are real — check back here often.' },
+
+  { id:'gear_intro', tab:'gear', target:'#tab-btn-gear',
+    eyebrow:'Step 5', title:'The Gear Shop',
+    body:'Bikes, wheels, kit and energy items all live here. Here\'s a little starting cash to get you going — let\'s spend some of it.' },
+
+  { id:'buy_gel', tab:'gear', target:'#gear-section-energy',
+    eyebrow:'Step 6 · Try it', title:'Buy an Energy Gel',
+    body:'Tap the Energy Gel to buy one — it tops up your energy and helps you recover faster overnight.',
+    actionEvent:'bought_item' },
+
+  { id:'rider_intro', tab:'rider', target:'#tab-btn-rider',
+    eyebrow:'Step 7', title:'Track Your Progress',
+    body:'Your FTP, attributes, achievements and lifetime career goals all live on the Rider tab — check in often to see how far you\'ve come.' },
+
+  { id:'more_tabs', tab:'rider', target:'#tab-btn-growth',
+    eyebrow:'Step 8', title:'Sponsors, Calendar & Tasks',
+    body:'Sign a sponsor for weekly bonuses, enter marquee Calendar events, and complete daily tasks for extra rewards — all worth exploring as you grow.' },
+
+  { id:'done', tab:null, target:null,
+    eyebrow:'🏁 Ready', title:'You\'re all set!',
+    body:'That\'s everything you need to get started. Go build your cycling career — good luck out there.' },
+];
+
+const ONBOARD_WELCOME_BONUS = 20;
+
+function startOnboarding(){
+  state.onboarding = {step:0, done:false};
+  earnMoney(ONBOARD_WELCOME_BONUS);
+  // A brand-new player's energy is withheld behind the morning-collect card
+  // (see checkDailyReset/pendingMorningReward) until tapped. Auto-resolve it
+  // here so the "start a session" step has energy to work with immediately —
+  // the player will still see the real collect-card ritual naturally on Day 2.
+  if(state.pendingMorningReward) collectMorningReward();
+  saveGame();
+  showTab('train');
+  document.getElementById('onboard-layer').style.display='block';
+  renderOnboardingStep();
+}
+
+function skipOnboarding(){
+  state.onboarding.done=true;
+  document.getElementById('onboard-layer').style.display='none';
+  saveGame();
+}
+
+function finishOnboarding(){
+  state.onboarding.done=true;
+  document.getElementById('onboard-layer').style.display='none';
+  saveGame();
+  updateUI();
+}
+
+function advanceOnboarding(){
+  state.onboarding.step++;
+  if(state.onboarding.step>=ONBOARDING_STEPS.length){ finishOnboarding(); return; }
+  saveGame();
+  renderOnboardingStep();
+}
+
+// Called from the two gated actions (startSession, buyEnergyItem). Only
+// advances if the CURRENT step is actually waiting on that specific action —
+// harmless no-op otherwise, so these hooks are safe to leave in permanently.
+function notifyOnboardingAction(eventName){
+  if(state.onboarding.done) return;
+  const step=ONBOARDING_STEPS[state.onboarding.step];
+  if(step && step.actionEvent===eventName){
+    // Small delay so the player sees the result of their tap (toast, UI update)
+    // before the tour whisks them on to the next step.
+    setTimeout(advanceOnboarding, 900);
+  }
+}
+
+function renderOnboardingStep(){
+  const step=ONBOARDING_STEPS[state.onboarding.step]; if(!step) return;
+  if(step.tab && currentTab!==step.tab) showTab(step.tab);
+
+  const spotlight=document.getElementById('onboard-spotlight');
+  const card=document.getElementById('onboard-card');
+  const skipBtn=document.getElementById('onboard-skip');
+  // Skip is only offered before the two forced-action steps start, and again
+  // right at the end — hiding it during the action steps themselves keeps the
+  // player focused on completing the one thing being asked of them.
+  skipBtn.style.display = (step.actionEvent) ? 'none' : '';
+
+  const progressDots=ONBOARDING_STEPS.map((s,i)=>
+    `<div class="onboard-progress-dot${i<=state.onboarding.step?' done':''}"></div>`).join('');
+
+  const actionHtml = step.actionEvent
+    ? `<div class="onboard-action-hint"><span class="onboard-action-dot"></span>Do this to continue</div>`
+    : `<button class="onboard-next-btn" onclick="advanceOnboarding()">${state.onboarding.step===ONBOARDING_STEPS.length-1?'Let\'s ride! 🚴':'Next →'}</button>`;
+
+  card.innerHTML=`
+    <div class="onboard-progress">${progressDots}</div>
+    <div class="onboard-eyebrow">${step.eyebrow}</div>
+    <div class="onboard-title">${step.title}</div>
+    <div class="onboard-body">${step.body}</div>
+    ${actionHtml}
+  `;
+
+  positionOnboardingUI(step, spotlight, card);
+}
+
+// Positions the spotlight cutout exactly over the target element (or dims the
+// whole screen evenly for welcome/completion screens with no target), then
+// places the instruction card in whichever half of the screen has more room.
+function positionOnboardingUI(step, spotlight, card){
+  if(!step.target){
+    spotlight.classList.add('no-target');
+    card.style.top='50%'; card.style.left='50%';
+    card.style.transform='translate(-50%,-50%)';
+    return;
+  }
+  spotlight.classList.remove('no-target');
+  const el=document.querySelector(step.target);
+  if(!el){
+    // Target not in the DOM yet (e.g. tab just switched, render pending) — retry shortly.
+    setTimeout(()=>positionOnboardingUI(step, spotlight, card), 80);
+    return;
+  }
+  const r=el.getBoundingClientRect();
+  const pad=8;
+  spotlight.style.top=(r.top-pad)+'px';
+  spotlight.style.left=(r.left-pad)+'px';
+  spotlight.style.width=(r.width+pad*2)+'px';
+  spotlight.style.height=(r.height+pad*2)+'px';
+
+  // Card goes below the spotlight if there's room, otherwise above it.
+  const cardWillFitBelow=(r.bottom+220) < window.innerHeight;
+  card.style.transform='none';
+  card.style.left=Math.max(16, Math.min(window.innerWidth-336, r.left))+'px';
+  if(cardWillFitBelow){ card.style.top=(r.bottom+pad+12)+'px'; }
+  else{ card.style.top=Math.max(16,(r.top-pad-12-220))+'px'; }
+}
+
+// Recompute spotlight position on resize/orientation change while the tour is active.
+window.addEventListener('resize', ()=>{
+  if(state.onboarding && !state.onboarding.done && document.getElementById('onboard-layer').style.display!=='none'){
+    renderOnboardingStep();
+  }
+});
+
 
 // ═══════════════════════════════════════════════════════════
 // CEREMONY SYSTEM — full-screen celebration for race wins and
@@ -4115,6 +4365,19 @@ function renderRaceResultBlock(){
   const cat=RACE_CATEGORIES[state.raceCategory];
   const ptsPct=Math.min(100,Math.round(state.categoryPoints/cat.ptsToPromote*100));
   const isCalResult = r.points===0 && (r.catName==='Pro Calendar'||r.catName==='Semi-Pro Calendar');
+  // Soft coaching hint — only fires outside the podium, and only for normal
+  // category races (a fixed elite calendar field isn't representative enough
+  // to draw a fair "you should train X" conclusion from). Picked once per
+  // result and left stable (not re-rolled on every render) via a cache on
+  // the result object itself.
+  let hintHtml='';
+  if(!isCalResult && r.position>3 && r.raceTypeId && RACE_STAT_HINTS[r.raceTypeId]){
+    if(!r._hintText){
+      const pool=RACE_STAT_HINTS[r.raceTypeId];
+      r._hintText=pool[Math.floor(Math.random()*pool.length)];
+    }
+    hintHtml=`<div class="result-hint">💭 ${r._hintText}</div>`;
+  }
   wrap.innerHTML=`<div class="race-result-card">
     <div class="result-head">
       <div class="result-pos-badge ${posCls}">${ordinal(r.position)}</div>
@@ -4127,6 +4390,7 @@ function renderRaceResultBlock(){
     ${isCalResult
       ? `<div class="result-cat-progress">📅 Calendar event — doesn't affect category points or cooldowns</div>`
       : `<div class="result-cat-progress">Category progress: <strong>${state.categoryPoints} / ${cat.ptsToPromote} pts</strong> — ${ptsPct}% to promotion</div>`}
+    ${hintHtml}
   </div>`;
 }
 
@@ -4158,8 +4422,10 @@ function renderRaceTypes(){
     else if(busy) statusHtml=`<span class="race-status" style="color:var(--txt3)">Busy</span>`;
     else if(noEnergy) statusHtml=`<span class="race-status" style="color:var(--red-txt)">⚡ ${Math.floor(state.energy)}/${actualCost}</span>`;
     else statusHtml=`<span class="race-status" style="color:var(--green-txt)">▶ Race</span>`;
-    const topStat=Object.entries(rt.weights).sort((a,b)=>b[1]-a[1])[0];
-    const topStatLabel={ftp:'FTP',vo2:'VO₂',sprint:'Sprint'}[topStat[0]];
+    // Deliberately not shown to the player: which stat matters most per race
+    // type is meant to be worked out from results, not read off a badge. See
+    // the post-race hint in renderRaceResultBlock for the "soft" version of
+    // this — a nudge only after a poor finish, not a permanent readout.
     // Show energy cost with weather suffix if it differs from base
     const energyDisplay=actualCost!==cat.energyCost
       ? `<span class="race-energy-badge${noEnergy?' unaffordable':''}">⚡ ${actualCost}<span style="font-size:9px;opacity:.7"> (wx)</span></span>`
@@ -4170,7 +4436,6 @@ function renderRaceTypes(){
       <div class="race-meta">
         ${energyDisplay}
         <span class="race-meta-badge race-prize-badge">Prize: £${cat.prizes[cat.prizes.length-1]||0}–${fmtMoney(cat.prizes[0])}</span>
-        <span class="race-meta-badge">Key: ${topStatLabel}</span>
         <span class="race-equip-bonus" style="background:${bonusBg};color:${bonusCol};padding:2px 7px;border-radius:99px;font-weight:700;font-size:10px">⚙️ ${equipBonus>0?'+':''}${equipBonus}w</span>
         ${showWeightBadge?`<span class="race-equip-bonus" style="background:${weightBg};color:${weightCol};padding:2px 7px;border-radius:99px;font-weight:700;font-size:10px">⚖️ ${weightPct>0?'+':''}${weightPct}%</span>`:''}
         ${showWxBadge?`<span class="race-equip-bonus" style="background:${wxBg};color:${wxCol};padding:2px 7px;border-radius:99px;font-weight:700;font-size:10px">${condition.icon} ${wxPct>0?'+':''}${wxPct}%</span>`:''}
@@ -5291,6 +5556,7 @@ function saveGame(){
     ATTR_ORDER.forEach(id=>{ attrs[id]={xp:state.attributes[id].xp,level:state.attributes[id].level}; });
     localStorage.setItem(SAVE_KEY,JSON.stringify({
       money:state.money, seasonMoney:state.seasonMoney, lifetimeMoney:state.lifetimeMoney,
+      onboarding:state.onboarding,
       season:state.season, seasonsCompleted:state.seasonsCompleted, prestigeMult:state.prestigeMult,
       energy:state.energy, maxEnergy:state.maxEnergy, lastEnergyReset:state.lastEnergyReset,
       bought:[...state.boughtUpgrades], attributes:attrs,
@@ -5342,6 +5608,10 @@ function loadGame(){
     const raw=localStorage.getItem(SAVE_KEY); if(!raw) return;
     const d=JSON.parse(raw);
     state.money=d.money||0; state.seasonMoney=d.seasonMoney||0; state.lifetimeMoney=d.lifetimeMoney||0;
+    // Saves that predate this feature (d.onboarding undefined) default to done:true —
+    // only a genuinely brand-new player (no save file at all, loadGame returns early
+    // above) keeps the fresh state default of done:false and sees the tutorial.
+    state.onboarding = d.onboarding || {step:0, done:true};
     state.season=d.season||1; state.seasonsCompleted=d.seasonsCompleted||0; state.prestigeMult=d.prestigeMult||1;
     state.energy=d.energy??DAILY_ENERGY; state.maxEnergy=d.maxEnergy||DAILY_ENERGY; state.lastEnergyReset=d.lastEnergyReset||0;
     state.boughtUpgrades=new Set(d.bought||[]); state.trainCooldowns=d.trainCooldowns||{}; state.raceCooldowns=d.raceCooldowns||{};
@@ -5651,6 +5921,10 @@ updateActivityDots();
 updateGrowthBadge();
 updateSponsorBadge();
 updateCalendarBadge();
+// Onboarding tour — only ever fires for a genuinely brand-new player (see the
+// done:true default applied to pre-existing saves in loadGame). Runs last so
+// the real UI underneath is fully rendered before the spotlight appears.
+if(!state.onboarding.done) startOnboarding();
 setInterval(gameTick,100);
 setInterval(saveGame,15000);
 setInterval(checkDailyReset,60000);
