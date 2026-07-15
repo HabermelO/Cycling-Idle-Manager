@@ -633,6 +633,7 @@ button{font-family:inherit;cursor:pointer;}
     <button class="main-tab" id="tab-btn-calendar" onclick="showTab('calendar')"><span class="main-tab-icon">📅</span><span class="main-tab-label">Calendar</span></button>
   </div>
   <div id="tab-train">
+    <div id="boost-pill-wrap"></div>
     <div id="energy-card-wrap"></div>
     <div id="weight-card-wrap"></div>
     <div id="attr-row" class="attr-row"></div>
@@ -1792,13 +1793,25 @@ const CALENDAR_EVENTS = [
 // Accessories provide no passive £/s income — that role belongs exclusively to the
 // Sponsors tab where weekly objectives gate every payout. These are one-time
 // investments in your setup and athlete infrastructure.
+// ─── ACCESSORIES ("Extras") ──────────────────────────────────
+// Every item does ONE OR MORE of: watts (flat power added in races), trainPct
+// (training-effect %, additive with all other owned/active trainPct sources),
+// racePct (race-day performance %, additive), maxEnergy (permanent cap bump).
+// Permanent items (no durationDays) are bought once via boughtUpgrades, same
+// as before. Timed items (durationDays set) are REPEATABLE consumables — each
+// purchase extends the item's expiry in state.activeBoosts by that many days
+// from whichever is later, now or the current expiry, so buying early never
+// wastes time. See buyAccessory() and recalc() for how these are consumed.
 const ACCESSORIES = [
-  {id:'clipless',     icon:'⚡', name:'Clipless Pedals',        desc:'Efficient power transfer. The first upgrade every racer makes.',           cost:150,  sponsorPerSec:0   },
-  {id:'cycling_comp', icon:'📊', name:'Cycling Computer',       desc:'Garmin-level data. Track every metric that matters on race day.',          cost:450,  sponsorPerSec:0   },
-  {id:'power_meter',  icon:'🔋', name:'Power Meter',            desc:'Precision training. Stages or Favero-level accuracy for every session.',   cost:650,  sponsorPerSec:0   },
-  {id:'coach',        icon:'👨‍🏫', name:'Hire a Coach',          desc:'Season-long professional coaching. Race tactics, periodisation, and structured training plans.', cost:3500, sponsorPerSec:0},
-  {id:'altitude',     icon:'⛰️', name:'Altitude Training Camp', desc:'Two weeks at altitude. Significant haematological adaptation.',            cost:4500, sponsorPerSec:0   },
-  {id:'pro_team',     icon:'🏆', name:'Join a Pro Team',        desc:'Full team support, mechanic, and DS in your ear on every climb.',          cost:20000,sponsorPerSec:0   },
+  {id:'bike_fit',     icon:'🔧', name:'Professional Bike Fit',  desc:'A proper fit session. Small, permanent, and every ride benefits.',          cost:300,  watts:1                              },
+  {id:'clipless',     icon:'⚡', name:'Clipless Pedals',        desc:'Efficient power transfer. The first upgrade every racer makes.',           cost:150,  watts:1,  trainPct:0.01              },
+  {id:'cycling_comp', icon:'📊', name:'Cycling Computer',       desc:'Garmin-level data. Track every metric that matters on race day.',          cost:450,  racePct:0.01                         },
+  {id:'power_meter',  icon:'🔋', name:'Power Meter',            desc:'Precision training. Stages or Favero-level accuracy for every session.',   cost:650,  trainPct:0.05                        },
+  {id:'coach',        icon:'👨‍🏫', name:'Hire a Coach',          desc:'Two intensive days of race tactics, periodisation, and structured sessions.', cost:900,  trainPct:0.10, durationDays:2  },
+  {id:'wind_tunnel',  icon:'🌀', name:'Wind Tunnel Session',    desc:'Two days racing with a dialled-in aero position.',                          cost:1200, racePct:0.03, durationDays:2   },
+  {id:'altitude',     icon:'⛰️', name:'Altitude Training Camp', desc:'Four days at altitude. Significant haematological adaptation.',            cost:2800, trainPct:0.30, durationDays:4  },
+  {id:'recovery',     icon:'🛏️', name:'Recovery Suite',        desc:'Massage gun and compression boots. Recover deeper, train more.',            cost:5000, maxEnergy:10                          },
+  {id:'pro_team',     icon:'🏆', name:'Join a Pro Team',        desc:'Full team support, mechanic, and DS in your ear on every climb.',          cost:20000,racePct:0.02,  trainPct:0.05         },
 ];
 
 // ─── DAILY TASKS (Growth tab) ───────────────────────────────
@@ -1816,13 +1829,16 @@ const DAILY_TASKS = [
 ];
 
 // ─── SPONSORSHIP (Sponsors tab) ─────────────────────────────
-// Unlocked by lifetime race wins. Each tier offers a CHOICE of sponsors; once signed,
-// you're locked in until your win total qualifies you for the next tier (you can then
-// choose to upgrade, which replaces your current sponsor and resets weekly progress).
+// Unlocked by RACE CATEGORY — one new tier every promotion, so sponsorship
+// visibly improves as the rider climbs (minCategory is an index into
+// RACE_CATEGORIES; see getCurrentSponsorTierIndex). Each tier offers a CHOICE
+// of sponsors; once signed, you're locked in until your category qualifies
+// you for the next tier (you can then choose to upgrade, which replaces your
+// current sponsor and resets weekly progress).
 // Objective "type" keys map to weekly counters tracked in state.sponsor.progress:
 //   win_races | enter_races | podiums | sessions | prize_money
 const SPONSOR_TIERS = [
-  { tier:1, winsRequired:10, label:'Local', sponsors:[
+  { tier:1, minCategory:1, label:'Local', sponsors:[
     { id:'daves_cycle', name:"Dave's Cycle Shop", icon:'🚲', color:'amber',
       tagline:'Your neighbourhood bike shop wants to back a rising local talent.',
       objectives:[
@@ -1838,7 +1854,23 @@ const SPONSOR_TIERS = [
         {id:'prize',  icon:'💷', label:'Earn £100 Prize Money', type:'prize_money', target:100, reward:30},
       ], weeklyBonus:50 },
   ]},
-  { tier:2, winsRequired:25, label:'Regional', sponsors:[
+  { tier:2, minCategory:2, label:'Club', sponsors:[
+    { id:'chainring_brewery', name:'Chainring Brewing Co', icon:'🍺', color:'amber',
+      tagline:'The local brewery sponsors the club run — now they want their name on a real contender.',
+      objectives:[
+        {id:'enter',    icon:'🏁', label:'Enter 4 Races',                 type:'enter_races', target:4, reward:60},
+        {id:'win',      icon:'🥇', label:'Win 1 Race',                    type:'win_races',   target:1, reward:80},
+        {id:'sessions', icon:'🚴', label:'Complete 6 Training Sessions',  type:'sessions',    target:6, reward:60},
+      ], weeklyBonus:100 },
+    { id:'wheelworks', name:'WheelWorks Service Centre', icon:'🔧', color:'blue',
+      tagline:"The region's best-known workshop wants a rider whose results they can point at.",
+      objectives:[
+        {id:'podium', icon:'🥉', label:'Podium 2 Times',        type:'podiums',     target:2,   reward:80},
+        {id:'enter',  icon:'🏁', label:'Enter 5 Races',         type:'enter_races', target:5,   reward:60},
+        {id:'prize',  icon:'💷', label:'Earn £250 Prize Money', type:'prize_money', target:250, reward:60},
+      ], weeklyBonus:100 },
+  ]},
+  { tier:3, minCategory:3, label:'Regional', sponsors:[
     { id:'apex_components', name:'Apex Components', icon:'⚙️', color:'blue',
       tagline:'A regional parts manufacturer wants their logo on your top tube.',
       objectives:[
@@ -1854,7 +1886,7 @@ const SPONSOR_TIERS = [
         {id:'prize',  icon:'💷', label:'Earn £400 Prize Money', type:'prize_money', target:400, reward:120},
       ], weeklyBonus:200 },
   ]},
-  { tier:3, winsRequired:50, label:'National', sponsors:[
+  { tier:4, minCategory:4, label:'National', sponsors:[
     { id:'national_sportswear', name:'National Sportswear Co', icon:'👕', color:'red',
       tagline:'A national clothing brand wants a rider who races hard and races often.',
       objectives:[
@@ -1870,7 +1902,7 @@ const SPONSOR_TIERS = [
         {id:'sessions', icon:'🚴', label:'Complete 10 Training Sessions',type:'sessions',    target:10,   reward:250},
       ], weeklyBonus:500 },
   ]},
-  { tier:4, winsRequired:100, label:'International', sponsors:[
+  { tier:5, minCategory:5, label:'International', sponsors:[
     { id:'global_apparel', name:'Global Cycling Apparel', icon:'🌍', color:'blue',
       tagline:'A global apparel brand wants worldwide exposure from a winning rider.',
       objectives:[
@@ -1886,7 +1918,7 @@ const SPONSOR_TIERS = [
         {id:'sessions', icon:'🚴', label:'Complete 12 Training Sessions',type:'sessions',     target:12,   reward:700},
       ], weeklyBonus:1500 },
   ]},
-  { tier:5, winsRequired:200, label:'WorldTour', sponsors:[
+  { tier:6, minCategory:6, label:'WorldTour', sponsors:[
     { id:'worldtour_syndicate', name:'WorldTour Pro Syndicate', icon:'🏆', color:'amber',
       tagline:'The pinnacle of the sport. A WorldTour team wants you on their roster.',
       objectives:[
@@ -1906,7 +1938,9 @@ const SPONSOR_TIERS = [
 
 // ─── ACHIEVEMENTS ───────────────────────────────────────────
 // reward.type: 'money' (one-time prize) | 'color' (kit color unlock)
-// Passive sponsor income remains EXCLUSIVELY from accessories in the Gear shop.
+// Sponsor income comes from the Sponsors tab's weekly bonus claim (see
+// claimSponsorBonus), not from achievements or Extras — accessories affect
+// training effect, race-day performance, watts and max energy instead.
 // progress(s): fn returning a string for count-based achievements, null for binary
 const ACHIEVEMENTS = [
   {id:'first_race',   icon:'🏁', name:'First Race',        desc:'Complete your first race.',
@@ -2078,6 +2112,7 @@ const state = {
   season:1, seasonsCompleted:0, prestigeMult:1,
   energy:DAILY_ENERGY, maxEnergy:DAILY_ENERGY, lastEnergyReset:0,
   boughtUpgrades: new Set(),
+  activeBoosts: {}, // timed Extras (coach/altitude/wind tunnel) — id -> expiry timestamp ms
   ownedBikes:   new Set(['starter']),
   ownedWheels:  new Set(['training']),
   ownedKits:    new Set(['club_jersey']),
@@ -2160,7 +2195,7 @@ const state = {
   // Capped at 90 entries to keep the save file lean. Each entry: {ts, ftp, pwkg, weight}
   ftpHistory: [],
 };
-const D = { sponsorPerSec:0, sessionMult:1, legacyPrizeMult:1 };
+const D = { sponsorPerSec:0, sessionMult:1, legacyPrizeMult:1, trainingBoostPct:0, raceDayPct:0, accessoryWatts:0 };
 
 // ═══════════════════════════════════════════════════════════
 // DERIVED STATS
@@ -2215,19 +2250,37 @@ function getEquipmentBonusForRace(raceTypeId){
   let bonus = Math.round(totalAero * w.aero + totalClimb * w.climb);
   // Climber passive: +10w on hill climbs from better weight-distribution intuition
   if(state.specialisation==='climber' && raceTypeId==='hill') bonus += 10;
+  // Extras (Accessories) that grant flat watts (e.g. Clipless Pedals, Bike Fit)
+  // apply equally across every race type — added here, in the single function
+  // every scoring AND display call site shares, so the Rider tab's "Race Bonus"
+  // stat and the race-card preview always agree with what racing actually scores.
+  bonus += (D.accessoryWatts||0);
   return bonus;
 }
 
 function recalc(){
-  let sp=0;
-  for (const id of state.boughtUpgrades){
-    const u=ACCESSORIES.find(u=>u.id===id); if(!u) continue;
-    sp += (u.sponsorPerSec||0);
-  }
-  // Passive sponsor income comes exclusively from accessories purchased in the Gear shop.
-  // Achievement rewards are one-time prize money bonuses, not passive income.
-  D.sponsorPerSec = sp * state.prestigeMult;
-  D.sessionMult   = 1 + state.attributes.threshold.level * 0.08;
+  // Extras (Accessories) — sum bonuses from every accessory currently
+  // "active": permanent ones the player owns (boughtUpgrades), plus timed
+  // ones with a live, unexpired entry in state.activeBoosts. A timed item is
+  // simply never added to boughtUpgrades, so one loop covers both cleanly.
+  let trainPct=0, racePct=0, watts=0;
+  const now=Date.now();
+  ACCESSORIES.forEach(u=>{
+    const active = u.durationDays ? (state.activeBoosts[u.id]||0) > now : state.boughtUpgrades.has(u.id);
+    if(!active) return;
+    trainPct += (u.trainPct||0);
+    racePct  += (u.racePct||0);
+    watts    += (u.watts||0);
+  });
+  D.trainingBoostPct = trainPct;
+  D.raceDayPct = racePct;
+  D.accessoryWatts = watts;
+  // Retired — no accessory ever actually granted passive sponsor income
+  // (every entry was sponsorPerSec:0), so this always evaluated to 0 despite
+  // the misleading comment that used to sit here. D.sponsorPerSec stays
+  // defined at 0 since the offline-earnings tick still reads it.
+  D.sponsorPerSec = 0;
+  D.sessionMult   = (1 + state.attributes.threshold.level * 0.08) * (1 + trainPct);
   // Lifetime Goal perks — each track's tier-3 grants a small permanent boost to
   // race prize money, stacking across tracks. Read from claimedGoalTiers so it
   // survives prestige and reload with no separate state needed. Max +12% if
@@ -2667,6 +2720,10 @@ function simulateRaceResult(raceTypeId){
   // are transparent in the race card badges.
   const weatherMult=getWeatherScoreMult(raceTypeId);
   playerScore*=weatherMult;
+  // Extras (Accessories) race-day % — Cycling Computer, Wind Tunnel Session,
+  // Pro Team. Applied last, after weight and weather, so it's a clean overall
+  // performance boost on top of everything else the race conditions already did.
+  playerScore*=(1+(D.raceDayPct||0));
   recalibrateRivalIfNeeded();
   const fieldSize =Math.floor(Math.random()*(cat.fieldMax-cat.fieldMin+1))+cat.fieldMin;
   // Build the AI field. Slot 0 is always the named rival — a fixed FTP basis
@@ -2857,7 +2914,12 @@ function checkCategoryPromotion(){
     // Ranks" Lifetime Goal — it only ever goes up, across the whole career.
     state.highestCategoryReached=Math.max(state.highestCategoryReached||0, state.raceCategory);
     const newCat=RACE_CATEGORIES[state.raceCategory];
-    enqueueCeremony({type:'promotion', oldCat, newCat});
+    // Does this promotion cross a sponsor-tier boundary? Every promotion does
+    // under the current 1:1 mapping (minCategory 1-6 vs RACE_CATEGORIES 1-6),
+    // but this stays a real lookup rather than an assumption, so the ceremony
+    // stays correct even if the tier ladder is ever rebalanced later.
+    const unlockedTier=SPONSOR_TIERS.find(t=>t.minCategory===state.raceCategory);
+    enqueueCeremony({type:'promotion', oldCat, newCat, sponsorTierUnlocked: unlockedTier?unlockedTier.label:null});
     ensureCalendarSeasonStarted();
     updateCalendarBadge();
   }
@@ -2967,12 +3029,13 @@ function ordinal(n){ const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%1
 // ═══════════════════════════════════════════════════════════
 function totalWins(){ return Object.values(state.raceWinsByType).reduce((a,b)=>a+b,0); }
 
-// Highest tier index the player's SEASON win count qualifies for, or -1 if none
-// yet. Deliberately uses winsSincePrestige, not totalWins() (lifetime) — sponsor
-// access re-locks every prestige, same spirit as the FTP reset.
+// Highest tier index the player's CATEGORY qualifies for, or -1 if none yet.
+// Deliberately uses state.raceCategory, which resets to 0 every prestige, so
+// sponsor access re-locks each season — same spirit the old winsSincePrestige
+// gate had, now driven by category instead of win count.
 function getCurrentSponsorTierIndex(){
   let idx=-1;
-  SPONSOR_TIERS.forEach((t,i)=>{ if((state.winsSincePrestige||0)>=t.winsRequired) idx=i; });
+  SPONSOR_TIERS.forEach((t,i)=>{ if(state.raceCategory>=t.minCategory) idx=i; });
   return idx;
 }
 
@@ -3367,6 +3430,8 @@ function simulateCalendarEventResult(eventId){
   }
   const weightFactor=getWeightFactorForRace(ev.raceTypeId);
   playerScore*=weightFactor;
+  // Extras (Accessories) race-day % — same bonus as normal races.
+  playerScore*=(1+(D.raceDayPct||0));
 
   // Fixed elite AI band per tier, independent of the player's own race category —
   // these are invitational fields of specialists, not a reflection of player rank.
@@ -3451,6 +3516,8 @@ function simulateGrandTourStageResult(tourId, stageIndex){
   const idealPwr=4.5;
   const weightFactor=1+((pwr-idealPwr)/idealPwr)*stage.weightSensitivity*0.5;
   playerScore*=Math.max(0.5,Math.min(1.5,weightFactor));
+  // Extras (Accessories) race-day % — same bonus as normal races and calendar events.
+  playerScore*=(1+(D.raceDayPct||0));
 
   // Fixed elite AI band, same tier convention as other Pro calendar events —
   // Grand Tours are all 'pro' tier invitational fields of specialists.
@@ -3560,9 +3627,31 @@ function equipKitColor(id){
 }
 function buyAccessory(id){
   const u=ACCESSORIES.find(u=>u.id===id);
-  if(!u||state.boughtUpgrades.has(id)||state.money<u.cost) return;
-  state.money-=u.cost; state.boughtUpgrades.add(id); recalc(); updateUI(); saveGame();
-  const b=[]; if(u.sponsorPerSec) b.push(`+£${u.sponsorPerSec}/s`);
+  if(!u||state.money<u.cost) return;
+  if(u.durationDays){
+    // Timed, repeatable extras: buying again while still active EXTENDS from
+    // the current expiry (not from now), so an early top-up never wastes any
+    // already-paid-for time.
+    const base=Math.max(Date.now(), state.activeBoosts[id]||0);
+    state.activeBoosts[id]=base+u.durationDays*86400000;
+    state.money-=u.cost;
+  } else {
+    if(state.boughtUpgrades.has(id)) return; // permanent — one-time only
+    state.money-=u.cost; state.boughtUpgrades.add(id);
+    // maxEnergy items (e.g. Recovery Suite) permanently raise the daily cap,
+    // same mechanism prestige uses — plus a capped immediate top-up so the
+    // purchase feels like something rather than only paying off tomorrow.
+    if(u.maxEnergy){
+      state.maxEnergy+=u.maxEnergy;
+      state.energy=Math.min(MAX_ENERGY_CAP, state.energy+u.maxEnergy);
+    }
+  }
+  recalc(); updateUI(); saveGame();
+  const b=[];
+  if(u.watts) b.push(`+${u.watts}w`);
+  if(u.trainPct) b.push(`+${Math.round(u.trainPct*100)}% training${u.durationDays?` (${u.durationDays}d)`:''}`);
+  if(u.racePct) b.push(`+${Math.round(u.racePct*100)}% race day${u.durationDays?` (${u.durationDays}d)`:''}`);
+  if(u.maxEnergy) b.push(`+${u.maxEnergy} max energy`);
   showToast(`${u.icon} ${u.name}${b.length?' · '+b.join(', '):''}`);
 }
 // Regenerates today's price/offer/benefit rolls if the stored market is from a
@@ -4100,8 +4189,11 @@ function renderWinCeremony({raceTypeName, catName, prize, rivalBeatText}){
   else document.getElementById('ceremony-money-val').textContent='No prize this time';
 }
 
-function renderPromotionCeremony({oldCat, newCat}){
+function renderPromotionCeremony({oldCat, newCat, sponsorTierUnlocked}){
   const card=document.getElementById('ceremony-card');
+  const sponsorHtml=sponsorTierUnlocked
+    ? `<div class="ceremony-subtitle" style="color:var(--green-txt);font-weight:700">📣 New sponsorship offers: ${sponsorTierUnlocked} tier — check the Sponsors tab!</div>`
+    : '';
   card.innerHTML=`
     <div class="ceremony-eyebrow">🎉 Category Promotion</div>
     <div class="ceremony-cat-flow">
@@ -4111,6 +4203,7 @@ function renderPromotionCeremony({oldCat, newCat}){
     </div>
     <div class="ceremony-title">Promoted!</div>
     <div class="ceremony-subtitle">You're racing in <strong>${newCat.name}</strong> now</div>
+    ${sponsorHtml}
     <button class="ceremony-btn" onclick="dismissCeremony(event)">Let's go! 🚀</button>
   `;
 }
@@ -4232,7 +4325,23 @@ function updateHeader(){
 // ═══════════════════════════════════════════════════════════
 // TRAIN TAB
 // ═══════════════════════════════════════════════════════════
-function renderTrainTab(){ renderEnergyCard(); renderWeightCard(); renderAttrRow(); renderActiveSession(); renderSessionList(); }
+function renderTrainTab(){ renderActiveBoostsPill(); renderEnergyCard(); renderWeightCard(); renderAttrRow(); renderActiveSession(); renderSessionList(); }
+
+// A single compact line above the session list when any TIMED Extra (coach,
+// altitude, wind tunnel) is currently active — reuses .gain-badge, the same
+// pill style already used for XP gain tags elsewhere, so no new CSS is needed.
+// Renders nothing at all when no timed boost is active (the common case).
+function renderActiveBoostsPill(){
+  const wrap=document.getElementById('boost-pill-wrap'); if(!wrap) return;
+  const now=Date.now();
+  const active=ACCESSORIES.filter(u=>u.durationDays && (state.activeBoosts[u.id]||0)>now);
+  if(!active.length){ wrap.innerHTML=''; return; }
+  const pills=active.map(u=>{
+    const pct = u.trainPct ? `+${Math.round(u.trainPct*100)}% training` : `+${Math.round((u.racePct||0)*100)}% race day`;
+    return `<span class="gain-badge">${u.icon} ${pct}</span>`;
+  }).join(' ');
+  wrap.innerHTML=`<div style="margin-bottom:.5rem;display:flex;gap:6px;flex-wrap:wrap">${pills}</div>`;
+}
 
 function renderEnergyCard(){
   const wrap=document.getElementById('energy-card-wrap');
@@ -5457,20 +5566,55 @@ function renderEnergyItems(){
   });
 }
 
+// Formats a remaining-time string for an active timed Extra, e.g. "1d 7h left"
+// or "42m left" once under an hour. Rounds UP to the minute so it never shows
+// 0 while genuinely still active.
+function fmtBoostRemaining(ms){
+  if(ms<=0) return '';
+  const totalMin=Math.ceil(ms/60000);
+  const days=Math.floor(totalMin/1440);
+  const hours=Math.floor((totalMin%1440)/60);
+  if(days>0) return `${days}d ${hours}h left`;
+  if(hours>0) return `${hours}h ${totalMin%60}m left`;
+  return `${totalMin}m left`;
+}
+
 function renderAccessoryShop(){
   const list=document.getElementById('gear-section-accessories'); list.innerHTML='';
-  const h2=document.createElement('div'); h2.className='section-lbl'; h2.textContent='Accessories — sponsorship boosters'; list.appendChild(h2);
+  const h2=document.createElement('div'); h2.className='section-lbl'; h2.textContent='Extras — marginal gains'; list.appendChild(h2);
+  const now=Date.now();
   ACCESSORIES.forEach(u=>{
-    const bought=state.boughtUpgrades.has(u.id), afford=state.money>=u.cost;
-    const cls=bought?'bought':afford?'affordable':'locked';
-    const b=[]; if(u.sponsorPerSec) b.push(`+£${u.sponsorPerSec}/s sponsorship`);
-    const costHtml=bought?`<div class="upgrade-cost-val done">✓ Owned</div>`
-      :`<div class="upgrade-cost-val ${afford?'affordable':''}">${fmtMoney(u.cost)}</div><div class="upg-bar-wrap"><div class="upg-bar" style="width:${Math.round(Math.min(1,state.money/u.cost)*100)}%"></div></div>`;
+    const isTimed=!!u.durationDays;
+    const expiry=state.activeBoosts[u.id]||0;
+    const active=isTimed && expiry>now;
+    const bought=!isTimed && state.boughtUpgrades.has(u.id);
+    const afford=state.money>=u.cost;
+    const cls = bought ? 'bought' : active ? 'affordable' : afford ? 'affordable' : 'locked';
+    // Benefit line built from the real effect fields — replaces the old
+    // sponsorPerSec line, which was always empty since every entry was 0.
+    const b=[];
+    if(u.watts)    b.push(`+${u.watts}w`);
+    if(u.trainPct) b.push(`+${Math.round(u.trainPct*100)}% training${isTimed?` (${u.durationDays}d)`:''}`);
+    if(u.racePct)  b.push(`+${Math.round(u.racePct*100)}% race day${isTimed?` (${u.durationDays}d)`:''}`);
+    if(u.maxEnergy)b.push(`+${u.maxEnergy} max energy`);
+
+    let costHtml, clickable=false;
+    if(bought){
+      costHtml=`<div class="upgrade-cost-val done">✓ Owned</div>`;
+    } else if(active){
+      costHtml=`<div class="upgrade-cost-val done">⏳ ${fmtBoostRemaining(expiry-now)}</div>`+
+        (afford?`<div style="font-size:10px;color:var(--txt2);margin-top:2px">Tap to extend +${u.durationDays}d · ${fmtMoney(u.cost)}</div>`:'');
+      clickable=afford;
+    } else {
+      costHtml=`<div class="upgrade-cost-val ${afford?'affordable':''}">${fmtMoney(u.cost)}</div><div class="upg-bar-wrap"><div class="upg-bar" style="width:${Math.round(Math.min(1,state.money/u.cost)*100)}%"></div></div>`;
+      clickable=afford;
+    }
+    const repeatTag=isTimed?` <span style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase">· repeatable</span>`:'';
     const div=document.createElement('div'); div.className=`upgrade-card ${cls}`;
     div.innerHTML=`<div class="upgrade-icon">${u.icon}</div>
-      <div class="upgrade-info"><div class="upgrade-name">${u.name}</div><div class="upgrade-desc">${u.desc}</div><div class="upgrade-benefit">${b.join(' · ')}</div></div>
+      <div class="upgrade-info"><div class="upgrade-name">${u.name}${repeatTag}</div><div class="upgrade-desc">${u.desc}</div><div class="upgrade-benefit">${b.join(' · ')}</div></div>
       <div class="upgrade-cost-col">${costHtml}</div>`;
-    if(!bought&&afford) div.addEventListener('click',()=>buyAccessory(u.id));
+    if(clickable) div.addEventListener('click',()=>buyAccessory(u.id));
     list.appendChild(div);
   });
 }
@@ -5589,7 +5733,7 @@ function setSponsorViewMode(mode){ sponsorViewMode=mode; renderSponsorsTab(); }
 
 function renderSponsorsTab(){
   const wrap=document.getElementById('sponsors-content'); if(!wrap) return;
-  const wins=state.winsSincePrestige||0, tierIdx=getCurrentSponsorTierIndex();
+  const tierIdx=getCurrentSponsorTierIndex();
 
   // ── Termination cooldown ──────────────────────────────────────
   const terminateMsLeft=getSponsorTerminateCooldownRemaining();
@@ -5609,14 +5753,13 @@ function renderSponsorsTab(){
 
   // ── Not yet eligible ────────────────────────────────────────
   if(tierIdx<0){
-    const need=SPONSOR_TIERS[0].winsRequired;
-    const pct=Math.min(100,Math.round(wins/need*100));
+    const firstTierCat=RACE_CATEGORIES[SPONSOR_TIERS[0].minCategory];
+    const curCat=RACE_CATEGORIES[state.raceCategory];
     wrap.innerHTML=`<div class="lifetime-placeholder">
       <div class="lifetime-placeholder-icon">🔒</div>
       <strong style="color:var(--txt2)">Sponsorship Locked</strong><br><br>
-      Win races to attract sponsor attention. Your first local sponsorship unlocks at <strong>${need} wins</strong>.
-      <div class="cat-bar-outer" style="margin-top:1rem"><div class="cat-bar-inner" style="width:${pct}%;background:var(--amber-txt)"></div></div>
-      <div style="margin-top:.4rem;font-size:12px;color:var(--txt3)">${wins} / ${need} wins</div>
+      Sponsors want to see you racing competitively first. Get promoted to <strong>${firstTierCat.name}</strong> to attract your first local sponsorship offers.
+      <div style="margin-top:.75rem;font-size:12px;color:var(--txt3)">Currently racing: <strong style="color:var(--txt2)">${curCat.name}</strong></div>
     </div>`;
     return;
   }
@@ -5640,15 +5783,14 @@ function renderSponsorsTab(){
   renderActiveSponsorView(wrap, activeInfo, upgradeAvailable, tierIdx);
 }
 
-function sponsorLockedCardHtml(wins){
-  const need=SPONSOR_TIERS[0].winsRequired;
-  const pct=Math.min(100,Math.round(wins/need*100));
+function sponsorLockedCardHtml(){
+  const firstTierCat=RACE_CATEGORIES[SPONSOR_TIERS[0].minCategory];
+  const curCat=RACE_CATEGORIES[state.raceCategory];
   return `<div class="lifetime-placeholder">
     <div class="lifetime-placeholder-icon">🔒</div>
     <strong style="color:var(--txt2)">Sponsorship Locked</strong><br><br>
-    Win races to attract sponsor attention. Your first local sponsorship opportunity unlocks at <strong>${need} wins</strong>.
-    <div class="cat-bar-outer" style="margin-top:1rem"><div class="cat-bar-inner" style="width:${pct}%;background:var(--amber-txt)"></div></div>
-    <div style="margin-top:.4rem;font-size:12px;color:var(--txt3)">${wins} / ${need} wins</div>
+    Sponsors want to see you racing competitively first. Get promoted to <strong>${firstTierCat.name}</strong> to attract your first local sponsorship offers.
+    <div style="margin-top:.75rem;font-size:12px;color:var(--txt3)">Currently racing: <strong style="color:var(--txt2)">${curCat.name}</strong></div>
   </div>`;
 }
 
@@ -6050,7 +6192,7 @@ function saveGame(){
       onboarding:state.onboarding,
       season:state.season, seasonsCompleted:state.seasonsCompleted, prestigeMult:state.prestigeMult,
       energy:state.energy, maxEnergy:state.maxEnergy, lastEnergyReset:state.lastEnergyReset,
-      bought:[...state.boughtUpgrades], attributes:attrs,
+      bought:[...state.boughtUpgrades], activeBoosts:state.activeBoosts, attributes:attrs,
       trainCooldowns:state.trainCooldowns, raceCooldowns:state.raceCooldowns,
       raceCategory:state.raceCategory, categoryPoints:state.categoryPoints,
       rival:state.rival,
@@ -6105,7 +6247,7 @@ function loadGame(){
     state.onboarding = d.onboarding || {step:0, done:true};
     state.season=d.season||1; state.seasonsCompleted=d.seasonsCompleted||0; state.prestigeMult=d.prestigeMult||1;
     state.energy=d.energy??DAILY_ENERGY; state.maxEnergy=d.maxEnergy||DAILY_ENERGY; state.lastEnergyReset=d.lastEnergyReset||0;
-    state.boughtUpgrades=new Set(d.bought||[]); state.trainCooldowns=d.trainCooldowns||{}; state.raceCooldowns=d.raceCooldowns||{};
+    state.boughtUpgrades=new Set(d.bought||[]); state.activeBoosts=d.activeBoosts||{}; state.trainCooldowns=d.trainCooldowns||{}; state.raceCooldowns=d.raceCooldowns||{};
     state.raceCategory=d.raceCategory||0; state.categoryPoints=d.categoryPoints||0;
     state.rival = d.rival || { name:null, ftp:0, categoryIndexAtAssignment:-1, wins:0, losses:0, firstWinAchieved:false };
     state.raceHistory=d.raceHistory||[]; state.lastRaceResult=d.lastRaceResult||null; state._lastSavedAt=d.lastSavedAt||0;
@@ -6430,6 +6572,12 @@ setInterval(gameTick,100);
 setInterval(saveGame,15000);
 setInterval(()=>{
   checkDailyReset();
+  // Timed Extras (coach/altitude/wind tunnel) are read live from
+  // state.activeBoosts inside recalc() — without a periodic call here, a
+  // boost's bonus would only actually disappear the next time SOME other
+  // action happened to call recalc() (buying gear, levelling up, etc.),
+  // which could be a long time after it truly expired.
+  recalc();
   // Keep the Race tab's course cards + rotation countdown accurate to the
   // minute while the player is looking at it. Guarded on !raceActive so a
   // live race in progress is never re-rendered out from under the player.
