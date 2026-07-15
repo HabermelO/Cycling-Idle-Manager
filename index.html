@@ -6054,6 +6054,7 @@ function renderCalendarTab(){
 // This renders stage progress, the running GC total, and the correct daily action
 // (race next stage / come back tomorrow / forfeited), routing to startGrandTourStage.
 function grandTourCardHtml(ev, mode){
+  if(!state.calendar.tourProgress) state.calendar.tourProgress = {};
   const stages = GRAND_TOUR_STAGES[ev.id] || [];
   const tp = state.calendar.tourProgress[ev.id];
   const doneCount = tp ? tp.stageResults.length : 0;
@@ -6329,6 +6330,7 @@ function loadGame(){
       signups:          d.calendar?.signups   || [],
       completed:        d.calendar?.completed || {},
       history:          d.calendar?.history   || [],
+      tourProgress:     d.calendar?.tourProgress || {},
     };
     state.ftpHistory = Array.isArray(d.ftpHistory) ? d.ftpHistory : [];
     state.loginStreak          = d.loginStreak          || 0;
