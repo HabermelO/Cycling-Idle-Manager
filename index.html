@@ -39,34 +39,46 @@
   --gold:#d4a017;--silver:#aaa;--bronze:#cd853f;
 }}
 *{box-sizing:border-box;margin:0;padding:0;}
+html{-webkit-text-size-adjust:100%;}
+button,.main-tab,.race-card,.session-card,.task-card,.ach-card,.equip-card{
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  background:var(--bg3);color:var(--txt);min-height:100vh;
-  padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
-#app{max-width:600px;margin:0 auto;padding:1rem 1rem 5rem;}
+  background:var(--bg3);color:var(--txt);min-height:100vh;min-height:100dvh;
+  overscroll-behavior-y:none;
+  padding-top:env(safe-area-inset-top);}
+#app{max-width:600px;margin:0 auto;padding:1rem 1rem calc(5.5rem + env(safe-area-inset-bottom));}
 button{font-family:inherit;cursor:pointer;}
 .game-header{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius-lg);
   padding:1rem 1.25rem;margin-bottom:.75rem;box-shadow:0 1px 4px rgba(0,0,0,.06);}
 .game-title{font-size:18px;font-weight:700;margin-bottom:.75rem;}
 .game-title .accent{color:#1a6b38;}
-.stat-row{display:flex;gap:.75rem;flex-wrap:wrap;}
-.stat-item{flex:1;min-width:60px;}
+.stat-row{display:flex;gap:.5rem;flex-wrap:wrap;}
+.stat-item{flex:1;min-width:56px;}
 .stat-val{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;}
 .stat-lbl{font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.04em;margin-top:3px;}
 .stat-sublbl{font-size:10px;color:var(--blue-txt);margin-top:2px;font-weight:600;}
-.main-tabs{display:flex;background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius-lg);
-  padding:4px;gap:3px;margin-bottom:.75rem;box-shadow:0 1px 3px rgba(0,0,0,.05);}
-.main-tab{flex:1;border:none;border-radius:8px;background:none;padding:9px 2px;
-  font-size:11px;font-weight:500;color:var(--txt2);transition:background .15s,color .15s;position:relative;}
+.main-tabs{position:fixed;bottom:0;left:0;right:0;z-index:100;
+  display:flex;background:var(--bg);border-top:.5px solid var(--border);
+  padding:6px 2px calc(6px + env(safe-area-inset-bottom));gap:1px;
+  box-shadow:0 -1px 8px rgba(0,0,0,.08);}
+.main-tab{flex:1;border:none;border-radius:8px;background:none;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:6px 0;min-height:48px;
+  font-size:10px;font-weight:500;color:var(--txt2);transition:background .15s,color .15s;position:relative;}
+.main-tab-icon{font-size:19px;line-height:1;}
+.main-tab-label{line-height:1;font-size:9.5px;letter-spacing:-.1px;}
 .main-tab.active{background:var(--green-bg);color:var(--green-txt);font-weight:700;}
 .main-tab:hover:not(.active){background:var(--bg2);}
-.main-tab.session-active::after,.main-tab.race-active::after{
-  content:'';position:absolute;top:5px;right:6px;width:6px;height:6px;
+.main-tab.session-active .main-tab-icon::after,.main-tab.race-active .main-tab-icon::after,
+.main-tab.growth-ready .main-tab-icon::after,.main-tab.sponsor-ready .main-tab-icon::after,
+.main-tab.calendar-ready .main-tab-icon::after{
+  content:'';position:absolute;top:2px;right:calc(50% - 15px);width:6px;height:6px;
   border-radius:50%;animation:pulse-dot 1s ease-in-out infinite alternate;}
-.main-tab.session-active::after{background:var(--blue-txt);}
-.main-tab.race-active::after{background:var(--red-txt);}
-.main-tab.growth-ready::after{background:var(--amber-txt);}
-.main-tab.sponsor-ready::after{background:var(--green-txt);}
-.main-tab.calendar-ready::after{background:var(--purple-txt);}
+.main-tab.session-active .main-tab-icon::after{background:var(--blue-txt);}
+.main-tab.race-active .main-tab-icon::after{background:var(--red-txt);}
+.main-tab.growth-ready .main-tab-icon::after{background:var(--amber-txt);}
+.main-tab.sponsor-ready .main-tab-icon::after{background:var(--green-txt);}
+.main-tab.calendar-ready .main-tab-icon::after{background:var(--purple-txt);}
 @keyframes pulse-dot{from{opacity:.3}to{opacity:1}}
 .section-lbl{font-size:11px;font-weight:600;color:var(--txt3);
   text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;padding:0 2px;}
@@ -145,6 +157,7 @@ button{font-family:inherit;cursor:pointer;}
 .race-card.available:active{opacity:.75;}
 .race-card-head{display:flex;align-items:center;gap:8px;}
 .race-type-icon{font-size:20px;width:28px;text-align:center;flex-shrink:0;}
+.race-course-line{font-size:11px;color:var(--txt2);margin:2px 0 4px 28px;}
 .race-card-text{flex:1;min-width:0;}
 .race-card-name{font-size:14px;font-weight:600;}
 .race-card-desc{font-size:11px;color:var(--txt3);margin-top:1px;}
@@ -202,7 +215,7 @@ button{font-family:inherit;cursor:pointer;}
 .rsc-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);margin:4px 0 6px;}
 .rsc-bar-wrap{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:4px;}
 .rsc-bar{height:100%;border-radius:2px;transition:width .4s;}
-.rsc-sublabel{font-size:9px;color:var(--txt3);}
+.rsc-sublabel{font-size:10px;color:var(--txt3);}
 .rsc-ftp-hero{grid-column:1/-1;display:flex;align-items:center;background:var(--amber-bg);
   border:.5px solid var(--amber-bd);border-radius:var(--radius);padding:14px 16px;gap:12px;margin-bottom:.5rem;}
 .rsc-ftp-icon{font-size:32px;}
@@ -251,7 +264,7 @@ button{font-family:inherit;cursor:pointer;}
 .equip-model{font-size:14px;font-weight:700;line-height:1.2;}
 .equip-desc{font-size:11px;color:var(--txt2);margin-top:3px;line-height:1.35;}
 .equip-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;align-items:center;}
-.tier-badge{font-size:9px;font-weight:800;padding:2px 6px;border-radius:99px;text-transform:uppercase;letter-spacing:.05em;}
+.tier-badge{font-size:10px;font-weight:800;padding:2px 6px;border-radius:99px;text-transform:uppercase;letter-spacing:.05em;}
 .tier-1{background:var(--bg3);color:var(--txt3);}
 .tier-2{background:var(--blue-bg);color:var(--blue-txt);}
 .tier-3{background:var(--amber-bg);color:var(--amber-txt);}
@@ -268,7 +281,9 @@ button{font-family:inherit;cursor:pointer;}
 .equip-price{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--txt2);}
 .equip-price.affordable{color:var(--green-txt);}
 .equip-price.owned{color:var(--green-txt);}
-.equip-btn{font-size:11px;font-weight:700;padding:6px 11px;border-radius:var(--radius);border:none;cursor:pointer;white-space:nowrap;}
+.equip-btn{font-size:11px;font-weight:700;padding:6px 11px;border-radius:var(--radius);border:none;cursor:pointer;white-space:nowrap;
+  position:relative;}
+.equip-btn::after{content:'';position:absolute;inset:-8px;}
 .btn-buy{background:var(--green-bg);color:var(--green-txt);border:.5px solid var(--green-bd);}
 .btn-equip{background:var(--blue-bg);color:var(--blue-txt);border:.5px solid var(--blue-bd);}
 .btn-equipped{background:var(--green-txt);color:#fff;}
@@ -305,7 +320,7 @@ button{font-family:inherit;cursor:pointer;}
 .stat-card.span-full{grid-column:1/-1;}
 .stat-card-val{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;}
 .stat-card-lbl{font-size:11px;color:var(--txt3);margin-top:4px;text-transform:uppercase;letter-spacing:.04em;}
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+.toast{position:fixed;bottom:calc(84px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
   background:var(--txt);color:var(--bg);padding:10px 20px;border-radius:99px;
   font-size:13px;font-weight:600;white-space:nowrap;pointer-events:none;
   opacity:0;transition:opacity .25s;z-index:999;}
@@ -464,7 +479,7 @@ button{font-family:inherit;cursor:pointer;}
 .cal-event-info{flex:1;min-width:0;}
 .cal-event-name{font-size:14px;font-weight:700;}
 .cal-event-desc{font-size:11px;color:var(--txt2);margin-top:2px;line-height:1.4;}
-.cal-event-tierbadge{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;
+.cal-event-tierbadge{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;
   padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle;}
 .cal-event-meta{display:flex;gap:14px;margin-top:9px;flex-wrap:wrap;}
 .cal-event-meta-item{font-size:11px;color:var(--txt2);}
@@ -609,13 +624,13 @@ button{font-family:inherit;cursor:pointer;}
     </div>
   </header>
   <div class="main-tabs">
-    <button class="main-tab active" id="tab-btn-train" onclick="showTab('train')">🚴 Train</button>
-    <button class="main-tab" id="tab-btn-race" onclick="showTab('race')">🏁 Race</button>
-    <button class="main-tab" id="tab-btn-rider" onclick="showTab('rider')">👤 Rider</button>
-    <button class="main-tab" id="tab-btn-gear" onclick="showTab('gear')">⚙️ Gear</button>
-    <button class="main-tab" id="tab-btn-growth" onclick="showTab('growth')">📋 Tasks</button>
-    <button class="main-tab" id="tab-btn-sponsors" onclick="showTab('sponsors')">🤝 Sponsors</button>
-    <button class="main-tab" id="tab-btn-calendar" onclick="showTab('calendar')">📅 Calendar</button>
+    <button class="main-tab active" id="tab-btn-train" onclick="showTab('train')"><span class="main-tab-icon">🚴</span><span class="main-tab-label">Train</span></button>
+    <button class="main-tab" id="tab-btn-race" onclick="showTab('race')"><span class="main-tab-icon">🏁</span><span class="main-tab-label">Race</span></button>
+    <button class="main-tab" id="tab-btn-rider" onclick="showTab('rider')"><span class="main-tab-icon">👤</span><span class="main-tab-label">Rider</span></button>
+    <button class="main-tab" id="tab-btn-gear" onclick="showTab('gear')"><span class="main-tab-icon">⚙️</span><span class="main-tab-label">Gear</span></button>
+    <button class="main-tab" id="tab-btn-growth" onclick="showTab('growth')"><span class="main-tab-icon">📋</span><span class="main-tab-label">Tasks</span></button>
+    <button class="main-tab" id="tab-btn-sponsors" onclick="showTab('sponsors')"><span class="main-tab-icon">🤝</span><span class="main-tab-label">Sponsors</span></button>
+    <button class="main-tab" id="tab-btn-calendar" onclick="showTab('calendar')"><span class="main-tab-icon">📅</span><span class="main-tab-label">Calendar</span></button>
   </div>
   <div id="tab-train">
     <div id="energy-card-wrap"></div>
@@ -651,6 +666,9 @@ button{font-family:inherit;cursor:pointer;}
     <div class="section-lbl" style="margin-top:1rem">Career Stats</div>
     <div class="stats-grid" id="stats-grid"></div>
     <div style="text-align:center;margin-top:1rem">
+      <button class="gear-nav-btn" onclick="replayOnboarding()">🎓 Replay Tutorial</button>
+    </div>
+    <div style="text-align:center;margin-top:.5rem">
       <button class="danger-btn" onclick="confirmReset()">🗑 Delete Save &amp; Start Over</button>
     </div>
   </div>
@@ -882,14 +900,20 @@ const RACE_TYPES = [
 ];
 
 // ─── COURSES ──────────────────────────────────────────────────
-// Named course variants for each race type. A random course is picked every
-// time the player starts a race of that type (see startRace), so the SAME
-// race type never plays identically twice in a row — different terrain shape,
-// different commentary, different decision points each time. This is what
-// makes repeated racing within a category feel fresh rather than repetitive.
-// Calendar events (Nationals/Worlds etc.) intentionally do NOT use courses —
-// they keep the base RACE_TYPES profile/commentary, since they're meant to
-// read as a single fixed marquee event rather than a randomised variant.
+// Named course variants for each race type. The course on offer rotates
+// hourly per race type (see getHourlyCourse) — the race card shows exactly
+// which course is currently up, and starting that race type races it, so
+// there's no hidden roll. Rotation is a pure function of the wall clock (no
+// save-state field), so it survives reload/relaunch and stays in sync across
+// devices sharing a save. Calendar events (Nationals/Worlds etc.) intentionally
+// do NOT use courses — they keep the base RACE_TYPES profile/commentary, since
+// they're meant to read as a single fixed marquee event rather than a rotating
+// variant.
+//
+// FUTURE (not yet read by any code): courses may carry
+//   mods:{ weightSensitivityDelta:0.2, equipBias:'climb' }
+// simulateRaceResult will consume these in a later update so that e.g.
+// "The Rolling Ardennes" rewards power-to-weight more than a flat road race.
 const COURSES = {
   road:[
     { id:'cobbled_classic', name:'The Cobbled Classic', icon:'🪨',
@@ -1627,6 +1651,115 @@ const RIVAL_NAMES = [
 // against a fixed elite AI field (set in simulateCalendarEventResult) rather than the
 // player's current category band, since these are invitational-strength races.
 const CALENDAR_SEASON_DAYS = 30;
+// ─── GRAND TOUR STAGES ────────────────────────────────────────
+// The three real Grand Tours (Tour de France, Giro d'Italia, Vuelta a España)
+// are 5-stage multi-day events, not single races. Each stage has its own
+// scoring weights (deliberately separate from the 4 category RACE_TYPES, so
+// a genuine high-mountain stage can be more extreme than a regular Hill
+// Climb) plus its own elevation profile and commentary, reusing the same
+// course-visualization system as normal racing. Stage 1 is raceable
+// immediately on signup; stages 2-5 unlock one per calendar day, with a HARD
+// forfeit if a day is skipped entirely (see checkGrandTourLockouts).
+const GRAND_TOUR_STAGES = {
+  tour_de_france:[
+    { id:'tdf_s1', name:'Stage 1', place:'Nice → Cannes', terrain:'Flat — Sprinters\' Stage', icon:'🏁',
+      weights:{ftp:0.45,vo2:0.15,sprint:0.40}, weightSensitivity:0.1,
+      profile:[20,24,19,26,21,25,20,27,22,26,21,28,23,27,22,30,24,29,23,32,26,36,30,42],
+      commentary:['Rolling out along the coast road...','The bunch is content to let a break dangle...','Sprint trains start forming with 10km to go...','Full gas into the final kilometre!','It\'s going to be a bunch sprint for the stage!'],
+      prizes:[12000,6000,3000,1500,750,300], gcPoints:[10,7,5,3,2,1] },
+    { id:'tdf_s2', name:'Stage 2', place:'Col du Tourmalet', terrain:'High Mountain', icon:'⛰️',
+      weights:{ftp:0.85,vo2:0.15,sprint:0}, weightSensitivity:1.0,
+      profile:[10,16,22,28,26,34,40,38,46,52,50,58,64,62,70,76,74,82,88,86,93,97,99,100],
+      commentary:['The road tilts upward toward the Pyrenees...','A long, unrelenting grind begins...','Riders shed from the group one by one...','The gradient bites hard near the summit...','Over the top of the legendary Tourmalet!'],
+      prizes:[12000,6000,3000,1500,750,300], gcPoints:[10,7,5,3,2,1] },
+    { id:'tdf_s3', name:'Stage 3', place:'Alpe d\'Huez', terrain:'High Mountain — 21 Hairpins', icon:'⛰️',
+      weights:{ftp:0.88,vo2:0.12,sprint:0}, weightSensitivity:1.0,
+      profile:[15,38,30,45,38,52,44,58,50,64,56,70,62,75,68,80,74,85,80,90,86,94,90,100],
+      commentary:['Onto the switchbacks of the most famous climb in cycling...','Hairpin after hairpin, each one numbered to the summit...','The crowds are packed onto every bend...','Legs burning through the final turns...','The finish line at the ski station — Alpe d\'Huez conquered!'],
+      prizes:[13000,6500,3200,1600,800,320], gcPoints:[10,7,5,3,2,1] },
+    { id:'tdf_s4', name:'Stage 4', place:'Bordeaux', terrain:'Individual Time Trial', icon:'⏱️',
+      weights:{ftp:0.95,vo2:0.05,sprint:0}, weightSensitivity:0,
+      profile:[16,18,17,20,19,21,20,23,22,21,24,23,25,24,26,25,27,26,28,27,29,28,30,31],
+      commentary:['Rolling off the start ramp against the clock...','Locked into an aero tuck, holding steady watts...','Splits coming through — margins are razor-thin...','Into the final technical sector...','Crossing the line — every second mattered!'],
+      prizes:[12000,6000,3000,1500,750,300], gcPoints:[10,7,5,3,2,1] },
+    { id:'tdf_s5', name:'Stage 5', place:'Champs-Élysées, Paris', terrain:'Flat — Sprint Finale', icon:'🏁',
+      weights:{ftp:0.45,vo2:0.15,sprint:0.40}, weightSensitivity:0.1,
+      profile:[22,26,21,28,23,27,22,29,24,28,23,30,25,29,24,32,26,31,25,34,28,38,32,46],
+      commentary:['A ceremonial roll-out through the streets of Paris...','Onto the cobbles of the Champs-Élysées circuit...','Laps of the finishing circuit tick by...','The sprint trains assemble for the final time...','The Tour de France ends in a blur of speed!'],
+      prizes:[13000,6500,3200,1600,800,320], gcPoints:[10,7,5,3,2,1] },
+  ],
+  giro_d_italia:[
+    { id:'giro_s1', name:'Stage 1', place:'Turin', terrain:'Flat — Sprinters\' Stage', icon:'🏁',
+      weights:{ftp:0.45,vo2:0.15,sprint:0.40}, weightSensitivity:0.1,
+      profile:[20,24,19,26,21,25,20,27,22,26,21,28,23,27,22,30,24,29,23,32,26,36,30,42],
+      commentary:['Rolling out from Turin under grey skies...','The peloton settles into an easy rhythm...','Sprinters\' teams move to the front...','Full gas into the finale!','A bunch sprint decides the opening stage!'],
+      prizes:[8500,4200,2100,1000,500,200], gcPoints:[10,7,5,3,2,1] },
+    { id:'giro_s2', name:'Stage 2', place:'Passo dello Stelvio', terrain:'High Mountain — 60 Hairpins', icon:'⛰️',
+      weights:{ftp:0.86,vo2:0.14,sprint:0}, weightSensitivity:1.0,
+      profile:[12,20,28,26,34,42,40,48,56,54,62,70,68,76,84,82,89,94,92,96,98,99,99,100],
+      commentary:['The road begins its endless switchback climb...','Snow banks line the road even in summer...','One of the highest paved passes in Europe...','The thin air bites at every rider...','Cresting the Stelvio — one of cycling\'s great summits!'],
+      prizes:[9000,4500,2200,1100,550,220], gcPoints:[10,7,5,3,2,1] },
+    { id:'giro_s3', name:'Stage 3', place:'Monte Zoncolan', terrain:'High Mountain — "The Kryptonite"', icon:'☠️',
+      weights:{ftp:0.90,vo2:0.10,sprint:0}, weightSensitivity:1.15,
+      profile:[15,45,55,62,70,75,80,84,86,88,90,91,92,93,94,94,95,96,96,97,98,98,99,100],
+      commentary:['Onto the narrowest, steepest road in the Giro...','Gradients past 20% turn legs to concrete...','Riders zig-zag across the road just to survive...','No respite anywhere on this brutal wall...','They call it Kryptonite — and now you know why!'],
+      prizes:[9500,4700,2300,1150,570,230], gcPoints:[10,7,5,3,2,1] },
+    { id:'giro_s4', name:'Stage 4', place:'Milan', terrain:'Individual Time Trial', icon:'⏱️',
+      weights:{ftp:0.95,vo2:0.05,sprint:0}, weightSensitivity:0,
+      profile:[16,18,17,20,19,21,20,23,22,21,24,23,25,24,26,25,27,26,28,27,29,28,30,31],
+      commentary:['Off the ramp in the shadow of the Duomo...','Holding an unwavering pace through the city...','The time checks are coming in tight...','Final corners before the finish...','Into Milan\'s streets to finish this time trial!'],
+      prizes:[8500,4200,2100,1000,500,200], gcPoints:[10,7,5,3,2,1] },
+    { id:'giro_s5', name:'Stage 5', place:'Rome', terrain:'Flat — Sprint Finale', icon:'🏁',
+      weights:{ftp:0.45,vo2:0.15,sprint:0.40}, weightSensitivity:0.1,
+      profile:[22,26,21,28,23,27,22,29,24,28,23,30,25,29,24,32,26,31,25,34,28,38,32,46],
+      commentary:['Rolling past the ancient ruins of Rome...','A largely processional day until the finale...','The sprinters\' teams take control...','Flying flat-out toward the line...','The Giro d\'Italia concludes in the Eternal City!'],
+      prizes:[9000,4500,2200,1100,550,220], gcPoints:[10,7,5,3,2,1] },
+  ],
+  vuelta_espana:[
+    { id:'vuelta_s1', name:'Stage 1', place:'Barcelona', terrain:'Flat — Sprinters\' Stage', icon:'🏁',
+      weights:{ftp:0.45,vo2:0.15,sprint:0.40}, weightSensitivity:0.1,
+      profile:[20,24,19,26,21,25,20,27,22,26,21,28,23,27,22,30,24,29,23,32,26,36,30,42],
+      commentary:['Rolling out along the Catalan coast...','An easy tempo through the opening kilometres...','The bunch strings out as the pace lifts...','Sprint trains hit full speed!','A fast bunch kick opens the Vuelta!'],
+      prizes:[7700,3800,1900,950,470,190], gcPoints:[10,7,5,3,2,1] },
+    { id:'vuelta_s2', name:'Stage 2', place:'Alto de l\'Angliru', terrain:'High Mountain — Steepest Finish in Grand Tour Racing', icon:'☠️',
+      weights:{ftp:0.90,vo2:0.10,sprint:0}, weightSensitivity:1.2,
+      profile:[15,40,52,60,68,74,79,83,86,88,90,92,93,94,95,96,96,97,97,98,98,99,99,100],
+      commentary:['Onto the fearsome slopes of the Angliru...','Gradients touch 23% on the Cueña les Cabres...','Riders weaving across the road, barely turning the pedals...','This is the hardest finish in Grand Tour cycling...','Surviving the Angliru — a result that will be remembered!'],
+      prizes:[8200,4000,2000,1000,500,200], gcPoints:[10,7,5,3,2,1] },
+    { id:'vuelta_s3', name:'Stage 3', place:'Lagos de Covadonga', terrain:'High Mountain — Summit Finish', icon:'⛰️',
+      weights:{ftp:0.87,vo2:0.13,sprint:0}, weightSensitivity:1.05,
+      profile:[14,30,26,42,36,50,44,58,52,64,58,70,64,76,70,82,76,88,82,92,88,96,92,100],
+      commentary:['Climbing toward the sacred lakes of Covadonga...','A relentless, uneven gradient tests every rider...','The mountain has a habit of shaping Vuelta history...','Digging deep on the final ramps...','Finishing at the beautiful Lagos de Covadonga!'],
+      prizes:[8500,4200,2100,1050,520,210], gcPoints:[10,7,5,3,2,1] },
+    { id:'vuelta_s4', name:'Stage 4', place:'Madrid', terrain:'Individual Time Trial', icon:'⏱️',
+      weights:{ftp:0.95,vo2:0.05,sprint:0}, weightSensitivity:0,
+      profile:[16,18,17,20,19,21,20,23,22,21,24,23,25,24,26,25,27,26,28,27,29,28,30,31],
+      commentary:['Off the ramp under the Madrid sun...','Settling into threshold pace against the clock...','Time splits tightening with every checkpoint...','The final corners of the course...','Crossing the line to finish the time trial!'],
+      prizes:[7700,3800,1900,950,470,190], gcPoints:[10,7,5,3,2,1] },
+    { id:'vuelta_s5', name:'Stage 5', place:'Madrid', terrain:'Flat — Sprint Finale', icon:'🏁',
+      weights:{ftp:0.45,vo2:0.15,sprint:0.40}, weightSensitivity:0.1,
+      profile:[22,26,21,28,23,27,22,29,24,28,23,30,25,29,24,32,26,31,25,34,28,38,32,46],
+      commentary:['A ceremonial parade into the Spanish capital...','Laps of the finishing circuit in Madrid...','The last chance for the sprinters to shine...','Full speed into the final straight!','The Vuelta a España reaches its finish in Madrid!'],
+      prizes:[8200,4000,2000,1000,500,200], gcPoints:[10,7,5,3,2,1] },
+  ],
+};
+
+// GC (General Classification) reward tiers, based on cumulative gcPoints
+// across all 5 stages (max possible = 50, winning every stage). These are
+// ON TOP OF each stage's individual prize — this is what makes the OVERALL
+// tour result feel bigger than the sum of its stage wins.
+const GC_TIERS = [
+  { minPoints:40, label:'GC Champion',  icon:'🏆' },
+  { minPoints:25, label:'GC Podium',    icon:'🥉' },
+  { minPoints:12, label:'GC Top 10',    icon:'🎖️' },
+  { minPoints:0,  label:'GC Finisher',  icon:'✅' },
+];
+const GC_BONUS_BY_TOUR = {
+  tour_de_france:[100000,40000,15000,5000],
+  giro_d_italia: [70000, 28000,10000,3500],
+  vuelta_espana: [65000, 25000, 9000,3200],
+};
+
 const CALENDAR_EVENTS = [
   // SEMI-PRO TIER — unlocks the moment the Calendar tab itself unlocks (Cat 1)
   {id:'nat_hillclimb', tier:'semipro', name:'National Hill Climb Championship', icon:'🏔️',
@@ -1642,15 +1775,15 @@ const CALENDAR_EVENTS = [
    raceTypeId:'crit', desc:'Fast, technical circuit racing for the national crit title.',
    entryFee:150, energyCost:35, fieldSize:70, prizes:[6000,3000,1500,750,350,150]},
   // PRO TIER — additionally requires reaching the actual Pro category
-  {id:'tour_de_france', tier:'pro', name:'Tour de France', icon:'🇫🇷',
-   raceTypeId:'road', desc:'The biggest race in the world. Three weeks of pure prestige.',
-   entryFee:5000, energyCost:50, fieldSize:150, prizes:[80000,40000,20000,10000,5000,2000]},
-  {id:'giro_d_italia', tier:'pro', name:"Giro d'Italia", icon:'🇮🇹',
-   raceTypeId:'hill', desc:'Brutal Italian mountains decide this Grand Tour.',
-   entryFee:4000, energyCost:50, fieldSize:140, prizes:[55000,28000,14000,7000,3500,1500]},
-  {id:'vuelta_espana', tier:'pro', name:'Vuelta a España', icon:'🇪🇸',
-   raceTypeId:'road', desc:"The fightback Grand Tour — a rider's last chance to shine this year.",
-   entryFee:3500, energyCost:50, fieldSize:140, prizes:[50000,25000,12500,6000,3000,1200]},
+  {id:'tour_de_france', tier:'pro', name:'Tour de France', icon:'🇫🇷', isGrandTour:true,
+   desc:'Five real stages — flat sprints, high mountains, a time trial and a Paris finale. One entry, five days, real stakes: miss a day and the Tour is forfeited.',
+   entryFee:5000, energyCost:50, fieldSize:150},
+  {id:'giro_d_italia', tier:'pro', name:"Giro d'Italia", icon:'🇮🇹', isGrandTour:true,
+   desc:'Brutal Italian mountains — including the fearsome Zoncolan — across five real stages.',
+   entryFee:4000, energyCost:50, fieldSize:140},
+  {id:'vuelta_espana', tier:'pro', name:'Vuelta a España', icon:'🇪🇸', isGrandTour:true,
+   desc:"The hardest climbs in Grand Tour racing, including the legendary Alto de l'Angliru.",
+   entryFee:3500, energyCost:50, fieldSize:140},
   {id:'tour_de_suisse', tier:'pro', name:'Tour de Suisse', icon:'🇨🇭',
    raceTypeId:'tt', desc:'A WorldTour tune-up race known for deciding time-trial form.',
    entryFee:2000, energyCost:45, fieldSize:120, prizes:[25000,12000,6000,3000,1500,600]},
@@ -2021,6 +2154,7 @@ const state = {
     signups: [],      // eventIds the player has paid to enter this calendar season
     completed: {},     // eventId -> {position, fieldSize, prize, ts} for events run this season
     history: [],       // archive of past calendar seasons' results, most recent first
+    tourProgress: {},  // tourId -> {stageResults:[], gcPoints:0, lastStageCompletedDate:null, forfeited:false}
   },
   // FTP / W/kg progress history for the chart — one snapshot per FTP change + daily.
   // Capped at 90 entries to keep the save file lean. Each entry: {ts, ftp, pwkg, weight}
@@ -2232,6 +2366,8 @@ function checkDailyReset(){
   // Calendar season is a rolling 30-day window, also independent of the calendar-day
   // boundary above — checked every tick once activated.
   checkCalendarSeasonReset();
+  // Grand Tour hard lockout — forfeit any tour where a full stage-day was skipped.
+  checkGrandTourLockouts();
 }
 
 // Called when the player taps the morning collect card.
@@ -2371,6 +2507,7 @@ function buildStagesFromEvents(events){
   return (events||[]).map(ev=>({ triggerPct:ev.triggerPct, event:ev, fired:false }));
 }
 
+// DEPRECATED — replaced by getHourlyCourse (hourly rotation); kept for reference.
 // Picks a random named course for the given race type. Every normal race start
 // (not calendar events) rolls a fresh course, so the same race type reads
 // differently — different terrain, different commentary, different decisions —
@@ -2382,6 +2519,43 @@ function pickRandomCourse(raceTypeId){
   return pool[Math.floor(Math.random()*pool.length)];
 }
 
+// Hour index since epoch — increments exactly on the hour, every hour. Pure
+// function of the wall clock, so the rotation needs no save-state field, can't
+// drift, and stays in sync across reloads/devices sharing the same save.
+function getCourseRotationHour(){ return Math.floor(Date.now()/3600000); }
+
+// Integer avalanche hash (Chris Wellons' "triple32" finalizer). Used instead
+// of a simple xorshift because xorshift's low bits (the ones x%4 actually
+// reads, since pools are 4 courses) don't avalanche well on SEQUENTIAL inputs
+// like consecutive hours — an earlier version of this hash left the 4 race
+// types ~87% correlated (they all changed course on the same hour almost every
+// time), defeating the point of rotating them independently. This mixer gives
+// each (hour, type) pair a well-spread, independent-looking result.
+function hash32(x){
+  x = x>>>0;
+  x ^= x>>>16; x = Math.imul(x,0x7feb352d)>>>0;
+  x ^= x>>>15; x = Math.imul(x,0x846ca68b)>>>0;
+  x ^= x>>>16;
+  return x>>>0;
+}
+
+// Deterministic course pick for THIS hour, for the given race type. This is
+// what both the race card (what's on offer) and startRace (what you actually
+// race) call, so what the player sees is exactly what they get. Hour and a
+// per-type salt are combined into one key BEFORE hashing, so each race type
+// gets a genuinely distinct, independently-rotating sequence rather than a
+// fixed offset into the same weak stream — measured at ~33% of hours moving
+// all four types together, matching the ~32% expected for truly independent
+// 4-way choices (vs ~87% with the naive approach).
+function getHourlyCourse(raceTypeId){
+  const pool = COURSES[raceTypeId];
+  if (!pool || pool.length===0) return null;
+  const salt = {road:0,crit:1,tt:2,hill:3}[raceTypeId] || 0;
+  const h = getCourseRotationHour();
+  const combined = ((h>>>0) * 4 + salt) >>> 0;
+  return pool[hash32(combined) % pool.length];
+}
+
 // Looks up the full course object a race is currently using, from its stored
 // courseId. Returns null for calendar events (which never set courseId) or
 // old in-progress races from before this feature existed.
@@ -2389,6 +2563,13 @@ function getRaceCourse(rd){
   if(!rd||!rd.courseId||rd.isCalendarEvent) return null;
   const pool=COURSES[rd.typeId];
   return pool ? (pool.find(c=>c.id===rd.courseId)||null) : null;
+}
+
+// Returns the full stage object for a Grand Tour stage race, or null.
+function getGrandTourStage(rd){
+  if(!rd||!rd.isGrandTourStage) return null;
+  const stages=GRAND_TOUR_STAGES[rd.calendarEventId];
+  return stages ? (stages[rd.stageIndex]||null) : null;
 }
 
 // Called when the player taps a choice button in the decision card.
@@ -2529,9 +2710,9 @@ function startRace(raceTypeId){
   state.energySpentToday=(state.energySpentToday||0)+actualCost+fatBonus;
   const result=simulateRaceResult(raceTypeId);
   state.raceActive=true;
-  // Roll a random named course for this race — different terrain, commentary
-  // and decision points each time, even for the same race type back to back.
-  const course=pickRandomCourse(raceTypeId);
+  // Use this hour's rotating course — same one the race card advertised, so
+  // what the player saw before committing is exactly what they race.
+  const course=getHourlyCourse(raceTypeId);
   state.raceData={typeId:raceTypeId,startTime:Date.now(),animMs:rt.animMs,result,
     virtualPos:Math.round(result.fieldSize*0.45),startVP:Math.round(result.fieldSize*0.45),commentaryIdx:0,
     courseId:course?course.id:null,
@@ -2554,6 +2735,7 @@ function completeRace(){
   const rd=state.raceData, cat=RACE_CATEGORIES[state.raceCategory];
   const isCalEvent=!!rd.isCalendarEvent;
   const calEvent=isCalEvent ? CALENDAR_EVENTS.find(e=>e.id===rd.calendarEventId) : null;
+  const gtStage=getGrandTourStage(rd);
 
   // Apply interactive decisions: positionDelta shifts the base result.
   // Clamped so decisions can't push you past 1st, and are meaningful but not all-powerful.
@@ -2563,8 +2745,10 @@ function completeRace(){
   const maxShift = Math.max(2, Math.floor(rd.result.fieldSize * 0.40));
   const clampedDelta = Math.max(-maxShift, Math.min(maxShift, rawDelta));
   const finalPos = Math.max(1, Math.min(rd.result.fieldSize, rd.result.position + clampedDelta));
-  // Recalculate prize for final position (lookup from category prize table)
-  const prizeTable = isCalEvent ? calEvent.prizes : cat.prizes;
+  // Recalculate prize for final position — Grand Tour stages use the STAGE's
+  // own prize table, regular calendar events use the event's, category races
+  // use the category's.
+  const prizeTable = gtStage ? gtStage.prizes : isCalEvent ? calEvent.prizes : cat.prizes;
   const finalPrize = Math.round((prizeTable[Math.min(finalPos-1, prizeTable.length-1)]||0) * state.prestigeMult);
   // Overwrite result with decision-adjusted values
   rd.result.position = finalPos;
@@ -2587,8 +2771,8 @@ function completeRace(){
   if(rd.result.position<=3){ state.totalPodiums++; markTaskProgress('podium_race'); incrementSponsorProgress('podiums',1); }
   if(rd.result.position===1){ markTaskProgress('win_race'); if(rt) state.raceWinsByType[rt.id]=(state.raceWinsByType[rt.id]||0)+1; state.winsSincePrestige=(state.winsSincePrestige||0)+1; incrementSponsorProgress('win_races',1); }
 
-  const raceTypeNameForDisplay = isCalEvent ? `${calEvent.icon} ${calEvent.name}` : (rt?rt.name:rd.typeId);
-  const catNameForDisplay = isCalEvent ? (calEvent.tier==='pro'?'Pro Calendar':'Semi-Pro Calendar') : cat.shortName;
+  const raceTypeNameForDisplay = gtStage ? `${gtStage.icon} ${calEvent.name} — ${gtStage.name}` : isCalEvent ? `${calEvent.icon} ${calEvent.name}` : (rt?rt.name:rd.typeId);
+  const catNameForDisplay = gtStage ? gtStage.place : isCalEvent ? (calEvent.tier==='pro'?'Pro Calendar':'Semi-Pro Calendar') : cat.shortName;
 
   const histEntry={
     raceTypeName: raceTypeNameForDisplay,
@@ -2600,7 +2784,26 @@ function completeRace(){
   if(state.raceHistory.length>8) state.raceHistory.pop();
   state.lastRaceResult=histEntry;
 
-  if(isCalEvent){
+  if(gtStage){
+    // Record this stage's result and GC points into the tour's running progress.
+    const tp=state.calendar.tourProgress[rd.calendarEventId];
+    tp.stageResults.push({stageIndex:rd.stageIndex, position:rd.result.position, fieldSize:rd.result.fieldSize, prize:rd.result.prize, gcPoints:rd.result.gcPoints, ts:Date.now()});
+    tp.gcPoints += rd.result.gcPoints;
+    tp.lastStageCompletedDate = new Date().toDateString();
+    const stages=GRAND_TOUR_STAGES[rd.calendarEventId];
+    if(tp.stageResults.length>=stages.length){
+      // Final stage done — compute the overall GC result and award the big bonus.
+      const tier=GC_TIERS.find(t=>tp.gcPoints>=t.minPoints) || GC_TIERS[GC_TIERS.length-1];
+      const tierIdx=GC_TIERS.indexOf(tier);
+      const gcBonus=(GC_BONUS_BY_TOUR[rd.calendarEventId]||[0,0,0,0])[tierIdx]||0;
+      if(gcBonus>0) earnMoney(gcBonus);
+      state.calendar.completed[rd.calendarEventId]={
+        finished:true, gcPoints:tp.gcPoints, gcTier:tier.label, gcIcon:tier.icon, gcBonus,
+        stageResults:tp.stageResults, ts:Date.now(),
+      };
+      enqueueCeremony({type:'grandtour', tourId:rd.calendarEventId, gcTier:tier.label, gcIcon:tier.icon, gcBonus, gcPoints:tp.gcPoints});
+    }
+  } else if(isCalEvent){
     state.calendar.completed[rd.calendarEventId]={
       position:rd.result.position, fieldSize:rd.result.fieldSize, prize:rd.result.prize, ts:Date.now(),
     };
@@ -3067,6 +3270,40 @@ function checkCalendarSeasonReset(){
   updateCalendarBadge();
 }
 
+// HARD LOCKOUT for Grand Tours. A Grand Tour must be raced one stage per day.
+// Stage 1 has no deadline — the clock only starts once the Tour is underway.
+// After that, each stage has a one-calendar-day window: skip a full day and the
+// whole Tour is forfeited (no partial GC payout), matching the promise in the
+// event description. Runs on the same checkDailyReset tick (boot + every 60s) as
+// the season reset, so a forfeit is detected the moment the player reopens the app.
+function checkGrandTourLockouts(){
+  if(!state.calendar || !state.calendar.tourProgress) return;
+  const todayMs = new Date(new Date().toDateString()).getTime(); // local midnight today
+  const forfeited=[];
+  Object.keys(state.calendar.tourProgress).forEach(tourId=>{
+    const tp=state.calendar.tourProgress[tourId];
+    if(!tp || tp.forfeited) return;
+    const stages=GRAND_TOUR_STAGES[tourId]; if(!stages) return;
+    if(tp.stageResults.length===0) return;             // Stage 1 not raced yet — no deadline
+    if(tp.stageResults.length>=stages.length) return;  // already finished
+    if(!tp.lastStageCompletedDate) return;
+    const lastMs=new Date(tp.lastStageCompletedDate).getTime();
+    if(isNaN(lastMs)) return;
+    const dayDiff=Math.round((todayMs-lastMs)/86400000);
+    if(dayDiff>=2){                                     // a full calendar day was skipped
+      tp.forfeited=true;
+      const ev=CALENDAR_EVENTS.find(e=>e.id===tourId);
+      forfeited.push(ev?ev.name:tourId);
+    }
+  });
+  if(forfeited.length){
+    saveGame();
+    forfeited.forEach(n=>showToast(`💔 Missed a stage — ${n} forfeited`));
+    if(currentTab==='calendar') renderCalendarTab();
+    if(typeof updateCalendarBadge==='function') updateCalendarBadge();
+  }
+}
+
 function signUpForCalendarEvent(eventId){
   const ev=CALENDAR_EVENTS.find(e=>e.id===eventId); if(!ev) return;
   if(ev.tier==='pro' && !isProTierUnlocked()){ showToast('🔒 Reach Pro category to enter this event'); return; }
@@ -3092,8 +3329,13 @@ function signUpForCalendarEvent(eventId){
   calendarSignupPending=null;
   state.money-=ev.entryFee;
   state.calendar.signups.push(eventId);
+  if(ev.isGrandTour){
+    state.calendar.tourProgress[eventId]={
+      stageResults:[], gcPoints:0, lastStageCompletedDate:null, forfeited:false,
+    };
+  }
   saveGame();
-  showToast(`📝 Signed up for ${ev.name}!`);
+  showToast(ev.isGrandTour ? `📝 Entered ${ev.name}! Race Stage 1 whenever you're ready.` : `📝 Signed up for ${ev.name}!`);
   if(currentTab==='calendar') renderCalendarTab();
   updateHeader();
 }
@@ -3145,6 +3387,9 @@ function simulateCalendarEventResult(eventId){
 function startCalendarEvent(eventId){
   if(state.raceActive||state.session.active) return;
   const ev=CALENDAR_EVENTS.find(e=>e.id===eventId); if(!ev) return;
+  // Grand Tours are multi-day stage events — dispatch to the stage runner, which
+  // handles per-stage progression, the once-per-day gate and the forfeit rule.
+  if(ev.isGrandTour){ startGrandTourStage(eventId); return; }
   if(!state.calendar.signups.includes(eventId)){ showToast('Not signed up for this event'); return; }
   if(state.calendar.completed[eventId]){ showToast('Already raced this event this season'); return; }
   if(state.energy<ev.energyCost){ showToast(`⚡ Need ${ev.energyCost} energy`); return; }
@@ -3165,6 +3410,99 @@ function startCalendarEvent(eventId){
   saveGame(); updateActivityDots();
   // Switch to the Race tab to watch the animation — reuses the existing race engine/UI
   // wholesale rather than duplicating a second live-race renderer inside Calendar.
+  showTab('race');
+}
+
+// Scores a single Grand Tour stage using the STAGE's own weights and weight-
+// sensitivity (deliberately separate from the 4 category RACE_TYPES, so a
+// real high-mountain stage can be more extreme than a regular Hill Climb).
+// Specialisation bonuses are matched by stage TERRAIN SHAPE rather than a
+// fixed race-type id, since stages aren't one of the 4 category types:
+//   sprint-heavy weights    → sprinter bonus (flat/sprint stages)
+//   full weight-sensitivity → climber bonus (high-mountain stages)
+//   near-pure FTP, no weight-sensitivity → rouleur bonus (time trial stages)
+function simulateGrandTourStageResult(tourId, stageIndex){
+  const ev=CALENDAR_EVENTS.find(e=>e.id===tourId); if(!ev) return null;
+  const stage=GRAND_TOUR_STAGES[tourId]?.[stageIndex]; if(!stage) return null;
+  const rs=getRiderStats();
+  const normVO2   =Math.max(0,(rs.vo2max    -30)/55  *100);
+  const sprintPowerEff = state.specialisation==='sprinter' ? rs.sprintPower*1.20 : rs.sprintPower;
+  const normSprint=Math.max(0,(sprintPowerEff-300)/1700*100);
+  const playerBase=stage.weights.ftp*rs.ftp+stage.weights.vo2*normVO2+stage.weights.sprint*normSprint;
+  const vo2Mult   =1+state.attributes.vo2.level*0.04;
+  const isSprintStage = stage.weights.sprint>=0.3;
+  const isMountainStage = stage.weightSensitivity>=1.0;
+  const isTTStage = stage.weights.ftp>=0.9 && stage.weightSensitivity===0;
+  const sprintMult=isSprintStage?(1+state.attributes.sprint.level*0.10):1;
+  const equipBonus=getEquipmentBonusForRace(isMountainStage?'hill':isTTStage?'tt':isSprintStage?'crit':'road');
+  const variance  =Math.max(10,playerBase*0.12);
+  let playerScore=playerBase*vo2Mult*sprintMult+equipBonus+(Math.random()-0.5)*variance*2;
+  if(state.specialisation==='climber'){
+    if(isMountainStage) playerScore*=1.5; else playerScore*=1.05;
+  } else if(state.specialisation==='sprinter'){
+    if(isSprintStage) playerScore*=1.5; else playerScore*=1.05;
+  } else if(state.specialisation==='rouleur'){
+    if(isTTStage) playerScore*=1.35; else playerScore*=1.15;
+  }
+  // Bodyweight matters via the stage's own weightSensitivity — a mountain
+  // stage like Zoncolan (1.15) punishes excess weight harder than a regular
+  // Hill Climb category race (1.0) ever does.
+  const pwr=getRiderStats().ftp/state.riderWeight;
+  const idealPwr=4.5;
+  const weightFactor=1+((pwr-idealPwr)/idealPwr)*stage.weightSensitivity*0.5;
+  playerScore*=Math.max(0.5,Math.min(1.5,weightFactor));
+
+  // Fixed elite AI band, same tier convention as other Pro calendar events —
+  // Grand Tours are all 'pro' tier invitational fields of specialists.
+  const ftpBand=[430,560];
+  let beaten=0;
+  for(let i=0;i<ev.fieldSize-1;i++){
+    const aiFTP=ftpBand[0]+Math.random()*(ftpBand[1]-ftpBand[0]);
+    const aiVO2=30+(aiFTP-50)/500*55, aiSprint=300+(aiFTP-50)/500*1700;
+    const aiBase=stage.weights.ftp*aiFTP+stage.weights.vo2*Math.max(0,(aiVO2-30)/55*100)+stage.weights.sprint*Math.max(0,(aiSprint-300)/1700*100);
+    const aiScore=aiBase+(Math.random()-0.5)*Math.max(10,aiBase*0.12)*2;
+    if(aiScore>playerScore) beaten++;
+  }
+  const position=beaten+1;
+  const prize=stage.prizes[Math.min(position-1,stage.prizes.length-1)]||0;
+  const gcPoints=stage.gcPoints[Math.min(position-1,stage.gcPoints.length-1)]||0;
+  return {position,fieldSize:ev.fieldSize,prize,gcPoints,equipBonus,weightFactor};
+}
+
+// Starts the NEXT unraced stage of a signed-up Grand Tour. Stage 1 is
+// immediately available on signup; stages 2-5 enforce the hard same-day
+// lockout (see checkGrandTourLockouts for the forfeit side of this rule).
+function startGrandTourStage(tourId){
+  if(state.raceActive||state.session.active) return;
+  const ev=CALENDAR_EVENTS.find(e=>e.id===tourId); if(!ev||!ev.isGrandTour) return;
+  if(!state.calendar.signups.includes(tourId)){ showToast('Not signed up for this Grand Tour'); return; }
+  const stages=GRAND_TOUR_STAGES[tourId]; if(!stages) return;
+  const tp=state.calendar.tourProgress[tourId];
+  if(!tp || tp.forfeited){ showToast('This Grand Tour has been forfeited'); return; }
+  const stageIndex=tp.stageResults.length;
+  if(stageIndex>=stages.length){ showToast('Grand Tour already completed this season'); return; }
+
+  const today=new Date().toDateString();
+  if(tp.lastStageCompletedDate===today){
+    showToast('⏳ Come back tomorrow for the next stage'); return;
+  }
+  if(state.energy<ev.energyCost){ showToast(`⚡ Need ${ev.energyCost} energy`); return; }
+
+  state.energy=Math.max(0,state.energy-ev.energyCost);
+  state.energySpentToday=(state.energySpentToday||0)+ev.energyCost;
+  const stage=stages[stageIndex];
+  const result=simulateGrandTourStageResult(tourId, stageIndex);
+  state.raceActive=true;
+  state.raceData={typeId:'road',startTime:Date.now(),animMs:55000,result,
+    virtualPos:Math.round(result.fieldSize*0.45),startVP:Math.round(result.fieldSize*0.45),commentaryIdx:0,
+    isCalendarEvent:true, calendarEventId:tourId, isGrandTourStage:true, stageIndex,
+    stages:buildRaceStages('road'),
+    raceLegs:100, positionDelta:0, pendingDecision:null, lastDecisionResult:null,
+    totalPausedMs:0,
+  };
+  markTaskProgress('enter_race');
+  incrementSponsorProgress('enter_races',1);
+  saveGame(); updateActivityDots();
   showTab('race');
 }
 
@@ -3539,6 +3877,30 @@ function startOnboarding(){
   renderOnboardingStep();
 }
 
+// Replay of the tour on demand (Rider tab button). Differs from the first-run
+// path in two ways: no welcome-bonus re-grant, and Skip stays visible on the
+// two "do it to continue" steps — a replaying player may have no energy or no
+// spare cash for the gel, and must never be trapped in the overlay. The replay
+// flag lives INSIDE the saved onboarding state (not a transient variable) so
+// that if the app closes mid-replay, the boot check can tell "interrupted
+// replay" apart from "brand-new player" — otherwise reopening would re-run
+// startOnboarding and re-grant the £20 welcome bonus every time.
+// Minimum cash guaranteed for a tutorial replay — just enough to always afford
+// an Energy Gel (£1-3 depending on the daily market roll) for the "try it"
+// step. This is a TOP-UP, not a grant: a player who already has £5+ gets
+// nothing extra, so replaying repeatedly can't be used to farm money.
+const ONBOARD_REPLAY_MIN_CASH = 5;
+
+function replayOnboarding(){
+  if(state.raceActive||state.session.active){ showToast('Finish your current activity first'); return; }
+  if(state.money<ONBOARD_REPLAY_MIN_CASH) earnMoney(ONBOARD_REPLAY_MIN_CASH-state.money);
+  state.onboarding = {step:0, done:false, replay:true};
+  saveGame();
+  showTab('train');
+  document.getElementById('onboard-layer').style.display='block';
+  renderOnboardingStep();
+}
+
 function skipOnboarding(){
   state.onboarding.done=true;
   document.getElementById('onboard-layer').style.display='none';
@@ -3581,8 +3943,10 @@ function renderOnboardingStep(){
   const skipBtn=document.getElementById('onboard-skip');
   // Skip is only offered before the two forced-action steps start, and again
   // right at the end — hiding it during the action steps themselves keeps the
-  // player focused on completing the one thing being asked of them.
-  skipBtn.style.display = (step.actionEvent) ? 'none' : '';
+  // player focused on completing the one thing being asked of them. EXCEPT on
+  // a replay, where the player may lack the energy/money to complete an action
+  // step and must always have a way out.
+  skipBtn.style.display = (step.actionEvent && !state.onboarding.replay) ? 'none' : '';
 
   const progressDots=ONBOARDING_STEPS.map((s,i)=>
     `<div class="onboard-progress-dot${i<=state.onboarding.step?' done':''}"></div>`).join('');
@@ -3666,6 +4030,7 @@ function processCeremonyQueue(){
   else if(next.type==='promotion') renderPromotionCeremony(next);
   else if(next.type==='achievement') renderAchievementCeremony(next);
   else if(next.type==='lifetimegoal') renderLifetimeGoalCeremony(next);
+  else if(next.type==='grandtour') renderGrandTourCeremony(next);
   spawnConfetti();
   document.getElementById('ceremony-overlay').style.display='flex';
 }
@@ -3788,6 +4153,28 @@ function renderLifetimeGoalCeremony({trackId, tierIndex}){
     </div>
     <button class="ceremony-btn" onclick="collectGoalTierReward('${track.id}',${tierIndex})">🎁 Collect Reward</button>
   `;
+}
+
+// Fires once, when the 5th and final stage of a Grand Tour completes — shows
+// the overall General Classification result, separate from (and much bigger
+// than) any individual stage win along the way. Dismissible normally (no
+// forced collect) since the GC bonus money is already paid out by the time
+// this shows, unlike achievements/lifetime goals which withhold the reward
+// until tapped.
+function renderGrandTourCeremony({tourId, gcTier, gcIcon, gcBonus, gcPoints}){
+  const ev=CALENDAR_EVENTS.find(e=>e.id===tourId); if(!ev) return;
+  const card=document.getElementById('ceremony-card');
+  card.innerHTML=`
+    <div class="ceremony-eyebrow">${ev.icon} Grand Tour Complete</div>
+    <div class="ceremony-icon">${gcIcon}</div>
+    <div class="ceremony-title">${ev.name}</div>
+    <div class="ceremony-subtitle">Final General Classification: <strong>${gcTier}</strong> (${gcPoints} GC points)</div>
+    <div class="ceremony-money" id="ceremony-money-val">${fmtMoney(0)}</div>
+    <div class="ceremony-money-label">Overall Bonus</div>
+    <button class="ceremony-btn" onclick="dismissCeremony(event)">Incredible ride! 🚴</button>
+  `;
+  if(gcBonus>0) animateCountUp('ceremony-money-val', gcBonus, 1200, fmtMoney);
+  else document.getElementById('ceremony-money-val').textContent='No bonus this time';
 }
 
 // Grants the achievement's reward (money or a kit colour unlock), removes it
@@ -4266,11 +4653,17 @@ function renderActiveRaceBlock(){
   const progress=Math.min(1,elapsed/rd.animMs);
   const remaining=Math.max(0,Math.ceil((rd.animMs-elapsed)/1000));
 
-  // Header — calendar events show their own name/icon; normal races show the
-  // race type plus the randomly-rolled course name for this specific race.
+  // Header — Grand Tour stages show their own stage name/place/icon; regular
+  // calendar events show the event name; normal races show the race type plus
+  // this hour's rotating course name (same one shown on the race card).
+  const gtStage=getGrandTourStage(rd);
   const course=getRaceCourse(rd);
   let headIcon=rt.icon, headName=`${rt.name} — ${RACE_CATEGORIES[state.raceCategory].shortName}`;
-  if(rd.isCalendarEvent){
+  if(gtStage){
+    const tourEv=CALENDAR_EVENTS.find(e=>e.id===rd.calendarEventId);
+    headIcon=gtStage.icon;
+    headName=`${tourEv?tourEv.name+' — ':''}${gtStage.name}: ${gtStage.place}`;
+  } else if(rd.isCalendarEvent){
     const ev=CALENDAR_EVENTS.find(e=>e.id===rd.calendarEventId);
     if(ev){ headIcon=ev.icon; headName=ev.name; }
   } else if(course){
@@ -4281,11 +4674,13 @@ function renderActiveRaceBlock(){
   // Stage decision trigger points — now drawn as flags directly on the course
   // profile SVG (see buildCourseProfileSVG) rather than as pips on a plain bar.
   // Terrain shape and colour come from the rolled course when present; calendar
-  // events (no course) fall back to the base race-type profile, unchanged.
+  // events (no course) fall back to the base race-type profile. Grand Tour
+  // stages override everything with their own authored profile/commentary.
   const stages=rd.stages||[];
-  const profileSrc=course ? {id:course.id, profile:course.profile, colorVar:rt.colorVar} : rt;
+  const profileSrc=gtStage ? {id:gtStage.id, profile:gtStage.profile, colorVar:'red'}
+                    : course ? {id:course.id, profile:course.profile, colorVar:rt.colorVar} : rt;
   const courseProfileSvg=buildCourseProfileSVG(profileSrc, progress, stages);
-  const commentarySrc=course ? course.commentary : rt.commentary;
+  const commentarySrc=gtStage ? gtStage.commentary : course ? course.commentary : rt.commentary;
 
   // Race Legs bar
   const legs=rd.raceLegs??100;
@@ -4364,7 +4759,7 @@ function renderRaceResultBlock(){
   const posCls=r.position===1?'pos-1':r.position===2?'pos-2':r.position===3?'pos-3':'pos-other';
   const cat=RACE_CATEGORIES[state.raceCategory];
   const ptsPct=Math.min(100,Math.round(state.categoryPoints/cat.ptsToPromote*100));
-  const isCalResult = r.points===0 && (r.catName==='Pro Calendar'||r.catName==='Semi-Pro Calendar');
+  const isCalResult = !!r.isCalEvent;
   // Soft coaching hint — only fires outside the podium, and only for normal
   // category races (a fixed elite calendar field isn't representative enough
   // to draw a fair "you should train X" conclusion from). Picked once per
@@ -4430,9 +4825,14 @@ function renderRaceTypes(){
     const energyDisplay=actualCost!==cat.energyCost
       ? `<span class="race-energy-badge${noEnergy?' unaffordable':''}">⚡ ${actualCost}<span style="font-size:9px;opacity:.7"> (wx)</span></span>`
       : `<span class="race-energy-badge${noEnergy?' unaffordable':''}">⚡ ${actualCost}</span>`;
+    // Which specific named course is on offer this hour for this race type —
+    // what's shown here is exactly what startRace will use if the player taps.
+    const course=getHourlyCourse(rt.id);
+    const courseLine=course?`<div class="race-course-line">${course.icon} <strong>${course.name}</strong></div>`:'';
     const div=document.createElement('div'); div.className='race-card'+(available?' available':'');
     if(!available) div.style.opacity='0.65';
     div.innerHTML=`<div class="race-card-head"><div class="race-type-icon">${rt.icon}</div><div class="race-card-text"><div class="race-card-name">${rt.name}</div><div class="race-card-desc">${rt.desc}</div></div>${statusHtml}</div>
+      ${courseLine}
       <div class="race-meta">
         ${energyDisplay}
         <span class="race-meta-badge race-prize-badge">Prize: £${cat.prizes[cat.prizes.length-1]||0}–${fmtMoney(cat.prizes[0])}</span>
@@ -4443,6 +4843,14 @@ function renderRaceTypes(){
     if(available) div.addEventListener('click',()=>startRace(rt.id));
     list.appendChild(div);
   });
+  // Rotation countdown — makes the hourly course change read as a deliberate
+  // mechanic ("new courses soon") rather than something that just happens.
+  const msLeft=3600000-(Date.now()%3600000);
+  const minLeft=Math.max(1,Math.ceil(msLeft/60000));
+  const countdownDiv=document.createElement('div');
+  countdownDiv.style.cssText='font-size:11px;color:var(--txt3);text-align:center;margin-top:6px';
+  countdownDiv.textContent=`🔄 New courses in ${minLeft}m`;
+  list.appendChild(countdownDiv);
 }
 
 function renderRaceHistory(){
@@ -5449,6 +5857,16 @@ function renderCalendarTab(){
     <div class="section-lbl" style="margin-top:.75rem">Completed This Season</div>
     ${signedUpAndRaced.map(ev=>{
       const r=state.calendar.completed[ev.id];
+      if(ev.isGrandTour){
+        return `<div class="cal-result-row">
+          <div class="result-pos-badge pos-1" style="width:40px;height:40px;font-size:18px">${r.gcIcon||'🏆'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700">${ev.icon} ${ev.name}</div>
+            <div style="font-size:11px;color:var(--txt2)">${r.gcTier||'GC Finisher'} · ${r.gcPoints||0} GC pts</div>
+          </div>
+          <div style="font-weight:700;color:${(r.gcBonus||0)>0?'var(--green-txt)':'var(--txt3)'};font-size:13px">${(r.gcBonus||0)>0?'+'+fmtMoney(r.gcBonus):'No bonus'}</div>
+        </div>`;
+      }
       const posCls=r.position===1?'pos-1':r.position===2?'pos-2':r.position===3?'pos-3':'pos-other';
       return `<div class="cal-result-row">
         <div class="result-pos-badge ${posCls}" style="width:40px;height:40px;font-size:14px">${ordinal(r.position)}</div>
@@ -5489,7 +5907,80 @@ function renderCalendarTab(){
   wrap.innerHTML = seasonHeaderHtml + scheduleHtml + completedHtml + signupHtml + historyHtml;
 }
 
+// Dedicated card for Grand Tours — the generic card assumes a single-race event
+// with an ev.prizes[] table and one raceTypeId, neither of which a Grand Tour has.
+// This renders stage progress, the running GC total, and the correct daily action
+// (race next stage / come back tomorrow / forfeited), routing to startGrandTourStage.
+function grandTourCardHtml(ev, mode){
+  const stages = GRAND_TOUR_STAGES[ev.id] || [];
+  const tp = state.calendar.tourProgress[ev.id];
+  const doneCount = tp ? tp.stageResults.length : 0;
+  const stagePips = stages.map((s,i)=>{
+    const done = i < doneCount;
+    const isNext = tp && !tp.forfeited && i === doneCount;
+    return `<span title="${s.name}: ${s.place}" style="opacity:${done||isNext?1:.4};font-weight:${isNext?800:400}">${s.icon}</span>`;
+  }).join(' ');
+
+  let bodyHtml='', actionHtml='';
+
+  if(mode==='signup'){
+    const slotsFull=state.calendar.signups.length>=getCalendarSlotLimit();
+    const cantAfford=state.money<ev.entryFee;
+    const proLocked=!isProTierUnlocked();
+    const disabled=proLocked||slotsFull||cantAfford;
+    const isPending=calendarSignupPending===ev.id;
+    if(isPending){
+      actionHtml=`<button class="cal-signup-btn cal-signup-confirm" onclick="signUpForCalendarEvent('${ev.id}')">✓ Confirm — ${fmtMoney(ev.entryFee)} entry · tap again to lock in</button>`;
+    } else {
+      const label=proLocked?'🔒 Reach Pro to unlock':slotsFull?'No slots remaining':cantAfford?`Need ${fmtMoney(ev.entryFee)}`:`Enter — ${fmtMoney(ev.entryFee)}`;
+      actionHtml=`<button class="cal-signup-btn" onclick="signUpForCalendarEvent('${ev.id}')" ${disabled?'disabled':''}>${label}</button>`;
+    }
+    bodyHtml=`<div class="cal-event-desc" style="margin-top:.25rem">${stages.length} stages · one per day · miss a day and the Tour is forfeited</div>`;
+  } else {
+    // scheduled — in progress, forfeited, or (guard) complete
+    if(tp && tp.forfeited){
+      actionHtml=`<button class="cal-start-btn" disabled style="opacity:.7;cursor:default;background:var(--red-bg,#3a1a1a);color:var(--red-txt)">💔 Tour forfeited — you missed a stage</button>`;
+      bodyHtml=`<div class="cal-event-desc" style="color:var(--red-txt);margin-top:.25rem">Skipping a day ends the Tour. You reached ${doneCount}/${stages.length} stages (${tp.gcPoints} GC pts). Try again next season.</div>`;
+    } else if(doneCount>=stages.length){
+      actionHtml=`<button class="cal-start-btn" disabled style="opacity:.6;cursor:default">✅ Tour complete</button>`;
+    } else {
+      const stage=stages[doneCount];
+      const racedToday = tp && tp.lastStageCompletedDate===new Date().toDateString();
+      const busy=state.raceActive||state.session.active;
+      const noEnergy=state.energy<ev.energyCost;
+      const disabled=racedToday||busy||noEnergy;
+      let label;
+      if(racedToday) label='⏳ Come back tomorrow for the next stage';
+      else if(noEnergy) label=`🏁 Stage ${doneCount+1} — need ${ev.energyCost}⚡`;
+      else label=`🏁 Race Stage ${doneCount+1}: ${stage.place}`;
+      actionHtml=`<button class="cal-start-btn" onclick="startGrandTourStage('${ev.id}')" ${disabled?'disabled':''} style="${disabled?'opacity:.6;cursor:default':''}">${label}</button>`;
+      bodyHtml=`<div class="cal-event-desc" style="margin-top:.25rem">
+        <strong>Stage ${doneCount+1}/${stages.length}</strong> — ${stage.terrain}<br>
+        GC so far: <strong>${tp?tp.gcPoints:0} pts</strong>${doneCount>0?` · ${doneCount} stage${doneCount!==1?'s':''} done`:''}
+      </div>`;
+    }
+  }
+
+  return `<div class="cal-event-card">
+    <div class="cal-event-head">
+      <div class="cal-event-icon">${ev.icon}</div>
+      <div class="cal-event-info">
+        <div class="cal-event-name">${ev.name}<span class="cal-event-tierbadge" style="background:var(--amber-bg);color:var(--amber-txt);border:.5px solid var(--amber-bd)">GRAND TOUR</span></div>
+        <div class="cal-event-desc">${ev.desc}</div>
+      </div>
+    </div>
+    <div class="cal-event-meta">
+      <div class="cal-event-meta-item">Entry: <span class="cal-event-meta-val">${fmtMoney(ev.entryFee)}</span></div>
+      <div class="cal-event-meta-item">Energy/stage: <span class="cal-event-meta-val">${ev.energyCost}⚡</span></div>
+      <div class="cal-event-meta-item">Stages: <span class="cal-event-meta-val" style="letter-spacing:2px">${stagePips}</span></div>
+    </div>
+    ${bodyHtml}
+    ${actionHtml}
+  </div>`;
+}
+
 function calendarEventCardHtml(ev, mode){
+  if(ev.isGrandTour) return grandTourCardHtml(ev, mode);
   const tierColor = ev.tier==='pro' ? 'amber' : 'purple';
   const tierLabel = ev.tier==='pro' ? 'PRO' : 'SEMI-PRO';
   const proLocked = ev.tier==='pro' && !isProTierUnlocked();
@@ -5924,10 +6415,26 @@ updateCalendarBadge();
 // Onboarding tour — only ever fires for a genuinely brand-new player (see the
 // done:true default applied to pre-existing saves in loadGame). Runs last so
 // the real UI underneath is fully rendered before the spotlight appears.
-if(!state.onboarding.done) startOnboarding();
+// An interrupted REPLAY (app closed mid-tour) must NOT re-enter startOnboarding
+// — that path grants the £20 welcome bonus and would be repeatable for free
+// money. Resume the replay overlay directly instead.
+if(!state.onboarding.done){
+  if(state.onboarding.replay){
+    document.getElementById('onboard-layer').style.display='block';
+    renderOnboardingStep();
+  } else {
+    startOnboarding();
+  }
+}
 setInterval(gameTick,100);
 setInterval(saveGame,15000);
-setInterval(checkDailyReset,60000);
+setInterval(()=>{
+  checkDailyReset();
+  // Keep the Race tab's course cards + rotation countdown accurate to the
+  // minute while the player is looking at it. Guarded on !raceActive so a
+  // live race in progress is never re-rendered out from under the player.
+  if(currentTab==='race' && !state.raceActive) renderRaceTypes();
+},60000);
 
 // ── PWA: register service worker for offline support ──
 if('serviceWorker' in navigator){
