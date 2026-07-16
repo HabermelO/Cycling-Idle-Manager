@@ -5096,7 +5096,15 @@ function abandonRace(){
 }
 function renderActiveRaceBlock(){
   const wrap=document.getElementById('race-overlay-body');
-  if(!state.raceActive||!state.raceData){ wrap.innerHTML=''; return; }
+  if(!state.raceActive||!state.raceData){
+    // Result mode: race just finished, overlay still open showing the result card
+    // + Continue button (written by renderRaceOverlayResult). Don't wipe it —
+    // renderRaceTab() calls this function after completeRace() and was destroying
+    // the Continue button, hard-locking the player in the overlay (fix17).
+    const overlayOpen=document.getElementById('race-overlay').style.display==='block';
+    if(overlayOpen && state.lastRaceResult) return;
+    wrap.innerHTML=''; return;
+  }
   const rd=state.raceData, rt=RACE_TYPES.find(r=>r.id===rd.typeId); if(!rt){ wrap.innerHTML=''; return; }
   const now=Date.now();
   const elapsed=getEffectiveElapsed(rd,now); // paused during decision cards
