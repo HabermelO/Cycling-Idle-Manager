@@ -406,6 +406,16 @@ button{font-family:inherit;cursor:pointer;}
   opacity:0;transition:opacity .25s;z-index:999;
   border-left:3px solid transparent;border-image:var(--accent-grad) 1;box-shadow:var(--shadow-sm);}
 .toast.show{opacity:1;}
+/* fix37: Add-to-Home-Screen banner — small dismissible strip, sits above
+   the toast position so it never collides with a simultaneous toast. */
+.install-banner{position:fixed;bottom:calc(140px + env(safe-area-inset-bottom));left:16px;right:16px;
+  max-width:420px;margin:0 auto;display:flex;align-items:center;gap:10px;
+  background:var(--txt);color:var(--bg);padding:10px 12px;border-radius:var(--radius);
+  font-size:13px;font-weight:600;z-index:998;box-shadow:var(--shadow-sm);
+  border-left:3px solid transparent;border-image:var(--accent-grad) 1;}
+.install-banner span{flex:1;}
+.install-banner .spec-btn{width:auto;margin:0;padding:6px 12px;font-size:13px;background:var(--accent);color:#fff;}
+.install-banner-close{background:none;border:none;color:inherit;opacity:.6;font-size:15px;cursor:pointer;padding:4px;line-height:1;}
 /* PHASE 5: inline SVG icons — sized to match surrounding text via em units,
    vertical-align keeps them level with adjacent glyphs/text (emoji parity). */
 .icn{display:inline-block;vertical-align:-0.15em;flex-shrink:0;}
@@ -915,11 +925,20 @@ button{font-family:inherit;cursor:pointer;}
     <div id="prestige-area"></div>
     <div class="section-lbl" style="margin-top:1rem">Career Stats</div>
     <div class="stats-grid" id="stats-grid"></div>
+    <div class="section-lbl" style="margin-top:1rem">Save Data</div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;box-shadow:var(--shadow-sm)">
+      <p style="font-size:12px;color:var(--txt3);line-height:1.5;margin-bottom:.75rem">Progress is stored only on this device. Back it up before clearing your browser or moving to a new phone — paste the code back in to restore.</p>
+      <button class="gear-nav-btn" style="width:100%" onclick="backupSave()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-clipboard"></use></svg> Back Up Save</button>
+      <textarea id="backup-code" readonly onclick="this.select()" placeholder="Your backup code appears here — tap to select, then copy." style="width:100%;margin-top:.6rem;min-height:64px;font-size:11px;font-family:monospace;color:var(--txt);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.5rem;resize:vertical"></textarea>
+      <div style="height:1px;background:var(--border);margin:.9rem 0"></div>
+      <textarea id="restore-code" placeholder="Paste a backup code here to restore progress…" style="width:100%;min-height:64px;font-size:11px;font-family:monospace;color:var(--txt);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.5rem;resize:vertical"></textarea>
+      <button id="restore-btn" class="danger-btn" style="width:100%;margin-top:.6rem" onclick="restoreSave()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Restore From Code</button>
+    </div>
     <div style="text-align:center;margin-top:1rem">
       <button class="gear-nav-btn" onclick="replayOnboarding()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-graduate"></use></svg> Replay Tutorial</button>
     </div>
     <div style="text-align:center;margin-top:.5rem">
-      <button class="danger-btn" onclick="confirmReset()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-trash"></use></svg> Delete Save &amp; Start Over</button>
+      <button id="delete-btn" class="danger-btn" onclick="confirmReset()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-trash"></use></svg> Delete Save &amp; Start Over</button>
     </div>
   </div>
   <div id="tab-gear" style="display:none">
@@ -1894,7 +1913,7 @@ const KITS = [
 ];
 
 const RACE_CATEGORIES = [
-  {id:'uncat',name:'Uncategorised',shortName:'Uncat',icon:'beginner',ftpMin:40, ftpMax:110,fieldMin:6, fieldMax:14, prizes:[5,3,1,0,0,0],              ptsPerPos:[5,3,2,1,0,0],   ptsToPromote:10,   energyCost:20,desc:'Your first competitive outings. Prize money is token — this is about points.',color:'teal'},
+  {id:'uncat',name:'Uncategorised',shortName:'Uncat',icon:'beginner',ftpMin:40, ftpMax:85,fieldMin:6, fieldMax:14, prizes:[15,8,3,1,0,0],              ptsPerPos:[5,3,2,1,0,0],   ptsToPromote:10,   energyCost:20,desc:'Your first competitive outings. Prize money is token — this is about points.',color:'teal'},
   {id:'cat5', name:'Category 5',   shortName:'Cat 5',icon:'num-5',ftpMin:90, ftpMax:175,fieldMin:12,fieldMax:28, prizes:[20,12,6,3,1,0],             ptsPerPos:[6,4,3,2,1,0],   ptsToPromote:20,   energyCost:25,desc:'Entry-level amateur racing. Small prizes, big lessons.',color:'blue'},
   {id:'cat4', name:'Category 4',   shortName:'Cat 4',icon:'num-4',ftpMin:155,ftpMax:255,fieldMin:20,fieldMax:45, prizes:[50,30,15,7,3,1],            ptsPerPos:[7,5,3,2,1,0],   ptsToPromote:30,   energyCost:30,desc:'Club-level competitive racing. Enough to cover your fuel.',color:'green'},
   {id:'cat3', name:'Category 3',   shortName:'Cat 3',icon:'num-3',ftpMin:230,ftpMax:330,fieldMin:25,fieldMax:65, prizes:[150,90,45,20,10,5],         ptsPerPos:[8,6,4,3,2,1],   ptsToPromote:40,   energyCost:35,desc:'Strong amateur level. You can start saving for a proper bike.',color:'amber'},
@@ -2440,6 +2459,7 @@ const state = {
   session:{active:false}, trainCooldowns:{},
   raceCategory:0, categoryPoints:0,
   rival:{ name:null, ftp:0, categoryIndexAtAssignment:-1, wins:0, losses:0, firstWinAchieved:false },
+  installPromptShown:false,
   raceHistory:[], raceCooldowns:{},
   raceActive:false, raceData:null, lastRaceResult:null, _lastSavedAt:0,
   // Achievements & progression
@@ -3300,6 +3320,16 @@ function completeRace(){
         rivalMsg=` · ${icn('target')} You finally beat ${riv.name}!`;
       } else {
         rivalMsg=` · Beat ${riv.name} (${riv.position}${ordinal(riv.position)})`;
+      }
+      // fix37: any rival win is a high-intent moment — invite install once,
+      // after the win ceremony has had time to show/close. Hooked on riv.beat
+      // rather than nested in the firstWinAchieved branch above so returning
+      // players whose save predates this field (firstWinAchieved already
+      // true) still get the prompt on their next win, not never. Gated by
+      // installPromptShown so it can only ever fire once per save.
+      if(!state.installPromptShown){
+        state.installPromptShown=true;
+        setTimeout(showInstallBanner,3500);
       }
     } else {
       state.rival.losses=(state.rival.losses||0)+1;
@@ -4321,7 +4351,97 @@ function handlePrestige(){
   showToast(`${icn('trophy')} Season ${state.season} begins! FTP reset · Prize ×${next}`);
 }
 function confirmReset(){
-  if(confirm('Delete ALL save data and start from scratch?')){ localStorage.removeItem(SAVE_KEY); location.reload(); }
+  const btn=document.getElementById('delete-btn');
+  // Two-tap confirm — deleting is irreversible, so the first tap only arms it
+  // (red pulse), the second within 4s commits. Same no-confirm() pattern as restoreSave.
+  if(!deleteConfirmPending){
+    deleteConfirmPending=true;
+    clearTimeout(deleteConfirmTimer);
+    deleteConfirmTimer=setTimeout(()=>{
+      deleteConfirmPending=false;
+      if(btn){ btn.classList.remove('prestige-btn-confirm'); btn.innerHTML=`${icn('trash')} Delete Save &amp; Start Over`; }
+    },4000);
+    if(btn){ btn.classList.add('prestige-btn-confirm'); btn.innerHTML=`${icn('warning')} Erase everything — tap again`; }
+    return;
+  }
+  clearTimeout(deleteConfirmTimer);
+  deleteConfirmPending=false;
+  // Block the 15s autosave / visibilitychange handler from re-writing the save
+  // while we're between removeItem and the reload completing.
+  wipeInProgress=true;
+  localStorage.removeItem(SAVE_KEY);
+  location.reload();
+}
+
+// ─── SAVE BACKUP / RESTORE (fix32) ──────────────────────────
+// Round-trips the single SAVE_KEY blob as a portable code so progress survives
+// a cleared cache or a new phone. Reuses saveGame/loadGame's exact serialization
+// untouched: backup flushes then reads the stored string; restore writes a
+// validated blob back and reloads so loadGame runs its normal migration path.
+// Code format = "CIMSAVE1:" + base64(UTF-8 JSON). The prefix versions the format
+// and lets restore reject anything that isn't one of our own codes.
+const BACKUP_PREFIX='CIMSAVE1:';
+function backupSave(){
+  saveGame(); // flush current in-memory state to localStorage first
+  const raw=localStorage.getItem(SAVE_KEY);
+  if(!raw){ showToast(`${icn('warning')} Nothing to back up yet`); return; }
+  let code;
+  try{
+    // UTF-8 safe base64 (btoa alone throws on non-Latin1 chars, e.g. accented names).
+    const bytes=new TextEncoder().encode(raw);
+    let bin=''; bytes.forEach(b=>{ bin+=String.fromCharCode(b); });
+    code=BACKUP_PREFIX+btoa(bin);
+  }catch(e){ showToast(`${icn('warning')} Backup failed`); return; }
+  const box=document.getElementById('backup-code');
+  if(box){ box.value=code; box.focus(); box.select(); }
+  // Clipboard is best-effort — Android WebViews often reject writeText. The code
+  // is already shown in the box above as the guaranteed manual-copy fallback.
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(code)
+      .then(()=>showToast(`${icn('check-circle')} Backup code copied — keep it safe`))
+      .catch(()=>showToast(`${icn('clipboard')} Backup code ready — tap it to select & copy`));
+  } else {
+    showToast(`${icn('clipboard')} Backup code ready — tap it to select & copy`);
+  }
+}
+function restoreSave(){
+  const box=document.getElementById('restore-code');
+  const btn=document.getElementById('restore-btn');
+  const code=((box&&box.value)||'').trim();
+  if(!code){ showToast(`${icn('warning')} Paste a backup code first`); return; }
+  // Validate BEFORE arming the confirm, so a bad paste can never reach the
+  // second-tap overwrite: decode → parse → sanity-check it's really a save.
+  let parsed;
+  try{
+    if(!code.startsWith(BACKUP_PREFIX)) throw new Error('bad prefix');
+    const bin=atob(code.slice(BACKUP_PREFIX.length));
+    const bytes=Uint8Array.from(bin,c=>c.charCodeAt(0));
+    parsed=JSON.parse(new TextDecoder().decode(bytes));
+  }catch(e){ showToast(`${icn('warning')} Invalid backup code`); return; }
+  if(!parsed || typeof parsed!=='object' || typeof parsed.money!=='number' || !parsed.attributes){
+    showToast(`${icn('warning')} Invalid backup code`); return;
+  }
+  // Two-tap confirm — restoring OVERWRITES current progress, so the first tap only
+  // arms it (red pulse), the second within 4s commits. Same no-confirm() pattern as
+  // prestige. Nothing is written to localStorage until the second tap below.
+  if(!restoreConfirmPending){
+    restoreConfirmPending=true;
+    clearTimeout(restoreConfirmTimer);
+    restoreConfirmTimer=setTimeout(()=>{
+      restoreConfirmPending=false;
+      if(btn){ btn.classList.remove('prestige-btn-confirm'); btn.innerHTML=`${icn('return')} Restore From Code`; }
+    },4000);
+    if(btn){ btn.classList.add('prestige-btn-confirm'); btn.innerHTML=`${icn('warning')} Overwrites current progress — tap again`; }
+    return;
+  }
+  clearTimeout(restoreConfirmTimer);
+  restoreConfirmPending=false;
+  // Write the validated blob back under the save key, then reload so loadGame runs
+  // the normal load + migration path exactly as it would on any cold start.
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify(parsed));
+  }catch(e){ showToast(`${icn('warning')} Restore failed`); return; }
+  location.reload();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4334,6 +4454,57 @@ function fmtTime(ms){ const s=Math.ceil(ms/1000); return s>60?Math.ceil(s/60)+'m
 function timeToReset(){ const now=new Date(),mid=new Date(now);mid.setHours(24,0,0,0);const ms=mid-now,h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);return h>0?`${h}h ${m}m`:`${m}m`; }
 let toastTimer=null;
 function showToast(msg){ const el=document.getElementById('toast');el.innerHTML=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2500); }
+
+// ═══════════════════════════════════════════════════════════
+// ADD-TO-HOME-SCREEN PROMPT (fix37)
+// Captures the browser's native beforeinstallprompt event (Chrome/Android/
+// desktop) so it can be replayed later at a high-intent moment instead of
+// firing whenever the browser feels like it. iOS Safari never fires this
+// event, so iOS gets a one-time instructional toast instead. Either path
+// is gated by state.installPromptShown so it never nags twice — see the
+// load-defaults merge and the first-win trigger for the other two legs.
+// ─────────────────────────────────────────────────────────────
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+});
+function isStandaloneDisplay(){
+  return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
+}
+function isIOSDevice(){
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+function promptInstall(){
+  const banner=document.getElementById('install-banner');
+  if(banner) banner.remove();
+  if(!deferredInstallPrompt) return;
+  const ev=deferredInstallPrompt;
+  deferredInstallPrompt=null;
+  ev.prompt();
+}
+function dismissInstallBanner(){
+  const banner=document.getElementById('install-banner');
+  if(banner) banner.remove();
+}
+// Shows a small dismissible banner inviting the player to install. Only
+// ever called once per save (gated by state.installPromptShown at the
+// call site), and never if already running standalone.
+function showInstallBanner(){
+  if(isStandaloneDisplay()) return;
+  if(document.getElementById('install-banner')) return;
+  const iOS=isIOSDevice();
+  if(!iOS && !deferredInstallPrompt) return; // nothing to offer on this browser
+  const msg=iOS
+    ? `${icn('star')} Tap Share → Add to Home Screen to install`
+    : `${icn('star')} Add Cycling Idle to your home screen`;
+  const actionBtn=iOS ? '' : `<button class="spec-btn" onclick="promptInstall()">Add</button>`;
+  const div=document.createElement('div');
+  div.id='install-banner';
+  div.className='install-banner';
+  div.innerHTML=`<span>${msg}</span>${actionBtn}<button class="install-banner-close" onclick="dismissInstallBanner()">✕</button>`;
+  document.body.appendChild(div);
+}
 
 // ═══════════════════════════════════════════════════════════
 // PHASE 5 — FLAIR & REWARD MOMENTS (fix22)
@@ -4595,6 +4766,7 @@ function processCeremonyQueue(){
   else if(next.type==='achievement') renderAchievementCeremony(next);
   else if(next.type==='lifetimegoal') renderLifetimeGoalCeremony(next);
   else if(next.type==='grandtour') renderGrandTourCeremony(next);
+  else if(next.type==='welcomeback') renderWelcomeBackCeremony(next);
   spawnConfetti();
   document.getElementById('ceremony-overlay').style.display='flex';
 }
@@ -4662,6 +4834,30 @@ function renderWinCeremony({raceTypeName, catName, prize, rivalBeatText}){
   `;
   if(prize>0) animateCountUp('ceremony-money-val', prize, 1100, fmtMoney);
   else document.getElementById('ceremony-money-val').textContent='No prize this time';
+}
+
+// fix38 — "While you were away". Non-destructive info modal, so a single literal
+// onclick="dismissCeremony(event)" is correct (no two-tap needed). Reuses the
+// ceremony-overlay/ceremony-card markup and CSS classes already defined for
+// wins/promotions — no new CSS framework introduced.
+function renderWelcomeBackCeremony({money, energy, awaySeconds}){
+  const card=document.getElementById('ceremony-card');
+  const hrs=Math.floor(awaySeconds/3600), mins=Math.floor((awaySeconds%3600)/60);
+  const awayText = hrs>0 ? `${hrs}h ${mins}m` : `${mins}m`;
+  const energyHtml = energy>=1
+    ? `<div class="ceremony-subtitle">${icn('bolt')} +${Math.floor(energy)} energy regenerated</div>`
+    : '';
+  card.innerHTML=`
+    <div class="ceremony-eyebrow">${icn('sleep')} Welcome Back</div>
+    <div class="ceremony-icon">${icn('rider')}</div>
+    <div class="ceremony-title">While You Were Away</div>
+    <div class="ceremony-subtitle">Away for ${awayText}</div>
+    <div class="ceremony-money" id="ceremony-money-val">${fmtMoney(0)}</div>
+    <div class="ceremony-money-label">Sponsorship Earned</div>
+    ${energyHtml}
+    <button class="ceremony-btn" onclick="dismissCeremony(event)">Nice! ${icn('rider')}</button>
+  `;
+  animateCountUp('ceremony-money-val', Math.round(money), 1100, fmtMoney);
 }
 
 function renderPromotionCeremony({oldCat, newCat, sponsorTierUnlocked}){
@@ -6986,6 +7182,11 @@ let sponsorActionPending=null;  // 'terminate' | 'lateral:id' | 'sign:tierIdx:id
 let sponsorActionTimer=null;    // handle to auto-cancel sponsor pending after 4s
 let prestigeConfirmPending=false; // true while waiting for the second tap to start a new season
 let prestigeConfirmTimer=null;    // handle to auto-cancel pending confirm after 4s
+let restoreConfirmPending=false;  // true while waiting for the second tap to overwrite the save
+let restoreConfirmTimer=null;     // handle to auto-cancel the restore confirm after 4s
+let deleteConfirmPending=false;   // true while waiting for the second tap to wipe the save
+let deleteConfirmTimer=null;      // handle to auto-cancel the delete confirm after 4s
+let wipeInProgress=false;         // true between removeItem and reload; blocks autosave from resurrecting the deleted save
 function toggleCalendarHistory(){ calendarShowHistory=!calendarShowHistory; renderCalendarTab(); }
 
 function renderCalendarTab(){
@@ -7218,6 +7419,7 @@ function updateUI(){
 // SAVE / LOAD
 // ═══════════════════════════════════════════════════════════
 function saveGame(){
+  if(wipeInProgress) return; // a delete is committed and mid-reload; don't resurrect the wiped save
   try{
     const attrs={};
     ATTR_ORDER.forEach(id=>{ attrs[id]={xp:state.attributes[id].xp,level:state.attributes[id].level}; });
@@ -7230,6 +7432,7 @@ function saveGame(){
       trainCooldowns:state.trainCooldowns, raceCooldowns:state.raceCooldowns,
       raceCategory:state.raceCategory, categoryPoints:state.categoryPoints,
       rival:state.rival,
+      installPromptShown:state.installPromptShown,
       raceHistory:state.raceHistory, lastRaceResult:state.lastRaceResult,
       equippedBike:state.equippedBike, ownedBikes:[...state.ownedBikes],
       equippedWheels:state.equippedWheels, ownedWheels:[...state.ownedWheels],
@@ -7286,6 +7489,11 @@ function loadGame(){
     state.boughtUpgrades=new Set(d.bought||[]); state.activeBoosts=d.activeBoosts||{}; state.trainCooldowns=d.trainCooldowns||{}; state.raceCooldowns=d.raceCooldowns||{};
     state.raceCategory=d.raceCategory||0; state.categoryPoints=d.categoryPoints||0;
     state.rival = d.rival || { name:null, ftp:0, categoryIndexAtAssignment:-1, wins:0, losses:0, firstWinAchieved:false };
+    // fix37: pre-fix37 saves predate this field. Default false so returning
+    // players who already beat their rival still see the prompt once, on
+    // their NEXT win, rather than never (there's no historical win event to
+    // hook retroactively) — see the firstWinAchieved trigger site.
+    state.installPromptShown = d.installPromptShown || false;
     state.raceHistory=d.raceHistory||[]; state.lastRaceResult=d.lastRaceResult||null; state._lastSavedAt=d.lastSavedAt||0;
     state.equippedBike   = d.equippedBike   || 'starter';
     state.ownedBikes     = new Set(d.ownedBikes   || ['starter']);
@@ -7398,15 +7606,21 @@ function cleanupExpiredCooldowns(){
 }
 
 function applyOfflineProgress(){
-  if(!state._lastSavedAt) return;
+  // fix38: now returns a {money, energy, awaySeconds} summary of what was applied,
+  // so the boot sequence can surface a "While you were away" moment. Still applies
+  // everything silently as before — the summary is additive, not a behaviour change.
+  const summary={money:0, energy:0, awaySeconds:0};
+  if(!state._lastSavedAt) return summary;
   const awayMs=Date.now()-state._lastSavedAt;
   const awaySec=awayMs/1000;
-  if(awaySec<5) return;
+  summary.awaySeconds=awaySec;
+  if(awaySec<5) return summary;
 
   // Sponsor passive income (capped at 5 minutes to avoid huge offline windfalls)
   if(D.sponsorPerSec>0){
     const gained=D.sponsorPerSec*Math.min(awaySec,300);
     earnMoney(gained);
+    summary.money+=gained;
     if(awayMs>30000) setTimeout(()=>showToast(`${icn('sleep')} +${fmtMoney(gained)} sponsorship while away`),600);
   }
 
@@ -7417,9 +7631,11 @@ function applyOfflineProgress(){
     const regenGained=Math.min(state.todayEnergyAllocation-state.energy, ENERGY_REGEN_RATE*awaySec);
     if(regenGained>=1){
       state.energy=Math.min(state.todayEnergyAllocation, state.energy+regenGained);
+      summary.energy+=regenGained;
       if(awayMs>60000) setTimeout(()=>showToast(`${icn('bolt')} +${Math.floor(regenGained)} energy regenerated while away`),800);
     }
   }
+  return summary;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -7602,7 +7818,11 @@ checkDailyReset();
 // If a morning reward is already pending (restored from save or daily reset
 // just fired on load), show the collect card straight away.
 if(state.pendingMorningReward && currentTab==='train') renderEnergyCard();
-applyOfflineProgress();
+// fix38: capture the offline summary — hadPriorSave is read BEFORE applyOfflineProgress
+// touches state, so a brand-new player (no _lastSavedAt yet) never sees a welcome-back
+// modal on their very first session.
+const _hadPriorSave=!!state._lastSavedAt;
+const _offlineSummary=applyOfflineProgress();
 recordFtpSnapshot(); // seed a baseline point for players loading an existing save
 // Re-queue any achievements that were earned but never collected — e.g. the
 // app was closed before the player tapped "Collect Reward" on the ceremony.
@@ -7626,6 +7846,13 @@ updateActivityDots();
 updateGrowthBadge();
 updateSponsorBadge();
 updateCalendarBadge();
+// fix38: "While you were away" — only for a returning player, and only when the
+// gap was meaningful (>10 min away AND something was actually earned). Enqueued
+// via the existing ceremony queue so it never collides with an achievement/promo
+// ceremony also queued at boot; it simply waits its turn.
+if(_hadPriorSave && _offlineSummary.awaySeconds>600 && _offlineSummary.money>0){
+  enqueueCeremony({type:'welcomeback', money:_offlineSummary.money, energy:_offlineSummary.energy, awaySeconds:_offlineSummary.awaySeconds});
+}
 // Onboarding tour — only ever fires for a genuinely brand-new player (see the
 // done:true default applied to pre-existing saves in loadGame). Runs last so
 // the real UI underneath is fully rendered before the spotlight appears.
