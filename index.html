@@ -123,12 +123,14 @@ button{font-family:inherit;cursor:pointer;}
 .energy-bar-inner.critical{background:linear-gradient(90deg,var(--red-txt),#ef4444);}
 .energy-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--txt3);}
 .energy-hint{font-size:11px;color:var(--amber-txt);margin-top:.3rem;font-weight:500;}
-.attr-row{display:flex;gap:5px;margin-bottom:.75rem;flex-wrap:wrap;}
-.attr-pill{flex:1;min-width:0;display:flex;align-items:center;gap:4px;
-  padding:6px 8px;border-radius:99px;border:.5px solid var(--border);background:var(--bg);}
+.attr-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:5px;margin-bottom:.75rem;}
+.attr-pill{min-width:0;display:flex;align-items:center;gap:4px;
+  padding:6px 8px;border-radius:12px;border:.5px solid var(--border);background:var(--bg);overflow:hidden;}
 .attr-pill-icon{font-size:14px;flex-shrink:0;}
 .attr-pill-body{flex:1;min-width:0;}
-.attr-pill-top{display:flex;justify-content:space-between;font-size:10px;font-weight:700;}
+.attr-pill-top{display:flex;justify-content:space-between;gap:4px;font-size:10px;font-weight:700;}
+.attr-pill-top span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.attr-pill-top span:last-child{flex-shrink:0;}
 .attr-pill-bar{height:2px;background:var(--bg3);border-radius:1px;margin-top:3px;}
 .attr-pill-fill{height:100%;border-radius:1px;transition:width .3s;}
 .session-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
@@ -4148,7 +4150,7 @@ function fmtDec(n){ return n>=1000?fmt(n):n.toFixed(2); }
 function fmtTime(ms){ const s=Math.ceil(ms/1000); return s>60?Math.ceil(s/60)+'m':s+'s'; }
 function timeToReset(){ const now=new Date(),mid=new Date(now);mid.setHours(24,0,0,0);const ms=mid-now,h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);return h>0?`${h}h ${m}m`:`${m}m`; }
 let toastTimer=null;
-function showToast(msg){ const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2500); }
+function showToast(msg){ const el=document.getElementById('toast');el.innerHTML=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2500); }
 
 // ═══════════════════════════════════════════════════════════
 // PHASE 5 — FLAIR & REWARD MOMENTS (fix22)
@@ -4602,13 +4604,13 @@ function updateHeader(){
   document.getElementById('hdr-cat').textContent    = cat.shortName;
   const tmr=getTomorrowEnergy(), tmrEl=document.getElementById('hdr-energy-tmr');
   if(tmrEl){
-    tmrEl.textContent = `${icn('sleep')} tmr: ${tmr}`;
+    tmrEl.innerHTML = `${icn('sleep')} tmr: ${tmr}`;
     tmrEl.style.color = tmr>=state.maxEnergy*0.85 ? 'var(--green-txt)' : tmr>=state.maxEnergy*0.6 ? 'var(--amber-txt)' : 'var(--red-txt)';
   }
   const wEl=document.getElementById('hdr-weather');
   if(wEl){
     const {condition,intensity}=getDailyWeather();
-    wEl.textContent=`${icn(condition.icon)} ${WEATHER_INTENSITY_LABELS[intensity]}`;
+    wEl.innerHTML=`${icn(condition.icon)} ${WEATHER_INTENSITY_LABELS[intensity]}`;
   }
 }
 
