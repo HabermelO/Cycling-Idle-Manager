@@ -183,6 +183,13 @@ button{font-family:inherit;cursor:pointer;}
 .cat-bar-outer{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;}
 .cat-bar-inner{height:100%;background:var(--amber-txt);border-radius:4px;transition:width .4s;}
 .cat-promo{font-size:12px;font-weight:600;color:var(--amber-txt);margin-top:.4rem;}
+.series-card{padding:.85rem 1.1rem;}
+.series-table{display:flex;flex-direction:column;gap:2px;margin-bottom:.3rem;}
+.series-row{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--border);}
+.series-row:last-child{border-bottom:none;}
+.series-pos{width:16px;flex-shrink:0;color:var(--txt2);font-variant-numeric:tabular-nums;}
+.series-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.series-pts{flex-shrink:0;font-variant-numeric:tabular-nums;font-weight:700;}
 .race-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
   padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow-sm);transition:opacity .2s;}
 .race-card.available{cursor:pointer;border-color:var(--border2);}
@@ -231,6 +238,11 @@ button{font-family:inherit;cursor:pointer;}
 .peloton-strip-wrap{margin-bottom:8px;border-radius:var(--radius);overflow:hidden;background:rgba(0,0,0,.05);}
 .peloton-strip-svg{width:100%;height:clamp(56px,10vh,80px);display:block;}
 .peloton-gap-label{font-size:8px;font-weight:800;text-anchor:middle;fill:var(--amber-txt);paint-order:stroke;stroke:var(--bg);stroke-width:2.5px;stroke-linejoin:round;}
+.rival-legend-row{display:flex;justify-content:center;gap:8px;font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:4px;}
+.rival-legend-you{color:var(--txt2);}
+.rival-legend-sep{opacity:.5;}
+.rival-legend-rival{color:var(--red-txt);}
+.rival-gap-row{font-size:12px;font-weight:600;color:var(--red-txt);text-align:center;margin-top:2px;opacity:.9;}
 .race-commentary{font-size:13px;font-weight:600;color:var(--red-txt);text-align:center;margin-bottom:10px;min-height:18px;}
 .race-pos-row{display:flex;justify-content:space-between;font-size:12px;color:var(--red-txt);opacity:.85;}
 .race-result-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);
@@ -250,6 +262,9 @@ button{font-family:inherit;cursor:pointer;}
 .result-reward-money{background:var(--green-bg);color:var(--green-txt);}
 .result-reward-pts{background:var(--amber-bg);color:var(--amber-txt);}
 .result-reward-none{background:var(--bg3);color:var(--txt3);}
+.result-bonus-pill{margin-top:6px;padding:6px 10px;border-radius:var(--radius);font-size:12px;font-weight:700;
+  background:var(--amber-bg);color:var(--amber-txt);border:.5px solid var(--amber-bd);text-align:center;}
+.club-race-row{padding:8px 12px}
 .result-cat-progress{margin-top:.75rem;font-size:12px;color:var(--txt2);}
 .result-hint{margin-top:.6rem;font-size:12px;color:var(--txt2);font-style:italic;
   background:var(--bg2);border-radius:var(--radius);padding:9px 12px;line-height:1.45;}
@@ -877,8 +892,11 @@ button{font-family:inherit;cursor:pointer;}
     <div id="rival-wrap"></div>
     <div id="race-setup-wrap"></div>
     <div id="cat-card-wrap"></div>
+    <div id="series-wrap"></div>
     <div id="active-race-wrap"></div>
     <div id="race-result-wrap"></div>
+    <div class="section-lbl">Club Races</div>
+    <div id="club-race-list"></div>
     <div class="section-lbl">Available Races</div>
     <div id="race-list"></div>
     <div class="section-lbl" style="margin-top:.75rem">Recent Results</div>
@@ -1124,6 +1142,16 @@ const RACE_STAT_HINTS = {
   tt:[   "Not your day against the clock. Time trials reward riders with the biggest raw FTP — that's the number to chase.",
          "Off the pace in the race of truth. Pure power output tends to be what wins time trials.",
          "Tough one against the watch. FTP is king in a time trial." ],
+};
+
+// Race Retention Phase 2C — position clause appended to the base commentary
+// line by band (front/mid/back), computed from virtualPos each time the
+// underlying commentary line advances. Does not replace or duplicate the
+// per-type/per-course commentary arrays; see the tick loop for selection.
+const POSITION_CLAUSES = {
+  front:  [' — you\'re right at the sharp end!', ' — driving it from the front.'],
+  mid:    [' — sitting comfortably in the wheels.', ' — well placed in the bunch.'],
+  back:   [' — you\'re boxed in near the back!', ' — work to do from back here.'],
 };
 
 const RACE_TYPES = [
@@ -1875,6 +1903,45 @@ const RACE_CATEGORIES = [
   {id:'pro',  name:'Professional', shortName:'Pro',  icon:'trophy',ftpMin:430,ftpMax:550,fieldMin:60,fieldMax:130,prizes:[5000,2500,1000,450,180,70],  ptsPerPos:[10,7,5,3,2,1],  ptsToPromote:999999,energyCost:50,desc:'The professional peloton. The pinnacle of the sport.',color:'amber'},
 ];
 
+// ─── CLUB RACES (Race Retention Phase 1) ──────────────────────
+// Ultra-cheap, fast, no-cooldown races below the category tier. Same 4
+// RACE_TYPES are reused; the club tier just runs them at reduced stakes so
+// the race loop stays constantly pullable between category races.
+const CLUB_RACE = {
+  energyCost: 3,          // flat, ignores weather energy surcharge
+  animMs: 15000,          // 15s race
+  cooldown: 0,
+  prizeMult: 0.15,        // 15% of current category prize table
+  pointsCap: 2,           // points = min(cat.ptsPerPos[pos-1], 2)
+  fieldScale: 0.6,        // fieldSize = round(cat field roll * 0.6), min 6
+};
+// ─── RACE RHYTHM (Race Retention Phase 3C) ────────────────────
+// Small energy rebate for staying in the race loop on a given day: the 3rd
+// race of the day refunds energy, then every 6th race after that.
+const RACE_RHYTHM = {first:3, every:6, refund:5};
+// ─── RACE BONUS EVENTS (Race Retention Phase 1) ───────────────
+// Variable-ratio bonus rolled after ANY race (club or category) — see
+// rollRaceBonus(), called at the end of completeRace(). Unpredictable
+// payouts are the intentional retention hook here. reward(s) receives the
+// live state object so it can read s.lastPrizePot (set just before the roll).
+const RACE_BONUS_EVENTS = [
+  {id:'prime',   chance:0.10, icon:'money', label:'Prime sprint won!',        reward:s=>({money: Math.max(5, Math.round(s.lastPrizePot*0.5))})},
+  {id:'scout',   chance:0.04, icon:'star',  label:'A scout noticed you!',     reward:s=>({xpAll: 15})},
+  {id:'combativ',chance:0.08, icon:'fire',  label:'Most Combative award',     reward:s=>({money: Math.max(3, Math.round(s.lastPrizePot*0.3))})},
+  {id:'crowd',   chance:0.06, icon:'party', label:'Crowd favourite — tip jar',reward:s=>({energy: 5})},
+];
+
+// ─── MICRO-LEAGUE SERIES (Race Retention Phase 4) ─────────────
+// Always-running rolling series vs 5 named AI riders (rival included).
+// Every category or club race scores series points (calendar events do not —
+// they run against a fixed elite field, not the regular AI pool). After
+// SERIES_LEN races the series pays out and a fresh one starts immediately —
+// "series always almost finished" is the intentional one-more-race pull.
+// See ensureSeries()/scoreSeriesRace()/renderSeriesCard() below.
+const SERIES_LEN = 10;
+const SERIES_PTS = [10,7,5,4,3,2,1]; // AI point-band roll table
+const SERIES_PAYOUT = pos => [3,1.5,0.8][pos-1] || 0.3; // × current cat's 1st prize, at series end
+
 // ─── RIVAL ─────────────────────────────────────────────────
 // A single named AI rider assigned once at career start and kept for the whole
 // career (including across prestige seasons) — the same nemesis follows the
@@ -2439,6 +2506,14 @@ const state = {
   // FTP / W/kg progress history for the chart — one snapshot per FTP change + daily.
   // Capped at 90 entries to keep the save file lean. Each entry: {ts, ftp, pwkg, weight}
   ftpHistory: [],
+  // Race Retention Phase 3 — hot streak (podium chain), daily race rhythm rebate,
+  // and decaying same-day form. See completeRace()/startRace()/simulateRaceResult()/checkDailyReset().
+  streak: {podium:0, best:0},
+  racesToday: 0,
+  form: 0,
+  // Race Retention Phase 4 — rolling 10-race micro-league vs 5 named AI riders
+  // (rival included). Lazily created on first scored race — see ensureSeries().
+  series: null,
 };
 const D = { sponsorPerSec:0, sessionMult:1, legacyPrizeMult:1, trainingBoostPct:0, raceDayPct:0, accessoryWatts:0 };
 
@@ -2642,6 +2717,10 @@ function checkDailyReset(){
     }
     state.carbsToday=0;
     state.carbWarningShownToday=false;
+    // Race Retention Phase 3C/3D — daily race count resets, form decays overnight
+    // (halved rather than zeroed, so a strong day still carries a little momentum).
+    state.racesToday=0;
+    state.form=Math.floor((state.form||0)/2);
     // Record today's FTP/W/kg snapshot before saving — weight may have just changed
     recordFtpSnapshot();
     // Set pending morning reward — energy withheld until player taps
@@ -2931,7 +3010,8 @@ function recalibrateRivalIfNeeded(){
   }
 }
 
-function simulateRaceResult(raceTypeId){
+function simulateRaceResult(raceTypeId, opts={}){
+  const isClub=!!opts.club;
   const rt=RACE_TYPES.find(r=>r.id===raceTypeId);
   const cat=RACE_CATEGORIES[state.raceCategory];
   const rs=getRiderStats();
@@ -2969,8 +3049,12 @@ function simulateRaceResult(raceTypeId){
   // Pro Team. Applied last, after weight and weather, so it's a clean overall
   // performance boost on top of everything else the race conditions already did.
   playerScore*=(1+(D.raceDayPct||0));
+  // Race Retention Phase 3D — daily form (0-10, decays by half each overnight
+  // reset). Small, visible edge for staying in rhythm: max +5% at form 10.
+  playerScore*=(1+(state.form||0)*0.005);
   recalibrateRivalIfNeeded();
-  const fieldSize =Math.floor(Math.random()*(cat.fieldMax-cat.fieldMin+1))+cat.fieldMin;
+  const fieldRoll =Math.floor(Math.random()*(cat.fieldMax-cat.fieldMin+1))+cat.fieldMin;
+  const fieldSize =isClub ? Math.max(6, Math.round(fieldRoll*CLUB_RACE.fieldScale)) : fieldRoll;
   // Build the AI field. Slot 0 is always the named rival — a fixed FTP basis
   // (recalibrated only at category changes, see recalibrateRivalIfNeeded) instead
   // of a freshly randomised one each race, so "beating Hendricks" tracks a real,
@@ -2995,29 +3079,48 @@ function simulateRaceResult(raceTypeId){
   // Rival's own finishing position: ranked against every OTHER ai rider plus the player.
   const othersBeatingRival=aiScores.filter((s,idx)=>idx!==0&&s>rivalScore).length;
   const rivalPosition=othersBeatingRival+(playerScore>rivalScore?1:0)+1;
-  const prize=Math.round((cat.prizes[Math.min(position-1,cat.prizes.length-1)]||0)*state.prestigeMult*D.legacyPrizeMult);
+  let prize=Math.round((cat.prizes[Math.min(position-1,cat.prizes.length-1)]||0)*state.prestigeMult*D.legacyPrizeMult);
+  if(isClub) prize=Math.round(prize*CLUB_RACE.prizeMult);
   return {position,fieldSize,prize,points:cat.ptsPerPos[Math.min(position-1,cat.ptsPerPos.length-1)]||0,equipBonus,weightFactor,weatherMult,
     rival:{name:state.rival.name, beat:playerScore>rivalScore, position:rivalPosition}};
 }
 
-function startRace(raceTypeId){
+function startRace(raceTypeId, isClub=false){
   if(state.raceActive||state.session.active) return;
   const rt=RACE_TYPES.find(r=>r.id===raceTypeId); if(!rt) return;
-  if(state.raceCooldowns[raceTypeId]&&Date.now()<state.raceCooldowns[raceTypeId]) return;
+  // Club races have no cooldown and ignore the category race-type cooldown gate
+  // entirely (CLUB_RACE.cooldown is 0 and never written to state.raceCooldowns).
+  if(!isClub && state.raceCooldowns[raceTypeId]&&Date.now()<state.raceCooldowns[raceTypeId]) return;
   const cat=RACE_CATEGORIES[state.raceCategory];
-  const actualCost=getWeatherEnergyCost(cat.energyCost);
-  if(state.energy<actualCost){ showToast(`${icn('bolt')} Need ${actualCost} energy (weather adds cost)`); return; }
+  // Club races: flat 3-energy cost, ignoring the weather energy surcharge.
+  const actualCost=isClub ? CLUB_RACE.energyCost : getWeatherEnergyCost(cat.energyCost);
+  if(state.energy<actualCost){ showToast(`${icn('bolt')} Need ${actualCost} energy${isClub?'':' (weather adds cost)'}`); return; }
   state.energy=Math.max(0,state.energy-actualCost);
-  const fatBonus=getWeatherFatigueBonus();
+  const fatBonus=isClub ? 0 : getWeatherFatigueBonus();
   state.energySpentToday=(state.energySpentToday||0)+actualCost+fatBonus;
-  const result=simulateRaceResult(raceTypeId);
+  // Race Retention Phase 3C — race rhythm rebate. Counts ALL race kinds (club +
+  // category). Fires on the RACE_RHYTHM.first'th race of the day, then every
+  // RACE_RHYTHM.every'th race after that (3rd, 9th, 15th, ...).
+  state.racesToday=(state.racesToday||0)+1;
+  if(state.racesToday===RACE_RHYTHM.first || (state.racesToday>RACE_RHYTHM.first && (state.racesToday-RACE_RHYTHM.first)%RACE_RHYTHM.every===0)){
+    state.energy=Math.min(state.maxEnergy, state.energy+RACE_RHYTHM.refund);
+    showToast(`${icn('bolt')} Race rhythm — ${RACE_RHYTHM.refund} energy back`);
+  }
+  const result=simulateRaceResult(raceTypeId, {club:isClub});
   state.raceActive=true;
   // Use this hour's rotating course — same one the race card advertised, so
   // what the player saw before committing is exactly what they race.
   const course=getHourlyCourse(raceTypeId);
-  state.raceData={typeId:raceTypeId,startTime:Date.now(),animMs:rt.animMs,result,
+  // Race Retention Phase 2B — rival trajectory. Only category races carry a
+  // rival in the field (result.rival), so calendar events/GT stages naturally
+  // skip this (their simulate* functions never return .rival) — no separate
+  // guard needed here, just the existence check.
+  const rivalStartVP=result.rival ? Math.max(1,Math.min(result.fieldSize,Math.round(result.rival.position*0.9+result.fieldSize*0.1))) : null;
+  state.raceData={typeId:raceTypeId,startTime:Date.now(),animMs:isClub?CLUB_RACE.animMs:rt.animMs,result,
     virtualPos:Math.round(result.fieldSize*0.45),startVP:Math.round(result.fieldSize*0.45),commentaryIdx:0,
     courseId:course?course.id:null,
+    ...(rivalStartVP!=null ? {rivalStartVP, rivalVP:rivalStartVP} : {}),
+    isClub,             // Phase 1: flags this as a Club Race for completeRace()
     // Interactive race system
     stages:course?buildStagesFromEvents(course.events):buildRaceStages(raceTypeId),
     raceLegs:100,          // in-race effort resource, 0-100, reset each race
@@ -3035,10 +3138,36 @@ function startRace(raceTypeId){
   renderActiveRaceBlock();
 }
 
+// Variable-ratio bonus roll (Race Retention Phase 1B). Called at the end of
+// completeRace(), after the history entry is written. Rolls AT MOST one event:
+// shuffles RACE_BONUS_EVENTS and takes the first that hits its chance roll.
+// Club races halve every chance (constantly-pullable tier stays lower-stakes).
+// On a hit: applies the reward and stores state.lastRaceResult.bonus so the
+// result card can render a gold pill (renderRaceResultBlock / overlay). Returns
+// the bonus toast text (or '') so the caller can fold it into its own toast
+// instead of firing a second showToast() call that would clobber the first.
+function rollRaceBonus(rd, prizeTable){
+  const isClub=!!rd.isClub;
+  const shuffled=[...RACE_BONUS_EVENTS].sort(()=>Math.random()-0.5);
+  for(const ev of shuffled){
+    const chance = isClub ? ev.chance*0.5 : ev.chance;
+    if(Math.random()>=chance) continue;
+    const reward=ev.reward(state) || {};
+    let amountText='';
+    if(reward.money){ earnMoney(reward.money); amountText='+'+fmtMoney(reward.money); }
+    if(reward.xpAll){ ATTR_ORDER.forEach(attr=>addXP(attr,reward.xpAll)); amountText='+'+reward.xpAll+' XP (all)'; }
+    if(reward.energy){ state.energy=Math.min(state.maxEnergy, state.energy+reward.energy); amountText='+'+reward.energy+' energy'; }
+    if(state.lastRaceResult) state.lastRaceResult.bonus={icon:ev.icon, label:ev.label, text:amountText};
+    return `${icn(ev.icon)} ${ev.label} ${amountText}`;
+  }
+  return '';
+}
+
 function completeRace(){
   try{ navigator.vibrate?.(30); }catch(e){}
   const rd=state.raceData, cat=RACE_CATEGORIES[state.raceCategory];
   const isCalEvent=!!rd.isCalendarEvent;
+  const isClub=!!rd.isClub;
   const calEvent=isCalEvent ? CALENDAR_EVENTS.find(e=>e.id===rd.calendarEventId) : null;
   const gtStage=getGrandTourStage(rd);
 
@@ -3046,15 +3175,35 @@ function completeRace(){
   // Clamped so decisions can't push you past 1st, and are meaningful but not all-powerful.
   // The cap (±40% of field) means a great set of decisions can swing ~8 places in a field
   // of 20, and a poor set can cost ~8 — significant but not the entire race.
+  // Race Retention Phase 3A — unspent legs convert to a finish kick. Every 25
+  // saved legs (0-100 scale) shaves a place off the finish, up to 4 places.
+  // Applied BEFORE the ±40%-of-field clamp below, same as any other decision shift.
+  const kick = Math.floor((rd.raceLegs||0) / 25);
+  rd.positionDelta = (rd.positionDelta||0) - kick;
   const rawDelta = rd.positionDelta || 0;
   const maxShift = Math.max(2, Math.floor(rd.result.fieldSize * 0.40));
   const clampedDelta = Math.max(-maxShift, Math.min(maxShift, rawDelta));
   const finalPos = Math.max(1, Math.min(rd.result.fieldSize, rd.result.position + clampedDelta));
+  // Race Retention Phase 3B — hot streak (podium chain). Club races count too.
+  // Updated here, before the prize calc below, so this race's own multiplier
+  // reflects the streak AFTER this result (a podium extends the streak and the
+  // bigger prize applies immediately, on the same race).
+  state.streak = state.streak || {podium:0, best:0};
+  const streakBrokeAt = state.streak.podium;
+  if(finalPos<=3){
+    state.streak.podium = (state.streak.podium||0)+1;
+    state.streak.best = Math.max(state.streak.best||0, state.streak.podium);
+  } else {
+    state.streak.podium = 0;
+  }
   // Recalculate prize for final position — Grand Tour stages use the STAGE's
   // own prize table, regular calendar events use the event's, category races
-  // use the category's.
+  // use the category's. Order: base -> prestige -> streak -> club.
   const prizeTable = gtStage ? gtStage.prizes : isCalEvent ? calEvent.prizes : cat.prizes;
-  const finalPrize = Math.round((prizeTable[Math.min(finalPos-1, prizeTable.length-1)]||0) * state.prestigeMult);
+  let finalPrize = Math.round((prizeTable[Math.min(finalPos-1, prizeTable.length-1)]||0) * state.prestigeMult);
+  const streakMult = 1 + Math.min(state.streak.podium,5)*0.06;
+  finalPrize = Math.round(finalPrize * streakMult);
+  if(isClub) finalPrize = Math.round(finalPrize * CLUB_RACE.prizeMult);
   // Overwrite result with decision-adjusted values
   rd.result.position = finalPos;
   rd.result.prize    = finalPrize;
@@ -3068,23 +3217,44 @@ function completeRace(){
   // should matter just as much as winning a local crit, arguably more.
   const rt=RACE_TYPES.find(r=>r.id===rd.typeId);
   if(!isCalEvent){
+    // Club races: points capped at CLUB_RACE.pointsCap and no cooldown is ever set
+    // (CLUB_RACE.cooldown is 0) — the loop stays constantly pullable.
+    if(isClub) rd.result.points = Math.min(rd.result.points, CLUB_RACE.pointsCap);
     state.categoryPoints+=rd.result.points;
-    if(rt) state.raceCooldowns[rd.typeId]=Date.now()+rt.cooldown*1000;
+    if(rt && !isClub) state.raceCooldowns[rd.typeId]=Date.now()+rt.cooldown*1000;
   }
+  // Race Retention Phase 4 — micro-league series. Category + club races only
+  // (matches the block above); calendar events and Grand Tour stages never
+  // reach here since both set isCalEvent. seriesPayoutMsg is folded into the
+  // existing result toast below rather than firing a second showToast().
+  const seriesPayoutMsg = !isCalEvent ? scoreSeriesRace(rd.result.position, rd.result.fieldSize) : null;
   state.totalRaces++;
   incrementSponsorProgress('prize_money', rd.result.prize);
   if(rd.result.position<=3){ state.totalPodiums++; markTaskProgress('podium_race'); incrementSponsorProgress('podiums',1); }
   if(rd.result.position===1){ markTaskProgress('win_race'); if(rt) state.raceWinsByType[rt.id]=(state.raceWinsByType[rt.id]||0)+1; state.winsSincePrestige=(state.winsSincePrestige||0)+1; incrementSponsorProgress('win_races',1); }
+  // Phase 3B — streak-ended toast, only when a real streak (≥3) was just broken.
+  if(streakBrokeAt>=3 && state.streak.podium===0){
+    setTimeout(()=>showToast(`Streak ended at ${streakBrokeAt} — start a new one`),300);
+  }
+  // Phase 3D — form builds with every finished race, capped at 10, decays at
+  // the next daily reset (see checkDailyReset).
+  state.form = Math.min(10, (state.form||0)+1);
 
   const raceTypeNameForDisplay = gtStage ? `${icn(gtStage.icon)} ${calEvent.name} — ${gtStage.name}` : isCalEvent ? `${icn(calEvent.icon)} ${calEvent.name}` : (rt?rt.name:rd.typeId);
-  const catNameForDisplay = gtStage ? gtStage.place : isCalEvent ? (calEvent.tier==='pro'?'Pro Calendar':'Semi-Pro Calendar') : cat.shortName;
+  const catNameForDisplay = gtStage ? gtStage.place : isCalEvent ? (calEvent.tier==='pro'?'Pro Calendar':'Semi-Pro Calendar') : (isClub ? cat.shortName+' · Club' : cat.shortName);
+
+  // Near-miss gap (1C) — pure display flavour for positions 2-5, no sim impact.
+  const gapSecs = (rd.result.position>=2 && rd.result.position<=5)
+    ? Number(((rd.result.position-1) * (0.3 + Math.random()*1.2)).toFixed(1))
+    : null;
 
   const histEntry={
     raceTypeName: raceTypeNameForDisplay,
-    raceTypeId: rd.typeId, isCalEvent,
+    raceTypeId: rd.typeId, isCalEvent, isClub,
     catName: catNameForDisplay,
     position:rd.result.position,fieldSize:rd.result.fieldSize,
-    prize:rd.result.prize,points:isCalEvent?0:rd.result.points,ts:Date.now()};
+    prize:rd.result.prize,points:isCalEvent?0:rd.result.points,gap:gapSecs,ts:Date.now(),
+    kick:kick>0?kick:0}; // Phase 3A — finish kick from saved legs, shown on the result card
   state.raceHistory.unshift(histEntry);
   if(state.raceHistory.length>8) state.raceHistory.pop();
   state.lastRaceResult=histEntry;
@@ -3143,13 +3313,26 @@ function completeRace(){
     enqueueCeremony({type:'win', raceTypeName:raceTypeNameForDisplay, catName:catNameForDisplay, prize:rd.result.prize,
       rivalBeatText: (!isCalEvent && rd.result.rival && rd.result.rival.beat) ? rivalMsg.replace(' · ','') : null});
   }
+  // Variable-ratio bonus roll (1B) — runs for every race, club or category, after
+  // the history entry is recorded but before the final render/save so the toast
+  // and result-card pill both see the finished state.
+  state.lastPrizePot = (prizeTable && prizeTable[0]) || 0;
+  const bonusToastText = rollRaceBonus(rd, prizeTable);
+
   updateActivityDots(); checkCategoryPromotion(); checkAchievements(); checkLifetimeGoals(); updateSponsorBadge(); updateCalendarBadge(); recalc(); saveGame();
   // The full-screen win ceremony already communicates position + prize, so the
   // small bottom toast is suppressed for 1st place to avoid showing the same
-  // information twice in two different UI styles at once.
+  // information twice in two different UI styles at once. A bonus roll still
+  // needs to be surfaced even on a win, since the ceremony doesn't show it —
+  // so it gets its own toast only in that one case.
   if(rd.result.position!==1){
-    showToast(`${rd.result.prize>0?'+'+fmtMoney(rd.result.prize):'No prize'} · ${rd.result.position}${ordinal(rd.result.position)} / ${rd.result.fieldSize}${rivalMsg}`);
+    showToast(`${rd.result.prize>0?'+'+fmtMoney(rd.result.prize):'No prize'} · ${rd.result.position}${ordinal(rd.result.position)} / ${rd.result.fieldSize}${rivalMsg}${bonusToastText?' · '+bonusToastText:''}`);
+  } else if(bonusToastText){
+    setTimeout(()=>showToast(bonusToastText),600);
   }
+  // Phase 4 — series payout toast, staggered after any win/bonus toast above
+  // so a series-completing race doesn't clobber those with this one.
+  if(seriesPayoutMsg) setTimeout(()=>showToast(`${icn('trophy')} ${seriesPayoutMsg}`), rd.result.position===1?1200:600);
   // Overlay stays open — switches to result mode. Continue button closes it.
   renderRaceOverlayResult();
 }
@@ -4918,7 +5101,7 @@ function renderWeatherBanner(){
   </div>`;
 }
 
-function renderRaceTab(){ renderWeatherBanner(); renderRivalCard(); renderRaceSetupCard(); renderCategoryCard(); renderActiveRaceBlock(); renderRaceResultBlock(); renderRaceTypes(); renderRaceHistory(); }
+function renderRaceTab(){ renderWeatherBanner(); renderRivalCard(); renderRaceSetupCard(); renderCategoryCard(); renderSeriesCard(); renderActiveRaceBlock(); renderRaceResultBlock(); renderClubRaces(); renderRaceTypes(); renderRaceHistory(); }
 
 function renderRivalCard(){
   const wrap=document.getElementById('rival-wrap');
@@ -4945,11 +5128,17 @@ function renderRaceSetupCard(){
     const col=b>0?'var(--green-txt)':b<0?'var(--red-txt)':'var(--txt3)';
     return `<span style="font-size:10px;color:${col};font-weight:700;white-space:nowrap">${icn(rt.icon)} ${b>0?'+':''}${b}w</span>`;
   }).join('<span style="color:var(--border2)"> · </span>');
+  // Phase 3D — form chips. 10 slots, filled = state.form; label shows the
+  // resulting simulateRaceResult() multiplier (0.5% per point, max +5%).
+  const formN = Math.max(0, Math.min(10, state.form||0));
+  const formChips = Array.from({length:10},(_, i)=> i<formN ? '▮' : '▯').join('');
+  const formPct = (formN*0.5).toFixed(1);
   wrap.innerHTML=`<div class="race-setup-card">
     <div class="race-setup-head"><span class="race-setup-title">${icn('gear')} Race Setup</span><span class="race-setup-hint">Change in Gear tab</span></div>
     <div class="race-setup-row"><span class="race-setup-icon">${icn('bike')}</span><span class="race-setup-label">Bike</span><span class="race-setup-name">${bike.brand?bike.brand+' ':''}${bike.model}</span></div>
     <div class="race-setup-row"><span class="race-setup-icon">${icn('circle-blue')}</span><span class="race-setup-label">Wheels</span><span class="race-setup-name">${wheel.name}</span></div>
     <div class="race-setup-row"><span class="race-setup-icon">${icn('jersey')}</span><span class="race-setup-label">Kit</span><span class="race-setup-name">${kit.name}<span class="kit-color-dot" style="background:${KIT_COLORS.find(c=>c.id===state.equippedKitColor)?.hex||'#6b6b67'}"></span></span></div>
+    <div class="race-setup-row"><span class="race-setup-icon">${icn('fire')}</span><span class="race-setup-label">Form</span><span class="race-setup-name">${formChips} (+${formPct}%)</span></div>
     <div style="margin-top:9px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">${bonusBadges}</div>
   </div>`;
 }
@@ -4959,12 +5148,121 @@ function renderCategoryCard(){
   const cat=RACE_CATEGORIES[state.raceCategory];
   const pct=Math.min(100,Math.round(state.categoryPoints/cat.ptsToPromote*100));
   const isMax=state.raceCategory===RACE_CATEGORIES.length-1, cv=cat.color;
+  // Phase 3B — hot streak flame pill. Only shown once the streak is worth
+  // bragging about (≥2 podiums); the multiplier is min(streak,5)*6%.
+  const streakN = (state.streak && state.streak.podium) || 0;
+  const streakPct = Math.min(streakN,5)*6;
+  const streakHtml = streakN>=2 ? `<div class="cat-promo" style="color:var(--amber-txt)">${icn('fire')} ${streakN} podium streak (+${streakPct}% prizes)</div>` : '';
   wrap.innerHTML=`<div class="cat-card" style="border-left:3px solid var(--${cv}-txt)">
     <div class="cat-head"><div class="cat-icon">${icn(cat.icon)}</div><div class="cat-body"><div class="cat-name">${cat.name}</div><div class="cat-desc">${cat.desc}</div></div></div>
     <div class="cat-pts-row"><span>Season points</span><span class="cat-pts-val">${state.categoryPoints} / ${isMax?'MAX':cat.ptsToPromote}</span></div>
     <div class="cat-bar-outer"><div class="cat-bar-inner" style="width:${pct}%;background:var(--${cv}-txt)"></div></div>
     ${!isMax?`<div class="cat-promo" style="color:var(--${cv}-txt)">${pct>=100?`${icn('party')} Ready to promote to ${RACE_CATEGORIES[state.raceCategory+1].name}!`:`${RACE_CATEGORIES[state.raceCategory+1].shortName} promotion: ${pct}% there`}</div>`
             :`<div class="cat-promo" style="color:var(--amber-txt)">${icn('trophy')} The highest level — the Professional peloton.</div>`}
+    ${streakHtml}
+  </div>`;
+}
+
+// ─── MICRO-LEAGUE SERIES (Race Retention Phase 4) ─────────────
+// Lazily builds a fresh 10-race series the first time a category/club race is
+// scored. Uses the player's assigned rival (state.rival.name) plus 4 more
+// names drawn from RIVAL_NAMES, excluding the rival, so no name repeats twice
+// in the same series roster.
+function ensureSeries(){
+  if(state.series) return state.series;
+  const rivalName = (state.rival && state.rival.name) || RIVAL_NAMES[0];
+  const pool = RIVAL_NAMES.filter(n=>n!==rivalName);
+  const shuffled=[...pool].sort(()=>Math.random()-0.5);
+  const others = shuffled.slice(0,4);
+  state.series = {
+    num: 1,
+    racesDone: 0,
+    players: [
+      {name:'You', pts:0, isYou:true, isRival:false},
+      {name:rivalName, pts:0, isYou:false, isRival:true},
+      ...others.map(n=>({name:n, pts:0, isYou:false, isRival:false})),
+    ],
+    history: [],
+  };
+  return state.series;
+}
+
+// Rolls one AI player's series points from SERIES_PTS, biased toward the low
+// end (Math.random()*Math.random() skews small). The rival rolls twice and
+// keeps the higher result, so they average noticeably higher than the field.
+function rollSeriesPts(isRival){
+  const roll = ()=> SERIES_PTS[Math.floor(Math.random()*Math.random()*SERIES_PTS.length)];
+  return isRival ? Math.max(roll(), roll()) : roll();
+}
+
+// Called once per scored race (category + club only — see completeRace()).
+// Awards the player's band points, rolls every AI player's points, advances
+// racesDone, and pays out + rolls the series over once SERIES_LEN is reached.
+// Returns a short summary object the caller can fold into its own toast, or
+// null if nothing series-worthy happened this call (never currently null,
+// but kept for symmetry with the other race-end helper functions).
+function scoreSeriesRace(finalPos, fieldSize){
+  const s=ensureSeries();
+  const frac = fieldSize>0 ? finalPos/fieldSize : 1;
+  let yourPts;
+  if(finalPos===1) yourPts=10;
+  else if(finalPos===2) yourPts=7;
+  else if(finalPos===3) yourPts=5;
+  else if(frac<=0.25) yourPts=4;
+  else if(frac<=0.50) yourPts=3;
+  else if(frac<=0.75) yourPts=2;
+  else yourPts=1;
+
+  s.players.forEach(p=>{
+    if(p.isYou) p.pts += yourPts;
+    else p.pts += rollSeriesPts(p.isRival);
+  });
+  s.racesDone++;
+
+  let payoutMsg=null;
+  if(s.racesDone>=SERIES_LEN){
+    const ranked=[...s.players].sort((a,b)=>b.pts-a.pts);
+    const yourRank = ranked.findIndex(p=>p.isYou)+1;
+    const cat=RACE_CATEGORIES[state.raceCategory];
+    const payout = Math.round(SERIES_PAYOUT(yourRank) * (cat.prizes[0]||0));
+    if(payout>0) earnMoney(payout);
+    s.history.unshift({num:s.num, yourRank, payout, ts:Date.now()});
+    if(s.history.length>8) s.history.pop();
+    payoutMsg = `Series #${s.num} complete — ${ordinal(yourRank)} place${payout>0?', +'+fmtMoney(payout):''}`;
+    // Roll straight into a fresh series, same roster, points back to 0.
+    state.series = {
+      num: s.num+1,
+      racesDone: 0,
+      players: s.players.map(p=>({...p, pts:0})),
+      history: s.history,
+    };
+  }
+  return payoutMsg;
+}
+
+// Mini standings table between the Category card and the race list. Six rows
+// (you + rival + 4 others), sorted by points descending, with a footer
+// estimating the next payout at the current category's 1st-place prize.
+function renderSeriesCard(){
+  const wrap=document.getElementById('series-wrap');
+  if(!wrap) return;
+  const s=state.series;
+  if(!s){ wrap.innerHTML=''; return; }
+  const ranked=[...s.players].sort((a,b)=>b.pts-a.pts);
+  const cat=RACE_CATEGORIES[state.raceCategory];
+  const estTop = Math.round(SERIES_PAYOUT(1)*(cat.prizes[0]||0));
+  const rowsHtml = ranked.map((p,i)=>{
+    const style = p.isYou ? 'font-weight:700' : p.isRival ? 'color:var(--red-txt)' : '';
+    return `<div class="series-row" style="${style}"><span class="series-pos">${i+1}</span><span class="series-name">${p.name}</span><span class="series-pts">${p.pts}</span></div>`;
+  }).join('');
+  const racesLeft = SERIES_LEN - s.racesDone;
+  wrap.innerHTML = `<div class="cat-card series-card">
+    <div class="cat-head" style="margin-bottom:.5rem">
+      <div class="cat-icon">${icn('trophy')}</div>
+      <div class="cat-body"><div class="cat-name" style="font-size:15px">Spring Series #${s.num}</div><div class="cat-desc">Race ${s.racesDone}/${SERIES_LEN}</div></div>
+    </div>
+    <div class="series-table">${rowsHtml}</div>
+    <div class="cat-promo" style="color:var(--txt2);font-weight:500">${racesLeft} race${racesLeft===1?'':'s'} left · 1st pays ~${fmtMoney(estTop)}</div>
   </div>`;
 }
 
@@ -4986,7 +5284,7 @@ function smoothTerrainPath(pts){
   return d;
 }
 
-function buildCourseProfileSVG(rt, progress, stages, windowMode=false){
+function buildCourseProfileSVG(rt, progress, stages, windowMode=false, rivalData=null){
   const profile=rt.profile||[20,20,20,20];
   const N=profile.length;
   const VB_W=320, VB_H=84;
@@ -5089,6 +5387,33 @@ function buildCourseProfileSVG(rt, progress, stages, windowMode=false){
       ${decisionHint}`;
   }).join('');
 
+  // Race Retention Phase 2A/2B — rival dot + "bunch smear" around the player.
+  // Both are purely cosmetic overlays on the existing terrain curve; neither
+  // reads/writes race state beyond the rivalVP/virtualPos already computed by
+  // the tick loop. Guarded on rivalData being passed (category races only —
+  // renderActiveRaceBlock omits it for calendar/GT events).
+  let rivalMarkerHtml='', bunchSmearHtml='';
+  if(rivalData){
+    // Rival's field position mapped onto the same terrain x-axis convention
+    // as the player: front-of-field (low position number) = further along
+    // the course, matching how virtualPos already drives riderX/progress.
+    const rivalFrac=rivalData.fieldSize<=1?progress:progress*(1-((rivalData.vp-1)/(rivalData.fieldSize-1)-0.5));
+    const rivalProgress=Math.max(0,Math.min(1,rivalFrac));
+    const rIdxF=Math.max(0,Math.min(N-1,rivalProgress*(N-1)));
+    const rLow=Math.floor(rIdxF), rHigh=Math.min(N-1,rLow+1), rFrac=rIdxF-rLow;
+    const rivalVal=profile[rLow]+(profile[rHigh]-profile[rLow])*rFrac;
+    const rivalX=CHART_LEFT+rivalProgress*CHART_W, rivalY=svgY(rivalVal);
+    rivalMarkerHtml=`<circle cx="${rivalX.toFixed(1)}" cy="${rivalY.toFixed(1)}" r="5.5" fill="var(--bg)" stroke="var(--red-txt)" stroke-width="2"/>`;
+
+    // Bunch smear: translucent rect centred on the player dot, offset by how
+    // far the player sits from the middle of the field — near the front
+    // (low virtualPos), the smear trails behind (offset is inverted).
+    const fieldSize=rivalData.fieldSize||1;
+    const vpOffset=fieldSize<=1?0:((rivalData.playerVp-fieldSize/2)/fieldSize*30)*-1;
+    const smearCx=riderX+vpOffset;
+    bunchSmearHtml=`<rect x="${(smearCx-22).toFixed(1)}" y="${(riderY-9).toFixed(1)}" width="44" height="18" rx="9" fill="var(--${cv}-txt)" fill-opacity="0.14"/>`;
+  }
+
   return `<svg viewBox="${vbX} 0 ${vbW} ${VB_H}" class="course-profile-svg" preserveAspectRatio="${windowMode?'xMidYMid meet':'none'}">
     <defs>
       <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
@@ -5106,6 +5431,8 @@ function buildCourseProfileSVG(rt, progress, stages, windowMode=false){
     </g>
     ${flagsHtml}
     ${trailHtml}
+    ${rivalMarkerHtml}
+    ${bunchSmearHtml}
     <g class="rider-marker-pulse">
       <circle cx="${riderX}" cy="${riderY}" r="7" fill="var(--bg)" stroke="var(--${cv}-txt)" stroke-width="2.5"/>
       <use href="#icn-rider" x="${riderX-4}" y="${riderY-4}" width="8" height="8" color="var(--${cv}-txt)"/>
@@ -5166,7 +5493,7 @@ function buildCourseMiniMapSVG(rt, progress, stages){
 // rider index and the current timestamp (for cosmetic bobbing only). Does
 // NOT read or write virtualPos itself beyond the read already needed to
 // place the player dot — no randomness affects outcomes.
-function buildPelotonStripSVG(rd){
+function buildPelotonStripSVG(rd, rivalData=null){
   const VB_W=320, VB_H=72;
   const TRACK_TOP=14, TRACK_BOTTOM=58;
   const LEFT=10, RIGHT=310; // back edge (left) -> front edge (right)
@@ -5238,10 +5565,23 @@ function buildPelotonStripSVG(rd){
     ? `<text x="${playerX}" y="${TRACK_TOP-4}" class="peloton-gap-label">${isBreakaway?`${icn('bolt')} Off the front`:'⏳ Off the back'}</text>`
     : '';
 
+  // Race Retention Phase 2B — rival dot, same front-to-back fraction convention
+  // as the player dot above, coloured red. Guarded on rivalData being passed
+  // (category races only; renderActiveRaceBlock omits it for calendar/GT events).
+  let rivalHtml='';
+  if(rivalData){
+    const rvp=Math.max(1,Math.min(fieldSize,rivalData.vp||1));
+    const rivalPosFrac=fieldSize<=1?1:1-((rvp-1)/(fieldSize-1));
+    const rivalX=LEFT+rivalPosFrac*(RIGHT-LEFT);
+    const rivalY=midY+Math.sin(now/bobSpeed+0.8)*(bobAmp*0.5);
+    rivalHtml=`<circle cx="${rivalX.toFixed(1)}" cy="${rivalY.toFixed(1)}" r="5" fill="var(--red-txt)" stroke="var(--bg)" stroke-width="1.5"/>`;
+  }
+
   return `<svg viewBox="0 0 ${VB_W} ${VB_H}" class="peloton-strip-svg" preserveAspectRatio="none">
     <line x1="${LEFT}" y1="${midY}" x2="${RIGHT}" y2="${midY}" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3"/>
     ${gapNote}
     ${npcHtml}
+    ${rivalHtml}
     <circle cx="${playerX.toFixed(1)}" cy="${playerY.toFixed(1)}" r="5.5" fill="${kitHex}" stroke="var(--bg)" stroke-width="1.5"/>
     <circle cx="${playerX.toFixed(1)}" cy="${playerY.toFixed(1)}" r="8" fill="none" stroke="${kitHex}" stroke-width="1.5" stroke-opacity="0.55"/>
   </svg>`;
@@ -5357,7 +5697,14 @@ function renderActiveRaceBlock(){
   const stages=rd.stages||[];
   const profileSrc=gtStage ? {id:gtStage.id, profile:gtStage.profile, colorVar:'red'}
                     : course ? {id:course.id, profile:course.profile, colorVar:rt.colorVar} : rt;
-  const courseProfileSvg=buildCourseProfileSVG(profileSrc, progress, stages, true);
+  // Race Retention Phase 2B — rival only exists in the field for category
+  // races (never calendar/GT events, per startRace/startCalendarEvent/
+  // startGrandTourStage), so this guard covers both isCalendarEvent and the
+  // "no rivalStartVP was ever set" case in one check.
+  const rivalData=(!rd.isCalendarEvent && rd.rivalStartVP!=null)
+    ? {vp:rd.rivalVP??rd.rivalStartVP, fieldSize:rd.result.fieldSize, playerVp:rd.virtualPos||1, name:state.rival.name||'Rival'}
+    : null;
+  const courseProfileSvg=buildCourseProfileSVG(profileSrc, progress, stages, true, rivalData);
   const courseMiniMapSvg=buildCourseMiniMapSVG(profileSrc, progress, stages);
   const commentarySrc=gtStage ? gtStage.commentary : course ? course.commentary : rt.commentary;
 
@@ -5423,7 +5770,9 @@ function renderActiveRaceBlock(){
   } else if(isFinalSprint){
     middleHtml=`<div class="race-commentary sprint-line">${icn('flag')} It's flat out for the line!</div>`;
   } else {
-    middleHtml=`<div class="race-commentary">${commentarySrc[rd.commentaryIdx]||commentarySrc[commentarySrc.length-1]}</div>`;
+    const baseLine=commentarySrc[rd.commentaryIdx]||commentarySrc[commentarySrc.length-1];
+    const posClause=rd._posClauseText||'';
+    middleHtml=`<div class="race-commentary">${baseLine}${posClause}</div>`;
   }
 
   // PHASE E — position-change ticker chip. Fires once per resolved decision by
@@ -5453,8 +5802,10 @@ function renderActiveRaceBlock(){
       <span class="race-legs-val" style="color:${legsCol}">${legsPct}</span>
     </div>
     ${middleHtml}
-    <div class="peloton-strip-wrap${isFinalSprint?' sprint-shake':''}">${buildPelotonStripSVG(rd)}</div>
+    <div class="peloton-strip-wrap${isFinalSprint?' sprint-shake':''}">${buildPelotonStripSVG(rd, rivalData)}</div>
+    ${rivalData?`<div class="rival-legend-row"><span class="rival-legend-you">${icn('run')} You ●</span><span class="rival-legend-sep">·</span><span class="rival-legend-rival">${rivalData.name} ●</span></div>`:''}
     <div class="race-pos-row"><span>${icn('run')} Position: <strong>${ordinal(rd.virtualPos||1)} / ${rd.result.fieldSize}</strong></span><span>${rd.result.fieldSize} riders</span></div>
+    ${rivalData?`<div class="rival-gap-row">${(()=>{const n=Math.abs((rd.virtualPos||1)-rivalData.vp); return n===0?`${icn('run')} On ${rivalData.name}'s wheel`:rivalData.vp<(rd.virtualPos||1)?`${icn('run')} ${rivalData.name} is ${n} wheel${n===1?'':'s'} ahead`:`${icn('run')} ${n} wheel${n===1?'':'s'} behind ${rivalData.name}`;})()}</div>`:''}
   </div>`;
 }
 
@@ -5479,15 +5830,27 @@ function buildRaceResultCardHtml(r){
     }
     hintHtml=`<div class="result-hint">${icn('thought')} ${r._hintText}</div>`;
   }
+  // 1C — near-miss gap, positions 2-5 only. ?? guards old history entries saved
+  // before this field existed.
+  const gapVal = r.gap ?? null;
+  const gapHtml = (gapVal!=null && r.position>=2 && r.position<=5) ? ` · ${ordinal(r.position)} — by ${gapVal}s` : '';
+  // 1B — variable-ratio bonus pill. ?? guards old history entries with no bonus field.
+  const bonus = r.bonus ?? null;
+  const bonusHtml = bonus ? `<div class="result-bonus-pill">${icn(bonus.icon)} ${bonus.label} ${bonus.text||''}</div>` : '';
+  // 3A — finish kick pill. ?? guards old history entries saved before this field existed.
+  const kickVal = r.kick ?? 0;
+  const kickHtml = kickVal>0 ? `<div class="result-bonus-pill">${icn('bolt')} Finish kick: +${kickVal} places (saved legs)</div>` : '';
   return `<div class="race-result-card">
     <div class="result-head">
       <div class="result-pos-badge ${posCls}">${ordinal(r.position)}</div>
-      <div class="result-info"><div class="result-title">${r.raceTypeName} — ${r.catName}</div><div class="result-sub">${r.position} of ${r.fieldSize} riders · ${new Date(r.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div></div>
+      <div class="result-info"><div class="result-title">${r.raceTypeName} — ${r.catName}</div><div class="result-sub">${r.position} of ${r.fieldSize} riders${gapHtml} · ${new Date(r.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div></div>
     </div>
     <div class="result-rewards">
       ${r.prize>0?`<span class="result-reward-pill result-reward-money">+${fmtMoney(r.prize)}</span>`:`<span class="result-reward-pill result-reward-none">No prize</span>`}
       ${r.points>0?`<span class="result-reward-pill result-reward-pts">+${r.points} pts</span>`:''}
     </div>
+    ${bonusHtml}
+    ${kickHtml}
     ${isCalResult
       ? `<div class="result-cat-progress">${icn('calendar')} Calendar event — doesn't affect category points or cooldowns</div>`
       : `<div class="result-cat-progress">Category progress: <strong>${state.categoryPoints} / ${cat.ptsToPromote} pts</strong> — ${ptsPct}% to promotion</div>`}
@@ -5517,6 +5880,32 @@ function renderRaceOverlayResult(){
     if(card) card.classList.add('podium-card');
     if(badge) badge.classList.add('podium-celebrate');
   }
+}
+
+// Club Races (Phase 1A) — ultra-cheap, no-cooldown compact rows above the
+// normal Available Races list. Same 4 RACE_TYPES, flat 3-energy cost, no
+// cooldown gate. Reuses .race-card styling with a .club-race-row padding
+// modifier only — no new card design.
+function renderClubRaces(){
+  const list=document.getElementById('club-race-list'); if(!list) return;
+  list.innerHTML='';
+  const busy=state.raceActive||state.session.active;
+  const noEnergy=state.energy<CLUB_RACE.energyCost;
+  RACE_TYPES.forEach(rt=>{
+    const available=!busy&&!noEnergy;
+    const div=document.createElement('div');
+    div.className='race-card club-race-row'+(available?' available':'');
+    if(!available) div.style.opacity='0.65';
+    let statusHtml;
+    if(busy) statusHtml=`<span class="race-status" style="color:var(--txt3)">Busy</span>`;
+    else if(noEnergy) statusHtml=`<span class="race-status" style="color:var(--red-txt)">${icn('bolt')} ${Math.floor(state.energy)}/${CLUB_RACE.energyCost}</span>`;
+    else statusHtml=`<span class="race-status" style="color:var(--green-txt)">▶ Enter</span>`;
+    div.innerHTML=`<div class="race-card-head"><div class="race-type-icon">${icn(rt.icon)}</div><div class="race-card-text"><div class="race-card-name">${rt.name}</div></div>
+      <span class="race-energy-badge${noEnergy?' unaffordable':''}">${icn('bolt')} ${CLUB_RACE.energyCost}</span>
+      ${statusHtml}</div>`;
+    if(available) div.addEventListener('click',()=>startRace(rt.id,true));
+    list.appendChild(div);
+  });
 }
 
 function renderRaceTypes(){
@@ -6850,6 +7239,8 @@ function saveGame(){
       loginStreak:state.loginStreak,
       lastLoginDate:state.lastLoginDate,
       pendingMorningReward:state.pendingMorningReward,
+      streak:state.streak, racesToday:state.racesToday, form:state.form,
+      series:state.series,
       pendingSession:state.session.awaitingCollection
         ? {typeId:state.session.typeId, pendingXP:state.session.pendingXP||[], isCritical:!!state.session.isCritical}
         : null,
@@ -6965,6 +7356,15 @@ function loadGame(){
         startTime:Date.now(), duration:0};
     }
     if(d.attributes) ATTR_ORDER.forEach(id=>{ if(d.attributes[id]){state.attributes[id].xp=d.attributes[id].xp||0;state.attributes[id].level=d.attributes[id].level||0;} });
+    // Race Retention Phase 3 — old saves default to a cold streak/form and zero
+    // races-today (checkDailyReset() will re-zero racesToday properly at the next
+    // day boundary anyway; this just covers the gap until then).
+    state.streak = d.streak ?? {podium:0, best:0};
+    state.racesToday = d.racesToday ?? 0;
+    state.form = d.form ?? 0;
+    // Race Retention Phase 4 — old saves default to null; ensureSeries() builds
+    // a fresh series lazily on the player's next scored race.
+    state.series = d.series ?? null;
   }catch(e){ console.warn('[CIM] Load failed:',e); }
 }
 
@@ -7051,9 +7451,31 @@ function gameTick(){
     const tickCourse=getRaceCourse(rd);
     const commentaryLen=tickCourse?tickCourse.commentary.length:(rt?rt.commentary.length:0);
     if(commentaryLen>0) rd.commentaryIdx=Math.min(Math.floor(elapsed/(rd.animMs/commentaryLen)),commentaryLen-1);
+    // Race Retention Phase 2C — position-aware commentary clause, appended to
+    // the base line at render time (see renderActiveRaceBlock). Re-rolled only
+    // when the underlying commentary line advances, not every tick, so the
+    // clause doesn't flicker mid-line.
+    {
+      const fsC=rd.result.fieldSize;
+      const band = rd.virtualPos<=Math.ceil(fsC*0.2) ? 'front' : rd.virtualPos>=Math.floor(fsC*0.75) ? 'back' : 'mid';
+      if(rd._posClauseIdx!==rd.commentaryIdx || rd._posClauseBand!==band){
+        rd._posClauseIdx=rd.commentaryIdx; rd._posClauseBand=band;
+        const pool=POSITION_CLAUSES[band];
+        rd._posClauseText=pool[Math.floor(Math.random()*pool.length)];
+      }
+    }
     const progress=elapsed/rd.animMs, fs=rd.result.fieldSize, fp=rd.result.position;
     if(progress<0.55){ if(Math.random()<0.15) rd.virtualPos=Math.max(1,Math.min(fs,rd.virtualPos+Math.round((Math.random()-0.5)*4))); }
     else{ rd.virtualPos=Math.max(1,Math.min(fs,Math.round(rd.startVP+(fp-rd.startVP)*((progress-0.55)/0.45)))); }
+    // Race Retention Phase 2B — rival trajectory mirrors the player's own
+    // two-phase logic above (random walk pre-55%, converge to final position
+    // after). Only runs when rivalStartVP was set at race start (category
+    // races only — calendar/GT events have no rival in field).
+    if(rd.rivalStartVP!=null){
+      const rp=rd.result.rival.position;
+      if(progress<0.55){ if(Math.random()<0.15) rd.rivalVP=Math.max(1,Math.min(fs,(rd.rivalVP??rd.rivalStartVP)+Math.round((Math.random()-0.5)*4))); }
+      else{ rd.rivalVP=Math.max(1,Math.min(fs,Math.round(rd.rivalStartVP+(rp-rd.rivalStartVP)*((progress-0.55)/0.45)))); }
+    }
     // Fire decision stages as race progress crosses each triggerPct
     if(!rd.pendingDecision && rd.stages){
       for(const stage of rd.stages){
