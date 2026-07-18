@@ -762,6 +762,40 @@ button{font-family:inherit;cursor:pointer;}
 .onboard-skip{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:14px;z-index:2501;
   font-size:11px;font-weight:600;color:rgba(255,255,255,.75);background:rgba(0,0,0,.3);
   border:none;border-radius:99px;padding:6px 12px;cursor:pointer;pointer-events:auto;}
+
+/* ── fix44: Info popup system — bottom-sheet explanatory popups ──
+   z-index 1900: above .race-overlay (1800) so it works mid-race, below
+   .ceremony-overlay (2000) and #onboard-layer (2500). */
+.info-overlay{
+  position:fixed;inset:0;z-index:1900;
+  background:rgba(0,0,0,.5);
+  display:flex;align-items:center;justify-content:center;
+  padding:1.25rem;
+  animation:info-fade-in .18s ease-out;
+}
+@keyframes info-fade-in{from{opacity:0}to{opacity:1}}
+.info-card{
+  position:relative;width:100%;max-width:420px;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:1.25rem;
+  box-shadow:0 12px 40px rgba(0,0,0,.35);
+  animation:info-card-in .22s cubic-bezier(.34,1.2,.64,1);
+  max-height:70vh;overflow-y:auto;
+}
+@keyframes info-card-in{from{transform:translateY(12px) scale(.96);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+.info-close{position:absolute;top:10px;right:10px;width:28px;height:28px;min-width:28px;min-height:28px;
+  border:none;border-radius:50%;background:var(--bg3,rgba(120,120,120,.15));color:var(--txt2);
+  font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.info-close:active{opacity:.8;}
+#info-card-title{font-size:15px;font-weight:800;color:var(--txt);margin:0 1.75rem 8px 0;letter-spacing:-.01em;}
+#info-card-body{font-size:13px;color:var(--txt2);line-height:1.55;}
+#info-card-body b,#info-card-body strong{color:var(--txt);}
+.info-btn{display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:28px;min-width:28px;min-height:28px;margin:-4px -4px -4px 0;
+  border:none;background:transparent;color:var(--txt3);font-size:13px;font-weight:700;
+  cursor:pointer;border-radius:50%;flex-shrink:0;}
+.info-btn:active{opacity:.7;}
 </style>
 </head>
 <body>
@@ -1161,7 +1195,7 @@ const RACE_STAT_HINTS = {
          "Tough one in the crit today. Riders with a strong VO₂ Max tend to thrive over these fast, punchy laps.",
          "Off the back in that one. A high VO₂ Max is usually what wins criteriums." ],
   road:[ "A tough day in the bunch. Road racing rewards a well-rounded rider more than any single strength — keep building broadly.",
-         "Not your day out there. Road races don't favour one specialism — balance across your attributes tends to pay off.",
+         "Not your day out there. Road races don't favour one specialism — balanced riders tend to come out on top.",
          "Unlucky in the road race. No shortcuts here — it rewards an all-round engine." ],
   tt:[   "Not your day against the clock. Time trials reward riders with the biggest raw FTP — that's the number to chase.",
          "Off the pace in the race of truth. Pure power output tends to be what wins time trials.",
@@ -5150,17 +5184,16 @@ function renderEnergyCard(){
   const spent=state.energySpentToday||0;
   const recoveryHtml=`<div style="margin-top:.6rem;padding-top:.6rem;border-top:.5px solid var(--border)">
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.3rem">
-      <span style="font-size:12px;font-weight:600;color:var(--txt2)">${icn('sleep')} Recovery — tomorrow you'll wake with</span>
+      <span style="font-size:12px;font-weight:600;color:var(--txt2)">${icn('sleep')} Recovery — tomorrow you'll wake with <button class="info-btn" onclick="event.stopPropagation();openInfo('recovery')">ⓘ</button></span>
       <span style="font-size:14px;font-weight:700;color:${tmrCol}">${tmr} / ${state.maxEnergy}</span>
     </div>
     <div class="energy-bar-outer" style="height:6px"><div class="energy-bar-inner" style="width:${tmrPct}%;background:${tmrCol}"></div></div>
-    <div style="font-size:10px;color:var(--txt3);margin-top:3px">${spent>0?`${spent} energy spent today → fatigue carries over. Use Gels, Carb Drinks or Recovery Shakes to recover faster overnight.`:'No training yet today — full recovery expected.'}</div>
   </div>`;
   wrap.innerHTML=`<div class="energy-card">
     <div class="energy-head"><span class="energy-label">${icn('bolt')} Daily Training Energy</span><span class="energy-amount">${e} / ${Math.max(state.maxEnergy,e)}</span></div>
     <div class="energy-bar-outer"><div class="energy-bar-inner ${barCls}" style="width:${Math.min(100,Math.round(e/state.maxEnergy*100))}%"></div></div>
-    <div class="energy-meta"><span>Recovers each morning · <span style="color:var(--green-txt)">↑ +6/hr idle regen</span></span><span>~${timeToReset()} remaining</span></div>
-    ${(()=>{ const {condition,intensity}=getDailyWeather(); const fb=Math.round((condition.fatigueBonus||0)*WEATHER_INTENSITY_MULTS[intensity]); return fb>0?`<div style="font-size:10px;color:var(--amber-txt);font-weight:600;margin-top:.3rem">${icn(condition.icon)} ${WEATHER_INTENSITY_LABELS[intensity]} ${condition.name.toLowerCase()}: +${fb} extra fatigue per race today</div>`:''; })()}
+    <div class="energy-meta"><span><button class="info-btn" onclick="event.stopPropagation();openInfo('energy')">ⓘ</button></span><span>~${timeToReset()} remaining</span></div>
+    ${(()=>{ const {condition,intensity}=getDailyWeather(); const fb=Math.round((condition.fatigueBonus||0)*WEATHER_INTENSITY_MULTS[intensity]); return fb>0?`<div style="font-size:10px;color:var(--amber-txt);font-weight:600;margin-top:.3rem;display:flex;align-items:center;gap:2px">${icn(condition.icon)} ${WEATHER_INTENSITY_LABELS[intensity]} ${condition.name.toLowerCase()}: +${fb} fatigue/race <button class="info-btn" onclick="event.stopPropagation();openInfo('weatherToday')">ⓘ</button></div>`:''; })()}
     ${dailyHtml}${invRowHtml}${recoveryHtml}
   </div>`;
 }
@@ -5185,13 +5218,12 @@ function renderWeightCard(){
       : '';
 
   wrap.innerHTML=`<div class="energy-card">
-    <div class="energy-head"><span class="energy-label">${icn('scale')} Rider Weight</span><span class="energy-amount">${state.riderWeight.toFixed(1)}kg</span></div>
+    <div class="energy-head"><span class="energy-label">${icn('scale')} Rider Weight <button class="info-btn" onclick="event.stopPropagation();openInfo('nutrition')">ⓘ</button></span><span class="energy-amount">${state.riderWeight.toFixed(1)}kg</span></div>
     <div class="energy-meta"><span>Power-to-weight: <strong>${pw.toFixed(2)} W/kg</strong></span><span>${deltaHtml}</span></div>
     <div style="margin-top:.6rem;padding-top:.6rem;border-top:.5px solid var(--border)">
       <div class="energy-head" style="margin-bottom:.4rem"><span class="energy-label">${icn('bread')} Today's Carb Intake</span><span class="energy-amount" style="font-size:16px">${carbsToday} / ${CARB_DAILY_LIMIT}</span></div>
       <div class="energy-bar-outer"><div class="energy-bar-inner ${carbBarCls}" style="width:${carbPct}%"></div></div>
       ${carbHint}
-      <div style="font-size:10px;color:var(--txt3);margin-top:5px">Carbs come from energy items you use. Excess over the limit adds weight at the next daily reset. Offset with Recovery Spin (Zone 1) training.</div>
     </div>
   </div>`;
 }
@@ -5326,7 +5358,7 @@ function renderWeatherBanner(){
 
   // Energy cost note — only show when weather actually increases it
   const energyNote=(condition.energyMult>1 && intMult>0)
-    ? `<div class="wx-energy-note">${icn('bolt')} ${intensityLabel} ${condition.name.toLowerCase()} increases race energy cost and fatigue</div>`
+    ? `<div class="wx-energy-note">${icn('bolt')} Higher race energy cost today <button class="info-btn" onclick="event.stopPropagation();openInfo('weatherToday')">ⓘ</button></div>`
     : '';
 
   // Banner colour matches condition severity
@@ -5361,9 +5393,8 @@ function renderRivalCard(){
   const gapText = gap>0 ? `${gap}w ahead of you` : gap<0 ? `${Math.abs(gap)}w behind you` : 'dead even with you';
   const gapColor = gap>10 ? 'var(--red-txt)' : gap>0 ? 'var(--amber-txt)' : 'var(--green-txt)';
   wrap.innerHTML=`<div class="race-setup-card" style="border-left:3px solid ${gapColor}">
-    <div class="race-setup-head"><span class="race-setup-title">${icn('target')} Your Rival</span><span class="race-setup-hint">${riv.wins||0}W – ${riv.losses||0}L</span></div>
+    <div class="race-setup-head"><span class="race-setup-title">${icn('target')} Your Rival <button class="info-btn" onclick="event.stopPropagation();openInfo('rival')">ⓘ</button></span><span class="race-setup-hint">${riv.wins||0}W – ${riv.losses||0}L</span></div>
     <div class="race-setup-row"><span class="race-setup-icon">${icn('rider')}</span><span class="race-setup-label">${riv.name}</span><span class="race-setup-name" style="color:${gapColor}">${riv.ftp}w FTP</span></div>
-    <div style="font-size:11px;color:${gapColor};font-weight:600;margin-top:2px">${gapText}</div>
   </div>`;
 }
 
@@ -5383,7 +5414,7 @@ function renderRaceSetupCard(){
   const formChips = Array.from({length:10},(_, i)=> i<formN ? '▮' : '▯').join('');
   const formPct = (formN*0.5).toFixed(1);
   wrap.innerHTML=`<div class="race-setup-card">
-    <div class="race-setup-head"><span class="race-setup-title">${icn('gear')} Race Setup</span><span class="race-setup-hint">Change in Gear tab</span></div>
+    <div class="race-setup-head"><span class="race-setup-title">${icn('gear')} Race Setup <button class="info-btn" onclick="event.stopPropagation();openInfo('raceSetup')">ⓘ</button></span></div>
     <div class="race-setup-row"><span class="race-setup-icon">${icn('bike-photo')}</span><span class="race-setup-label">Bike</span><span class="race-setup-name">${bike.brand?bike.brand+' ':''}${bike.model}</span></div>
     <div class="race-setup-row"><span class="race-setup-icon">${icn('circle-blue')}</span><span class="race-setup-label">Wheels</span><span class="race-setup-name">${wheel.name}</span></div>
     <div class="race-setup-row"><span class="race-setup-icon">${icn('jersey')}</span><span class="race-setup-label">Kit</span><span class="race-setup-name">${kit.name}<span class="kit-color-dot" style="background:${KIT_COLORS.find(c=>c.id===state.equippedKitColor)?.hex||'#6b6b67'}"></span></span></div>
@@ -6114,7 +6145,7 @@ function buildRaceResultCardHtml(r){
   return `<div class="race-result-card">
     <div class="result-head">
       <div class="result-pos-badge ${posCls}">${ordinal(r.position)}</div>
-      <div class="result-info"><div class="result-title">${r.raceTypeName} — ${r.catName}</div><div class="result-sub">${r.position} of ${r.fieldSize} riders${gapHtml} · ${new Date(r.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div></div>
+      <div class="result-info"><div class="result-title">${r.raceTypeName} — ${r.catName} <button class="info-btn" onclick="event.stopPropagation();openInfo('results')">ⓘ</button></div><div class="result-sub">${r.position} of ${r.fieldSize} riders${gapHtml} · ${new Date(r.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div></div>
     </div>
     <div class="result-rewards">
       ${r.prize>0?`<span class="result-reward-pill result-reward-money">+${fmtMoney(r.prize)}</span>`:`<span class="result-reward-pill result-reward-none">No prize</span>`}
@@ -6123,7 +6154,7 @@ function buildRaceResultCardHtml(r){
     ${bonusHtml}
     ${kickHtml}
     ${isCalResult
-      ? `<div class="result-cat-progress">${icn('calendar')} Calendar event — doesn't affect category points or cooldowns</div>`
+      ? `<div class="result-cat-progress">${icn('calendar')} Calendar event</div>`
       : `<div class="result-cat-progress">Category progress: <strong>${state.categoryPoints} / ${cat.ptsToPromote} pts</strong> — ${ptsPct}% to promotion</div>`}
     ${hintHtml}
   </div>`;
@@ -6737,9 +6768,9 @@ function renderKitShop(){
   });
   // Kit color picker
   const colorSection=document.createElement('div');
-  colorSection.innerHTML=`<div class="section-lbl" style="margin-top:.75rem">Kit Colour — cosmetic</div>
+  colorSection.innerHTML=`<div class="section-lbl" style="margin-top:.75rem;display:flex;align-items:center;gap:6px">Kit Colour <button class="info-btn" onclick="event.stopPropagation();openInfo('kitColor')">ⓘ</button></div>
     <div style="background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);padding:12px 14px">
-      <div style="font-size:12px;color:var(--txt2);margin-bottom:4px">Colours unlocked via Achievements. Active: <strong>${KIT_COLORS.find(c=>c.id===state.equippedKitColor)?.label||'Default'}</strong></div>
+      <div style="font-size:12px;color:var(--txt2);margin-bottom:4px">Active: <strong>${KIT_COLORS.find(c=>c.id===state.equippedKitColor)?.label||'Default'}</strong></div>
       <div class="color-picker-row">
         ${KIT_COLORS.map(c=>{
           const unlocked=state.unlockedKitColors.has(c.id);
@@ -6748,7 +6779,6 @@ function renderKitShop(){
             onclick="${unlocked?`equipKitColor('${c.id}')`:''}"></div>`;
         }).join('')}
       </div>
-      <div style="font-size:10px;color:var(--txt3);margin-top:4px">Win race type achievements to unlock new colours.</div>
     </div>`;
   list.appendChild(colorSection);
 }
@@ -6786,15 +6816,15 @@ function renderEnergyItems(){
   const tmr=getTomorrowEnergy(), tmrCol=tmr>=state.maxEnergy*0.85?'var(--green-txt)':tmr>=state.maxEnergy*0.6?'var(--amber-txt)':'var(--red-txt)';
   const recovDiv=document.createElement('div');
   recovDiv.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:.5px solid var(--border);border-radius:var(--radius);background:var(--bg);margin-bottom:8px">
-    <div style="font-size:12px;color:var(--txt2)">${icn('sleep')} Tomorrow's starting energy</div>
+    <div style="font-size:12px;color:var(--txt2)">${icn('sleep')} Tomorrow's starting energy <button class="info-btn" onclick="event.stopPropagation();openInfo('recovery')">ⓘ</button></div>
     <div style="font-size:15px;font-weight:700;color:${tmrCol}">${tmr} / ${state.maxEnergy}</div>
   </div>`;
   list.appendChild(recovDiv);
 
   // Today's market info banner — explains why prices/benefits look different each day
   const marketDiv=document.createElement('div');
-  marketDiv.innerHTML=`<div style="padding:9px 12px;border:.5px solid var(--border);border-radius:var(--radius);background:var(--bg2);margin-bottom:8px;font-size:11px;color:var(--txt2);line-height:1.4">
-    ${icn('calendar')} <strong>Today's market</strong> — prices and benefits shift daily and refresh each morning. Unused items spoil after 7 days, so don't overstock.
+  marketDiv.innerHTML=`<div style="padding:9px 12px;border:.5px solid var(--border);border-radius:var(--radius);background:var(--bg2);margin-bottom:8px;font-size:11px;color:var(--txt2);line-height:1.4;display:flex;align-items:center;gap:6px">
+    ${icn('calendar')} <strong>Today's market</strong> <button class="info-btn" onclick="event.stopPropagation();openInfo('gearMarket')">ⓘ</button>
   </div>`;
   list.appendChild(marketDiv);
 
@@ -7170,10 +7200,9 @@ function renderActiveSponsorView(wrap, activeInfo, upgradeAvailable, qualifiedTi
   const lateralCdLeft=getSponsorLateralCooldownRemaining();
   const lateralHtml=lateralSponsor ? `
     <div style="border:.5px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-top:.75rem;background:var(--bg)">
-      <div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:6px">${icn('refresh')} Switch Sponsor (same tier)</div>
+      <div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:6px">${icn('refresh')} Switch Sponsor (same tier) <button class="info-btn" onclick="event.stopPropagation();openInfo('sponsorSwitch')">ⓘ</button></div>
       <div style="font-size:11px;color:var(--txt3);line-height:1.5;margin-bottom:8px">
-        Switch to <strong>${lateralSponsor.name}</strong> ${icn(lateralSponsor.icon)} within your current <strong>${tier.label}</strong> tier.
-        Weekly progress resets and there's a 24-hour cooldown before switching again.
+        Switch to <strong>${lateralSponsor.name}</strong> ${icn(lateralSponsor.icon)} — <strong>${tier.label}</strong> tier.
       </div>
       ${lateralCdLeft>0
         ? `<div style="font-size:11px;color:var(--amber-txt);font-weight:600">⏳ Can switch again in ${Math.ceil(lateralCdLeft/(60*60*1000))}h</div>`
@@ -7194,10 +7223,9 @@ function renderActiveSponsorView(wrap, activeInfo, upgradeAvailable, qualifiedTi
   const terminatePending=sponsorActionPending==='terminate';
   const terminateHtml=`
     <div style="border:.5px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-top:.75rem;background:var(--bg)">
-      <div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:4px">${icn('warning')} Terminate Contract</div>
+      <div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:4px">${icn('warning')} Terminate Contract <button class="info-btn" onclick="event.stopPropagation();openInfo('sponsorTerminate')">ⓘ</button></div>
       <div style="font-size:11px;color:var(--txt3);line-height:1.5;margin-bottom:8px">
-        Walk away from <strong>${sponsor.name}</strong>. You'll enter a <strong style="color:var(--red-txt)">3-day cooling-off period</strong>
-        during which no sponsor will sign you. All unclaimed rewards are forfeited.
+        Walk away from <strong>${sponsor.name}</strong>.
       </div>
       ${terminatePending
         ? `<button onclick="terminateSponsor()"
@@ -7370,7 +7398,7 @@ function grandTourCardHtml(ev, mode){
       const label=proLocked?`${icn('lock')} Reach Pro to unlock`:slotsFull?'No slots remaining':cantAfford?`Need ${fmtMoney(ev.entryFee)}`:`Enter — ${fmtMoney(ev.entryFee)}`;
       actionHtml=`<button class="cal-signup-btn" onclick="signUpForCalendarEvent('${ev.id}')" ${disabled?'disabled':''}>${label}</button>`;
     }
-    bodyHtml=`<div class="cal-event-desc" style="margin-top:.25rem">${stages.length} stages · one per day · miss a day and the Tour is forfeited</div>`;
+    bodyHtml='';
   } else {
     // scheduled — in progress, forfeited, or (guard) complete
     if(tp && tp.forfeited){
@@ -7400,7 +7428,7 @@ function grandTourCardHtml(ev, mode){
     <div class="cal-event-head">
       <div class="cal-event-icon">${icn(ev.icon)}</div>
       <div class="cal-event-info">
-        <div class="cal-event-name">${ev.name}<span class="cal-event-tierbadge" style="background:var(--amber-bg);color:var(--amber-txt);border:.5px solid var(--amber-bd)">GRAND TOUR</span></div>
+        <div class="cal-event-name">${ev.name}<span class="cal-event-tierbadge" style="background:var(--amber-bg);color:var(--amber-txt);border:.5px solid var(--amber-bd)">GRAND TOUR</span> <button class="info-btn" onclick="event.stopPropagation();openInfo('grandTour')">ⓘ</button></div>
         <div class="cal-event-desc">${ev.desc}</div>
       </div>
     </div>
@@ -7949,6 +7977,146 @@ if('serviceWorker' in navigator){
       .catch(err => console.warn('[CIM] SW failed:', err));
   });
 }
+
+// ═══════════════════════════════════════════════════════════
+// fix44: INFO POPUP SYSTEM
+// Central registry for explanatory/flavour text that was moved out of
+// inline card rendering. Each entry: { title:'…', body: ()=>`…html…` }.
+// body is ALWAYS a function — even for static text — so any entry added
+// later that needs a dynamic value (e.g. timeToReset()) is evaluated at
+// open time, never baked into a stale string. Later stages (fix45+) only
+// ever append new keys here; this infrastructure itself is not touched.
+// ═══════════════════════════════════════════════════════════
+const INFO_TEXTS = {
+  // fix51: final sweep — grep for remaining -meta"/-hint" sites reviewed;
+  // race-meta (race cards) and cal-event-meta (calendar cards) kept onscreen
+  // as decision-relevant stats; onboard-action-hint kept as active directive.
+  // fix52: immersion pass — all player-facing copy rewritten in-world. Popups
+  // now answer "what should I do?" in the game's voice, never "how is this
+  // coded?". Banned words in player-facing text: recalibrates, rolled, regen,
+  // reset, scaling, cosmetic, attributes (outside the Rider tab UI label).
+  // Rival popup deliberately no longer mentions FTP recalibration on category
+  // change — the mechanic is unchanged (see recalibrateRivalIfNeeded), only
+  // the narration was removed.
+  // fix45: energy card
+  energy: {
+    title: 'Daily Training Energy',
+    body: ()=>`Recovers each morning · <span style="color:var(--green-txt)">↑ +6/hr while resting</span>`
+  },
+  // fix46: nutrition / weight card
+  nutrition: {
+    title: 'Weight & Carb Intake',
+    body: ()=>`Power-to-weight (W/kg) is your real-world cycling performance metric — higher is better, and it's what decides races that reward climbing.<br><br>
+      Carbs come from energy items you use. Your body can handle about <strong>${CARB_DAILY_LIMIT}</strong> a day — eat more than you burn and it shows on the scales the next morning. A Recovery Spin (Zone 1) works it off.`
+  },
+  // fix47: rival card
+  rival: {
+    title: 'Your Rival',
+    body: ()=>{
+      const riv=state.rival;
+      const playerFtp=getRiderStats().ftp;
+      const gap=riv.ftp-playerFtp;
+      const gapText = gap>0 ? `${gap}w ahead of you` : gap<0 ? `${Math.abs(gap)}w behind you` : 'dead even with you';
+      const gapColor = gap>10 ? 'var(--red-txt)' : gap>0 ? 'var(--amber-txt)' : 'var(--green-txt)';
+      return `${riv.name} is currently <span style="color:${gapColor};font-weight:600">${gapText}</span>.<br><br>
+        This is your rival — your enemy for your whole career. He trains when you train and moves up when you move up, so he'll never be far away. Beat him at all costs.`;
+    }
+  },
+  // fix47: race setup card
+  raceSetup: {
+    title: 'Race Setup',
+    body: ()=>`Bike, wheels, kit, and form all affect race performance — form comes from consistent riding, and you'll go stale if you stop racing.<br><br>
+      Equipment and cosmetics can be changed any time in the Gear tab.`
+  },
+  // fix48: gear tab — energy market banner
+  gearMarket: {
+    title: "Today's Market",
+    body: ()=>`Prices and benefits shift daily and refresh each morning.<br><br>
+      Unused items spoil after 7 days, so don't overstock.`
+  },
+  // fix48: gear tab — kit colour picker
+  kitColor: {
+    title: 'Kit Colour',
+    body: ()=>`Style points only — the peloton judges, the stopwatch doesn't.<br><br>
+      Colours unlock by winning race type achievements.`
+  },
+  // fix49: calendar — grand tour card
+  grandTour: {
+    title: 'Grand Tour Rules',
+    body: ()=>`One stage races per day — you can't bank or skip ahead.<br><br>
+      Missing a day forfeits the whole Tour, so plan your energy around it.`
+  },
+  // fix53: recovery panel (Train tab) + tomorrow's energy banner (Gear tab)
+  recovery: {
+    title: 'Overnight Recovery',
+    body: ()=>{
+      const spent=state.energySpentToday||0;
+      const tmr=getTomorrowEnergy();
+      const spentLine = spent>0
+        ? `You've spent <strong>${spent} energy</strong> today, so some fatigue carries into tomorrow — you'll wake with <strong>${tmr} / ${state.maxEnergy}</strong>.`
+        : `No training yet today — a full night's recovery is expected.`;
+      return `${spentLine}<br><br>
+        The harder you ride today, the heavier your legs feel tomorrow morning.
+        Gels, Carb Drinks and Recovery Shakes taken today help you recover faster overnight.`;
+    }
+  },
+  // fix53: daily weather — fatigue + energy cost explainer
+  weatherToday: {
+    title: "Today's Weather",
+    body: ()=>{
+      const {condition,intensity}=getDailyWeather();
+      const fb=Math.round((condition.fatigueBonus||0)*WEATHER_INTENSITY_MULTS[intensity]);
+      const costUp=condition.energyMult>1;
+      return `<strong>${WEATHER_INTENSITY_LABELS[intensity]} ${condition.name.toLowerCase()}</strong> all day — the whole field races in it, so nobody gets an unfair edge; it just changes the terrain everyone's on.<br><br>
+        ${costUp?`Races cost more energy today${fb>0?` and each one adds <strong>+${fb} extra fatigue</strong> toward tomorrow`:''}.`:'No extra energy cost or fatigue today.'}
+        A fresh forecast rolls in each morning.`;
+    }
+  },
+  // fix53: sponsor — lateral switch panel
+  sponsorSwitch: {
+    title: 'Switching Sponsor',
+    body: ()=>`You can move to the other sponsor at your current tier at any time.<br><br>
+      Your weekly progress starts again from zero with the new sponsor, and there's a <strong>24-hour cooldown</strong> before you can switch again — so don't flip-flop mid-week.`
+  },
+  // fix53: sponsor — terminate contract panel
+  sponsorTerminate: {
+    title: 'Terminating Your Contract',
+    body: ()=>`Walking away is final. You enter a <strong style="color:var(--red-txt)">3-day cooling-off period</strong> during which no sponsor will sign you.<br><br>
+      Any unclaimed rewards are forfeited the moment you terminate.`
+  },
+  // fix50: race result card
+  results: {
+    title: 'Race Result',
+    body: ()=>`Gold, silver, and bronze badges mark a podium finish (top 3) — any other position shows a plain rank badge.<br><br>
+      A gold bonus pill means a sponsor or race organiser threw in a surprise extra reward. A finish-kick pill means you saved legs and gained places late on.<br><br>
+      Calendar events don't count toward category points or race cooldowns — they're one-off races on the calendar, not part of normal progression.`
+  }
+};
+
+function openInfo(key){
+  const entry = INFO_TEXTS[key];
+  if(!entry){
+    console.warn('[CIM] openInfo: unknown key', key);
+    return;
+  }
+  document.getElementById('info-card-title').textContent = entry.title;
+  document.getElementById('info-card-body').innerHTML = entry.body();
+  document.getElementById('info-overlay').style.display = 'flex';
+}
+
+function closeInfo(ev){
+  if(ev) ev.stopPropagation();
+  document.getElementById('info-overlay').style.display = 'none';
+}
 </script>
+
+<!-- ── fix44: Info popup — bottom-sheet overlay for explanatory text ── -->
+<div id="info-overlay" class="info-overlay" style="display:none" onclick="closeInfo(event)">
+  <div class="info-card" onclick="event.stopPropagation()">
+    <button class="info-close" onclick="closeInfo()">✕</button>
+    <div id="info-card-title"></div>
+    <div id="info-card-body"></div>
+  </div>
+</div>
 </body>
 </html>
