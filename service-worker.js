@@ -8,7 +8,7 @@
 
 // Bump this version string whenever you push a new game build.
 // The old cache is deleted automatically on the next SW activation.
-const CACHE_VERSION = 'cim-v2.5';
+const CACHE_VERSION = 'cim-v2.6';
 
 const STATIC_ASSETS = [
   './index.html',
