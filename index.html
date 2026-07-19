@@ -833,6 +833,29 @@ button{font-family:inherit;cursor:pointer;}
   width:5px;height:8px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
   background:rgba(140,190,235,.85);opacity:0;
   animation:rider-sweat 2.4s ease-in infinite;}
+/* ═══ fix58: workout-flavoured pedal variants (single spritesheet, CSS-only) ═══ */
+.rider-scene-tilt{position:absolute;inset:0;}
+/* Z3 turbo: stationary trainer — background frozen, sprite gets a fine buzz */
+.rider-scene.turbo .rider-scene-hills,
+.rider-scene.turbo .rider-scene-road{animation:none;}
+.rider-scene.turbo .rider-sprite{
+  animation:rider-pedal var(--cadence,.8s) steps(6) infinite,
+            rider-turbo-buzz .16s linear infinite;}
+@keyframes rider-turbo-buzz{0%,100%{margin-left:0}50%{margin-left:1.5px}}
+/* Z4 threshold: uphill — world tilts, rider leans into the climb */
+.rider-scene.uphill .rider-scene-tilt{transform:rotate(-4deg) scale(1.12);transform-origin:center;}
+.rider-scene.uphill .rider-sprite{transform:translateX(-50%) scale(.6) rotate(-8deg);}
+/* Z5/Z6 sprint & VO2: violent side-to-side sprint shake at max cadence */
+.rider-scene.sprintmode .rider-sprite{
+  animation:rider-pedal var(--cadence,.8s) steps(6) infinite,
+            rider-sprint-wobble .3s ease-in-out infinite;}
+@keyframes rider-sprint-wobble{
+  0%,100%{transform:translateX(-50%) scale(.6)}
+  25%{transform:translateX(calc(-50% - 3px)) scale(.6) rotate(-1.5deg)}
+  75%{transform:translateX(calc(-50% + 3px)) scale(.6) rotate(1.5deg)}}
+/* fix58: victory rider inside the win ceremony card */
+.ceremony-rider-stage{position:relative;height:172px;margin:2px 0 6px;}
+.ceremony-rider-stage .rider-still{bottom:0;}
 @keyframes rider-sway{0%,100%{transform:rotate(-1.1deg)}50%{transform:rotate(1.1deg)}}
 @keyframes rider-victory-bounce{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-7px) rotate(2deg)}}
 @keyframes rider-breathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.972)}}
@@ -4967,6 +4990,7 @@ function renderWinCeremony({raceTypeName, catName, prize, rivalBeatText}){
     <div class="ceremony-icon">${icn('medal-gold')}</div>
     <div class="ceremony-title">You Won!</div>
     <div class="ceremony-subtitle">${raceTypeName} — ${catName}</div>
+    <div class="ceremony-rider-stage"><div class="rider-still rider-still-victory"><div></div></div></div>
     ${rivalBanner}
     <div class="ceremony-money" id="ceremony-money-val">${fmtMoney(0)}</div>
     <div class="ceremony-money-label">Prize Money</div>
@@ -5155,20 +5179,26 @@ function renderRiderScene(){
   const wrap=document.getElementById('rider-scene-wrap'); if(!wrap) return;
   const running=state.session.active&&!state.session.awaitingCollection;
   const t=running?TRAINING.find(x=>x.id===state.session.typeId):null;
-  let mode,cadence='',caption='';
+  let mode,cadence='',caption='',sceneClass='';
   if(running&&t){
     mode='pedal';
     cadence=t.zone<=2?'1.3s':(t.zone<=4?'.8s':'.5s');
+    // fix58: workout-flavoured variants — Z3 turbo trainer, Z4 uphill,
+    // Z5 (VO2) & Z6 (sprint) share the sprint treatment.
+    if(t.zone===3)      sceneClass='turbo';
+    else if(t.zone===4) sceneClass='uphill';
+    else if(t.zone>=5)  sceneClass='sprintmode';
     const remaining=Math.max(0,Math.ceil((state.session.duration-(Date.now()-state.session.startTime))/1000));
     caption=`${t.name} · ${remaining}s`;
   } else if(Date.now()<_riderVictoryUntil){
     mode='victory'; caption='Victory lap!';
-  } else if(state.energy<=0){
-    mode='rest'; caption='Out of energy — rest up';
+  } else if(state.energy<20){
+    // fix58: exhausted pose now kicks in below 20 energy, not just at 0.
+    mode='rest'; caption=state.energy<=0?'Out of energy — rest up':'Running on fumes — rest up';
   } else {
     mode='ready'; caption='Ready to train';
   }
-  const sig=mode+'|'+cadence;
+  const sig=mode+'|'+cadence+'|'+sceneClass;
   if(sig!==_riderSceneSig||!wrap.firstChild){
     _riderSceneSig=sig;
     // fix56: still poses replace the old paused-pedal idle and the
@@ -5179,9 +5209,14 @@ function renderRiderScene(){
     else if(mode==='victory') spriteHtml='<div class="rider-still rider-still-victory"><div></div></div>';
     else if(mode==='rest')    spriteHtml='<div class="rider-still rider-still-exhausted"><div></div></div>';
     else                      spriteHtml='<div class="rider-still rider-still-idle"><div></div></div>';
-    wrap.innerHTML=`<div class="rider-scene${mode==='pedal'?' scrolling':''}"${cadence?` style="--cadence:${cadence}"`:''}>
-      <div class="rider-scene-hills"></div>
-      <div class="rider-scene-road"></div>
+    // fix58: turbo mode pedals in place (no background scroll); the tilt
+    // wrapper is always present but only rotated by the .uphill class.
+    const scroll=mode==='pedal'&&sceneClass!=='turbo'?' scrolling':'';
+    wrap.innerHTML=`<div class="rider-scene${scroll}${sceneClass?' '+sceneClass:''}"${cadence?` style="--cadence:${cadence}"`:''}>
+      <div class="rider-scene-tilt">
+        <div class="rider-scene-hills"></div>
+        <div class="rider-scene-road"></div>
+      </div>
       ${spriteHtml}
       <div class="rider-scene-caption"></div>
     </div>`;
