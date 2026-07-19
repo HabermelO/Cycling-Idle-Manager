@@ -973,11 +973,14 @@ button{font-family:inherit;cursor:pointer;}
   </div>
   <div id="tab-train">
     <div id="rider-scene-wrap"></div>
+    <!-- fix57: active session card sits directly under the rider scene so a
+         running session (and its progress bar) appears right beneath the
+         pedalling animation. Empty when no session is active. -->
+    <div id="active-session-wrap"></div>
     <div id="boost-pill-wrap"></div>
     <div id="energy-card-wrap"></div>
     <div id="weight-card-wrap"></div>
     <div id="attr-row" class="attr-row"></div>
-    <div id="active-session-wrap"></div>
     <div class="section-lbl">Training Sessions</div>
     <div id="training-list"></div>
   </div>
@@ -2911,6 +2914,10 @@ function startSession(id){
   state.session={active:true,typeId:id,startTime:Date.now(),duration:t.duration*1000};
   // FIX 5a: Save immediately so energy deduction persists if page closes mid-session
   saveGame(); updateActivityDots(); renderTrainTab();
+  // fix57: bring the pedalling animation on-screen — the scene sits at the
+  // top of the tab and is otherwise easy to miss when the list is scrolled.
+  const sceneEl=document.getElementById('rider-scene-wrap');
+  if(sceneEl) sceneEl.scrollIntoView({block:'start',behavior:'smooth'});
   notifyOnboardingAction('started_session');
 }
 
