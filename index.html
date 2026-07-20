@@ -863,6 +863,78 @@ button{font-family:inherit;cursor:pointer;}
 .rider-scene-caption{position:absolute;left:0;right:0;bottom:6px;text-align:center;
   font-size:11px;font-weight:700;color:var(--txt2);letter-spacing:.04em;
   text-shadow:0 1px 2px rgba(var(--bg-rgb),.8);pointer-events:none;}
+
+/* ═══ fix65: peloton race scene (Phase 1 — static bunch, player centred) ═══
+   Shorter variant of .rider-scene reused inside the race overlay. Structural
+   markup (hills/road/riders) is always present; scroll+pedal animation is
+   gated behind prefers-reduced-motion below so the fallback is a static bunch. */
+.race-peloton-wrap{margin-bottom:6px;}
+.race-peloton-scene{position:relative;height:120px;overflow:hidden;border-radius:var(--radius);
+  border:1px solid var(--border);
+  background:linear-gradient(#8ecae6 0 62%,#74c69d 62% 78%,#5a5f66 78% 100%);}
+.race-peloton-scene .rider-scene-tilt{position:absolute;inset:0;}
+.race-peloton-scene .rider-scene-hills{position:absolute;left:0;top:34%;width:200%;height:34%;
+  background:radial-gradient(circle at 25% 100%, #52b788 0 38%, transparent 39%) 0 0/170px 100% repeat-x;}
+.race-peloton-scene .rider-scene-road{position:absolute;left:0;bottom:0;width:200%;height:13%;
+  background:repeating-linear-gradient(90deg,#fff 0 26px,transparent 26px 60px);
+  background-size:auto 4px;background-position:0 0;background-repeat:repeat-x;opacity:.9;}
+/* fix65: one absolutely-positioned wrapper per pack member; left/scale vary by
+   depth row (set inline per slot). The left transition is inert until Phase 2
+   (fix66) starts writing #pel-player's style.left on each tick. */
+.pel-rider{position:absolute;bottom:2px;transition:left 1.6s ease;}
+.pel-rider>div{width:279px;height:308px;transform-origin:bottom center;}
+/* fix65: 5 recoloured jersey classes for NPC pack members via hue-rotate on the
+   inner sprite div; the player copy (#pel-player) carries no filter class so
+   its kit colour reads as the rider's actual equipped jersey. */
+.pel-jersey-1>div{filter:hue-rotate(45deg) saturate(1.3);}
+.pel-jersey-2>div{filter:hue-rotate(110deg) saturate(1.15);}
+.pel-jersey-3>div{filter:hue-rotate(190deg) saturate(1.2);}
+.pel-jersey-4>div{filter:hue-rotate(260deg) saturate(1.25);}
+.pel-jersey-5>div{filter:hue-rotate(320deg) saturate(1.1) brightness(1.05);}
+/* fix68: dark-mode check (plan Phase 4 item 3) — .race-peloton-scene's sky/
+   grass/road background is a fixed gradient, not a themed CSS var, so it
+   doesn't shift under prefers-color-scheme:dark the way the rest of the UI
+   does; jersey saturate/brightness above already reads fine against it in
+   both themes, so no value changes were needed here. */
+@media (prefers-reduced-motion: no-preference){
+  .race-peloton-scene.scrolling .rider-scene-hills{animation:rider-scroll calc(var(--cadence,.8s)*8.75) linear infinite;}
+  .race-peloton-scene.scrolling .rider-scene-road{animation:rider-scroll calc(var(--cadence,.8s)*1.375) linear infinite;}
+  .pel-rider>div{animation:rider-pedal var(--cadence,.8s) steps(6) infinite;}
+}
+
+/* ═══ fix67: peloton race scene (Phase 3 — terrain tilt + sprint states) ═══
+   Terrain tilt reuses the .rider-scene-tilt wrapper already present in the
+   Phase-1 markup (see buildPelotonSceneHtml) so this phase only needed a
+   class toggle + these rules, no new DOM. Sprint uses a scoped selector
+   (.pel-sprint .pel-rider>div) rather than retargeting the existing
+   .rider-scene.sprintmode rule, per the plan's explicit "do NOT retarget"
+   note — the training-scene sprint animation stays untouched. */
+.race-peloton-scene.pel-uphill .rider-scene-tilt{transform:rotate(-4deg) scale(1.12);transform-origin:center;}
+.race-peloton-scene.pel-downhill .rider-scene-tilt{transform:rotate(3deg) scale(1.08);transform-origin:center;}
+@media (prefers-reduced-motion: no-preference){
+  .race-peloton-scene.pel-downhill.scrolling .rider-scene-hills{animation-duration:calc(var(--cadence,.8s)*6.25);}
+  .race-peloton-scene.pel-downhill.scrolling .rider-scene-road{animation-duration:calc(var(--cadence,.8s)*.95);}
+  .pel-sprint .pel-rider>div{
+    animation:rider-pedal var(--cadence,.45s) steps(6) infinite,
+              rider-sprint-wobble .3s ease-in-out infinite;}
+}
+
+/* ═══ fix68: peloton race scene (Phase 4 — bunch behaviour polish) ═══
+   Idle bob is a pure per-slot translateY wobble on the .pel-rider wrapper
+   (not the inner sprite div, so it doesn't fight the pedal animation's own
+   transform-origin). Gated under the same no-preference query as the rest
+   of the scene's motion. Attacker offset is a class toggled by
+   updatePelotonScene (pure CSS, no new DOM, no state) on one NPC slot at a
+   time, reusing the existing left transition already defined on .pel-rider. */
+@keyframes pel-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@media (prefers-reduced-motion: no-preference){
+  .pel-rider.pel-bobbing{animation:pel-bob var(--pel-bob-dur,2.8s) ease-in-out infinite;
+    animation-delay:var(--pel-bob-delay,0s);}
+}
+/* fix68: attacker slot drifts forward then the class is removed again by
+   updatePelotonScene — the existing 1.6s left transition on .pel-rider
+   handles the forward-and-back motion, this rule only nudges the target. */
+.pel-rider.pel-attack{left:calc(var(--pel-base-left,50%) + 6%) !important;}
 </style>
 </head>
 <body>
@@ -1052,6 +1124,9 @@ button{font-family:inherit;cursor:pointer;}
     </div>
   </div>
   <div id="tab-gear" style="display:none">
+    <!-- fix64: idle rider preview so jersey/bike/wheel changes are visible
+         immediately in the gear tab without switching back to Train. -->
+    <div id="gear-rider-scene-wrap"></div>
     <div class="gear-nav" id="gear-nav"></div>
     <div id="gear-section-energy"></div>
     <div id="gear-section-bikes" style="display:none"></div>
@@ -5179,17 +5254,20 @@ function renderTrainTab(){ renderRiderScene(); renderActiveBoostsPill(); renderE
 // no state of its own beyond a DOM cache + last-rendered signature.
 // Cadence buckets by session zone (TRAINING t.zone): Z1/Z2 easy, Z3/Z4
 // tempo, Z5+ hard — noted in fix log as the zone→cadence mapping.
-let _riderSceneSig='';
+// fix64: scene now renders into every wrap id in RIDER_SCENE_WRAP_IDS (Train
+// tab + Gear tab), each tracked with its own cached signature so the two
+// copies never clobber each other's cached DOM state.
+const RIDER_SCENE_WRAP_IDS=['rider-scene-wrap','gear-rider-scene-wrap'];
+let _riderSceneSigs={};
 // fix56: transient victory pose window — set by triggerRiderVictory() when a
 // win/promotion/grand-tour ceremony is dismissed, read by renderRiderScene().
 let _riderVictoryUntil=0;
 function triggerRiderVictory(){
   _riderVictoryUntil=Date.now()+2600;
-  if(currentTab==='train') renderRiderScene();
-  setTimeout(()=>{ if(currentTab==='train') renderRiderScene(); },2700);
+  if(currentTab==='train'||currentTab==='gear') renderRiderScene();
+  setTimeout(()=>{ if(currentTab==='train'||currentTab==='gear') renderRiderScene(); },2700);
 }
 function renderRiderScene(){
-  const wrap=document.getElementById('rider-scene-wrap'); if(!wrap) return;
   const running=state.session.active&&!state.session.awaitingCollection;
   const t=running?TRAINING.find(x=>x.id===state.session.typeId):null;
   let mode,cadence='',caption='',sceneClass='';
@@ -5212,30 +5290,33 @@ function renderRiderScene(){
     mode='ready'; caption='Ready to train';
   }
   const sig=mode+'|'+cadence+'|'+sceneClass;
-  if(sig!==_riderSceneSig||!wrap.firstChild){
-    _riderSceneSig=sig;
-    // fix56: still poses replace the old paused-pedal idle and the
-    // dim-opacity no-energy treatment. Each still is a wrapper (positioning)
-    // plus an inner div (idle animation) so the two transforms never clash.
-    let spriteHtml;
-    if(mode==='pedal')        spriteHtml='<div class="rider-sprite rider-anim-pedal"></div>';
-    else if(mode==='victory') spriteHtml='<div class="rider-still rider-still-victory"><div></div></div>';
-    else if(mode==='rest')    spriteHtml='<div class="rider-still rider-still-exhausted"><div></div></div>';
-    else                      spriteHtml='<div class="rider-still rider-still-idle"><div></div></div>';
-    // fix58: turbo mode pedals in place (no background scroll); the tilt
-    // wrapper is always present but only rotated by the .uphill class.
-    const scroll=mode==='pedal'&&sceneClass!=='turbo'?' scrolling':'';
-    wrap.innerHTML=`<div class="rider-scene${scroll}${sceneClass?' '+sceneClass:''}"${cadence?` style="--cadence:${cadence}"`:''}>
-      <div class="rider-scene-tilt">
-        <div class="rider-scene-hills"></div>
-        <div class="rider-scene-road"></div>
-      </div>
-      ${spriteHtml}
-      <div class="rider-scene-caption"></div>
-    </div>`;
-  }
-  const cap=wrap.querySelector('.rider-scene-caption');
-  if(cap&&cap.textContent!==caption) cap.textContent=caption;
+  RIDER_SCENE_WRAP_IDS.forEach(id=>{
+    const wrap=document.getElementById(id); if(!wrap) return;
+    if(sig!==_riderSceneSigs[id]||!wrap.firstChild){
+      _riderSceneSigs[id]=sig;
+      // fix56: still poses replace the old paused-pedal idle and the
+      // dim-opacity no-energy treatment. Each still is a wrapper (positioning)
+      // plus an inner div (idle animation) so the two transforms never clash.
+      let spriteHtml;
+      if(mode==='pedal')        spriteHtml='<div class="rider-sprite rider-anim-pedal"></div>';
+      else if(mode==='victory') spriteHtml='<div class="rider-still rider-still-victory"><div></div></div>';
+      else if(mode==='rest')    spriteHtml='<div class="rider-still rider-still-exhausted"><div></div></div>';
+      else                      spriteHtml='<div class="rider-still rider-still-idle"><div></div></div>';
+      // fix58: turbo mode pedals in place (no background scroll); the tilt
+      // wrapper is always present but only rotated by the .uphill class.
+      const scroll=mode==='pedal'&&sceneClass!=='turbo'?' scrolling':'';
+      wrap.innerHTML=`<div class="rider-scene${scroll}${sceneClass?' '+sceneClass:''}"${cadence?` style="--cadence:${cadence}"`:''}>
+        <div class="rider-scene-tilt">
+          <div class="rider-scene-hills"></div>
+          <div class="rider-scene-road"></div>
+        </div>
+        ${spriteHtml}
+        <div class="rider-scene-caption"></div>
+      </div>`;
+    }
+    const cap=wrap.querySelector('.rider-scene-caption');
+    if(cap&&cap.textContent!==caption) cap.textContent=caption;
+  });
 }
 
 // A single compact line above the session list when any TIMED Extra (coach,
@@ -6109,6 +6190,174 @@ function abandonRace(){
   if(currentTab==='race') renderRaceTab();
   showToast(`${icn('flag-white')} Race abandoned — no prize, energy not refunded`);
 }
+// fix65 (Phase 1): animated peloton scene for the race overlay — a shorter
+// reuse of the Train-tab .rider-scene (hills/road parallax) carrying 8-12
+// recoloured NPC rider copies plus one player copy (original kit, no filter).
+// Render-only: reads rd only for fieldSize (to size the pack) — does NOT
+// read or write rd.virtualPos itself (Phase 2/fix66 reads it, but only to
+// derive a CSS left% — no game state is touched). Slot positions are
+// seeded from each rider's index, never Math.random(), so the layout is
+// identical across re-renders (same convention as buildPelotonStripSVG).
+// isFinalSprint is accepted now (Phase 3/fix67 will start acting on it) so
+// the call site doesn't need to change again later.
+// fix66: player's left% is no longer hardcoded here — updatePelotonScene
+// sets #pel-player's style.left immediately after this markup is inserted,
+// so there's never a one-tick flash at 50% before the real position lands.
+// A caption slot (id="pel-caption") is included empty; updatePelotonScene
+// fills/clears its text for the off-front/off-back captions.
+// fix67 (Phase 3): terrainClass is derived by the caller (updatePelotonScene)
+// from the same profile-interpolation convention buildCourseProfileSVG uses
+// (see pelotonTerrainClass below) and passed in as one of 'pel-uphill' /
+// 'pel-downhill' / '' — this function never reads rt.profile itself, keeping
+// it render-only same as before. isFinalSprint adds 'pel-sprint' and widens
+// NPC slot spacing so the string-out reads visually distinct from the tight
+// static bunch.
+function buildPelotonSceneHtml(rd, isFinalSprint, terrainClass){
+  const fieldSize=Math.max(1,rd.result.fieldSize||1);
+  const packCount=Math.min(12,Math.max(8,Math.round(Math.sqrt(fieldSize)*1.8)));
+
+  // fix67: sprint widens the spread of NPC slots around their base position
+  // (pure multiplier on the deterministic seed math below, still no
+  // Math.random) so the pack visually strings out along the sprint.
+  const spreadMult=isFinalSprint?1.35:1;
+
+  // Two depth rows: back row (smaller, further back) and front row (bigger,
+  // closer) so the pack reads as a bunch rather than a single flat line.
+  // left%/bottom/scale are all pure functions of slot index — deterministic.
+  let npcHtml='';
+  for(let i=0;i<packCount;i++){
+    const seed=(i*37)%packCount;
+    const frontRow=seed%2===0;
+    const baseLeftPct=6+((seed*8.3)%88);
+    const leftPct=Math.max(2,Math.min(98,50+(baseLeftPct-50)*spreadMult));
+    const bottom=frontRow?2:16;
+    const scale=frontRow?0.42:0.30;
+    const jerseyClass='pel-jersey-'+(1+(seed%5));
+    // fix65: cadence stepped by index (.72s-.92s) so legs visibly desync —
+    // only meaningful once .scrolling/no-preference animation is active.
+    // fix67: sprint drops the floor to ~.45s-.65s (still stepped by index).
+    const cadence=(isFinalSprint?0.45+((seed%5)*0.04):0.72+((seed%5)*0.05)).toFixed(2)+'s';
+    // fix68: idle bob duration/delay stepped by index (same deterministic-seed
+    // rule as cadence above) so NPC riders don't bob in unison; --pel-base-left
+    // records the slot's own left% so .pel-attack can offset from it via calc()
+    // without the attacker's forward nudge fighting this rider's normal slot.
+    const bobDur=(2.4+((seed%5)*0.2)).toFixed(2)+'s';
+    const bobDelay=((seed%7)*0.35).toFixed(2)+'s';
+    npcHtml+=`<div class="pel-rider pel-bobbing ${jerseyClass}" data-slot="${i}" style="left:${leftPct}%;bottom:${bottom}px;--cadence:${cadence};--pel-bob-dur:${bobDur};--pel-bob-delay:${bobDelay};--pel-base-left:${leftPct}%">
+      <div class="rider-sprite" style="transform:scale(${scale})"></div>
+    </div>`;
+  }
+
+  // Player copy: front depth row, no jersey filter class — the shared
+  // .rider-sprite background already reflects the rider's equipped kit (same
+  // --sheet-pedal var read by the Train-tab scene). left is set to the current
+  // posFrac-derived value straight away (see updatePelotonScene) rather than a
+  // placeholder, so the .pel-rider left-transition never plays on first paint.
+  const playerCadence=isFinalSprint?'.5s':'.8s';
+  const playerHtml=`<div id="pel-player" class="pel-rider" style="left:${pelotonPosFracToLeftPct(rd)}%;bottom:2px;--cadence:${playerCadence}">
+    <div class="rider-sprite" style="transform:scale(.42)"></div>
+  </div>`;
+
+  const sceneClass='race-peloton-scene scrolling'+(terrainClass?' '+terrainClass:'')+(isFinalSprint?' pel-sprint':'');
+  return `<div class="${sceneClass}">
+    <div class="rider-scene-tilt">
+      <div class="rider-scene-hills"></div>
+      <div class="rider-scene-road"></div>
+    </div>
+    ${npcHtml}
+    ${playerHtml}
+    <div class="rider-scene-caption" id="pel-caption"></div>
+  </div>`;
+}
+// fix67: derives the uphill/downhill terrain class for the peloton scene from
+// the same profile array + progress that buildCourseProfileSVG already
+// interpolates a rider-y position from (see buildCourseProfileSVG above) —
+// this samples the local slope (a small step either side of progress) rather
+// than an absolute height, so it reflects whether the rider is currently
+// climbing/descending, not just where they sit on the overall course shape.
+function pelotonTerrainClass(profile, progress){
+  if(!profile||profile.length<2) return '';
+  const N=profile.length;
+  const sampleAt=p=>{
+    const idxF=Math.max(0,Math.min(N-1,p*(N-1)));
+    const idxLow=Math.floor(idxF), idxHigh=Math.min(N-1,idxLow+1), frac=idxF-idxLow;
+    return profile[idxLow]+(profile[idxHigh]-profile[idxLow])*frac;
+  };
+  const step=0.03;
+  const slope=sampleAt(Math.min(1,progress+step))-sampleAt(Math.max(0,progress-step));
+  if(slope>6) return 'pel-uphill';
+  if(slope<-6) return 'pel-downhill';
+  return '';
+}
+// fix66: posFrac→left% mapping, shared by the initial build (above) and the
+// per-tick patch (below) so the two can never disagree on first paint. Same
+// convention as buildPelotonStripSVG: fieldSize<=1 is a solo/TT field with no
+// meaningful spread, so it parks the player centred rather than dividing by
+// zero. 12%..88% keeps the sprite fully inside the scene at both extremes.
+function pelotonPosFracToLeftPct(rd){
+  const fieldSize=Math.max(1,rd.result.fieldSize||1);
+  const vp=Math.max(1,Math.min(fieldSize,rd.virtualPos||1));
+  const posFrac=fieldSize<=1?0.5:1-((vp-1)/(fieldSize-1));
+  return (12+posFrac*76).toFixed(1);
+}
+// fix66 (Phase 2): per-tick patch for the peloton scene. Rebuilds the full
+// scene (via buildPelotonSceneHtml) only when a signature — fieldSize,
+// reduced-motion preference, sprint flag — changes or the wrap is empty;
+// every other tick just nudges #pel-player's style.left and the caption
+// text, so the pack's own DOM nodes stay put (cadence/scroll animations
+// keep running, the left transition on #pel-player actually gets to play).
+// Mirrors the _riderSceneSigs cache pattern used by renderRiderScene.
+let _pelotonSceneSig=null;
+let _pelotonAttackSlot=-1;
+function updatePelotonScene(rd, isFinalSprint, profile, progress, elapsed){
+  const wrap=document.getElementById('race-peloton-wrap'); if(!wrap) return;
+  const fieldSize=Math.max(1,rd.result.fieldSize||1);
+  const reducedMotion=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // fix67: terrainClass is part of the rebuild signature (same rule as
+  // fieldSize/reducedMotion/isFinalSprint above) so a hill-climb race
+  // actually re-renders the .pel-uphill/.pel-downhill toggle when the
+  // rider's local slope crosses a threshold, not just once at scene build.
+  const terrainClass=pelotonTerrainClass(profile, progress);
+  const sig=fieldSize+'|'+reducedMotion+'|'+isFinalSprint+'|'+terrainClass;
+  if(sig!==_pelotonSceneSig||!wrap.firstChild){
+    _pelotonSceneSig=sig;
+    wrap.innerHTML=buildPelotonSceneHtml(rd, isFinalSprint, terrainClass);
+    _pelotonAttackSlot=-1; // scene rebuilt — old slot's DOM node is gone
+  }
+  const player=document.getElementById('pel-player');
+  if(player){
+    const leftPct=pelotonPosFracToLeftPct(rd);
+    if(player.style.left!==leftPct+'%') player.style.left=leftPct+'%';
+  }
+  // fix68: deterministic "attacker" — one NPC slot offsets forward for a
+  // ~15s window, purely via Math.floor(elapsed/15000) as the plan specifies,
+  // then the class is removed and (on the next window) a different slot may
+  // get it. Pure class toggle on existing nodes — no state, no rebuild.
+  if(typeof elapsed==='number'){
+    const packCount=Math.min(12,Math.max(8,Math.round(Math.sqrt(fieldSize)*1.8)));
+    const attackSlot=Math.floor(elapsed/15000)%packCount;
+    if(attackSlot!==_pelotonAttackSlot){
+      if(_pelotonAttackSlot>=0){
+        const prev=wrap.querySelector(`.pel-rider[data-slot="${_pelotonAttackSlot}"]`);
+        if(prev) prev.classList.remove('pel-attack');
+      }
+      const next=wrap.querySelector(`.pel-rider[data-slot="${attackSlot}"]`);
+      if(next) next.classList.add('pel-attack');
+      _pelotonAttackSlot=attackSlot;
+    }
+  }
+  // fix66: off-the-front/off-the-back caption — reuses .rider-scene-caption's
+  // text styling. posFrac is recomputed here (not stored) since it's cheap
+  // pure math and this function has no state of its own beyond the sig cache.
+  const cap=document.getElementById('pel-caption');
+  if(cap){
+    const vp=Math.max(1,Math.min(fieldSize,rd.virtualPos||1));
+    const posFrac=fieldSize<=1?0.5:1-((vp-1)/(fieldSize-1));
+    const capText=posFrac>=0.97?'Off the front!':posFrac<=0.03?'Chasing back on':'';
+    if(cap.textContent!==capText) cap.textContent=capText;
+  }
+}
+
 function renderActiveRaceBlock(){
   const wrap=document.getElementById('race-overlay-body');
   if(!state.raceActive||!state.raceData){
@@ -6249,6 +6498,7 @@ function renderActiveRaceBlock(){
   wrap.innerHTML=`<div class="active-race">
     ${tickerHtml}
     <div class="race-run-head"><span style="font-size:18px">${icn(headIcon)}</span><span class="race-run-name">${headName}</span><span class="race-run-timer${isFinalSprint?' sprint-gold':''}">${remaining}s</span></div>
+    <div class="race-peloton-wrap" id="race-peloton-wrap"></div>
     <div class="course-minimap-wrap">${courseMiniMapSvg}</div>
     <div class="course-profile-wrap${isFinalSprint?' sprint-shake':''}">${courseProfileSvg}</div>
     <div class="race-legs-row">
@@ -6262,6 +6512,18 @@ function renderActiveRaceBlock(){
     <div class="race-pos-row"><span>${icn('run')} Position: <strong>${ordinal(rd.virtualPos||1)} / ${rd.result.fieldSize}</strong></span><span>${rd.result.fieldSize} riders</span></div>
     ${rivalData?`<div class="rival-gap-row">${(()=>{const n=Math.abs((rd.virtualPos||1)-rivalData.vp); return n===0?`${icn('run')} On ${rivalData.name}'s wheel`:rivalData.vp<(rd.virtualPos||1)?`${icn('run')} ${rivalData.name} is ${n} wheel${n===1?'':'s'} ahead`:`${icn('run')} ${n} wheel${n===1?'':'s'} behind ${rivalData.name}`;})()}</div>`:''}
   </div>`;
+  // fix66 (Phase 2): patch-in-place AFTER the innerHTML write above, since that
+  // write just recreated #race-peloton-wrap from scratch — the cached DOM the
+  // signature check relies on only survives *inside* updatePelotonScene's own
+  // subtree, not across this outer rebuild. See updatePelotonScene for the
+  // actual signature/patch logic (mirrors renderRiderScene's pattern).
+  // fix67: profileSrc.profile + progress are already computed above for
+  // buildCourseProfileSVG — passed straight through so terrain tilt uses the
+  // exact same source data, no separate lookup.
+  // fix68: elapsed (already computed at the top of this function) is passed
+  // through for the deterministic attacker-slot toggle — read-only, same
+  // rule as everything else this function feeds into updatePelotonScene.
+  updatePelotonScene(rd, isFinalSprint, profileSrc.profile, progress, elapsed);
 }
 
 // Shared markup for a single race-result card — used by both the Race tab's
@@ -6801,6 +7063,9 @@ function setGearSection(s){
   if(s==='wheels') renderWheelShop();
   if(s==='kit') renderKitShop();
   if(s==='accessories') renderAccessoryShop();
+  // fix64: keep the gear-tab rider preview in sync when switching sections
+  // (e.g. equipping a jersey in Kit, then flipping to Bikes).
+  renderRiderScene();
 }
 
 function renderGearNav(){
@@ -6817,6 +7082,8 @@ function renderGearTab(){
   if(gearSection==='wheels') renderWheelShop();
   if(gearSection==='kit') renderKitShop();
   if(gearSection==='accessories') renderAccessoryShop();
+  // fix64: idle rider preview at the top of the Gear tab.
+  renderRiderScene();
 }
 
 // FIX 1: buildEquipCard — removed spurious third stat-bar block that caused duplicate
