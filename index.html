@@ -245,6 +245,20 @@ button{font-family:inherit;cursor:pointer;}
 .rival-legend-rival{color:var(--red-txt);}
 .rival-gap-row{font-size:12px;font-weight:600;color:var(--red-txt);text-align:center;margin-top:2px;opacity:.9;}
 .race-commentary{font-size:13px;font-weight:600;color:var(--red-txt);text-align:center;margin-bottom:10px;min-height:18px;}
+/* fix71 (Race Vis Phase V3): commentary speech bubble, drawn inside
+   buildCourseProfileSVG's sky band. Bubble body is a plain SVG rect/path
+   (no HTML), so styling here only covers the text fill/weight and the
+   one-shot fade-in that fires on the frame the line actually changes
+   (see commentary-bubble-in class applied conditionally in JS — this is
+   NOT a continuously-looping animation, so no reduced-motion gate is
+   needed for the steady state, only for the transition itself below). */
+.commentary-bubble-text{font-size:7.4px;font-weight:700;fill:var(--txt);}
+.commentary-bubble-text.sprint-line-text{fill:var(--gold);font-weight:800;}
+.commentary-bubble-group{opacity:1;}
+@media (prefers-reduced-motion: no-preference){
+  .commentary-bubble-group.commentary-bubble-in{animation:commentary-fade-in .32s ease-out;}
+}
+@keyframes commentary-fade-in{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
 .race-pos-row{display:flex;justify-content:space-between;font-size:12px;color:var(--red-txt);opacity:.85;}
 .race-result-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);
   padding:1.25rem;margin-bottom:.75rem;box-shadow:var(--shadow-md);}
@@ -443,6 +457,27 @@ button{font-family:inherit;cursor:pointer;}
   .burst-pulse{animation:none;}
   .burst-dot{animation:none;display:none;}
 }
+/* ═══ fix69 (Race Vis Phase V1): animated vector rider glyph ═══
+   New #icn-rider-anim symbol (defined near the other <symbol> defs, next to
+   the existing #icn-rider-photo which stays untouched/in-use elsewhere).
+   The crank group inside the symbol rotates continuously; the two leg
+   groups are drawn already counter-phased in the SVG itself so a single
+   rotation animates both convincingly without extra keyframes per leg.
+   Two speed classes are applied by callers in later phases (V2+) — this
+   phase only defines the glyph + animation, no wiring into race visuals
+   yet, so existing screens are visually unchanged. */
+@keyframes pedal{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+@keyframes wheel-spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+@media (prefers-reduced-motion: no-preference){
+  .pedal-normal .rider-anim-crank{animation:pedal .9s linear infinite;transform-origin:center;}
+  .pedal-normal .rider-anim-wheel{animation:wheel-spin .9s linear infinite;transform-origin:center;}
+  .pedal-sprint .rider-anim-crank{animation:pedal .45s linear infinite;transform-origin:center;}
+  .pedal-sprint .rider-anim-wheel{animation:wheel-spin .45s linear infinite;transform-origin:center;}
+}
+@media (prefers-reduced-motion: reduce){
+  .pedal-normal .rider-anim-crank,.pedal-sprint .rider-anim-crank,
+  .pedal-normal .rider-anim-wheel,.pedal-sprint .rider-anim-wheel{animation:none;}
+}
 .danger-btn{background:var(--red-bg);color:var(--red-txt);border:.5px solid var(--red-bd);
   border-radius:var(--radius);padding:9px 18px;font-size:15px;}
 /* ACHIEVEMENTS */
@@ -594,10 +629,40 @@ button{font-family:inherit;cursor:pointer;}
 /* PHASE E — decision bottom-sheet slide-in (gated on startedAt age, see renderActiveRaceBlock) */
 .decision-card.sheet-in{animation:decision-pulse .8s ease-in-out infinite alternate, decision-sheet-in .32s ease-out;}
 @keyframes decision-sheet-in{from{transform:translateY(18px);opacity:0}to{transform:translateY(0);opacity:1}}
+/* fix72 (Race Vis Phase V4) — decision card as a focused overlay in front of
+   the animation, instead of inline in the document flow. Anchored to
+   .active-race (already position:relative, see below) rather than the
+   screen — the animation keeps running behind a local dim backdrop, and
+   this never fights the global overlay z-index stack (race-overlay 1800 /
+   info-overlay 1900 / ceremony-overlay 2000): it's a child of race-overlay,
+   just raised above its own siblings (course profile, peloton strip, etc,
+   default stacking) and above .position-ticker (z-index:5).
+   Selection handlers/decision logic are untouched — only presentation. */
+.decision-overlay-backdrop{position:absolute;inset:0;z-index:20;
+  background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;
+  padding:14px;
+  animation:decision-backdrop-fade .18s ease-out;}
+@keyframes decision-backdrop-fade{from{opacity:0}to{opacity:1}}
+.decision-card.decision-popped{width:100%;max-width:400px;margin-top:0;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+  animation:decision-pulse .8s ease-in-out infinite alternate, decision-pop-in .22s cubic-bezier(.22,1,.36,1);}
+@keyframes decision-pop-in{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion: reduce){
+  .decision-overlay-backdrop{animation:none;}
+  .decision-card.decision-popped{animation:decision-pulse .8s ease-in-out infinite alternate;}
+}
 /* PHASE E — final-5% sprint styling */
 .race-run-timer.sprint-gold{color:var(--gold);}
 .course-profile-wrap.sprint-shake, .peloton-strip-wrap.sprint-shake{animation:sprint-shake .35s ease-in-out infinite;}
 @keyframes sprint-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-1.5px)}75%{transform:translateX(1.5px)}}
+/* fix74 (Race Vis Phase V6) — sprint-shake was never gated behind
+   prefers-reduced-motion; the camera-shake jitter during the final stretch
+   is exactly the kind of motion that flag exists to suppress. Freeze it
+   the same way the decision modal and pedal animations already are. */
+@media (prefers-reduced-motion: reduce){
+  .course-profile-wrap.sprint-shake, .peloton-strip-wrap.sprint-shake{animation:none;}
+}
 .race-commentary.sprint-line{color:var(--gold);font-weight:800;}
 /* PHASE E — position-change ticker chip */
 .position-ticker{position:absolute;left:50%;top:8px;transform:translateX(-50%);
@@ -951,6 +1016,26 @@ button{font-family:inherit;cursor:pointer;}
 <symbol id="icn-trophy" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M7 4h10v4a5 5 0 0 1-10 0V4z"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M7 5H4a3 3 0 0 0 3 5M17 5h3a3 3 0 0 1-3 5"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M10 15h4v3h-4z"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M8 21h8"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9.5 18h5l1 3h-7z"/></symbol>
 <symbol id="icn-rider" viewBox="0 0 400 243"><use href="#icn-bike-photo" width="400" height="243"/></symbol>
 <symbol id="icn-rider-photo" viewBox="0 0 240 194"><image class="rider-photo-img" href="data:image/png;base64,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" width="240" height="194"/></symbol>
+<!-- fix69 (Race Vis Phase V1): new vector rider glyph, grouped/animatable
+     legs+crank, side profile. Distinct from icn-rider-photo above (bitmap,
+     left untouched, still used elsewhere) — this symbol is CSS-animated via
+     .pedal-normal/.pedal-sprint wrapper classes (see CSS ~line 442). Wheels
+     spin, crank rotates; two leg groups are pre-offset 180° in the markup
+     so a single crank rotation reads as counter-phased pedalling. Not wired
+     into any race visuals yet — that's Phase V2. -->
+<symbol id="icn-rider-anim" viewBox="0 0 100 60">
+  <g class="rider-anim-wheel" style="transform-origin:22px 48px"><circle cx="22" cy="48" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/><path stroke="currentColor" stroke-width="1.2" d="M22 39v18M13 48h18M15.5 41.5l13 13M15.5 54.5l13-13"/></g>
+  <g class="rider-anim-wheel" style="transform-origin:74px 48px"><circle cx="74" cy="48" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/><path stroke="currentColor" stroke-width="1.2" d="M74 39v18M65 48h18M67.5 41.5l13 13M67.5 54.5l13-13"/></g>
+  <path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M22 48L46 30H60M46 30L58 48"/>
+  <path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M60 30L74 48"/>
+  <circle cx="62" cy="18" r="6" fill="currentColor"/>
+  <path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" d="M60 24L52 30"/>
+  <g class="rider-anim-crank" style="transform-origin:46px 44px">
+    <path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M46 44L34 48L26 44"/>
+    <path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M46 44L58 40L68 44" transform="rotate(180 46 44)"/>
+    <circle cx="46" cy="44" r="2.2" fill="currentColor"/>
+  </g>
+</symbol>
 <symbol id="icn-money" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M6 6v0M18 18v0"/></symbol>
 <symbol id="icn-stopwatch" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 13V9M9 3h6M18.5 6.5l1.2-1.2"/></symbol>
 <symbol id="icn-drink" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M8 3h8l-1 5H9L8 3z"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 8l1 12h4l1-12"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9.5 13h5"/></symbol>
@@ -1133,6 +1218,7 @@ button{font-family:inherit;cursor:pointer;}
     <div id="gear-section-wheels" style="display:none"></div>
     <div id="gear-section-kit" style="display:none"></div>
     <div id="gear-section-accessories" style="display:none"></div>
+    <div id="gear-section-workshop" style="display:none"></div>
   </div>
   <div id="tab-growth" style="display:none">
     <div class="gear-nav" id="growth-nav"></div>
@@ -2491,6 +2577,11 @@ const ACHIEVEMENTS = [
    reward:{type:'money',val:1000, label:'+£1,000 prize money'},   progress:null},
   {id:'all_attrs_5',  icon:'star', name:'Complete Athlete',  desc:'Reach Level 5 in all attributes.',
    reward:{type:'money',val:10000,label:'+£10,000 prize money'},  progress:s=>{const mn=Math.min(...Object.values(s.attributes).map(a=>a.level));return `${Math.min(mn,5)} / 5 (lowest attr)`;} },
+  // fix79/Fix 5 — Workshop polish: fires the first time the player spends MG
+  // on any tuning track (see handleWorkshopSpend). Binary, so progress:null
+  // like the other one-off ftp_/cat_/season_ achievements above.
+  {id:'workshop_first_tune', icon:'wrench', name:'First Tune-up',   desc:'Spend Marginal Gains on a tuning upgrade.',
+   reward:{type:'money',val:100,  label:'+£100 prize money'},     progress:null},
 ];
 
 function achUnlocked(s,achId){
@@ -2513,6 +2604,9 @@ function achUnlocked(s,achId){
     cat_pro_grind:s.raceCategory>=6 && rs.ftp<400,
     season_2:     s.seasonsCompleted>=1,
     all_attrs_5:  ATTR_ORDER.every(id=>s.attributes[id].level>=5),
+    // fix79/Fix 5 — derived from existing per-bike tuning levels rather than a
+    // new state flag: true the moment any track on any bike is above 0.
+    workshop_first_tune: Object.values(s.workshop.tuning).some(t=>t.drivetrain>0||t.aero>0||t.weight>0||t.bearings>0),
   };
   return !!checks[achId];
 }
@@ -2719,6 +2813,12 @@ const state = {
   // Race Retention Phase 4 — rolling 10-race micro-league vs 5 named AI riders
   // (rival included). Lazily created on first scored race — see ensureSeries().
   series: null,
+  // The Workshop (Marginal Gains tuning loop) — fix75/Fix 1: state + persistence
+  // + nav stub only. mg is banked currency (tap-only, no idle accrual, capped at
+  // 9999 — see spec). tuning is keyed per bike id so switching bikes switches
+  // active buffs: tuning[bikeId] = {drivetrain:0,aero:0,weight:0,bearings:0}.
+  // Levels are permanent (never touched by handlePrestige()'s reset list).
+  workshop: { mg:0, tuning:{} },
 };
 const D = { sponsorPerSec:0, sessionMult:1, legacyPrizeMult:1, trainingBoostPct:0, raceDayPct:0, accessoryWatts:0 };
 
@@ -2761,7 +2861,13 @@ function recordFtpSnapshot(){
 function getWeightFactorForRace(raceTypeId){
   const sensitivity=WEIGHT_SENSITIVITY[raceTypeId]??0;
   if(sensitivity<=0) return 1;
-  const rawFactor=DEFAULT_RIDER_WEIGHT/state.riderWeight;
+  // Workshop "Weight shave" tuning trims effective rider+bike weight for the
+  // currently equipped bike only (per-bike tuning, spec §Spending MG). This is
+  // the single effective-weight read every scoring AND preview call site
+  // shares, so a shaved bike's advantage shows up identically everywhere.
+  const workshopWeightDelta=getWorkshopBonuses(state.equippedBike).weightDeltaKg;
+  const effectiveWeight=Math.max(1,state.riderWeight+workshopWeightDelta);
+  const rawFactor=DEFAULT_RIDER_WEIGHT/effectiveWeight;
   return 1+(rawFactor-1)*sensitivity;
 }
 
@@ -2805,7 +2911,12 @@ function recalc(){
   // the misleading comment that used to sit here. D.sponsorPerSec stays
   // defined at 0 since the offline-earnings tick still reads it.
   D.sponsorPerSec = 0;
-  D.sessionMult   = (1 + state.attributes.threshold.level * 0.08) * (1 + trainPct);
+  // Workshop "Bearings" tuning grants a per-bike training XP bonus (hard-capped
+  // at +6% inside getWorkshopBonuses()). Folded into sessionMult — the single
+  // shared multiplier read by completeSession(), the active/upcoming session
+  // XP-pill previews, and the offline pending-XP calc — so all three agree.
+  const workshopTrainingPct=getWorkshopBonuses(state.equippedBike).trainingPct/100;
+  D.sessionMult   = (1 + state.attributes.threshold.level * 0.08) * (1 + trainPct + workshopTrainingPct);
   // Lifetime Goal perks — each track's tier-3 grants a small permanent boost to
   // race prize money, stacking across tracks. Read from claimedGoalTiers so it
   // survives prestige and reload with no separate state needed. Max +12% if
@@ -3249,6 +3360,14 @@ function simulateRaceResult(raceTypeId, opts={}){
   // depending on race type — hill climbs feel it fully, flat crits barely at all.
   const weightFactor=getWeightFactorForRace(raceTypeId);
   playerScore*=weightFactor;
+  // Workshop tuning — drivetrain bonus applies to every race type, aero bonus
+  // only to crit/tt (spec: "Aero bonus applies only to crit + tt"). Both are
+  // already hard-clamped inside getWorkshopBonuses() so this is a single,
+  // safe multiplier read for the equipped bike.
+  const wb=getWorkshopBonuses(state.equippedBike);
+  const workshopAeroPct=(raceTypeId==='crit'||raceTypeId==='tt') ? wb.raceAeroPct : 0;
+  const workshopMult=1+(wb.raceFlatPct+workshopAeroPct)/100;
+  playerScore*=workshopMult;
   // Weather applies equally to player and AI — it shifts which race types are
   // favourable today, not raw win probability. Applied AFTER weight so both modifiers
   // are transparent in the race card badges.
@@ -5798,7 +5917,7 @@ function smoothTerrainPath(pts){
   return d;
 }
 
-function buildCourseProfileSVG(rt, progress, stages, windowMode=false, rivalData=null){
+function buildCourseProfileSVG(rt, progress, stages, windowMode=false, rivalData=null, commentaryInfo=null){
   const profile=rt.profile||[20,20,20,20];
   const N=profile.length;
   const VB_W=320, VB_H=84;
@@ -5874,9 +5993,17 @@ function buildCourseProfileSVG(rt, progress, stages, windowMode=false, rivalData
   // rider coordinates below are computed exactly as in non-window mode, so
   // when windowMode is false the returned markup is unaffected (regression
   // guarantee: byte-for-byte identical to the pre-Phase-D render).
+  // fix73 (Race Vis Phase V5) — final-stretch camera tightens from 30% to
+  // ~18% of the course width, matching the peloton strip's compressed/
+  // enlarged sprint framing. Same finalStretch threshold (progress>=0.95)
+  // used everywhere else in the race overlay (buildPelotonStripSVG,
+  // renderActiveRaceBlock's isFinalSprint) so all three visuals flip in the
+  // same frame — no separate flag, no drift.
+  const finalStretch=progress>=0.95;
+  const WINDOW_FRAC=finalStretch?0.18:0.3;
   let vbX=0, vbW=VB_W;
   if(windowMode){
-    vbW=VB_W*0.3;
+    vbW=VB_W*WINDOW_FRAC;
     vbX=riderX-vbW/2;
     vbX=Math.max(0,Math.min(VB_W-vbW,vbX));
   }
@@ -5921,6 +6048,57 @@ function buildCourseProfileSVG(rt, progress, stages, windowMode=false, rivalData
     rivalMarkerHtml=`<circle cx="${rivalX.toFixed(1)}" cy="${rivalY.toFixed(1)}" r="5.5" fill="var(--bg)" stroke="var(--red-txt)" stroke-width="2"/>`;
   }
 
+  // fix71 (Race Vis Phase V3) — commentary speech bubble, sky band.
+  // Text source is unchanged (same string renderActiveRaceBlock already
+  // resolves from commentarySrc[rd.commentaryIdx] or the sprint line) —
+  // this function only lays it out. Docked at a fixed high position
+  // (y 1–13, above CHART_TOP=16) rather than tracking the rider, so it
+  // never has to chase riderX and stays clear of the terrain/flags for
+  // realistic profile heights; drawn last (after flags/trail/rival) so
+  // its opaque background wins any residual overlap at extreme peaks.
+  // Max 2 wrapped lines, char-count-based (no DOM measurement available
+  // inside a plain string builder); overflow gets a trailing ellipsis.
+  let bubbleHtml='';
+  if(commentaryInfo && commentaryInfo.text){
+    const bubW=Math.min(vbW*0.86,150), bubX=vbX+vbW/2;
+    const CHARS_PER_LINE=28;
+    const raw=String(commentaryInfo.text).trim();
+    const words=raw.split(/\s+/);
+    const lines=[];
+    let cur='';
+    for(const w of words){
+      const test=cur?cur+' '+w:w;
+      if(test.length<=CHARS_PER_LINE){ cur=test; }
+      else{ if(cur) lines.push(cur); cur=w; if(lines.length>=2) break; }
+    }
+    if(cur && lines.length<2) lines.push(cur);
+    // Ellipsis pass — truncate ANY line that still exceeds the char budget.
+    // Covers: line 2 overflow (normal case), a lone overlong first line
+    // (single word wider than the whole budget, no second line ever formed),
+    // AND an overlong first line that still has a second line after it
+    // (e.g. one unbreakable long token followed by more words) — the
+    // original check only handled the first two of these three cases.
+    for(let i=0;i<lines.length;i++){
+      if(lines[i].length>CHARS_PER_LINE){
+        lines[i]=lines[i].slice(0,CHARS_PER_LINE-1).trimEnd()+'…';
+      }
+    }
+    const bubH=lines.length>1?15:11;
+    const bubTop=1, bubBottom=bubTop+bubH;
+    const tailX=bubX, tailTopY=bubBottom, tailBotY=bubBottom+3.5;
+    const textCls=commentaryInfo.sprint?'commentary-bubble-text sprint-line-text':'commentary-bubble-text';
+    const groupCls=commentaryInfo.animate?'commentary-bubble-group commentary-bubble-in':'commentary-bubble-group';
+    const lineYs=lines.length>1?[bubTop+5.5,bubTop+10.5]:[bubTop+7.5];
+    const xmlEsc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const textSpans=lines.map((ln,i)=>`<text x="${bubX}" y="${lineYs[i]}" text-anchor="middle" class="${textCls}">${xmlEsc(ln)}</text>`).join('');
+    bubbleHtml=`<g class="${groupCls}">
+      <rect x="${(bubX-bubW/2).toFixed(1)}" y="${bubTop}" width="${bubW.toFixed(1)}" height="${bubH}" rx="5" fill="var(--bg)" stroke="var(--border)" stroke-width="0.6"/>
+      <path d="M ${(tailX-3).toFixed(1)} ${tailTopY} L ${tailX.toFixed(1)} ${tailBotY} L ${(tailX+3).toFixed(1)} ${tailTopY} Z" fill="var(--bg)" stroke="var(--border)" stroke-width="0.6"/>
+      <rect x="${(tailX-3).toFixed(1)}" y="${(tailTopY-0.6).toFixed(1)}" width="6" height="0.8" fill="var(--bg)"/>
+      ${textSpans}
+    </g>`;
+  }
+
   return `<svg viewBox="${vbX} 0 ${vbW} ${VB_H}" class="course-profile-svg" preserveAspectRatio="${windowMode?'xMidYMid meet':'none'}">
     <defs>
       <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
@@ -5940,9 +6118,10 @@ function buildCourseProfileSVG(rt, progress, stages, windowMode=false, rivalData
     ${trailHtml}
     ${rivalMarkerHtml}
     <g class="rider-marker-pulse">
-      <use href="#icn-rider-photo" x="${riderX-8}" y="${riderY-12.5}" width="16" height="13"/>
+      <g class="pedal-normal" style="color:var(--${cv}-txt)"><use href="#icn-rider-anim" x="${riderX-8}" y="${riderY-9.6}" width="16" height="9.6"/></g>
     </g>
     ${gradientHtml}
+    ${bubbleHtml}
   </svg>`;
 }
 
@@ -5976,10 +6155,15 @@ function buildCourseMiniMapSVG(rt, progress, stages){
     return `<circle cx="${fx}" cy="${CHART_TOP-1}" r="1.6" fill="${col}"/>`;
   }).join('');
 
-  // Camera window rectangle — same 30%-of-course-width math used in
+  // Camera window rectangle — same window-fraction math used in
   // buildCourseProfileSVG's windowMode, kept in sync here so the rectangle
-  // always matches what the profile above is actually showing.
-  const winW=CHART_W*0.3;
+  // always matches what the profile above is actually showing. fix73 (Race
+  // Vis Phase V5): tightens to ~18% alongside the profile once progress
+  // hits the same finalStretch threshold used everywhere else in the race
+  // overlay (progress>=0.95) — no separate flag, so it can't drift out of
+  // sync with the window it's meant to represent.
+  const winFinalStretch=progress>=0.95;
+  const winW=CHART_W*(winFinalStretch?0.18:0.3);
   let winX=CHART_LEFT+progress*CHART_W-winW/2;
   winX=Math.max(CHART_LEFT,Math.min(CHART_RIGHT-winW,winX));
 
@@ -6050,7 +6234,14 @@ function buildPelotonStripSVG(rd, rivalData=null){
   const SLOT_ROW=[0,1,2,0,1,2,1,2,0,1,2,0,1,0];
 
   const buildGlyph=(cx,cy,size,color)=>
-    `<use href="#icn-rider-photo" x="${(cx-size/2).toFixed(1)}" y="${(cy-size*0.81/2).toFixed(1)}" width="${size}" height="${(size*0.81).toFixed(1)}"/>`;
+    `<g class="pedal-normal" style="color:${color}"><use href="#icn-rider-anim" x="${(cx-size/2).toFixed(1)}" y="${(cy-size*0.6/2).toFixed(1)}" width="${size}" height="${(size*0.6).toFixed(1)}"/></g>`;
+
+  // fix73 (Race Vis Phase V5) — final-stretch front-of-race camera: rest of
+  // the field compresses toward the left/back edge so the right/front of the
+  // strip opens up for the enlarged sprinting player (+ rival). Purely a
+  // slot-position squeeze layered on top of the existing breakaway/dropped/
+  // normal branches below — same teardrop spine, same slot count.
+  const packCompress=f=>finalStretch?f*0.55:f;
 
   let packHtml='';
   if(isBreakaway || isDropped){
@@ -6058,15 +6249,16 @@ function buildPelotonStripSVG(rd, rivalData=null){
     // front (dropped behind) of the strip, still tracing the teardrop shape.
     const packShift=isBreakaway?0.30:-0.02;
     for(let i=0;i<SLOT_F.length;i++){
-      const f=Math.max(0.02,Math.min(0.98,SLOT_F[i]*0.6+packShift));
+      const f=packCompress(Math.max(0.02,Math.min(0.98,SLOT_F[i]*0.6+packShift)));
       const cx=packSpineX(f)+jitterX(i);
       const cy=packSpineY(f,SLOT_ROW[i])+jitterY(i);
       packHtml+=buildGlyph(cx,cy,10,'var(--txt3)');
     }
   } else {
     for(let i=0;i<SLOT_F.length;i++){
-      const cx=packSpineX(SLOT_F[i])+jitterX(i);
-      const cy=packSpineY(SLOT_F[i],SLOT_ROW[i])+jitterY(i);
+      const f=packCompress(SLOT_F[i]);
+      const cx=packSpineX(f)+jitterX(i);
+      const cy=packSpineY(f,SLOT_ROW[i])+jitterY(i);
       packHtml+=buildGlyph(cx,cy,10,'var(--txt3)');
     }
   }
@@ -6092,8 +6284,14 @@ function buildPelotonStripSVG(rd, rivalData=null){
   }
   const playerX=packSpineX(playerSpineF)+jitterX(99);
   const playerY=midY+Math.sin(now/bobSpeed)*(bobAmp*0.6);
-  const playerGlyphHtml=`${buildGlyph(playerX,playerY,14,kitHex)}
-    <circle cx="${playerX.toFixed(1)}" cy="${playerY.toFixed(1)}" r="10.5" fill="none" stroke="${kitHex}" stroke-width="1.5" stroke-opacity="0.55"/>`;
+  // fix73 (Race Vis Phase V5) — final-stretch front-of-race camera: player
+  // glyph enlarges and switches to the sprint pedal-cadence class; everything
+  // else about its spine placement (playerX/playerY/posFrac) is untouched so
+  // this is purely a size/animation-class swap layered on the existing math.
+  const playerGlyphSize=finalStretch?18:14;
+  const playerGlyphCls=finalStretch?'pedal-sprint':'pedal-normal';
+  const playerGlyphHtml=`<g class="${playerGlyphCls}" style="color:${kitHex}"><use href="#icn-rider-anim" x="${(playerX-playerGlyphSize/2).toFixed(1)}" y="${(playerY-playerGlyphSize*0.6/2).toFixed(1)}" width="${playerGlyphSize}" height="${(playerGlyphSize*0.6).toFixed(1)}"/></g>
+    <circle cx="${playerX.toFixed(1)}" cy="${playerY.toFixed(1)}" r="${finalStretch?13.5:10.5}" fill="none" stroke="${kitHex}" stroke-width="1.5" stroke-opacity="0.55"/>`;
 
   const gapNote=(isBreakaway||isDropped)
     ? `<text x="${playerX.toFixed(1)}" y="${TRACK_TOP-2}" class="peloton-gap-label">${isBreakaway?`${icn('bolt')} Off the front`:'⏳ Off the back'}</text>`
@@ -6109,8 +6307,32 @@ function buildPelotonStripSVG(rd, rivalData=null){
     const rivalSpineF=Math.max(0.03,Math.min(0.97,rivalPosFrac));
     const rivalX=packSpineX(rivalSpineF)+jitterX(88);
     const rivalY=midY+Math.sin(now/bobSpeed+0.8)*(bobAmp*0.6);
-    rivalHtml=`${buildGlyph(rivalX,rivalY,12,'var(--red-txt)')}
+    // fix73 (Race Vis Phase V5) — rival also gets the sprint pedal cadence
+    // (not size — stays a supporting glyph) when close to the player during
+    // the final stretch, so a tight finish visibly reads as a two-up sprint.
+    const rivalClose=finalStretch && Math.abs(rivalSpineF-playerSpineF)<0.15;
+    const rivalCls=rivalClose?'pedal-sprint':'pedal-normal';
+    rivalHtml=`<g class="${rivalCls}" style="color:var(--red-txt)"><use href="#icn-rider-anim" x="${(rivalX-6).toFixed(1)}" y="${(rivalY-3.6).toFixed(1)}" width="12" height="7.2"/></g>
       <circle cx="${rivalX.toFixed(1)}" cy="${rivalY.toFixed(1)}" r="8.5" fill="none" stroke="var(--red-txt)" stroke-width="1.2" stroke-opacity="0.5"/>`;
+  }
+
+  // fix73 (Race Vis Phase V5) — chequered finish marker slides in from the
+  // right edge across the final stretch (progress 0.95 -> 1.0), giving a
+  // concrete "line is coming" cue to pair with the compressed pack/enlarged
+  // player above. Pure render-only geometry from raceProgress; no state.
+  let finishHtml='';
+  if(finalStretch){
+    const finishT=Math.max(0,Math.min(1,(raceProgress-0.95)/0.05));
+    const finishX=RIGHT+18-finishT*22; // starts just off-strip, eases to the edge
+    const chkId='pel-chk-'+Math.round(now/50);
+    finishHtml=`<g class="finish-marker-slide">
+      <defs><pattern id="${chkId}" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(0)">
+        <rect width="4" height="4" fill="var(--bg)"/>
+        <rect width="2" height="2" fill="var(--txt2)"/>
+        <rect x="2" y="2" width="2" height="2" fill="var(--txt2)"/>
+      </pattern></defs>
+      <rect x="${finishX.toFixed(1)}" y="${TRACK_TOP}" width="4" height="${TRACK_BOTTOM-TRACK_TOP}" fill="url(#${chkId})" stroke="var(--border)" stroke-width="0.5"/>
+    </g>`;
   }
 
   return `<svg viewBox="0 0 ${VB_W} ${VB_H}" class="peloton-strip-svg" preserveAspectRatio="xMidYMid meet">
@@ -6120,6 +6342,7 @@ function buildPelotonStripSVG(rd, rivalData=null){
     ${companionsHtml}
     ${rivalHtml}
     ${playerGlyphHtml}
+    ${finishHtml}
   </svg>`;
 }
 
@@ -6408,8 +6631,6 @@ function renderActiveRaceBlock(){
   const rivalData=(!rd.isCalendarEvent && rd.rivalStartVP!=null)
     ? {vp:rd.rivalVP??rd.rivalStartVP, fieldSize:rd.result.fieldSize, playerVp:rd.virtualPos||1, name:state.rival.name||'Rival'}
     : null;
-  const courseProfileSvg=buildCourseProfileSVG(profileSrc, progress, stages, true, rivalData);
-  const courseMiniMapSvg=buildCourseMiniMapSVG(profileSrc, progress, stages);
   const commentarySrc=gtStage ? gtStage.commentary : course ? course.commentary : rt.commentary;
 
   // Race Legs bar
@@ -6422,8 +6643,40 @@ function renderActiveRaceBlock(){
   // showing) a swapped-in sprint commentary line instead of the normal rotation.
   const isFinalSprint=progress>=0.95 && progress<1;
 
-  // Decision card (if pending) OR last decision result (brief feedback) OR commentary
-  let middleHtml='';
+  // fix71 (Race Vis Phase V3) — commentary speech bubble. Text source is
+  // exactly what the old .race-commentary div used to render (same
+  // commentarySrc[rd.commentaryIdx]/sprint-line resolution below), just
+  // routed into buildCourseProfileSVG's sky band instead of a div under
+  // the SVG. Deliberately independent of the pending-decision / last-
+  // decision-result branches below (those get V4's front-of-animation
+  // treatment) — the bubble always shows the underlying race commentary.
+  // Fade-in fires only on the render where the text actually changes,
+  // tracked via a stamp on rd (mirrors the existing _decisionResultShownAt/
+  // _tickerShownAt pattern) rather than a setTimeout, since this whole
+  // block re-runs every animation frame and a plain CSS class would
+  // otherwise replay on every single frame.
+  const bubbleSprint=isFinalSprint && !rd.pendingDecision && !rd.lastDecisionResult;
+  const bubbleText=bubbleSprint
+    ? "It's flat out for the line!"
+    : (commentarySrc[rd.commentaryIdx]||commentarySrc[commentarySrc.length-1])+(rd._posClauseText||'');
+  const bubbleChanged=rd._lastCommentaryText!==bubbleText;
+  if(bubbleChanged){ rd._lastCommentaryText=bubbleText; rd._commentaryChangedAt=Date.now(); }
+  const bubbleAnimate=rd._commentaryChangedAt!=null && (Date.now()-rd._commentaryChangedAt)<400;
+  const commentaryInfo={text:bubbleText, sprint:bubbleSprint, animate:bubbleAnimate};
+
+  const courseProfileSvg=buildCourseProfileSVG(profileSrc, progress, stages, true, rivalData, commentaryInfo);
+  const courseMiniMapSvg=buildCourseMiniMapSVG(profileSrc, progress, stages);
+
+  // fix72 (Race Vis Phase V4) — pending decision now renders as a focused
+  // overlay (decisionOverlayHtml) in front of the animation instead of
+  // inline in the document flow. Card markup, choice buttons, timer and
+  // makeRaceDecision(...) onclick handlers are byte-for-byte unchanged from
+  // the prior inline version — only where the resulting HTML gets placed
+  // in the final template changes (see wrap.innerHTML below). Vanishes
+  // instantly on selection because it's keyed off rd.pendingDecision same
+  // as before: the moment that's cleared, this whole block stops producing
+  // anything and the overlay div is simply absent from the next render.
+  let decisionOverlayHtml='';
   if(rd.pendingDecision){
     const {event, startedAt}=rd.pendingDecision;
     const decisionAge=Date.now()-startedAt;
@@ -6454,14 +6707,21 @@ function renderActiveRaceBlock(){
       </button>`;
     }).join('');
 
-    const sheetInCls=decisionAge<400?' sheet-in':'';
-    middleHtml=`<div class="decision-card${sheetInCls}">
-      <div class="decision-headline">${event.headline}</div>
-      <div class="decision-situation">${event.situation}</div>
-      <div class="decision-choices">${choicesHtml}</div>
-      ${timerHtml}
+    // fix72 (Phase V4): sheet-in's slide-up-from-below is retired here in
+    // favour of decision-popped's scale/fade pop-in (see CSS) — per plan,
+    // adapt sheet-in into the pop-in rather than layering both.
+    decisionOverlayHtml=`<div class="decision-overlay-backdrop">
+      <div class="decision-card decision-popped">
+        <div class="decision-headline">${event.headline}</div>
+        <div class="decision-situation">${event.situation}</div>
+        <div class="decision-choices">${choicesHtml}</div>
+        ${timerHtml}
+      </div>
     </div>`;
-  } else if(rd.lastDecisionResult){
+  }
+  // Last decision result (brief feedback) OR commentary — stays inline as before.
+  let middleHtml='';
+  if(rd.lastDecisionResult){
     // Show feedback from the last decision for a few seconds
     const r=rd.lastDecisionResult;
     middleHtml=`<div class="decision-result">
@@ -6472,11 +6732,14 @@ function renderActiveRaceBlock(){
     if(!rd._decisionResultShownAt) rd._decisionResultShownAt=Date.now();
     if(Date.now()-rd._decisionResultShownAt>4000){ rd.lastDecisionResult=null; rd._decisionResultShownAt=null; }
   } else if(isFinalSprint){
-    middleHtml=`<div class="race-commentary sprint-line">${icn('flag')} It's flat out for the line!</div>`;
+    // fix71 (Phase V3): sprint commentary now rendered via the sky bubble
+    // (see commentaryInfo above) instead of this div — retired, not deleted,
+    // so the branch structure/isFinalSprint gating stays intact for V4/V5.
+    middleHtml='';
   } else {
-    const baseLine=commentarySrc[rd.commentaryIdx]||commentarySrc[commentarySrc.length-1];
-    const posClause=rd._posClauseText||'';
-    middleHtml=`<div class="race-commentary">${baseLine}${posClause}</div>`;
+    // fix71 (Phase V3): normal commentary rotation now rendered via the sky
+    // bubble (see commentaryInfo above) instead of this div — retired.
+    middleHtml='';
   }
 
   // PHASE E — position-change ticker chip. Fires once per resolved decision by
@@ -6496,6 +6759,7 @@ function renderActiveRaceBlock(){
   }
 
   wrap.innerHTML=`<div class="active-race">
+    ${decisionOverlayHtml}
     ${tickerHtml}
     <div class="race-run-head"><span style="font-size:18px">${icn(headIcon)}</span><span class="race-run-name">${headName}</span><span class="race-run-timer${isFinalSprint?' sprint-gold':''}">${remaining}s</span></div>
     <div class="race-peloton-wrap" id="race-peloton-wrap"></div>
@@ -6880,7 +7144,10 @@ function renderRiderStats(){
     {label:'Sprint Power',val:rs.sprintPower,unit:'w',
      sublabel:sprMaxed?'Elite cap reached':`Lv${sprA.level} → +170w next lvl`,
      pct:sprPct,colorVar:'purple',icon:'bolt'},
-    {label:'Race Bonus',val:`+${getEquipmentBonusForRace('road')}w`,unit:'',sublabel:'Gear (road)',pct:Math.min(100,Math.round(getEquipmentBonusForRace('road')/80*100)),colorVar:'teal',icon:'gear'},
+    {label:'Race Bonus',val:`+${getEquipmentBonusForRace('road')}w`,unit:'',
+     sublabel:(()=>{const wb=getWorkshopBonuses(state.equippedBike);const tunePct=wb.raceFlatPct+wb.raceAeroPct;
+       return tunePct>0?`Gear (road) · +${tunePct.toFixed(1)}% tuned`:'Gear (road)';})(),
+     pct:Math.min(100,Math.round(getEquipmentBonusForRace('road')/80*100)),colorVar:'teal',icon:'gear'},
   ];
 
   // Power-to-weight — the headline real-world cycling metric. Shown as its own
@@ -7052,7 +7319,7 @@ function renderStats(){
 // GEAR TAB
 // ═══════════════════════════════════════════════════════════
 let gearSection='energy';
-const GEAR_SECTIONS=['energy','bikes','wheels','kit','accessories'];
+const GEAR_SECTIONS=['energy','bikes','wheels','kit','accessories','workshop'];
 
 function setGearSection(s){
   gearSection=s;
@@ -7063,6 +7330,7 @@ function setGearSection(s){
   if(s==='wheels') renderWheelShop();
   if(s==='kit') renderKitShop();
   if(s==='accessories') renderAccessoryShop();
+  if(s==='workshop') renderWorkshopSection();
   // fix64: keep the gear-tab rider preview in sync when switching sections
   // (e.g. equipping a jersey in Kit, then flipping to Bikes).
   renderRiderScene();
@@ -7070,7 +7338,7 @@ function setGearSection(s){
 
 function renderGearNav(){
   const nav=document.getElementById('gear-nav');
-  const labels={energy:`${icn('bolt')} Energy`,bikes:`${icn('bike-photo')} Bikes`,wheels:`${icn('circle-blue')} Wheels`,kit:`${icn('jersey')} Kit`,accessories:`${icn('wrench')} Extras`};
+  const labels={energy:`${icn('bolt')} Energy`,bikes:`${icn('bike-photo')} Bikes`,wheels:`${icn('circle-blue')} Wheels`,kit:`${icn('jersey')} Kit`,accessories:`${icn('wrench')} Extras`,workshop:`${icn('gear')} Workshop`};
   nav.innerHTML=GEAR_SECTIONS.map(s=>`<button class="gear-nav-btn${gearSection===s?' active':''}" onclick="setGearSection('${s}')">${labels[s]}</button>`).join('');
 }
 
@@ -7082,8 +7350,227 @@ function renderGearTab(){
   if(gearSection==='wheels') renderWheelShop();
   if(gearSection==='kit') renderKitShop();
   if(gearSection==='accessories') renderAccessoryShop();
+  if(gearSection==='workshop') renderWorkshopSection();
   // fix64: idle rider preview at the top of the Gear tab.
   renderRiderScene();
+}
+
+// fix76/Fix 2 — Workshop (Marginal Gains tuning loop): tap loop + MG display.
+// Region: this renderer + the handler block immediately below it. Tuning-track
+// spend UI (Fix 3) and gameplay wiring (Fix 4) are NOT part of this fix.
+//
+// Perf/anti-jank notes (see spec Fix 2 acceptance):
+//  - Taps mutate state + patch the MG/combo text nodes directly; they never
+//    call renderWorkshopSection() again, so 50 rapid taps never triggers 50
+//    re-renders of the section.
+//  - Particle bursts are throttled to at most 1 per 300ms (workshopLastBurstAt)
+//    regardless of tap rate, so rapid tapping can't flood the DOM with dots.
+//  - Saves are debounced ~2s after the last tap (workshopSaveDebounce), not
+//    fired per tap.
+function renderWorkshopSection(){
+  const list=document.getElementById('gear-section-workshop'); list.innerHTML='';
+  const h2=document.createElement('div'); h2.className='section-lbl'; h2.textContent='Workshop — Marginal Gains';
+  list.appendChild(h2);
+
+  const card=document.createElement('div');
+  card.className='equip-card';
+  card.id='workshop-tap-card';
+  card.innerHTML=`<div class="equip-head">
+    <div class="equip-main">
+      <div class="equip-model">${icn('wrench')} Turn wrenches</div>
+      <div class="equip-desc">Tap to earn Marginal Gains (MG). Bank them here, then spend on permanent
+        tuning buffs for your equipped bike below. Capped at 9,999 MG.</div>
+      <div style="display:flex;align-items:baseline;gap:8px;margin-top:10px">
+        <div id="workshop-mg-val" style="font-size:28px;font-weight:800;line-height:1">${state.workshop.mg}</div>
+        <div style="font-size:11px;color:var(--txt2)">MG banked</div>
+      </div>
+      <div id="workshop-combo-val" style="font-size:11px;color:var(--txt2);min-height:14px;margin-top:2px"></div>
+      <button type="button" id="workshop-tap-btn" onclick="handleWorkshopTap()"
+        style="width:100%;margin-top:12px;padding:22px 0;font-size:15px;font-weight:700;
+        border-radius:var(--radius);border:1px solid var(--border);background:var(--bg2,var(--bg));
+        cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none">
+        ${icn('wrench')} Turn wrenches (+1 MG)
+      </button>
+    </div>
+  </div>`;
+  list.appendChild(card);
+
+  // fix77/Fix 3 — Tuning tracks + spend. Four upgrade-card rows for the
+  // EQUIPPED bike only (spec: "switching bikes switches active buffs"), so
+  // this section always reads state.equippedBike fresh on every render.
+  const tuneHead=document.createElement('div');
+  tuneHead.className='section-lbl';
+  tuneHead.style.marginTop='14px';
+  const bike=BIKES.find(b=>b.id===state.equippedBike)||BIKES[0];
+  tuneHead.textContent=`Tuning — ${bike.model}`;
+  list.appendChild(tuneHead);
+
+  const tuning=getBikeTuning(bike.id);
+  WORKSHOP_TRACKS.forEach(track=>{
+    const level=tuning[track.key]||0;
+    const maxed=level>=track.maxLevel;
+    const cost=maxed?0:workshopTrackCost(track,level);
+    const afford=!maxed && state.workshop.mg>=cost;
+    const cls=maxed?'bought':afford?'affordable':'locked';
+
+    const div=document.createElement('div');
+    div.className=`upgrade-card ${cls}`;
+    div.id=`workshop-track-${track.key}`;
+    const costHtml=maxed
+      ? `<div class="upgrade-cost-val done">${icn('check')} Maxed</div>`
+      : `<div class="upgrade-cost-val ${afford?'affordable':''}">${cost} MG</div>
+         <div class="upg-bar-wrap"><div class="upg-bar" style="width:${Math.round(Math.min(1,state.workshop.mg/cost)*100)}%"></div></div>`;
+    div.innerHTML=`<div class="upgrade-icon">${icn(track.icon)}</div>
+      <div class="upgrade-info">
+        <div class="upgrade-name">${track.name} <span style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase">· Lv ${level}/${track.maxLevel}</span></div>
+        <div class="upgrade-desc">${track.desc}</div>
+        <div class="upgrade-benefit">${track.effectLabel(level)}</div>
+      </div>
+      <div class="upgrade-cost-col">${costHtml}</div>`;
+    if(afford) div.addEventListener('click',()=>handleWorkshopSpend(track.key));
+    list.appendChild(div);
+  });
+}
+
+// ── Workshop tuning tracks (fix77/Fix 3) ────────────────────────────────────
+// Per spec table: 4 tracks, 6 levels each, cost curve 25|25|40|30 × 1.8^level
+// (level = CURRENT level being upgraded FROM, i.e. cost to go from level->level+1).
+// Effects are read by getWorkshopBonuses() (Fix 4 wires these into gameplay —
+// this fix only computes and displays them; nothing here mutates race/training math).
+const WORKSHOP_TRACKS=[
+  {key:'drivetrain', name:'Drivetrain', icon:'gear', maxLevel:6, baseCost:25,
+   desc:'Clean chain, fresh cassette, dialled-in shifting.',
+   effectLabel:l=>`+${(l*0.5).toFixed(1)}% race score`},
+  {key:'aero',       name:'Aero',       icon:'wind', maxLevel:6, baseCost:25,
+   desc:'Cable routing, bar tape wrap, position tweaks. Crit & TT only.',
+   effectLabel:l=>`+${(l*0.5).toFixed(1)}% race score (crit/tt)`},
+  {key:'weight',     name:'Weight shave', icon:'scale', maxLevel:6, baseCost:40,
+   desc:'Drilled bolts, lighter bar tape, the usual marginal-gains obsession.',
+   effectLabel:l=>`−${(l*0.05).toFixed(2)}kg effective weight`},
+  {key:'bearings',   name:'Bearings',   icon:'refresh', maxLevel:6, baseCost:30,
+   desc:'Fresh grease and true wheels — less friction, more focus.',
+   effectLabel:l=>`+${l}% training XP`},
+];
+
+// Returns the per-bike tuning object, creating a fresh all-zero entry if this
+// bike has never been tuned before. Never persists by itself — callers that
+// mutate the result are responsible for saveGame().
+function getBikeTuning(bikeId){
+  if(!state.workshop.tuning[bikeId]){
+    state.workshop.tuning[bikeId]={drivetrain:0,aero:0,weight:0,bearings:0};
+  }
+  return state.workshop.tuning[bikeId];
+}
+
+// Cost to go from `level` to `level+1` on a track: baseCost × 1.8^level.
+function workshopTrackCost(track,level){
+  return Math.round(track.baseCost*Math.pow(1.8,level));
+}
+
+// getWorkshopBonuses(bikeId) — single clamped source of truth for what a
+// bike's Workshop tuning is worth. Fix 4 will call this from
+// simulateRaceResult()/getWeightFactorForRace()/the training XP award point;
+// this fix only computes it for display (the "next cost / effect" lines
+// above) so the eventual gameplay wiring is a one-line read, per spec's
+// "clamp the combined Workshop contribution in one place" guardrail.
+// Returns: {raceFlatPct, raceAeroPct, weightDeltaKg, trainingPct}
+function getWorkshopBonuses(bikeId){
+  const t=(state.workshop.tuning&&state.workshop.tuning[bikeId])||{drivetrain:0,aero:0,weight:0,bearings:0};
+  const drivetrain=t.drivetrain||0, aero=t.aero||0, weight=t.weight||0, bearings=t.bearings||0;
+
+  // Hard caps enforced here, not just implied by the level×step data above,
+  // so future tuning of the table can never silently exceed spec's guardrails.
+  const raceFlatPct   = Math.min(3, drivetrain*0.5);
+  const raceAeroPct   = Math.min(3, aero*0.5);
+  const weightDeltaKg = -Math.min(0.3, weight*0.05); // 6 levels × 0.05kg = 0.3kg max
+  const trainingPct   = Math.min(6, bearings*1);
+
+  return {raceFlatPct, raceAeroPct, weightDeltaKg, trainingPct};
+}
+
+// Spend handler: single-tap purchase, mirrors buyAccessory()'s mutate→
+// recalc→save→toast pattern. No confirm() — a 1-level tuning spend is a
+// small, reversible-in-spirit incremental buy (same tier as existing
+// upgrade-card purchases), not a destructive action needing a lockout.
+function handleWorkshopSpend(trackKey){
+  const track=WORKSHOP_TRACKS.find(t=>t.key===trackKey);
+  if(!track) return;
+  const bike=BIKES.find(b=>b.id===state.equippedBike)||BIKES[0];
+  const tuning=getBikeTuning(bike.id);
+  const level=tuning[trackKey]||0;
+  if(level>=track.maxLevel) return;
+  const cost=workshopTrackCost(track,level);
+  if(state.workshop.mg<cost) return;
+
+  state.workshop.mg-=cost;
+  tuning[trackKey]=level+1;
+
+  // fix79/Fix 5 — achievement hook: "First Tune-up" fires on the first ever
+  // spend (see achUnlocked's workshop_first_tune check). checkAchievements()
+  // itself saves+queues the ceremony, so no extra saveGame() call is needed
+  // beyond the one it performs when a new achievement is earned.
+  checkAchievements();
+  saveGame();
+
+  const div=document.getElementById(`workshop-track-${trackKey}`);
+  if(div) burstCard(div);
+  showToast(`${icn(track.icon)} ${track.name} → Lv ${level+1}/${track.maxLevel}`);
+  renderWorkshopSection();
+}
+
+// ── Workshop tap-loop handler block (fix76/Fix 2) ──────────────────────────
+// Combo rule: every 10th consecutive tap where the gap since the previous tap
+// is <=1.5s awards +5 MG on top of the usual +1. The streak resets the moment
+// a gap exceeds 1.5s, or naturally every 10 taps once it pays out.
+let workshopComboCount = 0;
+let workshopLastTapAt = 0;
+let workshopLastBurstAt = 0;
+let workshopSaveDebounce = null;
+
+function handleWorkshopTap(){
+  const now = Date.now();
+  const withinComboWindow = (now - workshopLastTapAt) <= 1500;
+  workshopLastTapAt = now;
+  workshopComboCount = withinComboWindow ? (workshopComboCount + 1) : 1;
+
+  let gained = 1;
+  let comboPayout = false;
+  if(workshopComboCount >= 10){
+    gained += 5;
+    comboPayout = true;
+    workshopComboCount = 0; // streak pays out and restarts
+  }
+
+  const before = state.workshop.mg;
+  state.workshop.mg = Math.max(0, Math.min(9999, state.workshop.mg + gained));
+  const actuallyGained = state.workshop.mg - before; // 0 once capped, so display stays honest
+
+  const mgEl = document.getElementById('workshop-mg-val');
+  if(mgEl) mgEl.textContent = state.workshop.mg;
+
+  const comboEl = document.getElementById('workshop-combo-val');
+  if(comboEl){
+    if(state.workshop.mg >= 9999){
+      comboEl.textContent = 'MG banked is full (9,999 max)';
+    }else if(comboPayout){
+      comboEl.textContent = `Combo bonus! +${actuallyGained} MG`;
+    }else if(workshopComboCount>0){
+      comboEl.textContent = `Combo streak: ${workshopComboCount}/10`;
+    }else{
+      comboEl.textContent = '';
+    }
+  }
+
+  // Throttle particle bursts to at most 1 per 300ms so rapid tapping can't
+  // flood the DOM with burst-particle nodes.
+  if(actuallyGained>0 && (now - workshopLastBurstAt) >= 300){
+    workshopLastBurstAt = now;
+    burstCard(document.getElementById('workshop-tap-card'));
+  }
+
+  // Debounced save: only writes ~2s after the LAST tap, not per tap.
+  if(workshopSaveDebounce) clearTimeout(workshopSaveDebounce);
+  workshopSaveDebounce = setTimeout(()=>{ workshopSaveDebounce=null; saveGame(); }, 2000);
 }
 
 // FIX 1: buildEquipCard — removed spurious third stat-bar block that caused duplicate
@@ -7973,6 +8460,7 @@ function saveGame(){
       pendingMorningReward:state.pendingMorningReward,
       streak:state.streak, racesToday:state.racesToday, form:state.form,
       series:state.series,
+      workshop:state.workshop,
       pendingSession:state.session.awaitingCollection
         ? {typeId:state.session.typeId, pendingXP:state.session.pendingXP||[], isCritical:!!state.session.isCritical}
         : null,
@@ -8102,6 +8590,23 @@ function loadGame(){
     // Race Retention Phase 4 — old saves default to null; ensureSeries() builds
     // a fresh series lazily on the player's next scored race.
     state.series = d.series ?? null;
+    // The Workshop — fix75/Fix 1: old saves (pre-feature) predate d.workshop
+    // entirely, so default to a fresh, empty tuning bank. tuning is defensively
+    // rebuilt key-by-key rather than trusted wholesale, in case a future save
+    // format changes the per-bike shape.
+    {
+      const wmg = Number.isFinite(d.workshop?.mg) ? d.workshop.mg : 0;
+      const wtuning = {};
+      if(d.workshop?.tuning && typeof d.workshop.tuning==='object'){
+        Object.entries(d.workshop.tuning).forEach(([bikeId,t])=>{
+          wtuning[bikeId] = {
+            drivetrain: t?.drivetrain||0, aero: t?.aero||0,
+            weight: t?.weight||0, bearings: t?.bearings||0,
+          };
+        });
+      }
+      state.workshop = { mg: Math.max(0, Math.min(9999, wmg)), tuning: wtuning };
+    }
   }catch(e){ console.warn('[CIM] Load failed:',e); }
 }
 
