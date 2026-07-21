@@ -225,7 +225,7 @@ button{font-family:inherit;cursor:pointer;}
   @keyframes progress-stripe-move{from{background-position:0 0}to{background-position:32px 0}}
 }
 .course-profile-wrap{margin-bottom:10px;border-radius:var(--radius);overflow:hidden;background:rgba(0,0,0,.06);}
-.course-profile-svg{width:100%;height:min(38vh,260px);display:block;}
+.course-profile-svg{width:100%;height:min(54vh,371px);display:block;}
 .course-minimap-wrap{margin-bottom:6px;border-radius:var(--radius);overflow:hidden;background:rgba(0,0,0,.05);}
 .course-minimap-svg{width:100%;height:20px;display:block;}
 .rider-marker-pulse{animation:rider-pulse 1.1s ease-in-out infinite;transform-origin:center;transform-box:fill-box;}
@@ -6025,8 +6025,8 @@ function smoothTerrainPath(pts){
 function buildCourseProfileSVG(rt, progress, stages, windowMode=false, rivalData=null, commentaryInfo=null){
   const profile=rt.profile||[20,20,20,20];
   const N=profile.length;
-  const VB_W=320, VB_H=84;
-  const CHART_TOP=16, CHART_BOTTOM=66, CHART_LEFT=4, CHART_RIGHT=316;
+  const VB_W=320, VB_H=120;
+  const CHART_TOP=44, CHART_BOTTOM=102, CHART_LEFT=4, CHART_RIGHT=316;
   const CHART_H=CHART_BOTTOM-CHART_TOP, CHART_W=CHART_RIGHT-CHART_LEFT;
   const cv=rt.colorVar||'blue';
 
@@ -6098,14 +6098,17 @@ function buildCourseProfileSVG(rt, progress, stages, windowMode=false, rivalData
   // rider coordinates below are computed exactly as in non-window mode, so
   // when windowMode is false the returned markup is unaffected (regression
   // guarantee: byte-for-byte identical to the pre-Phase-D render).
-  // fix73 (Race Vis Phase V5) — final-stretch camera tightens from 30% to
-  // ~18% of the course width, matching the peloton strip's compressed/
-  // enlarged sprint framing. Same finalStretch threshold (progress>=0.95)
-  // used everywhere else in the race overlay (buildPelotonStripSVG,
-  // renderActiveRaceBlock's isFinalSprint) so all three visuals flip in the
-  // same frame — no separate flag, no drift.
+  // fix98 (Race Vis Phase V7): the fix73 final-stretch tighten (30% -> 18%
+  // of the course width) zoomed in so far the rider became unreadable —
+  // removed. The window fraction now stays constant at 0.3 regardless of
+  // finalStretch; only the crop math below changed, nothing else in this
+  // function (rider/flag/trail coordinates, sprint glyph sizing) depends on
+  // WINDOW_FRAC, so this is a pure viewBox fix. finalStretch is still
+  // computed and still used further down for the enlarged-player /
+  // pedal-sprint glyph and flag/bubble logic — only the camera crop itself
+  // is unaffected by it now.
   const finalStretch=progress>=0.95;
-  const WINDOW_FRAC=finalStretch?0.18:0.3;
+  const WINDOW_FRAC=0.3;
   let vbX=0, vbW=VB_W;
   if(windowMode){
     vbW=VB_W*WINDOW_FRAC;
@@ -6154,19 +6157,24 @@ function buildCourseProfileSVG(rt, progress, stages, windowMode=false, rivalData
   }
 
   // fix71 (Race Vis Phase V3) — commentary speech bubble, sky band.
-  // Text source is unchanged (same string renderActiveRaceBlock already
-  // resolves from commentarySrc[rd.commentaryIdx] or the sprint line) —
-  // this function only lays it out. Docked at a fixed high position
-  // (y 1–13, above CHART_TOP=16) rather than tracking the rider, so it
-  // never has to chase riderX and stays clear of the terrain/flags for
-  // realistic profile heights; drawn last (after flags/trail/rival) so
+  // fix96 (Race Vis Phase V6) — the sky band grew (CHART_TOP 16->44) to
+  // give the bubble real room, so this block now wraps up to 3 lines
+  // instead of 2, sizes bubW/bubH to the actual wrapped text instead of a
+  // fixed width, and clamps its x-position to stay inside the cropped
+  // windowMode viewBox (the fixed-width version could run past the crop
+  // edges when windowMode zoomed in tight). Text source is unchanged (same
+  // string renderActiveRaceBlock already resolves from
+  // commentarySrc[rd.commentaryIdx] or the sprint line) — this function
+  // only lays it out. Docked high in the sky band (bubTop=2) with the tail
+  // reaching down toward the rider, drawn last (after flags/trail/rival) so
   // its opaque background wins any residual overlap at extreme peaks.
-  // Max 2 wrapped lines, char-count-based (no DOM measurement available
-  // inside a plain string builder); overflow gets a trailing ellipsis.
+  // Char-count-based wrap (no DOM measurement available inside a plain
+  // string builder); only a single unbreakable token wider than a full
+  // line gets ellipsized — normal overflow is handled by the 3rd line.
   let bubbleHtml='';
   if(commentaryInfo && commentaryInfo.text){
-    const bubW=Math.min(vbW*0.86,150), bubX=vbX+vbW/2;
     const CHARS_PER_LINE=28;
+    const MAX_LINES=3;
     const raw=String(commentaryInfo.text).trim();
     const words=raw.split(/\s+/);
     const lines=[];
@@ -6174,31 +6182,49 @@ function buildCourseProfileSVG(rt, progress, stages, windowMode=false, rivalData
     for(const w of words){
       const test=cur?cur+' '+w:w;
       if(test.length<=CHARS_PER_LINE){ cur=test; }
-      else{ if(cur) lines.push(cur); cur=w; if(lines.length>=2) break; }
+      else{ if(cur) lines.push(cur); cur=w; if(lines.length>=MAX_LINES) break; }
     }
-    if(cur && lines.length<2) lines.push(cur);
-    // Ellipsis pass — truncate ANY line that still exceeds the char budget.
-    // Covers: line 2 overflow (normal case), a lone overlong first line
-    // (single word wider than the whole budget, no second line ever formed),
-    // AND an overlong first line that still has a second line after it
-    // (e.g. one unbreakable long token followed by more words) — the
-    // original check only handled the first two of these three cases.
+    if(cur && lines.length<MAX_LINES) lines.push(cur);
+    // Ellipsis pass — only fires for a single unbreakable token longer than
+    // a full line's char budget (the wrap loop above can otherwise place a
+    // too-long lone word on its own line without truncating it). Wrapped
+    // multi-word lines are already <=CHARS_PER_LINE by construction, so this
+    // never clips normal wrapped text.
     for(let i=0;i<lines.length;i++){
       if(lines[i].length>CHARS_PER_LINE){
         lines[i]=lines[i].slice(0,CHARS_PER_LINE-1).trimEnd()+'…';
       }
     }
-    const bubH=lines.length>1?15:11;
-    const bubTop=1, bubBottom=bubTop+bubH;
-    const tailX=bubX, tailTopY=bubBottom, tailBotY=bubBottom+3.5;
+    const maxLineChars=lines.reduce((m,ln)=>Math.max(m,ln.length),0);
+    // Cap to the visible window width (minus a small margin) so the clamp
+    // below has room to work — a bubble wider than the viewBox itself can't
+    // be kept on-screen by shifting its x-position alone. Text still wraps
+    // at CHARS_PER_LINE regardless, so capping bubW just tightens the box
+    // around the actual glyphs instead of leaving dead padding; it never
+    // needs to compress text, since 3 lines at CHARS_PER_LINE already keeps
+    // per-line width well inside typical windowMode crops in practice.
+    const bubW=Math.min(maxLineChars*4.2+8,vbW*0.92);
+    const bubH=6+lines.length*5.5;
+    const bubTop=2, bubBottom=bubTop+bubH;
+    // Clamp bubX so the bubble stays fully inside the visible (possibly
+    // windowMode-cropped) viewBox — a fixed-width bubble centered on the
+    // rider could previously overhang the crop edge when zoomed in tight.
+    const half=bubW/2;
+    let bubX=riderX;
+    bubX=Math.max(vbX+half,Math.min(vbXEnd-half,bubX));
+    // Tail points from the bubble bottom toward the rider, clamped to stay
+    // within the bubble's own width so it never juts out past the rect.
+    const tailX=Math.max(bubX-half+4,Math.min(bubX+half-4,riderX));
+    const tailTopY=bubBottom, tailBotY=bubBottom+3.5;
     const textCls=commentaryInfo.sprint?'commentary-bubble-text sprint-line-text':'commentary-bubble-text';
     const groupCls=commentaryInfo.animate?'commentary-bubble-group commentary-bubble-in':'commentary-bubble-group';
-    const lineYs=lines.length>1?[bubTop+5.5,bubTop+10.5]:[bubTop+7.5];
+    const lineYs=[];
+    for(let i=0;i<lines.length;i++) lineYs.push(bubTop+5.5+i*5.5);
     const xmlEsc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const textSpans=lines.map((ln,i)=>`<text x="${bubX}" y="${lineYs[i]}" text-anchor="middle" class="${textCls}">${xmlEsc(ln)}</text>`).join('');
+    const textSpans=lines.map((ln,i)=>`<text x="${bubX.toFixed(1)}" y="${lineYs[i].toFixed(1)}" text-anchor="middle" class="${textCls}">${xmlEsc(ln)}</text>`).join('');
     bubbleHtml=`<g class="${groupCls}">
-      <rect x="${(bubX-bubW/2).toFixed(1)}" y="${bubTop}" width="${bubW.toFixed(1)}" height="${bubH}" rx="5" fill="var(--bg)" stroke="var(--border)" stroke-width="0.6"/>
-      <path d="M ${(tailX-3).toFixed(1)} ${tailTopY} L ${tailX.toFixed(1)} ${tailBotY} L ${(tailX+3).toFixed(1)} ${tailTopY} Z" fill="var(--bg)" stroke="var(--border)" stroke-width="0.6"/>
+      <rect x="${(bubX-half).toFixed(1)}" y="${bubTop}" width="${bubW.toFixed(1)}" height="${bubH.toFixed(1)}" rx="5" fill="var(--bg)" stroke="var(--border)" stroke-width="0.6"/>
+      <path d="M ${(tailX-3).toFixed(1)} ${tailTopY.toFixed(1)} L ${tailX.toFixed(1)} ${tailBotY.toFixed(1)} L ${(tailX+3).toFixed(1)} ${tailTopY.toFixed(1)} Z" fill="var(--bg)" stroke="var(--border)" stroke-width="0.6"/>
       <rect x="${(tailX-3).toFixed(1)}" y="${(tailTopY-0.6).toFixed(1)}" width="6" height="0.8" fill="var(--bg)"/>
       ${textSpans}
     </g>`;
@@ -6223,7 +6249,7 @@ function buildCourseProfileSVG(rt, progress, stages, windowMode=false, rivalData
     ${trailHtml}
     ${rivalMarkerHtml}
     <g class="rider-marker-pulse">
-      <g class="pedal-normal" style="color:var(--${cv}-txt)"><use href="#icn-rider-anim" x="${riderX-8}" y="${riderY-9.6}" width="16" height="9.6"/></g>
+      <g class="pedal-normal" style="color:var(--${cv}-txt)"><use href="#icn-rider-photo" x="${riderX-8}" y="${riderY-6.47}" width="16" height="12.93"/></g>
     </g>
     ${gradientHtml}
     ${bubbleHtml}
@@ -6262,12 +6288,13 @@ function buildCourseMiniMapSVG(rt, progress, stages){
 
   // Camera window rectangle — same window-fraction math used in
   // buildCourseProfileSVG's windowMode, kept in sync here so the rectangle
-  // always matches what the profile above is actually showing. fix73 (Race
-  // Vis Phase V5): tightens to ~18% alongside the profile once progress
-  // hits the same finalStretch threshold used everywhere else in the race
-  // overlay (progress>=0.95) — no separate flag, so it can't drift out of
-  // sync with the window it's meant to represent.
-  const winFinalStretch=progress>=0.95;
+  // always matches what the profile above is actually showing. fix98 (Race
+  // Vis Phase V7): the fix73 final-stretch tighten to ~18% is removed —
+  // winFinalStretch is neutralised and winW stays at a constant 0.3 of
+  // CHART_W regardless of progress, matching buildCourseProfileSVG's now-
+  // constant WINDOW_FRAC exactly, so the rectangle can't drift out of sync
+  // with the window it represents.
+  const winFinalStretch=false;
   const winW=CHART_W*(winFinalStretch?0.18:0.3);
   let winX=CHART_LEFT+progress*CHART_W-winW/2;
   winX=Math.max(CHART_LEFT,Math.min(CHART_RIGHT-winW,winX));
@@ -6293,6 +6320,15 @@ function buildCourseMiniMapSVG(rt, progress, stages){
 // (and rival) glyphs are mapped along the pack's spine by posFrac, so as
 // virtualPos improves the player visibly threads forward through the pack
 // instead of static dots reshuffling around a stationary player.
+//
+// fix97 (Race Vis Phase V7, Stage 3): retained but no longer called from
+// renderActiveRaceBlock. The glyph teardrop this function draws duplicated
+// the sprite-based hero scene below it (.race-peloton-scene, built by
+// buildPelotonSceneHtml/updatePelotonScene — fix65-68) which already shows a
+// parallax background, a recoloured NPC pack, and the player's own rider
+// sprite advancing left->right as virtualPos improves, plus breakaway/dropped
+// captions. Per the fix plan, nothing else references this function, so it's
+// left in place unused rather than deleted.
 function buildPelotonStripSVG(rd, rivalData=null){
   const VB_W=320, VB_H=110;
   const TRACK_TOP=14, TRACK_BOTTOM=96;
@@ -6876,7 +6912,6 @@ function renderActiveRaceBlock(){
       <span class="race-legs-val" style="color:${legsCol}">${legsPct}</span>
     </div>
     ${middleHtml}
-    <div class="peloton-strip-wrap${isFinalSprint?' sprint-shake':''}">${buildPelotonStripSVG(rd, rivalData)}</div>
     ${rivalData?`<div class="rival-legend-row"><span class="rival-legend-you">${icn('run')} You ●</span><span class="rival-legend-sep">·</span><span class="rival-legend-rival">${rivalData.name} ●</span></div>`:''}
     <div class="race-pos-row"><span>${icn('run')} Position: <strong>${ordinal(rd.virtualPos||1)} / ${rd.result.fieldSize}</strong></span><span>${rd.result.fieldSize} riders</span></div>
     ${rivalData?`<div class="rival-gap-row">${(()=>{const n=Math.abs((rd.virtualPos||1)-rivalData.vp); return n===0?`${icn('run')} On ${rivalData.name}'s wheel`:rivalData.vp<(rd.virtualPos||1)?`${icn('run')} ${rivalData.name} is ${n} wheel${n===1?'':'s'} ahead`:`${icn('run')} ${n} wheel${n===1?'':'s'} behind ${rivalData.name}`;})()}</div>`:''}
