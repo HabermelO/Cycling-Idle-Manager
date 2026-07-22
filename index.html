@@ -6085,29 +6085,26 @@ function renderWeightCard(){
 // mini-games (Drinks Mix / Fast-Slow Carbs) land in fix110/fix111; for now
 // startGutTraining() is a stub that just toasts, since gutStage always
 // stays at 0 with no way to progress it yet.
-const GUT_TRAIN_CAP=3; // max full completions/day — +2g carb limit each, then hard lockout
+// fix117: daily completion cap removed — Gut Training can be repeated as many
+// times as the player wants each day; each full-chain pass still adds
+// GUT_TRAIN_CARB_BONUS (+2g) on top of the last, and it all resets to the
+// base 80g limit at the next calendar-day boundary (state.gutTrainDone=0 in
+// the daily-reset block). No more "fully adapted" lockout state.
 function renderGutTrainCard(){
   const wrap=document.getElementById('gut-train-card-wrap'); if(!wrap) return;
   const done=state.gutTrainDone||0;
   const stage=state.gutStage||0;
   const bonus=GUT_TRAIN_CARB_BONUS*done;
-  const atCap=done>=GUT_TRAIN_CAP;
 
-  const progressText=atCap
-    ? `${icn('lock')} Gut fully adapted today`
-    : stage===1
-      ? `Stage 1 ${icn('check')} — continue to Stage 2`
-      : `${done}/${GUT_TRAIN_CAP} today`;
+  const progressText=stage===1
+    ? `Stage 1 ${icn('check')} — continue to Stage 2`
+    : done>0
+      ? `${done} today`
+      : 'Not trained today';
 
-  const btnLabel=atCap
-    ? 'Locked — fully adapted'
-    : stage===1
-      ? 'Continue: Stage 2'
-      : 'Start Gut Training';
+  const btnLabel=stage===1 ? 'Continue: Stage 2' : 'Start Gut Training';
 
-  const btnHtml=atCap
-    ? `<button disabled style="width:100%;margin-top:.6rem;background:var(--bg2);color:var(--txt3);border:.5px solid var(--border);border-radius:var(--radius);padding:11px;text-align:center;font-size:13px;font-weight:700;cursor:not-allowed">${icn('lock')} ${btnLabel}</button>`
-    : `<button onclick="startGutTraining()" style="width:100%;margin-top:.6rem;background:var(--green-txt);color:#fff;border:none;border-radius:var(--radius);padding:11px;text-align:center;font-size:13px;font-weight:700;cursor:pointer">${btnLabel}</button>`;
+  const btnHtml=`<button onclick="startGutTraining()" style="width:100%;margin-top:.6rem;background:var(--green-txt);color:#fff;border:none;border-radius:var(--radius);padding:11px;text-align:center;font-size:13px;font-weight:700;cursor:pointer">${btnLabel}</button>`;
 
   wrap.innerHTML=`<div class="energy-card">
     <div class="energy-head"><span class="energy-label">${icn('bread')} Gut Training <button class="info-btn" onclick="event.stopPropagation();openInfo('gut_training')">ⓘ</button></span><span class="energy-amount">${icn('bolt')} +${bonus}g</span></div>
@@ -6118,8 +6115,8 @@ function renderGutTrainCard(){
 
 // Routes on gutStage. Stage 0 → Drinks Mix (openGutGame1).
 // fix111: Stage 1 (drinks already passed) → Fast/Slow Carbs (openGutGame2).
+// fix117: no daily cap check — unlimited daily completions.
 function startGutTraining(){
-  if((state.gutTrainDone||0)>=GUT_TRAIN_CAP){ showToast(`${icn('lock')} Gut fully adapted today`); return; }
   if((state.gutStage||0)===1){ openGutGame2(); return; }
   openGutGame1();
 }
@@ -6508,17 +6505,29 @@ function gt2EndGame(success){
 
 function gt2Retry(){ gt2StartGame(); }
 
-// Full-chain completion reward: bump gutTrainDone (clamped to the daily
-// cap), reset gutStage for the next completion, persist, and refresh every
-// surface that reads getCarbLimit() so the new (+2g/completion) bonus is visible.
+// Full-chain completion reward: bump gutTrainDone, reset gutStage for the
+// next completion, persist, and refresh every surface that reads
+// getCarbLimit() so the new (+2g/completion) bonus is visible.
+// fix117: no daily cap — gutTrainDone increments without limit; it still
+// resets to 0 at the next calendar-day boundary (see daily-reset block).
+// fix116: gtShowSuccessPop() now fires right after closeGutOverlay(), before
+// the toast/re-render — a throw in either of those (e.g. a bad icn() call)
+// used to silently skip the celebration even though gutTrainDone was already
+// saved as complete. The render/toast are also wrapped so nothing after the
+// popup call can retroactively break it, guaranteeing the pop-up shows on
+// every completion regardless of what happens downstream.
 function completeGutTraining(absorbedScore){
-  state.gutTrainDone=Math.min(GUT_TRAIN_CAP,(state.gutTrainDone||0)+1);
+  state.gutTrainDone=(state.gutTrainDone||0)+1;
   state.gutStage=0;
   saveGame();
   closeGutOverlay();
-  renderTrainTab();
-  showToast(`${icn('bread')} Gut trained! Daily carb limit now ${getCarbLimit()}g (+${GUT_TRAIN_CARB_BONUS*state.gutTrainDone}g)`);
   gtShowSuccessPop();
+  try{
+    renderTrainTab();
+    showToast(`${icn('bread')} Gut trained! Daily carb limit now ${getCarbLimit()}g (+${GUT_TRAIN_CARB_BONUS*state.gutTrainDone}g)`);
+  }catch(e){
+    console.error('completeGutTraining: post-celebration refresh failed', e);
+  }
 }
 
 // fix112: Gut Training success pop-up — fires once, on full-chain completion
@@ -10744,7 +10753,7 @@ const INFO_TEXTS = {
   // fix109: gut training card
   gut_training: {
     title: 'Gut Training',
-    body: ()=>`Train your gut to handle more fuel on race day. Complete both stages of the daily mini-game chain to add ${GUT_TRAIN_CARB_BONUS}g to today's carb limit — stacks up to +${GUT_TRAIN_CARB_BONUS*GUT_TRAIN_CAP}g (${GUT_TRAIN_CAP} completions/day max).<br><br>
+    body: ()=>`Train your gut to handle more fuel on race day. Complete both stages of the daily mini-game chain to add ${GUT_TRAIN_CARB_BONUS}g to today's carb limit — repeat as many times as you like, no daily limit.<br><br>
       Resets to your base limit (${CARB_DAILY_LIMIT}g) every morning.`
   },
   // fix47: rival card
