@@ -6400,7 +6400,7 @@ function gt2StartGame(){
       gt2ResetSpawner();
     } else if(gt2TimeLeft===5){
       badge.textContent='120g/hr (SURGE!)'; badge.style.color='var(--red-txt)';
-      gt2FallSpeed=4.2; gt2SpawnInterval=350;
+      gt2FallSpeed=3.5; gt2SpawnInterval=450; // fix113: surge eased (was 4.2/350) — still hardest phase, but survivable
       gt2ResetSpawner();
     }
     if(gt2TimeLeft<=0) gt2EndGame(true);
