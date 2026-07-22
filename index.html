@@ -2486,10 +2486,12 @@ const MIN_RIDER_WEIGHT           = 60;   // kg — climbing specialist floor
 const MAX_RIDER_WEIGHT           = 90;   // kg — sprinter/heavy-build ceiling
 const CARB_DAILY_LIMIT           = 80;   // energy-units worth of items consumed before excess risks weight gain
 const WEIGHT_GAIN_PER_EXCESS_CARB= 0.005;// kg gained per unit of carbs consumed over the daily limit
-// fix109: Gut Training multiplies today's effective carb limit. Single source
-// of truth — every read of CARB_DAILY_LIMIT for actual limit checks/display
-// must go through this instead (the constant itself stays the base value).
-function getCarbLimit(){ return CARB_DAILY_LIMIT * Math.pow(2, state.gutTrainDone||0); }
+// fix114: Gut Training adds +2 to today's effective carb limit per successful
+// completion (was: doubled the limit each time). Single source of truth —
+// every read of CARB_DAILY_LIMIT for actual limit checks/display must go
+// through this instead (the constant itself stays the base value).
+const GUT_TRAIN_CARB_BONUS = 2; // flat carb-limit bonus per completed gut-training session
+function getCarbLimit(){ return CARB_DAILY_LIMIT + GUT_TRAIN_CARB_BONUS * (state.gutTrainDone||0); }
 const WEIGHT_SENSITIVITY = {
   crit: 0.0,  // flat, drafting-heavy circuit — bodyweight is basically irrelevant
   road: 0.3,  // rolling terrain — bodyweight matters a little
@@ -6075,12 +6077,12 @@ function renderWeightCard(){
 // mini-games (Drinks Mix / Fast-Slow Carbs) land in fix110/fix111; for now
 // startGutTraining() is a stub that just toasts, since gutStage always
 // stays at 0 with no way to progress it yet.
-const GUT_TRAIN_CAP=3; // max full completions/day — ×8 carb limit, then hard lockout
+const GUT_TRAIN_CAP=3; // max full completions/day — +2g carb limit each, then hard lockout
 function renderGutTrainCard(){
   const wrap=document.getElementById('gut-train-card-wrap'); if(!wrap) return;
   const done=state.gutTrainDone||0;
   const stage=state.gutStage||0;
-  const mult=Math.pow(2,done);
+  const bonus=GUT_TRAIN_CARB_BONUS*done;
   const atCap=done>=GUT_TRAIN_CAP;
 
   const progressText=atCap
@@ -6100,8 +6102,8 @@ function renderGutTrainCard(){
     : `<button onclick="startGutTraining()" style="width:100%;margin-top:.6rem;background:var(--green-txt);color:#fff;border:none;border-radius:var(--radius);padding:11px;text-align:center;font-size:13px;font-weight:700;cursor:pointer">${btnLabel}</button>`;
 
   wrap.innerHTML=`<div class="energy-card">
-    <div class="energy-head"><span class="energy-label">${icn('bread')} Gut Training <button class="info-btn" onclick="event.stopPropagation();openInfo('gut_training')">ⓘ</button></span><span class="energy-amount">${icn('bolt')} ×${mult}</span></div>
-    <div class="energy-meta"><span>Carb limit ×${mult} (${getCarbLimit()}g)</span><span>${progressText}</span></div>
+    <div class="energy-head"><span class="energy-label">${icn('bread')} Gut Training <button class="info-btn" onclick="event.stopPropagation();openInfo('gut_training')">ⓘ</button></span><span class="energy-amount">${icn('bolt')} +${bonus}g</span></div>
+    <div class="energy-meta"><span>Carb limit +${bonus}g (${getCarbLimit()}g)</span><span>${progressText}</span></div>
     ${btnHtml}
   </div>`;
 }
@@ -6500,14 +6502,14 @@ function gt2Retry(){ gt2StartGame(); }
 
 // Full-chain completion reward: bump gutTrainDone (clamped to the daily
 // cap), reset gutStage for the next completion, persist, and refresh every
-// surface that reads getCarbLimit() so the new multiplier is visible.
+// surface that reads getCarbLimit() so the new (+2g/completion) bonus is visible.
 function completeGutTraining(absorbedScore){
   state.gutTrainDone=Math.min(GUT_TRAIN_CAP,(state.gutTrainDone||0)+1);
   state.gutStage=0;
   saveGame();
   closeGutOverlay();
   renderTrainTab();
-  showToast(`${icn('bread')} Gut trained! Daily carb limit now ${getCarbLimit()}g (×${Math.pow(2,state.gutTrainDone)})`);
+  showToast(`${icn('bread')} Gut trained! Daily carb limit now ${getCarbLimit()}g (+${GUT_TRAIN_CARB_BONUS*state.gutTrainDone}g)`);
   gtShowSuccessPop();
 }
 
@@ -10734,7 +10736,7 @@ const INFO_TEXTS = {
   // fix109: gut training card
   gut_training: {
     title: 'Gut Training',
-    body: ()=>`Train your gut to handle more fuel on race day. Complete both stages of the daily mini-game chain to double today's carb limit — stacks up to ${Math.pow(2,GUT_TRAIN_CAP)}× (${GUT_TRAIN_CAP} completions/day max).<br><br>
+    body: ()=>`Train your gut to handle more fuel on race day. Complete both stages of the daily mini-game chain to add ${GUT_TRAIN_CARB_BONUS}g to today's carb limit — stacks up to +${GUT_TRAIN_CARB_BONUS*GUT_TRAIN_CAP}g (${GUT_TRAIN_CAP} completions/day max).<br><br>
       Resets to your base limit (${CARB_DAILY_LIMIT}g) every morning.`
   },
   // fix47: rival card
