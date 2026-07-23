@@ -7735,7 +7735,17 @@ const HERO_SPRITE_SCALE=Math.min(0.42, (PELOTON_SCENE_H-8)/308);
 function clampHeroSpriteLeftPct(rawLeftPct, sceneWidthPx){
   if(!sceneWidthPx || sceneWidthPx<=0) return rawLeftPct; // no measured width yet — leave unclamped, next tick will fix it
   const spriteWidthPx=279*HERO_SPRITE_SCALE;
-  const spriteWidthPct=(spriteWidthPx/sceneWidthPx)*100;
+  // fix125: spriteWidthPct is capped at 8% of the scene, so narrow (mobile)
+  // widths don't have their travel range squeezed. Root cause: the sprite's
+  // width is a fixed 101px regardless of screen size, but pelotonPosFracToLeftPct
+  // above always emits a 12–88% raw range assuming the sprite eats a small,
+  // roughly-constant slice of that. On a ~375px mobile scene the sprite is
+  // ~27% of the width, so the old uncapped maxPct=100-spriteWidthPct-marginPct
+  // came out around 72% instead of 88% — the whole right end of the range was
+  // unreachable, and the sprite read as pinned center/left with any rightward
+  // move looking exaggerated. On desktop widths (~900px+) the sprite is small
+  // enough that this cap never engages and behaviour is unchanged from fix124.
+  const spriteWidthPct=Math.min(8, (spriteWidthPx/sceneWidthPx)*100);
   const marginPct=(4/sceneWidthPx)*100; // 4px margin, per plan
   const minPct=marginPct;
   const maxPct=Math.max(minPct, 100-spriteWidthPct-marginPct);
