@@ -4199,7 +4199,7 @@ function completeRace(){
         state.rival.firstWinAchieved=true;
         rivalMsg=` · ${icn('target')} You finally beat ${riv.name}!`;
       } else {
-        rivalMsg=` · Beat ${riv.name} (${riv.position}${ordinal(riv.position)})`;
+        rivalMsg=` · Beat ${riv.name} (${ordinal(riv.position)})`; // fix124: ordinal() already returns number+suffix — the extra ${riv.position} was printing "1212th"
       }
       // fix37: any rival win is a high-intent moment — invite install once,
       // after the win ceremony has had time to show/close. Hooked on riv.beat
@@ -4213,7 +4213,7 @@ function completeRace(){
       }
     } else {
       state.rival.losses=(state.rival.losses||0)+1;
-      rivalMsg=` · ${riv.name} finished ${riv.position}${ordinal(riv.position)}`;
+      rivalMsg=` · ${riv.name} finished ${ordinal(riv.position)}`; // fix124: see 2a — duplicate number removed
     }
   }
   // Win ceremony — enqueued BEFORE checkCategoryPromotion() so if a single race
@@ -10756,9 +10756,29 @@ function gameTick(){
         rd._ttSplitText=computeTTSplit(rd, checkpointNum);
       }
     }
-    const progress=elapsed/rd.animMs, fs=rd.result.fieldSize, fp=rd.result.position;
-    if(progress<0.55){ if(Math.random()<0.10) rd.virtualPos=Math.max(1,Math.min(fs,rd.virtualPos+Math.round((Math.random()-0.5)*2))); }
-    else{ rd.virtualPos=Math.max(1,Math.min(fs,Math.round(rd.startVP+(fp-rd.startVP)*((progress-0.55)/0.45)))); }
+    const progress=elapsed/rd.animMs, fs=rd.result.fieldSize;
+    // fix124: virtualPos now tracks a LIVE projected finish that includes the
+    // decisions taken so far, so the hero sprite actually moves forward on good
+    // choices and slips back on bad ones. Previously it converged on
+    // rd.result.position — the raw simulated finish, before positionDelta and
+    // the unspent-legs kick are applied in finishRace — so the sprite's drift
+    // was pure luck and read as "always ends up on the right".
+    // maxShift mirrors finishRace's ±40%-of-field clamp exactly (see the
+    // clampedDelta block there); if that cap ever changes, change it in both
+    // places or the mid-race projection will disagree with the final result.
+    const _maxShift = Math.max(2, Math.floor(fs * 0.40));
+    const _liveDelta = Math.max(-_maxShift, Math.min(_maxShift, rd.positionDelta||0));
+    const fp = Math.max(1, Math.min(fs, rd.result.position + _liveDelta));
+    if(progress<0.55){
+      // Pre-55%: same gentle random jostle as before, but now re-anchored to the
+      // live projection so a decision taken early is felt immediately instead of
+      // being swallowed by the random walk.
+      const _target = Math.round(rd.startVP + (fp - rd.startVP) * 0.35);
+      if(Math.random()<0.10) rd.virtualPos = Math.max(1, Math.min(fs, rd.virtualPos + Math.round((Math.random()-0.5)*2)));
+      rd.virtualPos = Math.max(1, Math.min(fs, rd.virtualPos + Math.sign(_target - rd.virtualPos)));
+    } else {
+      rd.virtualPos = Math.max(1, Math.min(fs, Math.round(rd.startVP + (fp - rd.startVP) * ((progress-0.55)/0.45))));
+    }
     // Race Retention Phase 2B — rival trajectory mirrors the player's own
     // two-phase logic above (random walk pre-55%, converge to final position
     // after). Only runs when rivalStartVP was set at race start (category
