@@ -353,6 +353,7 @@ button{font-family:inherit;cursor:pointer;}
   padding:13px 14px;margin-bottom:8px;box-shadow:var(--shadow-sm);transition:border-color .15s,background .15s,opacity .2s;}
 .equip-card.equipped{border-color:var(--green-bd);}
 .equip-card.cant-afford{opacity:.55;box-shadow:none;}
+.equip-card.prestige-locked{opacity:.6;box-shadow:none;}
 .equip-head{display:flex;align-items:flex-start;gap:10px;}
 .equip-main{flex:1;min-width:0;}
 .equip-brand{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt3);margin-bottom:2px;}
@@ -410,6 +411,7 @@ button{font-family:inherit;cursor:pointer;}
 .prestige-info{font-size:12px;color:var(--amber-txt);line-height:1.4;}
 .prestige-prog-wrap{height:5px;background:rgba(0,0,0,.12);border-radius:3px;margin-top:8px;overflow:hidden;}
 .prestige-prog-bar{height:100%;background:var(--amber-txt);border-radius:3px;transition:width .2s;}
+.prestige-preview{font-size:11.5px;color:var(--amber-txt);opacity:.85;line-height:1.4;margin-top:8px;padding-top:8px;border-top:.5px solid var(--amber-bd);}
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
 .stat-card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);padding:14px;}
 .stat-card.span-full{grid-column:1/-1;}
@@ -1443,8 +1445,10 @@ button{font-family:inherit;cursor:pointer;}
     <div id="spec-area"></div>
     <div class="section-lbl" style="margin-top:1rem">Fitness Attributes</div>
     <div id="attr-cards"></div>
-    <div class="section-lbl" style="margin-top:1rem">Season Progress</div>
+    <div class="section-lbl" style="margin-top:1rem">Season Progress <button class="info-btn" onclick="openInfo('prestige')">ⓘ</button></div>
     <div id="prestige-area"></div>
+    <div class="section-lbl" style="margin-top:1rem">Grand Tour Relics</div>
+    <div id="relic-shelf-area"></div>
     <div class="section-lbl" style="margin-top:1rem">Career Stats</div>
     <div class="stats-grid" id="stats-grid"></div>
     <div class="section-lbl" style="margin-top:1rem">Save Data</div>
@@ -2492,14 +2496,26 @@ const EQUIP_WEIGHTS = {
 const DEFAULT_RIDER_WEIGHT       = 70;   // kg — see chat: a sensible "all-rounder" reference weight
 const MIN_RIDER_WEIGHT           = 60;   // kg — climbing specialist floor
 const MAX_RIDER_WEIGHT           = 90;   // kg — sprinter/heavy-build ceiling
-const CARB_DAILY_LIMIT           = 80;   // energy-units worth of items consumed before excess risks weight gain
+const CARB_DAILY_LIMIT           = 80;   // energy-units worth of items consumed before excess risks weight gain — legacy constant, kept as the P3 reference point; live reads should go through carbBase()/getCarbLimit()
 const WEIGHT_GAIN_PER_EXCESS_CARB= 0.005;// kg gained per unit of carbs consumed over the daily limit
+// fix119: Stage 2 of the prestige overhaul — carb cap now scales with prestige
+// level instead of reading the flat CARB_DAILY_LIMIT constant directly.
+// CARB_BASE_BY_PRESTIGE[3] (80g) matches the old flat constant, so an
+// established P3+ player sees no change; P0-P2 players see a lower base that
+// grows with each prestige, capped/extended at index 6 for P6+.
+const CARB_BASE_BY_PRESTIGE = [50, 60, 70, 80, 90, 100, 120];
+// fix121: relic_carb_engine (Tour de France GC Champion) adds a permanent
+// +15g on top of the prestige-scaled base — pure read, never rolls back.
+function carbBase(){
+  const base=CARB_BASE_BY_PRESTIGE[Math.min(6, prestigeLevel())];
+  return base + (state.relics && state.relics.has('relic_carb_engine') ? 15 : 0);
+}
 // fix114: Gut Training adds +2 to today's effective carb limit per successful
 // completion (was: doubled the limit each time). Single source of truth —
-// every read of CARB_DAILY_LIMIT for actual limit checks/display must go
-// through this instead (the constant itself stays the base value).
+// every read of the carb base for actual limit checks/display must go
+// through carbBase() instead (the gut-training additive term is untouched).
 const GUT_TRAIN_CARB_BONUS = 2; // flat carb-limit bonus per completed gut-training session
-function getCarbLimit(){ return CARB_DAILY_LIMIT + GUT_TRAIN_CARB_BONUS * (state.gutTrainDone||0); }
+function getCarbLimit(){ return carbBase() + GUT_TRAIN_CARB_BONUS * (state.gutTrainDone||0); }
 const WEIGHT_SENSITIVITY = {
   crit: 0.0,  // flat, drafting-heavy circuit — bodyweight is basically irrelevant
   road: 0.3,  // rolling terrain — bodyweight matters a little
@@ -2507,43 +2523,47 @@ const WEIGHT_SENSITIVITY = {
   hill: 1.0,  // pure climbing — bodyweight matters fully, watts-per-kg is everything
 };
 
+// fix118: minPrestige added per item, mapped by tier (Stage 1 of the prestige
+// overhaul — see prestige-overhaul-plan-v1.md). tier→minPrestige: 1↦0, 2↦1,
+// 3↦2, 4↦4, 5↦6. Omitted field reads as 0 via itemPrestigeLocked()/(item.minPrestige||0);
+// every entry is tagged explicitly here for clarity/auditability.
 const BIKES = [
   // ── TIER 1 — Free & Near-Free (£0–150) ──────────────────────────────────
   // The gateway tier. New players open the Gear tab, see something within reach,
   // and learn there's always a next step. Each one has character.
-  {id:'starter',       tier:1,type:'allrounder',brand:'',              model:'Entry Road Bike',           price:0,     aeroWatts:0,  climbWatts:0,  desc:'Scratched and dented, but it moves. Every WorldTour winner started somewhere.'},
-  {id:'shand_carrera', tier:1,type:'allrounder',brand:'Carrera',       model:'Vanquish (Second-Hand)',    price:80,    aeroWatts:0,  climbWatts:1,  desc:'Picked up off the club noticeboard. Needs a service but the frame is straight.'},
-  {id:'shand_allez',   tier:1,type:'allrounder',brand:'Specialized',   model:'Allez (Second-Hand)',       price:150,   aeroWatts:1,  climbWatts:2,  desc:'A used Allez with more than a few stories on it. Still surprisingly quick.'},
+  {id:'starter',       tier:1,minPrestige:0,type:'allrounder',brand:'',              model:'Entry Road Bike',           price:0,     aeroWatts:0,  climbWatts:0,  desc:'Scratched and dented, but it moves. Every WorldTour winner started somewhere.'},
+  {id:'shand_carrera', tier:1,minPrestige:0,type:'allrounder',brand:'Carrera',       model:'Vanquish (Second-Hand)',    price:80,    aeroWatts:0,  climbWatts:1,  desc:'Picked up off the club noticeboard. Needs a service but the frame is straight.'},
+  {id:'shand_allez',   tier:1,minPrestige:0,type:'allrounder',brand:'Specialized',   model:'Allez (Second-Hand)',       price:150,   aeroWatts:1,  climbWatts:2,  desc:'A used Allez with more than a few stories on it. Still surprisingly quick.'},
 
   // ── TIER 2 — Budget New & Entry Alloy (£350–2,500) ───────────────────────
-  {id:'triban_rc520',  tier:2,type:'allrounder',brand:'Triban',        model:'RC 520',                    price:450,   aeroWatts:3,  climbWatts:4,  desc:'Decathlon\'s proper entry-level road bike. Aluminium frame, solid groupset, genuinely race-ready from day one.'},
-  {id:'giant_defy',    tier:2,type:'allrounder',brand:'Giant',         model:'Defy Advanced',             price:1200,  aeroWatts:4,  climbWatts:5,  desc:'Endurance geometry paired with Giant\'s proven composite layup. Reliable race day performer.'},
-  {id:'allez_sprint',  tier:2,type:'aero',      brand:'Specialized',   model:'Allez Sprint',              price:1800,  aeroWatts:8,  climbWatts:2,  desc:'Aluminium, but don\'t let that fool you. E5 premium alloy and a proper race geometry.'},
-  {id:'caad13',        tier:2,type:'climbing',  brand:'Cannondale',    model:'CAAD13 Disc',               price:2200,  aeroWatts:1,  climbWatts:8,  desc:'Aluminium perfected. Stiffer than most carbon, and deceptively quick uphill.'},
-  {id:'trek_domane',   tier:2,type:'allrounder',brand:'Trek',          model:'Domane AL 4',               price:2500,  aeroWatts:3,  climbWatts:3,  desc:'IsoSpeed decoupler soaks up road buzz. Consistent and confidence-inspiring over long days.'},
+  {id:'triban_rc520',  tier:2,minPrestige:1,type:'allrounder',brand:'Triban',        model:'RC 520',                    price:450,   aeroWatts:3,  climbWatts:4,  desc:'Decathlon\'s proper entry-level road bike. Aluminium frame, solid groupset, genuinely race-ready from day one.'},
+  {id:'giant_defy',    tier:2,minPrestige:1,type:'allrounder',brand:'Giant',         model:'Defy Advanced',             price:1200,  aeroWatts:4,  climbWatts:5,  desc:'Endurance geometry paired with Giant\'s proven composite layup. Reliable race day performer.'},
+  {id:'allez_sprint',  tier:2,minPrestige:1,type:'aero',      brand:'Specialized',   model:'Allez Sprint',              price:1800,  aeroWatts:8,  climbWatts:2,  desc:'Aluminium, but don\'t let that fool you. E5 premium alloy and a proper race geometry.'},
+  {id:'caad13',        tier:2,minPrestige:1,type:'climbing',  brand:'Cannondale',    model:'CAAD13 Disc',               price:2200,  aeroWatts:1,  climbWatts:8,  desc:'Aluminium perfected. Stiffer than most carbon, and deceptively quick uphill.'},
+  {id:'trek_domane',   tier:2,minPrestige:1,type:'allrounder',brand:'Trek',          model:'Domane AL 4',               price:2500,  aeroWatts:3,  climbWatts:3,  desc:'IsoSpeed decoupler soaks up road buzz. Consistent and confidence-inspiring over long days.'},
 
   // ── TIER 3 — Entry–Mid Carbon (£3,500–6,500) ─────────────────────────────
-  {id:'ribble_ultra',  tier:3,type:'aero',      brand:'Ribble',        model:'Ultra SL Aero',             price:3800,  aeroWatts:9,  climbWatts:2,  desc:'Excellent value aero carbon. Genuinely punches above its price tag in the bunch.'},
-  {id:'scott_addict',  tier:3,type:'climbing',  brand:'Scott',         model:'Addict RC 30',              price:4500,  aeroWatts:5,  climbWatts:14, desc:'Scott\'s climbing weapon. HMX carbon layup keeps it featherlight on long ascents.'},
-  {id:'orbea_orca',    tier:3,type:'allrounder',brand:'Orbea',         model:'Orca M21eLTD',              price:4800,  aeroWatts:9,  climbWatts:12, desc:'Spanish craftsmanship. Balanced across all disciplines — a proper all-rounder.'},
-  {id:'canyon_end',    tier:3,type:'allrounder',brand:'Canyon',        model:'Endurace CF SL 8',          price:5200,  aeroWatts:10, climbWatts:10, desc:'Direct sales price advantage. Genuine race-winning performance at mid-range cost.'},
-  {id:'pinar_paris',   tier:3,type:'climbing',  brand:'Pinarello',     model:'Paris',                    price:6500,  aeroWatts:7,  climbWatts:17, desc:'Pinarello DNA without the Dogma price tag. Purpose-built for mountain finishes.'},
-  {id:'canyon_ult',    tier:3,type:'climbing',  brand:'Canyon',        model:'Ultimate CFR',              price:6500,  aeroWatts:8,  climbWatts:18, desc:'Canyon\'s climbing masterpiece. Sub-7kg and brutally efficient on every gradient.'},
+  {id:'ribble_ultra',  tier:3,minPrestige:2,type:'aero',      brand:'Ribble',        model:'Ultra SL Aero',             price:3800,  aeroWatts:9,  climbWatts:2,  desc:'Excellent value aero carbon. Genuinely punches above its price tag in the bunch.'},
+  {id:'scott_addict',  tier:3,minPrestige:2,type:'climbing',  brand:'Scott',         model:'Addict RC 30',              price:4500,  aeroWatts:5,  climbWatts:14, desc:'Scott\'s climbing weapon. HMX carbon layup keeps it featherlight on long ascents.'},
+  {id:'orbea_orca',    tier:3,minPrestige:2,type:'allrounder',brand:'Orbea',         model:'Orca M21eLTD',              price:4800,  aeroWatts:9,  climbWatts:12, desc:'Spanish craftsmanship. Balanced across all disciplines — a proper all-rounder.'},
+  {id:'canyon_end',    tier:3,minPrestige:2,type:'allrounder',brand:'Canyon',        model:'Endurace CF SL 8',          price:5200,  aeroWatts:10, climbWatts:10, desc:'Direct sales price advantage. Genuine race-winning performance at mid-range cost.'},
+  {id:'pinar_paris',   tier:3,minPrestige:2,type:'climbing',  brand:'Pinarello',     model:'Paris',                    price:6500,  aeroWatts:7,  climbWatts:17, desc:'Pinarello DNA without the Dogma price tag. Purpose-built for mountain finishes.'},
+  {id:'canyon_ult',    tier:3,minPrestige:2,type:'climbing',  brand:'Canyon',        model:'Ultimate CFR',              price:6500,  aeroWatts:8,  climbWatts:18, desc:'Canyon\'s climbing masterpiece. Sub-7kg and brutally efficient on every gradient.'},
 
   // ── TIER 4 — High-End Race Carbon (£8,500–14,000) ────────────────────────
-  {id:'speedmax_cf7',  tier:4,type:'tt',        brand:'Canyon',        model:'Speedmax CF 7',             price:8500,  aeroWatts:22, climbWatts:-3, desc:'Purpose-built for the race of truth. The most aerodynamic road-legal position money buys.'},
-  {id:'tarmac_sl7',    tier:4,type:'aero',      brand:'Specialized',   model:'Tarmac SL7 Expert',         price:9500,  aeroWatts:16, climbWatts:8,  desc:'The bike that wins Grand Tours. Aero and light enough to be genuinely universal.'},
-  {id:'cervelo_p5',    tier:4,type:'tt',        brand:'Cervélo',       model:'P5',                        price:10500, aeroWatts:32, climbWatts:-5, desc:'TT engineering taken to its logical conclusion. Dominates the race of truth.'},
-  {id:'cervelo_r5',    tier:4,type:'climbing',  brand:'Cervélo',       model:'R5 Disc',                   price:11000, aeroWatts:10, climbWatts:28, desc:'Featherweight stiffness. The weapon of choice for GC riders targeting mountain stages.'},
-  {id:'madone_slr',    tier:4,type:'aero',      brand:'Trek',          model:'Madone SLR 9',              price:12500, aeroWatts:24, climbWatts:10, desc:'Wind-tunnel refined IsoFlow system. The fastest road bike Trek has ever built.'},
-  {id:'dogma_f',       tier:4,type:'allrounder',brand:'Pinarello',     model:'Dogma F',                   price:14000, aeroWatts:20, climbWatts:20, desc:'The most successful Grand Tour bike ever made. Raced by Ineos Grenadiers worldwide.'},
+  {id:'speedmax_cf7',  tier:4,minPrestige:4,type:'tt',        brand:'Canyon',        model:'Speedmax CF 7',             price:8500,  aeroWatts:22, climbWatts:-3, desc:'Purpose-built for the race of truth. The most aerodynamic road-legal position money buys.'},
+  {id:'tarmac_sl7',    tier:4,minPrestige:4,type:'aero',      brand:'Specialized',   model:'Tarmac SL7 Expert',         price:9500,  aeroWatts:16, climbWatts:8,  desc:'The bike that wins Grand Tours. Aero and light enough to be genuinely universal.'},
+  {id:'cervelo_p5',    tier:4,minPrestige:4,type:'tt',        brand:'Cervélo',       model:'P5',                        price:10500, aeroWatts:32, climbWatts:-5, desc:'TT engineering taken to its logical conclusion. Dominates the race of truth.'},
+  {id:'cervelo_r5',    tier:4,minPrestige:4,type:'climbing',  brand:'Cervélo',       model:'R5 Disc',                   price:11000, aeroWatts:10, climbWatts:28, desc:'Featherweight stiffness. The weapon of choice for GC riders targeting mountain stages.'},
+  {id:'madone_slr',    tier:4,minPrestige:4,type:'aero',      brand:'Trek',          model:'Madone SLR 9',              price:12500, aeroWatts:24, climbWatts:10, desc:'Wind-tunnel refined IsoFlow system. The fastest road bike Trek has ever built.'},
+  {id:'dogma_f',       tier:4,minPrestige:4,type:'allrounder',brand:'Pinarello',     model:'Dogma F',                   price:14000, aeroWatts:20, climbWatts:20, desc:'The most successful Grand Tour bike ever made. Raced by Ineos Grenadiers worldwide.'},
 
   // ── TIER 5 — Elite / WorldTour Spec (£13,500–16,000) ─────────────────────
-  {id:'cervelo_rca',   tier:5,type:'climbing',  brand:'Cervélo',       model:'R5-CX Limited',             price:13500, aeroWatts:12, climbWatts:34, desc:'Limited run climbing machine. Hand-finished in Canada. Fewer than 200 exist.'},
-  {id:'factor_ostro',  tier:5,type:'allrounder',brand:'Factor',        model:'OSTRO VAM',                 price:13500, aeroWatts:30, climbWatts:30, desc:'Boutique British engineering. Equally capable of winning a sprint or a summit finish.'},
-  {id:'colnago_v4rs',  tier:5,type:'climbing',  brand:'Colnago',       model:'V4Rs',                      price:14500, aeroWatts:16, climbWatts:36, desc:'Italian craftsmanship at its absolute peak. Raced by UAE Team Emirates in the Tour.'},
-  {id:'s_works_sl8',   tier:5,type:'climbing',  brand:'Specialized',   model:'S-Works Tarmac SL8',        price:15000, aeroWatts:22, climbWatts:32, desc:'The 2024 evolution. Lighter and more aero than anything that came before it.'},
-  {id:'s_venge',       tier:5,type:'aero',      brand:'Specialized',   model:'S-Works Venge',             price:16000, aeroWatts:40, climbWatts:12, desc:'The sprint weapon of the WorldTour. Every watt of aero optimisation science allows.'},
+  {id:'cervelo_rca',   tier:5,minPrestige:6,type:'climbing',  brand:'Cervélo',       model:'R5-CX Limited',             price:13500, aeroWatts:12, climbWatts:34, desc:'Limited run climbing machine. Hand-finished in Canada. Fewer than 200 exist.'},
+  {id:'factor_ostro',  tier:5,minPrestige:6,type:'allrounder',brand:'Factor',        model:'OSTRO VAM',                 price:13500, aeroWatts:30, climbWatts:30, desc:'Boutique British engineering. Equally capable of winning a sprint or a summit finish.'},
+  {id:'colnago_v4rs',  tier:5,minPrestige:6,type:'climbing',  brand:'Colnago',       model:'V4Rs',                      price:14500, aeroWatts:16, climbWatts:36, desc:'Italian craftsmanship at its absolute peak. Raced by UAE Team Emirates in the Tour.'},
+  {id:'s_works_sl8',   tier:5,minPrestige:6,type:'climbing',  brand:'Specialized',   model:'S-Works Tarmac SL8',        price:15000, aeroWatts:22, climbWatts:32, desc:'The 2024 evolution. Lighter and more aero than anything that came before it.'},
+  {id:'s_venge',       tier:5,minPrestige:6,type:'aero',      brand:'Specialized',   model:'S-Works Venge',             price:16000, aeroWatts:40, climbWatts:12, desc:'The sprint weapon of the WorldTour. Every watt of aero optimisation science allows.'},
 ];
 
 // fix106: dedicated Time Trial bikes — a separate ownership/equip slot from
@@ -2552,50 +2572,112 @@ const BIKES = [
 // equivalent road tier since TT bikes are pricier specialist machines. Big
 // aero bonus, real climb penalty (aggressive TT geometry is bad uphill).
 const TT_BIKES = [
-  {id:'tt_alloy',      tier:1,type:'tt',brand:'Dolan',         model:'TT/Tri Alloy',              price:1200,  aeroWatts:12, climbWatts:-4, desc:'Aluminium clip-on aero bars and a basic tri-bike frame. A first taste of the race of truth.'},
-  {id:'tt_entry_carbon',tier:2,type:'tt',brand:'Giant',        model:'Trinity Advanced',          price:2800,  aeroWatts:18, climbWatts:-6, desc:'Entry carbon TT frame with integrated cockpit. A serious step up from clip-ons.'},
-  {id:'tt_mid_disc',   tier:3,type:'tt',brand:'Trek',           model:'Speed Concept SLR (Disc)',  price:5500,  aeroWatts:26, climbWatts:-8, desc:'Mid-tier carbon paired with a rear disc wheel. Genuinely fast against the watch.'},
-  {id:'tt_pro',        tier:4,type:'tt',brand:'Canyon',         model:'Speedmax CFR',              price:9000,  aeroWatts:34, climbWatts:-10,desc:'Pro-level TT superbike geometry. Built purely to hold watts at speed, nothing else.'},
-  {id:'tt_worldtour',  tier:5,type:'tt',brand:'Cervélo',        model:'P5X WorldTour',             price:13500, aeroWatts:42, climbWatts:-12,desc:'The WorldTour prologue weapon. Every surface wind-tunnel optimised. Brutal on any incline.'},
+  {id:'tt_alloy',      tier:1,minPrestige:0,type:'tt',brand:'Dolan',         model:'TT/Tri Alloy',              price:1200,  aeroWatts:12, climbWatts:-4, desc:'Aluminium clip-on aero bars and a basic tri-bike frame. A first taste of the race of truth.'},
+  {id:'tt_entry_carbon',tier:2,minPrestige:1,type:'tt',brand:'Giant',        model:'Trinity Advanced',          price:2800,  aeroWatts:18, climbWatts:-6, desc:'Entry carbon TT frame with integrated cockpit. A serious step up from clip-ons.'},
+  {id:'tt_mid_disc',   tier:3,minPrestige:2,type:'tt',brand:'Trek',           model:'Speed Concept SLR (Disc)',  price:5500,  aeroWatts:26, climbWatts:-8, desc:'Mid-tier carbon paired with a rear disc wheel. Genuinely fast against the watch.'},
+  {id:'tt_pro',        tier:4,minPrestige:4,type:'tt',brand:'Canyon',         model:'Speedmax CFR',              price:9000,  aeroWatts:34, climbWatts:-10,desc:'Pro-level TT superbike geometry. Built purely to hold watts at speed, nothing else.'},
+  {id:'tt_worldtour',  tier:5,minPrestige:6,type:'tt',brand:'Cervélo',        model:'P5X WorldTour',             price:13500, aeroWatts:42, climbWatts:-12,desc:'The WorldTour prologue weapon. Every surface wind-tunnel optimised. Brutal on any incline.'},
 ];
 
 const WHEELS = [
   // ── TIER 1 — Free & Bargain Bin (£0–300) ─────────────────────────────────
-  {id:'training',      tier:1,type:'standard', name:'Box Section Clinchers',       price:0,    aeroWatts:0,  climbWatts:0,  desc:'Heavy and slow but basically indestructible. Every cyclist\'s starting point.'},
-  {id:'shand_wheels',  tier:1,type:'standard', name:'Second-Hand Alloys',          price:50,   aeroWatts:1,  climbWatts:0,  desc:'Picked up off eBay. A bit out of true but a noticeable step up from box sections.'},
-  {id:'carrera_wheels',tier:1,type:'racing',   name:'Carrera Race Alloy',          price:80,   aeroWatts:1,  climbWatts:1,  desc:'Budget alloy with a proper rim profile. Responsive under sprint loads.'},
-  {id:'shimano_rs100', tier:1,type:'racing',   name:'Shimano RS100',               price:130,  aeroWatts:2,  climbWatts:1,  desc:'Shimano build quality at a supermarket price. Reliable and consistent.'},
-  {id:'fulcrum_r7',    tier:1,type:'racing',   name:'Fulcrum Racing 7',            price:200,  aeroWatts:2,  climbWatts:2,  desc:'Entry to the Fulcrum family. Already significantly stiffer than basic training wheels.'},
-  {id:'mavic_ak',      tier:1,type:'racing',   name:'Mavic Aksium Race',           price:300,  aeroWatts:3,  climbWatts:2,  desc:'Trusted Mavic alloy clincher. A credible race-day upgrade for club riders.'},
+  {id:'training',      tier:1,minPrestige:0,type:'standard', name:'Box Section Clinchers',       price:0,    aeroWatts:0,  climbWatts:0,  desc:'Heavy and slow but basically indestructible. Every cyclist\'s starting point.'},
+  {id:'shand_wheels',  tier:1,minPrestige:0,type:'standard', name:'Second-Hand Alloys',          price:50,   aeroWatts:1,  climbWatts:0,  desc:'Picked up off eBay. A bit out of true but a noticeable step up from box sections.'},
+  {id:'carrera_wheels',tier:1,minPrestige:0,type:'racing',   name:'Carrera Race Alloy',          price:80,   aeroWatts:1,  climbWatts:1,  desc:'Budget alloy with a proper rim profile. Responsive under sprint loads.'},
+  {id:'shimano_rs100', tier:1,minPrestige:0,type:'racing',   name:'Shimano RS100',               price:130,  aeroWatts:2,  climbWatts:1,  desc:'Shimano build quality at a supermarket price. Reliable and consistent.'},
+  {id:'fulcrum_r7',    tier:1,minPrestige:0,type:'racing',   name:'Fulcrum Racing 7',            price:200,  aeroWatts:2,  climbWatts:2,  desc:'Entry to the Fulcrum family. Already significantly stiffer than basic training wheels.'},
+  {id:'mavic_ak',      tier:1,minPrestige:0,type:'racing',   name:'Mavic Aksium Race',           price:300,  aeroWatts:3,  climbWatts:2,  desc:'Trusted Mavic alloy clincher. A credible race-day upgrade for club riders.'},
 
   // ── TIER 2 — Mid Alloy & Entry Carbon (£500–1,800) ───────────────────────
-  {id:'shimano_rs500', tier:2,type:'racing',   name:'Shimano RS500',               price:500,  aeroWatts:4,  climbWatts:3,  desc:'Shimano\'s sweet spot between price and performance. Stiff, light, dependable.'},
-  {id:'fulcrum_r0',    tier:2,type:'climbing', name:'Fulcrum Racing Zero',         price:700,  aeroWatts:3,  climbWatts:7,  desc:'Lightweight alloy perfected. A climbing favourite in the amateur and masters peloton.'},
-  {id:'mavic_ksyr',    tier:2,type:'climbing', name:'Mavic Ksyrium SL',           price:850,  aeroWatts:4,  climbWatts:8,  desc:'A classic. Decades of WorldTour pedigree in a lightweight alloy package.'},
-  {id:'hunt_35',       tier:2,type:'deep',     name:'Hunt 35 Carbon Aero',        price:1100, aeroWatts:7,  climbWatts:4,  desc:'British-engineered entry carbon. Surprisingly fast for the money — a real sleeper pick.'},
-  {id:'reynolds_ar41', tier:2,type:'deep',     name:'Reynolds AR 41',             price:1400, aeroWatts:8,  climbWatts:5,  desc:'41mm depth carbon. Aero gains without losing crosswind stability on technical courses.'},
-  {id:'bontrager_37',  tier:2,type:'deep',     name:'Bontrager Aeolus Pro 37',    price:1700, aeroWatts:9,  climbWatts:6,  desc:'Trek\'s in-house carbon. Used on Madone race builds and proven at WorldTour level.'},
-  {id:'zipp_303s',     tier:2,type:'deep',     name:'Zipp 303 S',                 price:1800, aeroWatts:9,  climbWatts:6,  desc:'Zipp\'s accessible carbon tubeless. Fast and versatile — a serious wheel at a reachable price.'},
+  {id:'shimano_rs500', tier:2,minPrestige:1,type:'racing',   name:'Shimano RS500',               price:500,  aeroWatts:4,  climbWatts:3,  desc:'Shimano\'s sweet spot between price and performance. Stiff, light, dependable.'},
+  {id:'fulcrum_r0',    tier:2,minPrestige:1,type:'climbing', name:'Fulcrum Racing Zero',         price:700,  aeroWatts:3,  climbWatts:7,  desc:'Lightweight alloy perfected. A climbing favourite in the amateur and masters peloton.'},
+  {id:'mavic_ksyr',    tier:2,minPrestige:1,type:'climbing', name:'Mavic Ksyrium SL',           price:850,  aeroWatts:4,  climbWatts:8,  desc:'A classic. Decades of WorldTour pedigree in a lightweight alloy package.'},
+  {id:'hunt_35',       tier:2,minPrestige:1,type:'deep',     name:'Hunt 35 Carbon Aero',        price:1100, aeroWatts:7,  climbWatts:4,  desc:'British-engineered entry carbon. Surprisingly fast for the money — a real sleeper pick.'},
+  {id:'reynolds_ar41', tier:2,minPrestige:1,type:'deep',     name:'Reynolds AR 41',             price:1400, aeroWatts:8,  climbWatts:5,  desc:'41mm depth carbon. Aero gains without losing crosswind stability on technical courses.'},
+  {id:'bontrager_37',  tier:2,minPrestige:1,type:'deep',     name:'Bontrager Aeolus Pro 37',    price:1700, aeroWatts:9,  climbWatts:6,  desc:'Trek\'s in-house carbon. Used on Madone race builds and proven at WorldTour level.'},
+  {id:'zipp_303s',     tier:2,minPrestige:1,type:'deep',     name:'Zipp 303 S',                 price:1800, aeroWatts:9,  climbWatts:6,  desc:'Zipp\'s accessible carbon tubeless. Fast and versatile — a serious wheel at a reachable price.'},
 
   // ── TIER 3 — Premium Carbon (£2,200–3,800) ───────────────────────────────
-  {id:'dt_erc',        tier:3,type:'climbing', name:'DT Swiss ERC 1100',          price:2200, aeroWatts:3,  climbWatts:11, desc:'Swiss precision. Sub-1,300g and uncompromisingly light for summit finishes.'},
-  {id:'zipp_303',      tier:3,type:'deep',     name:'Zipp 303 Firecrest',         price:2800, aeroWatts:11, climbWatts:0,  desc:'45mm carbon tubeless. The benchmark for all-round aero performance — used across WorldTour teams.'},
-  {id:'ffwd_disc',     tier:3,type:'disc',     name:'FFWD Full Carbon Disc',      price:3200, aeroWatts:32, climbWatts:-8, desc:'TT-only disc wheel. Eliminates all rotational drag — terrifying on flat time trials.'},
-  {id:'zipp_454',      tier:3,type:'deep',     name:'Zipp 454 NSW',               price:3800, aeroWatts:17, climbWatts:2,  desc:'Sawtooth rim profile. Aerodynamically superior in crosswinds. The TdF sprinters\' wheel.'},
+  {id:'dt_erc',        tier:3,minPrestige:2,type:'climbing', name:'DT Swiss ERC 1100',          price:2200, aeroWatts:3,  climbWatts:11, desc:'Swiss precision. Sub-1,300g and uncompromisingly light for summit finishes.'},
+  {id:'zipp_303',      tier:3,minPrestige:2,type:'deep',     name:'Zipp 303 Firecrest',         price:2800, aeroWatts:11, climbWatts:0,  desc:'45mm carbon tubeless. The benchmark for all-round aero performance — used across WorldTour teams.'},
+  {id:'ffwd_disc',     tier:3,minPrestige:2,type:'disc',     name:'FFWD Full Carbon Disc',      price:3200, aeroWatts:32, climbWatts:-8, desc:'TT-only disc wheel. Eliminates all rotational drag — terrifying on flat time trials.'},
+  {id:'zipp_454',      tier:3,minPrestige:2,type:'deep',     name:'Zipp 454 NSW',               price:3800, aeroWatts:17, climbWatts:2,  desc:'Sawtooth rim profile. Aerodynamically superior in crosswinds. The TdF sprinters\' wheel.'},
 
   // ── TIER 4 — Elite Carbon (£4,200–5,500) ─────────────────────────────────
-  {id:'lightweight',   tier:4,type:'climbing', name:'Lightweight Meilenstein',    price:4200, aeroWatts:5,  climbWatts:19, desc:'German hand-crafted carbon. Whisper-light at under 1,000g per set for serious climbing.'},
-  {id:'enve_45',       tier:4,type:'deep',     name:'ENVE SES 4.5',               price:4500, aeroWatts:14, climbWatts:8,  desc:'ENVE\'s all-rounder flagship. 45mm front, 47mm rear — fast on flats, manageable on climbs.'},
-  {id:'enve_78',       tier:4,type:'deep',     name:'ENVE SES 7.8',               price:5500, aeroWatts:22, climbWatts:-2, desc:'78mm front, 85mm rear deep section. Devastatingly fast. For when only winning matters.'},
+  {id:'lightweight',   tier:4,minPrestige:4,type:'climbing', name:'Lightweight Meilenstein',    price:4200, aeroWatts:5,  climbWatts:19, desc:'German hand-crafted carbon. Whisper-light at under 1,000g per set for serious climbing.'},
+  {id:'enve_45',       tier:4,minPrestige:4,type:'deep',     name:'ENVE SES 4.5',               price:4500, aeroWatts:14, climbWatts:8,  desc:'ENVE\'s all-rounder flagship. 45mm front, 47mm rear — fast on flats, manageable on climbs.'},
+  {id:'enve_78',       tier:4,minPrestige:4,type:'deep',     name:'ENVE SES 7.8',               price:5500, aeroWatts:22, climbWatts:-2, desc:'78mm front, 85mm rear deep section. Devastatingly fast. For when only winning matters.'},
 ];
 
 const KITS = [
-  {id:'club_jersey',  tier:1, name:'Club Jersey',          price:0,      aeroWatts:0,  desc:'Standard club kit. The beginning of every cycling story.'},
-  {id:'race_jersey',  tier:2, name:'Race Jersey',          price:80,     aeroWatts:2,  desc:'Race-cut jersey with closer fit for better aerodynamics.'},
-  {id:'ss_skinsuit',  tier:3, name:'Race Skinsuit',        price:200,    aeroWatts:6,  desc:'One-piece short-sleeve skinsuit. A significant aero gain over a jersey.'},
-  {id:'ls_skinsuit',  tier:4, name:'Long-Sleeve Skinsuit', price:500,    aeroWatts:10, desc:'Full-length suit with textured surface treatment. WorldTour standard.'},
-  {id:'elite_suit',   tier:5, name:'Elite Aero Skinsuit',  price:1100,   aeroWatts:14, desc:'Custom-fit dimpled suit with optimised panel seams. The very best.'},
+  {id:'club_jersey',  tier:1, minPrestige:0, name:'Club Jersey',          price:0,      aeroWatts:0,  desc:'Standard club kit. The beginning of every cycling story.'},
+  {id:'race_jersey',  tier:2, minPrestige:1, name:'Race Jersey',          price:80,     aeroWatts:2,  desc:'Race-cut jersey with closer fit for better aerodynamics.'},
+  {id:'ss_skinsuit',  tier:3, minPrestige:2, name:'Race Skinsuit',        price:200,    aeroWatts:6,  desc:'One-piece short-sleeve skinsuit. A significant aero gain over a jersey.'},
+  {id:'ls_skinsuit',  tier:4, minPrestige:4, name:'Long-Sleeve Skinsuit', price:500,    aeroWatts:10, desc:'Full-length suit with textured surface treatment. WorldTour standard.'},
+  {id:'elite_suit',   tier:5, minPrestige:6, name:'Elite Aero Skinsuit',  price:1100,   aeroWatts:14, desc:'Custom-fit dimpled suit with optimised panel seams. The very best.'},
 ];
+
+// fix118: prestige access-ladder helpers — single source of truth for gear
+// gating (Stage 1 of the prestige overhaul). prestigeMult (the money
+// multiplier) is untouched; this reads the existing seasonsCompleted counter
+// as a separate "prestige level" gate. Relic override hook (Stage 4) will
+// extend itemPrestigeLocked() with an early-return once relics exist —
+// deliberately left as a comment stub rather than dead code:
+//   if(state.relics?.has('unlock_'+item.id)) return false;
+function prestigeLevel(){ return state.seasonsCompleted||0; }
+function itemPrestigeLocked(item){
+  if(item.relicUnlockId && state.relics && state.relics.has(item.relicUnlockId)) return false;
+  return (item.minPrestige||0) > prestigeLevel();
+}
+
+// fix121: Stage 4 of the prestige overhaul — Grand Tour relics. Permanent,
+// account-wide rewards for a first GC Champion (top GC_TIERS tier) finish on
+// each Grand Tour. Deliberately a separate Set from boughtUpgrades: relics
+// are never reset by handlePrestige() (see tombstone comment there) and are
+// awarded once, on first top-tier finish — repeat wins are a no-op (Set
+// semantics), no RNG. One relic per tour, effects read as pure lookups by
+// carbBase(), workshopMaxLevel() and itemPrestigeLocked() — no relic code
+// writes state outside the award (GC completion block) / collect
+// (collectRelicReward) path.
+const RELICS = [
+  {id:'relic_carb_engine',     tourId:'tour_de_france', icon:'gem', name:'Engine of the Tour',
+   desc:'Won the Tour de France outright. Your body has learned to burn fuel like a Grand Tour champion — permanently.',
+   effectLabel:'+15g daily fuelling base, forever'},
+  {id:'relic_master_mechanic', tourId:'giro_d_italia',  icon:'gem', name:'Corsa Rosa Mechanic',
+   desc:'Won the Giro d\'Italia outright. The mechanics who carried you to Rome left their mark on every bike you\'ll ever tune.',
+   effectLabel:'+1 workshop tuning level, forever'},
+  {id:'relic_heirloom_frame',  tourId:'vuelta_espana',  icon:'gem', name:'Heirloom Frame',
+   desc:'Won the Vuelta a España outright. The S-Works Tarmac SL8 you rode to victory is yours to keep — no prestige required.',
+   effectLabel:'Permanently unlocks the S-Works Tarmac SL8'},
+];
+// Tag the one gated item each relic overrides — read by itemPrestigeLocked()
+// above via item.relicUnlockId. Only relic_heirloom_frame currently overrides
+// a gate; the other two relics affect numeric bases (carbBase/workshopMaxLevel)
+// rather than an owned item, so they have no BIKES/WHEELS/KITS tag.
+(function tagRelicUnlocks(){
+  const heirloom=BIKES.find(b=>b.id==='s_works_sl8');
+  if(heirloom) heirloom.relicUnlockId='relic_heirloom_frame';
+})();
+
+// fix120: Stage 3 of the prestige overhaul — workshop tuning cap by
+// prestige. Effective per-track max level is the LOWER of the track's own
+// maxLevel (6, unchanged) and this table, indexed by prestigeLevel() and
+// clamped to P6. Players who tuned past a cap before this overhaul keep
+// their existing levels and bonuses (see workshopMaxLevel doc below) — the
+// cap only blocks further spends, never rolls back state.
+const WORKSHOP_CAP_BY_PRESTIGE = [2, 3, 3, 4, 5, 5, 6];
+// Single source of truth for "how high can this track go right now" — both
+// the tuning renderer (maxed check + display) and handleWorkshopSpend's
+// spend guard call this. getWorkshopBonuses()'s own hard clamps are left
+// untouched (defence in depth, per house style); this only governs whether
+// a NEW level can be bought/rendered as buyable.
+function workshopMaxLevel(track){
+  // fix121: relic_master_mechanic (Giro d'Italia GC Champion) adds a permanent
+  // +1 to the prestige-scaled cap — still clamped to the track's own hard
+  // maxLevel, same defence-in-depth as the base prestige cap.
+  const relicBonus=(state.relics && state.relics.has('relic_master_mechanic')) ? 1 : 0;
+  return Math.min(track.maxLevel, WORKSHOP_CAP_BY_PRESTIGE[Math.min(6, prestigeLevel())] + relicBonus);
+}
 
 const RACE_CATEGORIES = [
   {id:'uncat',name:'Uncategorised',shortName:'Uncat',icon:'beginner',ftpMin:40, ftpMax:85,fieldMin:6, fieldMax:14, prizes:[15,8,3,1,0,0],              ptsPerPos:[5,3,2,1,0,0],   ptsToPromote:10,   energyCost:20,desc:'Your first competitive outings. Prize money is token — this is about points.',color:'teal'},
@@ -3163,6 +3245,9 @@ const state = {
   // Achievements & progression
   earnedAchievements: new Set(),
   uncollectedAchievements: new Set(), // earned but reward not yet tapped-to-collect
+  // Grand Tour relics (fix121) — permanent, never reset by handlePrestige().
+  relics: new Set(),           // relic ids, permanent career rewards
+  uncollectedRelics: new Set(),// earned but reward not yet tapped-to-collect, same pattern as achievements
   // Lifetime Goals — separate progression system, see LIFETIME_GOALS below.
   highestCategoryReached: 0, // never decreases, even across prestige — tracks career-best category index
   claimedGoalTiers: new Set(),      // 'trackId:tierIndex' keys whose reward has been collected
@@ -4079,6 +4164,19 @@ function completeRace(){
         stageResults:tp.stageResults, ts:Date.now(),
       };
       enqueueCeremony({type:'grandtour', tourId:rd.calendarEventId, gcTier:tier.label, gcIcon:tier.icon, gcBonus, gcPoints:tp.gcPoints});
+      // fix121: guaranteed relic award on first GC Champion (top GC_TIERS
+      // entry, tierIdx 0) finish of this tour. Set semantics — a repeat
+      // Champion finish is a no-op, no duplicate award. Ceremony enqueued
+      // AFTER the grandtour ceremony above so relic is the standout final
+      // beat for a first-ever top-tier finish.
+      if(tierIdx===0){
+        const relic=RELICS.find(r=>r.tourId===rd.calendarEventId);
+        if(relic && !state.relics.has(relic.id)){
+          state.relics.add(relic.id);
+          state.uncollectedRelics.add(relic.id);
+          enqueueCeremony({type:'relic', relicId:relic.id});
+        }
+      }
     }
   } else if(isCalEvent){
     state.calendar.completed[rd.calendarEventId]={
@@ -4834,12 +4932,18 @@ function updateCalendarBadge(){
 
 function buyBike(id){
   const b=BIKES.find(b=>b.id===id); if(!b||state.ownedBikes.has(id)||state.money<b.price) return;
+  // fix118: belt-and-braces prestige guard — UI already hides the buy button
+  // on locked cards, but this blocks any path that bypasses the card (e.g.
+  // a stale render).
+  if(itemPrestigeLocked(b)){ showToast(`${icn('lock')} Locked until Prestige ${b.minPrestige}`); return; }
   state.money-=b.price; state.ownedBikes.add(id);
   equipBike(id); saveGame(); updateUI();
   showToast(`${icn('bike-photo')} ${b.brand?b.brand+' ':''}${b.model} — ready to race!`);
 }
 function equipBike(id){
   if(!state.ownedBikes.has(id)) return;
+  const b=BIKES.find(b=>b.id===id);
+  if(b&&itemPrestigeLocked(b)){ showToast(`${icn('lock')} Locked until Prestige ${b.minPrestige}`); return; }
   state.equippedBike=id; saveGame();
   if(currentTab==='gear') renderBikeShop();
   if(currentTab==='race') renderRaceSetupCard();
@@ -4849,36 +4953,45 @@ function equipBike(id){
 // non-TT races (two independent slots, per plan).
 function buyTTBike(id){
   const b=TT_BIKES.find(b=>b.id===id); if(!b||state.ownedTTBikes.has(id)||state.money<b.price) return;
+  if(itemPrestigeLocked(b)){ showToast(`${icn('lock')} Locked until Prestige ${b.minPrestige}`); return; }
   state.money-=b.price; state.ownedTTBikes.add(id);
   equipTTBike(id); saveGame(); updateUI();
   showToast(`${icn('bike-photo')} ${b.brand?b.brand+' ':''}${b.model} — ready for the race of truth!`);
 }
 function equipTTBike(id){
   if(!state.ownedTTBikes.has(id)) return;
+  const b=TT_BIKES.find(b=>b.id===id);
+  if(b&&itemPrestigeLocked(b)){ showToast(`${icn('lock')} Locked until Prestige ${b.minPrestige}`); return; }
   state.equippedTTBike=id; saveGame();
   if(currentTab==='gear') renderBikeShop();
   if(currentTab==='race') renderRaceSetupCard();
 }
 function buyWheels(id){
   const w=WHEELS.find(w=>w.id===id); if(!w||state.ownedWheels.has(id)||state.money<w.price) return;
+  if(itemPrestigeLocked(w)){ showToast(`${icn('lock')} Locked until Prestige ${w.minPrestige}`); return; }
   state.money-=w.price; state.ownedWheels.add(id);
   equipWheels(id); saveGame(); updateUI();
   showToast(`${icn('circle-blue')} ${w.name} — fitted and ready!`);
 }
 function equipWheels(id){
   if(!state.ownedWheels.has(id)) return;
+  const w=WHEELS.find(w=>w.id===id);
+  if(w&&itemPrestigeLocked(w)){ showToast(`${icn('lock')} Locked until Prestige ${w.minPrestige}`); return; }
   state.equippedWheels=id; saveGame();
   if(currentTab==='gear') renderWheelShop();
   if(currentTab==='race') renderRaceSetupCard();
 }
 function buyKit(id){
   const k=KITS.find(k=>k.id===id); if(!k||state.ownedKits.has(id)||state.money<k.price) return;
+  if(itemPrestigeLocked(k)){ showToast(`${icn('lock')} Locked until Prestige ${k.minPrestige}`); return; }
   state.money-=k.price; state.ownedKits.add(id);
   equipKit(id); saveGame(); updateUI();
   showToast(`${icn('jersey')} ${k.name} — suited up!`);
 }
 function equipKit(id){
   if(!state.ownedKits.has(id)) return;
+  const k=KITS.find(k=>k.id===id);
+  if(k&&itemPrestigeLocked(k)){ showToast(`${icn('lock')} Locked until Prestige ${k.minPrestige}`); return; }
   state.equippedKit=id; saveGame();
   if(currentTab==='gear') renderKitShop();
   if(currentTab==='race') renderRaceSetupCard();
@@ -5107,6 +5220,10 @@ function updateGrowthBadge(){
 // ═══════════════════════════════════════════════════════════
 function prestigeThreshold(){ return Math.floor(1500*Math.pow(3,state.seasonsCompleted)); }
 function handlePrestige(){
+  // fix121: state.relics / state.uncollectedRelics are DELIBERATELY never
+  // touched here or anywhere else in this function — Grand Tour relics are
+  // permanent career rewards that survive every prestige, unlike FTP,
+  // category and sponsorship below. Do not add relic resets to this function.
   if(state.seasonMoney<prestigeThreshold()) return;
   // FIX 4: Block prestige during active session or race to prevent energy/XP loss
   if(state.raceActive||state.session.active){ showToast(`${icn('warning')} Finish current activity first`); return; }
@@ -5630,6 +5747,7 @@ function processCeremonyQueue(){
   else if(next.type==='achievement') renderAchievementCeremony(next);
   else if(next.type==='lifetimegoal') renderLifetimeGoalCeremony(next);
   else if(next.type==='grandtour') renderGrandTourCeremony(next);
+  else if(next.type==='relic') renderRelicCeremony(next);
   else if(next.type==='welcomeback') renderWelcomeBackCeremony(next);
   spawnConfetti();
   document.getElementById('ceremony-overlay').style.display='flex';
@@ -5640,7 +5758,7 @@ function dismissCeremony(e){
   // for achievement and lifetime-goal ceremonies, which must be collected via
   // their explicit "Collect Reward" button. This guarantees every reward is
   // actually claimed, never accidentally skipped by a stray backdrop tap.
-  if(currentCeremonyType==='achievement'||currentCeremonyType==='lifetimegoal') return;
+  if(currentCeremonyType==='achievement'||currentCeremonyType==='lifetimegoal'||currentCeremonyType==='relic') return;
   if(currentCeremonyType==='win'||currentCeremonyType==='promotion'||currentCeremonyType==='grandtour') triggerRiderVictory(); // fix56
   document.getElementById('ceremony-overlay').style.display='none';
   document.getElementById('ceremony-confetti').innerHTML='';
@@ -5807,6 +5925,25 @@ function renderGrandTourCeremony({tourId, gcTier, gcIcon, gcBonus, gcPoints}){
   else document.getElementById('ceremony-money-val').textContent='No bonus this time';
 }
 
+// Relic ceremony (fix121) — purple/legacy tone like Lifetime Goals, since a
+// relic IS the long-term legacy layer of the prestige overhaul. Collect-to-
+// claim like achievements: the reward isn't granted until the player taps,
+// see dismissCeremony's backdrop-tap guard above and collectRelicReward below.
+function renderRelicCeremony({relicId}){
+  const relic=RELICS.find(r=>r.id===relicId); if(!relic) return;
+  const card=document.getElementById('ceremony-card');
+  card.innerHTML=`
+    <div class="ceremony-eyebrow">${icn('gem')} Relic Earned</div>
+    <div class="ceremony-icon">${icn(relic.icon)}</div>
+    <div class="ceremony-title">${relic.name}</div>
+    <div class="ceremony-subtitle">${relic.desc}</div>
+    <div style="background:var(--purple-bg);border:.5px solid var(--purple-bd);border-radius:var(--radius);padding:12px 14px;margin-bottom:18px">
+      <div style="font-size:16px;font-weight:800;color:var(--purple-txt)">${icn('gem')} ${relic.effectLabel}</div>
+    </div>
+    <button class="ceremony-btn" onclick="collectRelicReward('${relic.id}')">${icn('gift')} Collect Relic</button>
+  `;
+}
+
 // Grants the achievement's reward (money or a kit colour unlock), removes it
 // from the uncollected set, then force-dismisses the ceremony and advances
 // the queue. This is the ONLY path that both grants an achievement reward and
@@ -5822,6 +5959,26 @@ function collectAchievementReward(achId){
   updateHeader();
   if(currentTab==='growth'){ renderAchievements(); }
   // Force-dismiss (bypassing the achievement backdrop-tap guard) and move on
+  document.getElementById('ceremony-overlay').style.display='none';
+  document.getElementById('ceremony-confetti').innerHTML='';
+  ceremonyShowing=false;
+  currentCeremonyType=null;
+  processCeremonyQueue();
+}
+
+// Moves a relic from uncollected to collected — the relic's actual EFFECT
+// (carbBase/workshopMaxLevel/itemPrestigeLocked reads) is already live the
+// moment it's added to state.relics in the GC completion block; this collect
+// step is purely the ceremony-claim UX beat, same shape as achievements.
+// Force-dismisses (bypassing the relic backdrop-tap guard) and advances the queue.
+function collectRelicReward(relicId){
+  const relic=RELICS.find(r=>r.id===relicId); if(!relic) return;
+  if(!state.uncollectedRelics.has(relicId)) return; // already collected — guard against double-tap
+  state.uncollectedRelics.delete(relicId);
+  saveGame();
+  showToast(`${icn('gem')} ${relic.name} added to your collection!`);
+  updateHeader();
+  if(currentTab==='rider'){ renderRelicShelf(); }
   document.getElementById('ceremony-overlay').style.display='none';
   document.getElementById('ceremony-confetti').innerHTML='';
   ceremonyShowing=false;
@@ -8059,7 +8216,7 @@ function renderRaceHistory(){
 // ═══════════════════════════════════════════════════════════
 // RIDER TAB
 // ═══════════════════════════════════════════════════════════
-function renderRiderTab(){ renderRiderPortrait(); renderRiderStats(); renderFtpChart(); renderSpecialisation(); renderAttrCards(); renderPrestige(); renderStats(); }
+function renderRiderTab(){ renderRiderPortrait(); renderRiderStats(); renderFtpChart(); renderSpecialisation(); renderAttrCards(); renderPrestige(); renderRelicShelf(); renderStats(); }
 // fix80: static hero portrait for the Rider tab. Renders once (idempotent —
 // checks firstChild like renderRiderScene does) since the art itself never
 // changes shape, only its jersey colour via the shared --sheet-portrait var.
@@ -8396,6 +8553,23 @@ function renderAchievements(){
   area.innerHTML=headerHtml+`<div class="ach-grid">${cardsHtml}</div>`;
 }
 
+// fix122: Stage 5 of the prestige overhaul — "what does the next Prestige
+// unlock" preview line. Pure read of the existing Stage 1-3 tables (gear
+// minPrestige fields, CARB_BASE_BY_PRESTIGE, WORKSHOP_CAP_BY_PRESTIGE); no
+// new state, nothing written. Empty once prestigeLevel() reaches 6 (P6 =
+// full unlock, nothing left to preview). Player-facing voice only — no
+// "gate"/"minPrestige"/"tier" plumbing words in the copy itself.
+function nextPrestigePreviewLine(){
+  const lvl=prestigeLevel();
+  if(lvl>=6) return '';
+  const next=lvl+1;
+  const newGearCount=[...BIKES,...TT_BIKES,...WHEELS,...KITS].filter(it=>(it.minPrestige||0)===next).length;
+  const nextCarb=CARB_BASE_BY_PRESTIGE[Math.min(6,next)];
+  const nextWorkshop=WORKSHOP_CAP_BY_PRESTIGE[Math.min(6,next)];
+  const gearBit = newGearCount>0 ? `${newGearCount} new gear item${newGearCount===1?'':'s'}` : null;
+  const bits=[gearBit,`${nextCarb}g daily fuelling`,`Lv ${nextWorkshop} workshop tuning`].filter(Boolean);
+  return `<div class="prestige-preview">${icn('trophy')} <strong>Next season unlocks:</strong> ${bits.join(' · ')}</div>`;
+}
 function renderPrestige(){
   const area=document.getElementById('prestige-area'), thresh=prestigeThreshold();
   const pct=Math.min(100,Math.round(state.seasonMoney/thresh*100)), ready=state.seasonMoney>=thresh;
@@ -8404,10 +8578,45 @@ function renderPrestige(){
     : `<button class="prestige-btn" onclick="handlePrestige()">${icn('trophy')} Start Season ${state.season+1} — Prize ×${state.prestigeMult*2}</button>`;
   area.innerHTML=`<div class="prestige-card">
     ${ready
-      ?`${btnHtml}<div class="prestige-info">Resets money, category &amp; sponsorship. FTP <strong>resets</strong> to default. Bikes, wheels &amp; kit are <strong>kept</strong>. +10 daily energy.</div>`
+      ?`${btnHtml}<div class="prestige-info">Resets money, category &amp; sponsorship. FTP <strong>resets</strong> to default. Bikes, wheels &amp; kit are <strong>kept</strong> — nothing you've earned is ever taken away. +10 daily energy.</div>`
       :`<div class="prestige-info" style="margin-bottom:8px">Season goal: <strong>${pct}%</strong> — earn ${fmtMoney(thresh)} this season to unlock New Season.</div>`}
     <div class="prestige-prog-wrap"><div class="prestige-prog-bar" style="width:${pct}%"></div></div>
+    ${nextPrestigePreviewLine()}
   </div>`;
+}
+
+// fix121: Grand Tour relic shelf — owned relics show icon/name/effect; unowned
+// show as "???" silhouettes with a tour hint, same locked-card language as
+// renderAchievements (reuses .ach-grid/.ach-card, no new CSS framework).
+// Earned-but-uncollected relics are tappable, re-opening the collect ceremony
+// (mirrors the achievement re-open pattern, boot requeue is the other safety net).
+function renderRelicShelf(){
+  const area=document.getElementById('relic-shelf-area'); if(!area) return;
+  const owned=state.relics.size, total=RELICS.length;
+  const headerHtml=`<div style="font-size:12px;color:var(--txt2);margin-bottom:.6rem"><strong>${owned}</strong> / ${total} relics collected</div>`;
+  const cardsHtml=RELICS.map(relic=>{
+    const done=state.relics.has(relic.id);
+    const uncollected=state.uncollectedRelics.has(relic.id);
+    const ev=CALENDAR_EVENTS.find(e=>e.id===relic.tourId);
+    const tourName=ev?ev.name:relic.tourId;
+    const clickAttr=uncollected?`onclick="enqueueCeremony({type:'relic',relicId:'${relic.id}'})" style="cursor:pointer"`:'';
+    if(!done){
+      return `<div class="ach-card locked">
+        <div class="ach-icon">${icn('lock')}</div>
+        <div class="ach-name">???</div>
+        <div class="ach-desc">Win the ${tourName} outright.</div>
+      </div>`;
+    }
+    return `<div class="ach-card earned" ${clickAttr}>
+      <div class="ach-check">${uncollected?icn('gift'):icn('check')}</div>
+      <div class="ach-icon">${icn(relic.icon)}</div>
+      <div class="ach-name">${relic.name}</div>
+      <div class="ach-desc">${relic.desc}</div>
+      ${uncollected?`<div class="ach-prog" style="color:var(--amber-txt);font-weight:700">Tap to collect!</div>`:''}
+      <div class="ach-reward" style="color:var(--purple-txt)">${relic.effectLabel}</div>
+    </div>`;
+  }).join('');
+  area.innerHTML=headerHtml+`<div class="ach-grid">${cardsHtml}</div>`;
 }
 
 function renderStats(){
@@ -8415,7 +8624,10 @@ function renderStats(){
   const items=[['Prize Money',fmtMoney(state.money),false],['Season Total',fmtMoney(state.seasonMoney),false],
     ['£/s Sponsor',fmtDec(D.sponsorPerSec),false],['Category',cat.shortName,false],
     ['Cat Points',`${state.categoryPoints} / ${cat.ptsToPromote}`,false],['Season',state.season,false],
-    ['All-Time',fmtMoney(state.lifetimeMoney),true],['Prestige ×',state.prestigeMult,true]];
+    // fix122: Stage 5 — Prestige Lv stat (display-capped at 6, matches the P6
+    // full-unlock cap used throughout the access-ladder tables).
+    ['Prestige Lv',Math.min(6,prestigeLevel()),false],['Prestige ×',state.prestigeMult,false],
+    ['All-Time',fmtMoney(state.lifetimeMoney),true]];
   grid.innerHTML=items.map(([lbl,val,sf])=>`<div class="stat-card${sf?' span-full':''}"><div class="stat-card-val">${val}</div><div class="stat-card-lbl">${lbl}</div></div>`).join('');
 }
 
@@ -8520,7 +8732,13 @@ function renderWorkshopSection(){
   const tuning=getBikeTuning(bike.id);
   WORKSHOP_TRACKS.forEach(track=>{
     const level=tuning[track.key]||0;
-    const maxed=level>=track.maxLevel;
+    // fix120: effMax replaces raw track.maxLevel as the "can I buy more"
+    // ceiling — prestige-capped, not the track's true max. A level already
+    // above effMax (pre-overhaul tuning) still displays and scores correctly;
+    // only NEW spends are blocked (handleWorkshopSpend enforces this too).
+    const effMax=workshopMaxLevel(track);
+    const maxed=level>=effMax;
+    const prestigeCapped=effMax<track.maxLevel;
     const cost=maxed?0:workshopTrackCost(track,level);
     const afford=!maxed && state.workshop.mg>=cost;
     const cls=maxed?'bought':afford?'affordable':'locked';
@@ -8534,9 +8752,10 @@ function renderWorkshopSection(){
          <div class="upg-bar-wrap"><div class="upg-bar" style="width:${Math.round(Math.min(1,state.workshop.mg/cost)*100)}%"></div></div>`;
     div.innerHTML=`<div class="upgrade-icon">${icn(track.icon)}</div>
       <div class="upgrade-info">
-        <div class="upgrade-name">${track.name} <span style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase">· Lv ${level}/${track.maxLevel}</span></div>
+        <div class="upgrade-name">${track.name} <span style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase">· Lv ${level}/${effMax}</span></div>
         <div class="upgrade-desc">${track.desc}</div>
         <div class="upgrade-benefit">${track.effectLabel(level)}</div>
+        ${(maxed&&prestigeCapped)?`<div class="upgrade-desc" style="color:var(--txt3);margin-top:2px">${icn('lock')} Higher tuning unlocks with prestige</div>`:''}
       </div>
       <div class="upgrade-cost-col">${costHtml}</div>`;
     // fix101: .onclick (not addEventListener) so wsRefreshTuningCardsAfford
@@ -8613,7 +8832,10 @@ function handleWorkshopSpend(trackKey){
   const bike=BIKES.find(b=>b.id===state.equippedBike)||BIKES[0];
   const tuning=getBikeTuning(bike.id);
   const level=tuning[trackKey]||0;
-  if(level>=track.maxLevel) return;
+  // fix120: the real gate — prestige-scaled effMax, not the track's raw
+  // maxLevel. UI already hides the buy affordance above this cap, but the
+  // guard here is belt-and-braces (mirrors the fix118 buy/equip guards).
+  if(level>=workshopMaxLevel(track)) return;
   const cost=workshopTrackCost(track,level);
   if(state.workshop.mg<cost) return;
 
@@ -9268,7 +9490,10 @@ function wsRefreshTuningCardsAfford(){
     if(!div) return; // Workshop tab not currently rendered — nothing to sync
 
     const level=tuning[track.key]||0;
-    const maxed=level>=track.maxLevel;
+    // fix120: same effMax ceiling as renderWorkshopSection — keeps this
+    // incremental sync consistent with the full render's prestige cap.
+    const effMax=workshopMaxLevel(track);
+    const maxed=level>=effMax;
     const cost=maxed?0:workshopTrackCost(track,level);
     const afford=!maxed && state.workshop.mg>=cost;
     const cls=maxed?'bought':afford?'affordable':'locked';
@@ -9293,9 +9518,9 @@ function wsRefreshTuningCardsAfford(){
 
 // FIX 1: buildEquipCard — removed spurious third stat-bar block that caused duplicate
 // aero bars on kit items (fired when maxAero was defined AND maxClimb was undefined)
-function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,climbWatts,owned,equipped,onBuy,onEquip,maxAero,maxClimb}){
+function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,climbWatts,owned,equipped,onBuy,onEquip,maxAero,maxClimb,prestigeLocked,minPrestige}){
   const div=document.createElement('div');
-  div.className='equip-card'+(equipped?' equipped':'')+(owned?' owned':price<=state.money?' affordable':' cant-afford');
+  div.className='equip-card'+(equipped?' equipped':'')+(prestigeLocked?' prestige-locked':owned?' owned':price<=state.money?' affordable':' cant-afford');
 
   const tierCls=`tier-${tier}`, tierLabel=['','I','II','III','IV','V'][tier];
   const typeLabels={allrounder:'All-rounder',aero:'Aero',climbing:'Climbing',tt:'Time Trial',standard:'Standard',racing:'Racing',deep:'Deep Section',disc:'Disc',road:'Road',skinsuit:'Skinsuit'};
@@ -9317,7 +9542,15 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
   // (removed duplicate aero block that was here — was firing on kits alongside block 1)
 
   let actionHtml='';
-  if(equipped){
+  // fix118: prestige lock is checked first — it overrides every other action
+  // state (owned, affordable, equipped-eligible). Owned-but-locked shows
+  // "Owned · Prestige N" per plan; never-owned-and-locked shows "Prestige N".
+  // No click handlers are bound for this branch (mirrors the existing
+  // btn-locked pattern below, which also binds nothing).
+  if(prestigeLocked){
+    const priceRow = owned ? `Owned &middot; Prestige ${minPrestige}` : `Prestige ${minPrestige}`;
+    actionHtml=`<div class="equip-price">${icn('lock')} ${priceRow}</div><button class="equip-btn btn-locked">${icn('lock')} Locked</button>`;
+  } else if(equipped){
     actionHtml=`<div class="equip-price owned">${priceStr}</div><button class="equip-btn btn-equipped">${icn('check')} Equipped</button>`;
   } else if(owned){
     actionHtml=`<div class="equip-price owned">Owned</div><button class="equip-btn btn-equip" data-equip="1">Equip</button>`;
@@ -9338,8 +9571,8 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
     <div class="equip-action-col">${actionHtml}</div>
   </div>`;
 
-  if(!owned&&price<=state.money) div.querySelector('[data-buy]')?.addEventListener('click', ()=>{ onBuy(); burstCard(div); });
-  if(owned&&!equipped)           div.querySelector('[data-equip]')?.addEventListener('click', onEquip);
+  if(!prestigeLocked&&!owned&&price<=state.money) div.querySelector('[data-buy]')?.addEventListener('click', ()=>{ onBuy(); burstCard(div); });
+  if(!prestigeLocked&&owned&&!equipped)           div.querySelector('[data-equip]')?.addEventListener('click', onEquip);
   return div;
 }
 
@@ -9353,6 +9586,7 @@ function renderBikeShop(){
       brand:b.brand, model:b.model, tier:b.tier, type:b.type, desc:b.desc, price:b.price,
       aeroWatts:b.aeroWatts, climbWatts:b.climbWatts, maxAero, maxClimb,
       owned:state.ownedBikes.has(b.id), equipped:state.equippedBike===b.id,
+      prestigeLocked:itemPrestigeLocked(b), minPrestige:b.minPrestige||0,
       onBuy:()=>buyBike(b.id),
       // FIX 6: Replaced boolean short-circuit trick with a proper if statement
       onEquip:()=>{ equipBike(b.id); renderBikeShop(); if(currentTab==='race') renderRaceSetupCard(); }
@@ -9373,6 +9607,7 @@ function renderBikeShop(){
       brand:b.brand, model:b.model, tier:b.tier, type:b.type, desc:b.desc, price:b.price,
       aeroWatts:b.aeroWatts, climbWatts:b.climbWatts, maxAero:ttMaxAero, maxClimb:ttMaxClimb,
       owned:state.ownedTTBikes.has(b.id), equipped:state.equippedTTBike===b.id,
+      prestigeLocked:itemPrestigeLocked(b), minPrestige:b.minPrestige||0,
       onBuy:()=>buyTTBike(b.id),
       onEquip:()=>{ equipTTBike(b.id); renderBikeShop(); if(currentTab==='race') renderRaceSetupCard(); }
     });
@@ -9390,6 +9625,7 @@ function renderWheelShop(){
       name:w.name, tier:w.tier, type:w.type, desc:w.desc, price:w.price,
       aeroWatts:w.aeroWatts, climbWatts:w.climbWatts, maxAero, maxClimb,
       owned:state.ownedWheels.has(w.id), equipped:state.equippedWheels===w.id,
+      prestigeLocked:itemPrestigeLocked(w), minPrestige:w.minPrestige||0,
       onBuy:()=>buyWheels(w.id), onEquip:()=>{ equipWheels(w.id); renderWheelShop(); }
     });
     list.appendChild(card);
@@ -9424,6 +9660,7 @@ function renderKitShop(){
       name:k.name, tier:k.tier, desc:k.desc, price:k.price,
       aeroWatts:k.aeroWatts, maxAero,
       owned:state.ownedKits.has(k.id), equipped:state.equippedKit===k.id,
+      prestigeLocked:itemPrestigeLocked(k), minPrestige:k.minPrestige||0,
       onBuy:()=>buyKit(k.id), onEquip:()=>{ equipKit(k.id); renderKitShop(); }
     });
     list.appendChild(card);
@@ -10176,6 +10413,8 @@ function saveGame(){
       unlockedKitColors:[...state.unlockedKitColors],
       earnedAchievements:[...state.earnedAchievements],
       uncollectedAchievements:[...state.uncollectedAchievements],
+      relics:[...state.relics],
+      uncollectedRelics:[...state.uncollectedRelics],
       highestCategoryReached:state.highestCategoryReached,
       claimedGoalTiers:[...state.claimedGoalTiers],
       uncollectedGoalTiers:[...state.uncollectedGoalTiers],
@@ -10245,6 +10484,32 @@ function loadGame(){
     state.ownedKits      = new Set(d.ownedKits    || ['club_jersey']);
     state.equippedKitColor   = d.equippedKitColor   || 'default';
     state.unlockedKitColors  = new Set(d.unlockedKitColors || ['default']);
+    // fix123: relics must be restored BEFORE the force-unequip block below,
+    // since itemPrestigeLocked() reads state.relics for the heirloom-frame
+    // override. Restoring relics after the bench check meant a returning
+    // player owning relic_heirloom_frame (S-Works Tarmac SL8, unlocked
+    // regardless of prestige) got incorrectly benched to 'starter' on every
+    // load, because the check ran against the stale/empty pre-load Set.
+    // fix121: relics predate saves that don't have them — default to empty
+    // Sets, same fallback pattern as earnedAchievements below.
+    state.relics = new Set(d.relics || []);
+    state.uncollectedRelics = new Set(d.uncollectedRelics || []);
+    // fix118: force-unequip anything above the player's current prestige level.
+    // Ownership is untouched — only the equip slot resets to the starter
+    // default (TT bike has no starter, so it resets to null/empty).
+    // Nothing new is stored; this is derived fresh every load.
+    {
+      let _benched=false;
+      const _eqBike=BIKES.find(b=>b.id===state.equippedBike);
+      if(_eqBike&&itemPrestigeLocked(_eqBike)){ state.equippedBike='starter'; _benched=true; }
+      const _eqTT=state.equippedTTBike?TT_BIKES.find(b=>b.id===state.equippedTTBike):null;
+      if(_eqTT&&itemPrestigeLocked(_eqTT)){ state.equippedTTBike=null; _benched=true; }
+      const _eqWheels=WHEELS.find(w=>w.id===state.equippedWheels);
+      if(_eqWheels&&itemPrestigeLocked(_eqWheels)){ state.equippedWheels='training'; _benched=true; }
+      const _eqKit=KITS.find(k=>k.id===state.equippedKit);
+      if(_eqKit&&itemPrestigeLocked(_eqKit)){ state.equippedKit='club_jersey'; _benched=true; }
+      if(_benched) state._prestigeGearBenched=true;
+    }
     state.earnedAchievements = new Set(d.earnedAchievements || []);
     state.uncollectedAchievements = new Set(d.uncollectedAchievements || []);
     // Fallback for saves predating this field: seed from current raceCategory
@@ -10618,6 +10883,12 @@ document.addEventListener('visibilitychange',()=>{
 // BOOT
 // ═══════════════════════════════════════════════════════════
 loadGame();
+// fix118: one-time notice if the prestige-gate migration benched any
+// equipped gear above the player's current prestige level on this load.
+if(state._prestigeGearBenched){
+  showToast(`${icn('lock')} Some equipment is beyond your current standing — reverted to basics`);
+  state._prestigeGearBenched=false;
+}
 // fix61: restore the player's chosen jersey colour on the rider sprites.
 // Default is the CSS fallback teal rider, so nothing to do in that case.
 // The recolour engine (window._rcRecolorRiderSheets) lives in a later
@@ -10659,6 +10930,10 @@ if(state.uncollectedGoalTiers && state.uncollectedGoalTiers.size>0){
     const [trackId,tierIndex]=key.split(':');
     enqueueCeremony({type:'lifetimegoal', trackId, tierIndex:Number(tierIndex)});
   });
+}
+// Same guarantee for Grand Tour relics (fix121).
+if(state.uncollectedRelics && state.uncollectedRelics.size>0){
+  [...state.uncollectedRelics].forEach(relicId=>enqueueCeremony({type:'relic', relicId}));
 }
 // A page reload mid-race must re-open the fullscreen overlay automatically —
 // overlay visibility is state-driven, not just event-driven from startRace.
@@ -10754,7 +11029,7 @@ const INFO_TEXTS = {
   gut_training: {
     title: 'Gut Training',
     body: ()=>`Train your gut to handle more fuel on race day. Complete both stages of the daily mini-game chain to add ${GUT_TRAIN_CARB_BONUS}g to today's carb limit — repeat as many times as you like, no daily limit.<br><br>
-      Resets to your base limit (${CARB_DAILY_LIMIT}g) every morning.`
+      Resets to your base limit (${carbBase()}g) every morning.`
   },
   // fix47: rival card
   rival: {
@@ -10830,6 +11105,15 @@ const INFO_TEXTS = {
     title: 'Terminating Your Contract',
     body: ()=>`Walking away is final. You enter a <strong style="color:var(--red-txt)">3-day cooling-off period</strong> during which no sponsor will sign you.<br><br>
       Any unclaimed rewards are forfeited the moment you terminate.`
+  },
+  // fix122: prestige / season progress card — Stage 5 copy pass. Access only
+  // ever grows with prestige (nothing locks ON prestige); gear ownership is
+  // always kept. The one-time force-unequip only ever fired as part of the
+  // overhaul migration itself, not as an ongoing consequence of prestiging.
+  prestige: {
+    title: 'New Season',
+    body: ()=>`Starting a new season resets your money, category and sponsorship, and your FTP goes back to default — but every bike, wheelset, kit and skinsuit you've bought stays in your garage, ready to equip again.<br><br>
+      Each season also raises your standing in the sport: higher-tier gear, more daily fuelling, and deeper workshop tuning all open up as you go. Nothing you've unlocked is ever taken away — standing only ever climbs.`
   },
   // fix50: race result card
   results: {
