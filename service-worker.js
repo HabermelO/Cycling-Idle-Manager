@@ -8,8 +8,12 @@
 
 // Bump this version string whenever you push a new game build.
 // The old cache is deleted automatically on the next SW activation.
-const CACHE_VERSION = 'cim-v3.5.5';
+const CACHE_VERSION = 'cim-v3.6.0';   // fix135: image externalisation
 
+// fix135 — the 16 game images now live in ./assets/ rather than as base64
+// inside the HTML. cache.addAll() is all-or-nothing: if ANY path below 404s
+// the install promise rejects and the SW never activates. Every entry here
+// must exist in the deploy.
 const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
@@ -17,6 +21,22 @@ const STATIC_ASSETS = [
   './icon-512.png',
   './apple-touch-icon.png',
   './favicon.png',
+  './assets/workshop-hero.jpg',
+  './assets/race-hero.jpg',
+  './assets/sprint-pose.png',
+  './assets/pedal.png',
+  './assets/ws-bearings.jpg',
+  './assets/portrait.png',
+  './assets/ws-bleed.jpg',
+  './assets/gt-drinks.jpg',
+  './assets/gt-carbs.jpg',
+  './assets/ws-drivetrain.jpg',
+  './assets/peloton-bg.png',
+  './assets/exhausted.png',
+  './assets/idle.png',
+  './assets/victory.png',
+  './assets/gut-success.jpg',
+  './assets/rider-photo.png',
 ];
 
 // ── Install: pre-cache everything ───────────────────────────
