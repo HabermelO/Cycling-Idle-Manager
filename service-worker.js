@@ -8,7 +8,7 @@
 
 // Bump this version string whenever you push a new game build.
 // The old cache is deleted automatically on the next SW activation.
-const CACHE_VERSION = 'cim-v3.6.0';   // fix135: image externalisation
+const CACHE_VERSION = 'cim-v3.6.01';   // fix135: image externalisation
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
 // inside the HTML. cache.addAll() is all-or-nothing: if ANY path below 404s
