@@ -1509,6 +1509,8 @@ button{font-family:inherit;cursor:pointer;}
     <div id="active-race-wrap"></div>
     <div id="race-result-wrap"></div>
     <div class="section-lbl">Club Races</div>
+    <!-- fix133: club races are excluded from the micro-league series -->
+    <div class="cat-desc" style="color:var(--txt3);margin:-.25rem 0 .4rem">No series points</div>
     <div id="club-race-list"></div>
     <div class="section-lbl">Available Races</div>
     <div id="race-list"></div>
@@ -2784,6 +2786,11 @@ const CLUB_RACE = {
   energyCost: 3,          // flat, ignores weather energy surcharge
   animMs: 25000,          // 25s race
   cooldown: 0,
+  abandonCooldown: 120,   // fix132: seconds. Club races have no normal cooldown,
+                          // so without this, abandon-to-reroll stays free here
+                          // even after the category path is closed.
+  seriesEligible: false,  // fix133: club races do NOT score the micro-league
+                          // series. See scoreSeriesRace() call site.
   prizeMult: 0.15,        // 15% of current category prize table
   pointsCap: 2,           // points = min(cat.ptsPerPos[pos-1], 2)
   fieldScale: 0.6,        // fieldSize = round(cat field roll * 0.6), min 6
@@ -2792,6 +2799,10 @@ const CLUB_RACE = {
 // Small energy rebate for staying in the race loop on a given day: the 3rd
 // race of the day refunds energy, then every 6th race after that.
 const RACE_RHYTHM = {first:3, every:6, refund:5};
+// fix131: a race paused (app backgrounded) for longer than this is dead —
+// auto-abandoned on return rather than silently resuming. Hard lockout, no
+// prompt, no refund: consistent with abandonRace()'s existing contract.
+const RACE_STALE_MS = 12*3600*1000; // 12 hours
 // ─── RACE BONUS EVENTS (Race Retention Phase 1) ───────────────
 // Variable-ratio bonus rolled after ANY race (club or category) — see
 // rollRaceBonus(), called at the end of completeRace(). Unpredictable
@@ -3329,6 +3340,11 @@ const state = {
   installPromptShown:false,
   raceHistory:[], raceCooldowns:{},
   raceActive:false, raceData:null, lastRaceResult:null, _lastSavedAt:0,
+  // fix134: highest wall-clock time ever observed by this save. A boot that
+  // reports an earlier time than this means the device clock moved backwards;
+  // time-gated grants are frozen until real time catches up. Forward jumps are
+  // NOT covered — that requires a server clock (Phase B cloud save).
+  clockGuard: { maxSeen: 0 },
   // Achievements & progression
   earnedAchievements: new Set(),
   uncollectedAchievements: new Set(), // earned but reward not yet tapped-to-collect
@@ -3546,6 +3562,23 @@ function addXP(attrId, amount){
 }
 
 function earnMoney(n){ state.money+=n; state.seasonMoney+=n; state.lifetimeMoney+=n; }
+// fix130: single funnel for every NON-ITEM energy grant (race-rhythm rebate,
+// race bonus events, and any future in-loop reward). Caps at today's
+// fatigue-adjusted allocation rather than state.maxEnergy, closing the two
+// holes that let chain-racing claw back above the daily ceiling.
+//
+// The Math.max against the current value means a player who is already above
+// the allocation (legitimately, via energy items, which cap at MAX_ENERGY_CAP)
+// is never pushed DOWN by receiving a reward — the grant simply becomes a
+// no-op for them. Energy items deliberately do NOT use this helper: exceeding
+// the daily allocation is exactly what the player paid for.
+function grantRegenEnergy(n){
+  if(!(n>0)) return 0;
+  const ceiling=Math.max(state.todayEnergyAllocation, state.energy);
+  const before=state.energy;
+  state.energy=Math.min(ceiling, state.energy+n);
+  return state.energy-before;
+}
 
 function updateActivityDots(){
   document.getElementById('tab-btn-train').classList.toggle('session-active',!!state.session.active);
@@ -3586,7 +3619,43 @@ function getNextStreakMilestone(streak){
   return milestones.find(m=>m.day>streak)||null;
 }
 
+// fix134: backwards-clock guard. maxSeen advances monotonically with real time
+// and is persisted, so a device clock moved into the past is detectable at the
+// next boot or tick. While the clock is behind maxSeen, all calendar-day-gated
+// grants are HARD LOCKED (no daily reset, no free bar, no market reroll) until
+// real time catches up — the player loses nothing permanently, they simply
+// can't re-collect a day they've already had.
+//
+// Deliberately does NOT cover forward jumps: the calendar-day boundary means a
+// legitimate 23:50 -> 00:10 session is a 20-minute gap, so any "minimum elapsed"
+// heuristic produces false positives on real players. Forward-jump protection
+// arrives with server-authoritative time in the Phase B cloud save.
+const CLOCK_TOLERANCE_MS = 5*60*1000; // ignore small drift / NTP corrections / DST
+
+function touchClockGuard(){
+  const now=Date.now();
+  state.clockGuard = state.clockGuard || {maxSeen:0};
+  if(now > state.clockGuard.maxSeen) state.clockGuard.maxSeen = now;
+}
+function isClockRewound(){
+  const g = state.clockGuard;
+  if(!g || !g.maxSeen) return false;
+  return Date.now() < (g.maxSeen - CLOCK_TOLERANCE_MS);
+}
+
 function checkDailyReset(){
+  touchClockGuard(); // fix134
+  // fix134 hard lockout: while the device clock is behind the highest time this
+  // save has ever seen, no calendar-day-gated grant fires. Everything below the
+  // day-boundary block (sponsor week, perishing, calendar season, GT lockouts)
+  // still runs — those are rolling windows keyed off stored timestamps and are
+  // not re-collectable, so freezing them would only punish the player.
+  if(isClockRewound()){
+    if(!state._clockWarnShown){
+      state._clockWarnShown=true;
+      showToast(`${icn('warning')} Your device clock is behind — daily rewards resume when it catches up`);
+    }
+  } else {
   const now=new Date(), last=new Date(state.lastEnergyReset||0);
   if(now.toDateString()!==last.toDateString()){
     const nextEnergy = getTomorrowEnergy();
@@ -3649,6 +3718,7 @@ function checkDailyReset(){
     updateUI();
     updateGrowthBadge();
   }
+  } // fix134: end backwards-clock gate — rolling-window checks below always run
   // Sponsor weekly window is a rolling 7 days, independent of the calendar-day boundary
   // above, so this check runs unconditionally every time this function ticks.
   checkSponsorWeeklyReset();
@@ -3787,6 +3857,45 @@ function getEffectiveElapsed(rd, now){
   let paused = rd.totalPausedMs || 0;
   if(rd.pendingDecision) paused += now - rd.pendingDecision.startedAt;
   return Math.max(0, (now - rd.startTime) - paused);
+}
+
+// fix131: the race clock must not advance while the app is backgrounded.
+// Previously it did, so leaving the app for longer than animMs skipped every
+// decision stage AND banked the full 100 raceLegs, handing out the maximum
+// -4-place finish kick for free — strictly better than playing the race.
+//
+// Reuses the existing totalPausedMs mechanism (already honoured by
+// getEffectiveElapsed) rather than introducing a second timing concept. The two
+// pendingDecision timestamps must be shifted alongside it, or the 30s
+// auto-select would expire while hidden and fire the default choice the instant
+// the player returns.
+//
+// rd.hiddenAt lives inside state.raceData, which saveGame()/loadGame() already
+// round-trip wholesale as a plain object — no new save/load touch points.
+function pauseRaceClock(){
+  const rd=state.raceData;
+  if(!state.raceActive || !rd || rd.hiddenAt) return;
+  rd.hiddenAt=Date.now();
+}
+function resumeRaceClock(){
+  const rd=state.raceData;
+  if(!state.raceActive || !rd || !rd.hiddenAt) return;
+  const hiddenMs=Math.max(0, Date.now()-rd.hiddenAt);
+  rd.hiddenAt=null;
+  // Hard lockout: a race left paused past RACE_STALE_MS is abandoned outright.
+  // abandonRace() is declared later in the file, but it is a hoisted function
+  // declaration and this helper only ever runs from event handlers / boot.
+  if(hiddenMs>=RACE_STALE_MS){
+    abandonRace();
+    showToast(`${icn('flag-white')} Race timed out while you were away — abandoned`);
+    return;
+  }
+  rd.totalPausedMs=(rd.totalPausedMs||0)+hiddenMs;
+  if(rd.pendingDecision){
+    rd.pendingDecision.startedAt+=hiddenMs;
+    if(rd.pendingDecision.selectedAt) rd.pendingDecision.selectedAt+=hiddenMs;
+  }
+  saveGame();
 }
 
 // Builds the list of decision-point stages for a given race type.
@@ -4072,8 +4181,12 @@ function startRace(raceTypeId, isClub=false){
   // RACE_RHYTHM.every'th race after that (3rd, 9th, 15th, ...).
   state.racesToday=(state.racesToday||0)+1;
   if(state.racesToday===RACE_RHYTHM.first || (state.racesToday>RACE_RHYTHM.first && (state.racesToday-RACE_RHYTHM.first)%RACE_RHYTHM.every===0)){
-    state.energy=Math.min(state.maxEnergy, state.energy+RACE_RHYTHM.refund);
-    showToast(`${icn('bolt')} Race rhythm — ${RACE_RHYTHM.refund} energy back`);
+    // fix130: was Math.min(state.maxEnergy, ...) — that let the rebate push
+    // energy above today's fatigue-adjusted allocation. Now routed through
+    // grantRegenEnergy(). Toast reports what was ACTUALLY granted so a
+    // fatigued player at their ceiling isn't promised 5 and given 0.
+    const got=grantRegenEnergy(RACE_RHYTHM.refund);
+    if(got>0) showToast(`${icn('bolt')} Race rhythm — ${Math.round(got)} energy back`);
   }
   const result=simulateRaceResult(raceTypeId, {club:isClub});
   state.raceActive=true;
@@ -4125,7 +4238,10 @@ function rollRaceBonus(rd, prizeTable){
     let amountText='';
     if(reward.money){ earnMoney(reward.money); amountText='+'+fmtMoney(reward.money); }
     if(reward.xpAll){ ATTR_ORDER.forEach(attr=>addXP(attr,reward.xpAll)); amountText='+'+reward.xpAll+' XP (all)'; }
-    if(reward.energy){ state.energy=Math.min(state.maxEnergy, state.energy+reward.energy); amountText='+'+reward.energy+' energy'; }
+    // fix130: capped at today's allocation via grantRegenEnergy() rather than
+    // state.maxEnergy. amountText reports the real grant, so the gold pill on
+    // the result card never advertises energy the player didn't receive.
+    if(reward.energy){ const got=grantRegenEnergy(reward.energy); amountText='+'+Math.round(got)+' energy'; }
     if(state.lastRaceResult) state.lastRaceResult.bonus={icon:ev.icon, label:ev.label, text:amountText};
     return `${icn(ev.icon)} ${ev.label} ${amountText}`;
   }
@@ -4197,11 +4313,17 @@ function completeRace(){
     state.categoryPoints+=rd.result.points;
     if(rt && !isClub) state.raceCooldowns[rd.typeId]=Date.now()+rt.cooldown*1000;
   }
-  // Race Retention Phase 4 — micro-league series. Category + club races only
-  // (matches the block above); calendar events and Grand Tour stages never
-  // reach here since both set isCalEvent. seriesPayoutMsg is folded into the
-  // existing result toast below rather than firing a second showToast().
-  const seriesPayoutMsg = !isCalEvent ? scoreSeriesRace(rd.result.position, rd.result.fieldSize) : null;
+  // Race Retention Phase 4 — micro-league series. CATEGORY races only.
+  // fix133: club races used to score here on equal terms with category races,
+  // while SERIES_PAYOUT multiplies the CATEGORY's 1st prize with no club
+  // scaling. Since club races cost 3 energy, have no cooldown and run a 0.6x
+  // field you usually win, ten of them banked up to 3x a category 1st prize for
+  // ~30 energy — strictly better money than racing the category ladder, which
+  // inverted the whole progression. Club races are already carved out of prize
+  // money (prizeMult 0.15) and category points (pointsCap 2); the series was
+  // simply missed when it was added. Calendar events and Grand Tour stages were
+  // already excluded via isCalEvent and remain so.
+  const seriesPayoutMsg = (!isCalEvent && !isClub) ? scoreSeriesRace(rd.result.position, rd.result.fieldSize) : null;
   state.totalRaces++;
   incrementSponsorProgress('prize_money', rd.result.prize);
   if(rd.result.position<=3){ state.totalPodiums++; markTaskProgress('podium_race'); incrementSponsorProgress('podiums',1); }
@@ -5238,6 +5360,7 @@ function useEnergyItem(id){
 }
 
 function canClaimDailyBar(){
+  if(isClockRewound()) return false; // fix134
   const now=new Date(), last=new Date(state.lastDailyBar||0);
   return now.toDateString()!==last.toDateString();
 }
@@ -5307,6 +5430,10 @@ function updateGrowthBadge(){
 // ═══════════════════════════════════════════════════════════
 function prestigeThreshold(){ return Math.floor(1500*Math.pow(3,state.seasonsCompleted)); }
 function handlePrestige(){
+  // fix134: state.clockGuard is deliberately NOT reset here. It is anti-tamper
+  // bookkeeping, not progression — clearing maxSeen on prestige would hand the
+  // player a one-tap way to wipe the backwards-clock guard. Do not "helpfully"
+  // add it to the reset list below.
   // fix121: state.relics / state.uncollectedRelics are DELIBERATELY never
   // touched here or anywhere else in this function — Grand Tour relics are
   // permanent career rewards that survive every prestige, unlike FTP,
@@ -7122,6 +7249,8 @@ function renderSeriesCard(){
     </div>
     <div class="series-table">${rowsHtml}</div>
     <div class="cat-promo" style="color:var(--txt2);font-weight:500">${racesLeft} race${racesLeft===1?'':'s'} left · 1st pays ~${fmtMoney(estTop)}</div>
+    <!-- fix133: club races no longer score the series; say so here or players read it as a bug -->
+    <div class="cat-desc" style="color:var(--txt3)">Club races don't count towards the series — the league is decided on the road.</div>
   </div>`;
 }
 
@@ -7688,7 +7817,8 @@ function requestAbandonRace(){
   const btn=document.getElementById('race-overlay-abandon-btn');
   if(!_raceAbandonArmed){
     _raceAbandonArmed=true;
-    if(btn){ btn.textContent='Tap again to abandon — no refund'; btn.classList.add('armed'); }
+    // fix132: copy now discloses the cooldown before the player commits.
+    if(btn){ btn.textContent='Tap again — no refund, cooldown applies'; btn.classList.add('armed'); }
     clearTimeout(_raceAbandonTimer);
     _raceAbandonTimer=setTimeout(()=>{
       _raceAbandonArmed=false;
@@ -7700,16 +7830,36 @@ function requestAbandonRace(){
   _raceAbandonArmed=false;
   abandonRace();
 }
-// Ends the current race with no prize/points and no energy refund. Cooldown
-// for the race type still applies (already set nowhere yet — abandon doesn't
-// grant one either, matching "abandon gives you nothing, costs you nothing extra").
+// Ends the current race with no prize/points and no energy refund.
+// fix132: the race-type cooldown now DOES apply on abandon, same as a finish.
+// (Tombstone of the old comment, which described the pre-fix132 behaviour:
+//  "Cooldown for the race type still applies (already set nowhere yet — abandon
+//   doesn't grant one either, matching 'abandon gives you nothing, costs you
+//   nothing extra')".)
 function abandonRace(){
   if(!state.raceActive) return;
+  // fix132: abandoning now sets the same cooldown a finished race would.
+  // Previously it set none, so a player could watch the race to ~60% (where
+  // rd.virtualPos has converged on the real finishing position), abandon a bad
+  // result and immediately re-roll for the cost of energy alone. Read rd BEFORE
+  // clearing state.raceData.
+  const rd=state.raceData;
+  if(rd && !rd.isCalendarEvent){
+    if(rd.isClub){
+      // Club races carry no normal cooldown by design — apply the shorter
+      // abandon-only cooldown so the reroll loop is throttled without changing
+      // how a completed club race behaves.
+      state.raceCooldowns[rd.typeId]=Date.now()+CLUB_RACE.abandonCooldown*1000;
+    } else {
+      const rt=RACE_TYPES.find(r=>r.id===rd.typeId);
+      if(rt) state.raceCooldowns[rd.typeId]=Date.now()+rt.cooldown*1000;
+    }
+  }
   state.raceActive=false; state.raceData=null;
   closeRaceOverlay();
   updateActivityDots(); saveGame();
   if(currentTab==='race') renderRaceTab();
-  showToast(`${icn('flag-white')} Race abandoned — no prize, energy not refunded`);
+  showToast(`${icn('flag-white')} Race abandoned — no prize, no refund, cooldown applies`);
 }
 // fix65 (Phase 1): animated peloton scene for the race overlay — a shorter
 // reuse of the Train-tab .rider-scene (hills/road parallax) carrying 8-12
@@ -10520,6 +10670,7 @@ function updateUI(){
 // SAVE / LOAD
 // ═══════════════════════════════════════════════════════════
 function saveGame(){
+  touchClockGuard(); // fix134
   if(wipeInProgress) return; // a delete is committed and mid-reload; don't resurrect the wiped save
   try{
     const attrs={};
@@ -10559,6 +10710,7 @@ function saveGame(){
       dailyMarket:state.dailyMarket,
       energySpentToday:state.energySpentToday,
       todayEnergyAllocation:state.todayEnergyAllocation,
+      clockGuard: state.clockGuard, // fix134
       riderWeight:state.riderWeight,
       carbsToday:state.carbsToday,
       carbWarningShownToday:state.carbWarningShownToday,
@@ -10682,6 +10834,7 @@ function loadGame(){
     // current energy isn't suddenly truncated mid-session. The fatigue-adjusted cap
     // takes effect correctly from their next daily reset onward.
     state.todayEnergyAllocation = d.todayEnergyAllocation ?? state.maxEnergy;
+    state.clockGuard = d.clockGuard ?? { maxSeen: 0 }; // fix134
     state.riderWeight = d.riderWeight ?? DEFAULT_RIDER_WEIGHT;
     state.carbsToday = d.carbsToday || 0;
     state.carbWarningShownToday = d.carbWarningShownToday || false;
@@ -10799,12 +10952,26 @@ function applyOfflineProgress(){
 // ═══════════════════════════════════════════════════════════
 // GAME LOOP
 // ═══════════════════════════════════════════════════════════
+// fix129: sponsor income credited in a single tick is capped at this many
+// seconds, matching applyOfflineProgress()'s cap. Necessary now that a tick's
+// delta can span an entire background window rather than 100ms.
+const SPONSOR_OFFLINE_CAP_SEC = 300;
 let lastTick=Date.now(), _lastRaceRender=0, _lastListRender=0, _lastSessionRender=0;
 function gameTick(){
-  const now=Date.now(), delta=(now-lastTick)/1000; lastTick=now;
-  // FIX 3: Only earn passive income while tab is visible — the visibilitychange handler
-  // covers the offline period, so earning here while hidden causes double-counting
-  if(D.sponsorPerSec>0 && !document.hidden) earnMoney(D.sponsorPerSec*delta);
+  const now=Date.now(), delta=(now-lastTick)/1000;
+  // fix129: lastTick now only advances while the tab is VISIBLE. Previously it
+  // advanced on every throttled background tick, so awayMs in the
+  // visibilitychange handler was never larger than one throttle interval and
+  // hours of backgrounded time earned nothing — making force-quit strictly
+  // better than backgrounding. Leaving lastTick alone while hidden means the
+  // first visible tick after returning carries a delta covering the whole
+  // window, and the existing (already allocation-capped) credit logic below
+  // handles it correctly with no new code path.
+  if(document.hidden) return;
+  lastTick=now;
+  // Passive sponsor income. Capped at SPONSOR_OFFLINE_CAP_SEC because delta can
+  // now legitimately be hours rather than 100ms.
+  if(D.sponsorPerSec>0) earnMoney(D.sponsorPerSec*Math.min(delta,SPONSOR_OFFLINE_CAP_SEC));
   // Idle energy regen: 1pt per 10min (6/hr), capped at TODAY's fatigue-adjusted
   // allocation (state.todayEnergyAllocation), not state.maxEnergy. This was the
   // root cause of the overnight-fatigue-reset bug — the comment always said
@@ -11007,25 +11174,29 @@ function gameTick(){
   }
 }
 document.addEventListener('visibilitychange',()=>{
-  if(!document.hidden){
-    const now=Date.now(), awayMs=now-lastTick;
-    // Sponsor passive income for tab-hidden time (capped at 5 min to match boot logic)
-    if(awayMs>5000&&D.sponsorPerSec>0){
-      const gained=D.sponsorPerSec*Math.min(awayMs,300000)/1000;
-      earnMoney(gained);
-      if(awayMs>30000) showToast(`${icn('sleep')} +${fmtMoney(gained)} sponsorship while away`);
-    }
-    // Energy regen for tab-hidden time — capped at today's fatigue-adjusted
-    // allocation, not state.maxEnergy (see applyOfflineProgress for full rationale).
-    if(awayMs>0 && state.energy<state.todayEnergyAllocation){
-      const regenGained=Math.min(state.todayEnergyAllocation-state.energy, ENERGY_REGEN_RATE*(awayMs/1000));
-      if(regenGained>=1){
-        state.energy=Math.min(state.todayEnergyAllocation, state.energy+regenGained);
-        if(awayMs>60000) showToast(`${icn('bolt')} +${Math.floor(regenGained)} energy regenerated while away`);
-        updateHeader();
-      }
-    }
-    lastTick=now;
+  if(document.hidden){
+    pauseRaceClock(); // fix131: freeze the race clock while backgrounded
+    saveGame();       // fix131: persist hiddenAt in case the app is killed while backgrounded
+  } else {
+    resumeRaceClock(); // fix131: credit the hidden window as paused time (or auto-abandon if stale)
+    // fix129: the sponsor-income and energy-regen catch-up that used to live
+    // here is gone. gameTick() no longer advances lastTick while hidden, so the
+    // very next tick after this event fires already carries the full
+    // background delta and credits it through the normal (allocation-capped)
+    // path. Keeping this block would double-count, and its old `lastTick=now`
+    // would have thrown away the accumulated delta before the tick could see
+    // it — the two are mutually exclusive by construction.
+    //
+    // TOMBSTONE — removed in fix129, do not restore without also reverting the
+    // gameTick head:
+    //   const now=Date.now(), awayMs=now-lastTick;
+    //   if(awayMs>5000&&D.sponsorPerSec>0){ ...earnMoney... }
+    //   if(awayMs>0 && state.energy<state.todayEnergyAllocation){ ...regen... }
+    //   lastTick=now;
+    //
+    // Nudge the header so the returning player sees the credited totals without
+    // waiting up to 100ms for the next tick to paint.
+    updateHeader();
   }
 });
 
@@ -11087,6 +11258,28 @@ if(state.uncollectedRelics && state.uncollectedRelics.size>0){
 }
 // A page reload mid-race must re-open the fullscreen overlay automatically —
 // overlay visibility is state-driven, not just event-driven from startRace.
+// fix131: an app killed while backgrounded never fires visibilitychange on the
+// way back, so the pause opened by pauseRaceClock() is closed here instead.
+// resumeRaceClock() may auto-abandon a stale race, hence the re-check below.
+if(state.raceActive && state.raceData) resumeRaceClock();
+// fix131 (separate clause — revertible on its own): a race that was never
+// paused (hard crash, or a plain page reload) has no hiddenAt, so the wall-clock
+// gap since the last save would otherwise count against the race and make a
+// reload a cheap way to skip decisions. Treat that gap as paused time too,
+// applying the same stale hard lockout.
+if(state.raceActive && state.raceData && !state.raceData.hiddenAt && state._lastSavedAt){
+  const gapMs=Math.max(0, Date.now()-state._lastSavedAt);
+  if(gapMs>=RACE_STALE_MS){
+    abandonRace();
+    showToast(`${icn('flag-white')} Race timed out while you were away — abandoned`);
+  } else if(gapMs>0){
+    state.raceData.totalPausedMs=(state.raceData.totalPausedMs||0)+gapMs;
+    if(state.raceData.pendingDecision){
+      state.raceData.pendingDecision.startedAt+=gapMs;
+      if(state.raceData.pendingDecision.selectedAt) state.raceData.pendingDecision.selectedAt+=gapMs;
+    }
+  }
+}
 if(state.raceActive && state.raceData){ openRaceOverlay(); renderActiveRaceBlock(); }
 updateUI();
 updateActivityDots();
