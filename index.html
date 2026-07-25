@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Cycling Adle Manager</title>
+<title>Cycling Idle Manager</title>
 <meta name="theme-color" content="#1a6b38">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -5598,9 +5598,20 @@ function restoreSave(){
   restoreConfirmPending=false;
   // Write the validated blob back under the save key, then reload so loadGame runs
   // the normal load + migration path exactly as it would on any cold start.
+  // fix138: set wipeInProgress BEFORE the write. location.reload() is not
+  // instant, and in the gap between setItem and teardown either the 15s
+  // autosave timer or the visibilitychange handler can call saveGame(), which
+  // serialises the *current* (pre-restore) in-memory state straight over the
+  // blob we just wrote — silently discarding the restore. saveGame() already
+  // returns early on wipeInProgress; this is the same guard confirmReset uses
+  // for the delete path. The flag dies with the page on reload.
+  wipeInProgress=true;
   try{
     localStorage.setItem(SAVE_KEY, JSON.stringify(parsed));
-  }catch(e){ showToast(`${icn('warning')} Restore failed`); return; }
+  }catch(e){
+    wipeInProgress=false; // restore aborted — let normal autosaving resume
+    showToast(`${icn('warning')} Restore failed`); return;
+  }
   location.reload();
 }
 
