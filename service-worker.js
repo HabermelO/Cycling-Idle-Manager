@@ -8,7 +8,9 @@
 
 // Bump this version string whenever you push a new game build.
 // The old cache is deleted automatically on the next SW activation.
-const CACHE_VERSION = 'cim-v3.6.02';   // fix135: image externalisation
+// fix150 (release pass): bumped for the v26 release build. Also carries the
+// two asset corrections found by the offline-reload test — see below.
+const CACHE_VERSION = 'cim-v3.7.00';   // fix150: release build
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
 // inside the HTML. cache.addAll() is all-or-nothing: if ANY path below 404s
@@ -23,7 +25,17 @@ const STATIC_ASSETS = [
   './favicon.png',
   './assets/workshop-hero.jpg',
   './assets/race-hero.jpg',
-  './assets/sprint-pose.png',
+  // fix144: sprint-pose.png retired — the static final-10s pose is replaced
+  // by the animated assets/sprint.png sheet and is no longer referenced by
+  // any CSS var or rule, so it is dropped from the precache manifest.
+  // './assets/sprint-pose.png',
+  './assets/sprint.png',   // fix144: 1568x308, 6-frame sprint sheet
+  // fix150: tt.png was added to the CSS and the recolour sheet list by fix145
+  // but never reached this manifest, so it was the one rider sheet that was
+  // not precached. Offline, a TT stage fell back to the CSS url() default,
+  // which also missed, and the rider vanished for the whole stage. Caught by
+  // the release-pass offline reload.
+  './assets/tt.png',       // fix145: 1568x308, 6-frame TT sheet
   './assets/pedal.png',
   './assets/ws-bearings.jpg',
   './assets/portrait.png',
@@ -34,6 +46,10 @@ const STATIC_ASSETS = [
   './assets/peloton-bg.png',
   './assets/exhausted.png',
   './assets/idle.png',
+  // fix143: bike-tier idle stills (tier 1 uses idle.png above;
+  // tiers 2-3 -> idle-mid, tiers 4-5 -> idle-top).
+  './assets/idle-mid.png',
+  './assets/idle-top.png',
   './assets/victory.png',
   './assets/gut-success.jpg',
   './assets/rider-photo.png',
