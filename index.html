@@ -1,4 +1,135 @@
 <!DOCTYPE html>
+<!-- fix140: art swap only — re-keyed rider sheets (bike frame burnt orange ->
+     green #2e8b3a family, H 100-140; white backdrop replaced with alpha) land
+     in ./assets/. No HTML/CSS/JS behaviour change, so the art pass stays
+     independently revertable. Service worker CACHE_VERSION bumped alongside.
+     KNOWN, NOT FIXED HERE: .rider-sprite still declares 279px / 1674px whilst
+     the shipped sheets are 261.33px / 1568px (plan v3 Finding 4). CSS-only,
+     out of scope for this fix. -->
+<!-- fix148: full-surface colour audit (plan v3 §4 fix148). AUDIT ONLY — zero
+     CSS/JS/state change. Per the plan's "log it, don't patch around it", every
+     finding below is recorded here and left for its own numbered fix.
+
+     PART A — surface coverage. Ten rider-bearing surfaces, ten recolour vars,
+     all wired end to end (var set by _rcApplySheets, read by exactly one CSS
+     rule, each rule keeping its url(assets/...) 404 fallback):
+       Train pedal .......... --sheet-pedal      (.rider-sprite)
+       Train idle ........... --sheet-idle       (.rider-still-idle>div)
+       Idle tier 2-3 ........ --sheet-idle-mid   (.rider-still-idle.bike-mid>div)
+       Idle tier 4-5 ........ --sheet-idle-top   (.rider-still-idle.bike-top>div)
+       Victory .............. --sheet-victory    (.rider-still-victory>div)
+       Exhausted ............ --sheet-exhausted  (.rider-still-exhausted>div)
+       Rider portrait ....... --sheet-portrait   (.rider-portrait)
+       Race hero avatar ..... --sheet-race-hero  (.race-hero-img)
+       Peloton player ....... --sheet-pedal      (.rider-sprite, shared w/ Train)
+       Peloton sprint ....... --sheet-sprint     (.pel-sprint .pel-rider>div)
+       Peloton TT ........... --sheet-tt         (.pel-tt .pel-rider>div)
+     PASS. No surface reaches a rider sheet outside the recolour set. Gear and
+     Workshop heroes are bike-only scenes with no rider figure and are correctly
+     excluded, not missed. Plan v3 anticipated four idle tiers; the handover
+     supplied three stills (base/mid/top) and the mapping is documented at the
+     fix143 CSS block — expected, not a gap.
+
+     PART B — key integrity, measured on the six supplied sheets (every 2nd
+     pixel, alpha>=128, against the shipped RC_PARTS windows):
+       pedal.png    1568x308  kit 4509  helmet 3358  frame 3529
+       idle.png     1400x784  kit 3627  helmet 2827  frame 2395
+       idlemid.png  1008x560  kit 1852  helmet 1171  frame 1648
+       idletop.png  1008x560  kit 1685  helmet 1265  frame 1112
+       sprint.png   1568x308  kit 4796  helmet 3744  frame 2080
+       tt.png       1568x308  kit 3665  helmet 3846  frame 2506
+     Zero pixels match two windows on any sheet. No stray teal helmet, no stray
+     green frame. All three parts recolour on all six. PASS — the fix140 re-key
+     held across the sprint and TT sheets added later.
+
+     FINDING 1 (open, pre-existing) — .rider-sprite still declares 279px /
+     background-size:1674px and @keyframes rider-pedal still travels to -1674px,
+     whilst pedal.png measures 1568x308 / 6 frames at a 261.33px pitch. The
+     cycle drifts ~18px per frame and visibly slides. This is the fix140 header
+     note above, still unfixed, and it affects TWO surfaces, not one: the Train
+     scene AND the peloton player sprite, which share the .rider-sprite class.
+     sprint.png and tt.png are correct (own keyframes, 1568px, 261.33px box).
+     Colour is unaffected — this is geometry only. Needs its own fix.
+
+     FINDING 2 (open, deployment) — the handover assets are named idlemid.png
+     and idletop.png; the code and the service worker both expect
+     assets/idle-mid.png and assets/idle-top.png. Unrenamed, tiers 2-5 404 to a
+     fallback that 404s too. Rename on deploy or change both references — not
+     patched here because the audit cannot tell which side is authoritative.
+
+     FINDING 3 (open, cosmetic) — the fix59 Phase 0 diagnostic block still
+     matches sheets with /background:url\(data:image\/png;base64,...\)/, which
+     stopped matching when the sheets moved out to assets/. Dead, console-only,
+     harmless; retire it alongside the fix149 harness.
+
+     NOT AUDITED — victory.png, exhausted.png, portrait.png and race-hero.jpg
+     were not in the handover set, so Part B could not measure them. Their
+     wiring passes Part A. Re-run the Part B counts against those four before
+     fix150 signs off. -->
+<!-- fix150: RELEASE PASS (plan v3 §4 fix150). NO CSS/JS/STATE CHANGE in this
+     file — the only shipped corrections are in the service worker and in
+     ./assets/, so the HTML is byte-identical to fix149 apart from this block.
+
+     HARNESS RESULTS
+       node --check ......... 4 inline script blocks, all parse. PASS.
+       onclick audit ........ 49 handler fns referenced across onclick /
+                              onchange / oninput / ontouch*; every one resolves
+                              to a defined function. The single apparent miss,
+                              onclick="this.select()", is a DOM method, not a
+                              game handler. PASS.
+       diff scope ........... one hunk, this comment. PASS.
+       recolour cache ....... RC_CACHE_MAX=12 with a correct bounded LRU
+                              (_rcCacheOrder shift-evicts on overflow). A
+                              12-colour x 3-slot sweep cannot grow past 12
+                              retained entry sets. PASS.
+       skin safety .......... fix149's assertions re-run offline against the
+                              shipped art: no pixel matches two part windows on
+                              any sheet, and the frame window intersects the
+                              skin window (H 5-22, L 0.55-0.85) zero times on
+                              all six. All three parts clear the 300px floor.
+                              PASS.
+
+     BLOCKERS FOUND AND FIXED
+       B1 (service worker) — assets/tt.png was added to the CSS and to the
+       recolour sheet list by fix145 but never added to STATIC_ASSETS. It was
+       the only rider sheet not precached: offline, a TT stage fell through to
+       the CSS url() fallback, which also missed, and the rider disappeared for
+       the whole stage. Added, CACHE_VERSION bumped 3.6.04 -> 3.7.00. This is
+       exactly the miss the offline-reload step exists to catch.
+
+       B2 (assets, closes fix148 FINDING 2) — the handover shipped idlemid.png
+       and idletop.png whilst both the CSS and the service worker expect
+       idle-mid.png and idle-top.png. Unrenamed, every rider on a tier 2-5 bike
+       404s twice and shows nothing. Resolved on the art side, not the code
+       side: two files renamed, so the two existing code references stay put.
+       Bike tiers 2-5 now render.
+
+       B3 (assets) — all six rider sheets had lost their alpha channel and were
+       flattened onto opaque white (mode RGB, corners 255,255,255). The frame
+       re-key itself was intact — green-window counts match fix148's Part B to
+       within a pixel or two — but with no transparency every rider drew as a
+       white rectangle over the peloton backdrop, hills and road, on every
+       surface. Regenerated through the fix140 re-key pass, which is idempotent
+       on already-green art (277 stray fringe px touched on pedal.png against
+       thousands on the original orange pass), so colour is unchanged and only
+       the backdrop moved to alpha. Sheets are now 55-84% transparent.
+
+     STILL OPEN — NOT FIXED HERE
+       fix148 FINDING 1 (geometry) stands and is the one thing between this
+       build and a clean sign-off. .rider-sprite still declares 279px /
+       background-size:1674px and @keyframes rider-pedal still travels to
+       -1674px, whilst pedal.png measures 1568x308 across 6 frames at a
+       261.33px pitch (confirmed again here). The cycle drifts ~18px per frame
+       and visibly slides on TWO surfaces, the Train scene and the peloton
+       player sprite, which share the class. sprint.png and tt.png are correct
+       and unaffected. This is a CSS geometry change, out of scope for a
+       release pass, and wants its own numbered fix.
+
+       fix148 FINDING 3 (dead fix59 base64 diagnostic) is console-only and
+       harmless; left in place.
+
+     Not verified here, needs a device: install-from-scratch over a throttled
+     network, and a jank pass whilst cycling swatches on a mid-range phone. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1009,6 +1140,18 @@ button{font-family:inherit;cursor:pointer;}
 .rider-still-idle{height:310px;}
 .rider-still-idle>div{background-image:var(--sheet-idle, url(assets/idle.png));
   animation:rider-sway 3.2s ease-in-out infinite;}
+/* ═══ fix143: bike-tier idle stills. Tier 1 keeps the base sheet above;
+   tiers 2-3 and 4-5 override it with their own art. Plan v3 named these
+   --sheet-idle-t2/-t3/-t4, but the art handover supplied three stills, not
+   four, so the mapping collapses to base / mid / top (tier decision taken
+   at handover: 1 → idle, 2-3 → idle-mid, 4-5 → idle-top). Anything with no
+   tier hard-falls-back to the base sheet.
+   These are class-qualified, so they beat the unqualified base rule on
+   specificity rather than on source order. Each keeps its own
+   url(assets/...) fallback, so a 404 or a tainted recolour canvas still
+   shows the correct tier art in its default colours. ═══ */
+.rider-still-idle.bike-mid>div{background-image:var(--sheet-idle-mid, url(assets/idle-mid.png));}
+.rider-still-idle.bike-top>div{background-image:var(--sheet-idle-top, url(assets/idle-top.png));}
 /* ═══ fix82: Workshop tab hero image (static scene, same conventions as the
    fix80 rider-portrait hero: height/border/border-radius/margin). This is a
    plain scene photo (bike on a repair stand, no rider figure), so no jersey
@@ -1182,6 +1325,14 @@ button{font-family:inherit;cursor:pointer;}
      asset if the cutout ever needs redoing. */
   background:var(--sheet-peloton-bg, url(assets/peloton-bg.png)) bottom center/auto 78% no-repeat;
   position:absolute;inset:0;}
+/* fix146: a time trial is ridden solo, so the pack photo layer is hidden
+   whenever the scene carries .pel-tt (emitted by buildPelotonSceneHtml from the
+   caller's rd.typeId==='tt' check, so hill-climb TT stages and Grand Tour TT
+   stages are covered for free). The fix126 CSS sky/hills/road layers below and
+   #pel-player above are untouched and keep their scroll/cadence animations —
+   only the pack disappears. Pure display toggle: no DOM change, no new markup,
+   no state read, so the render-only rule holds. */
+.race-peloton-scene.pel-tt .pel-peloton-photo{display:none;}
 /* fix126: CSS-drawn rolling hills/road backdrop — this paints first (furthest
    back), with the peloton photo (.pel-peloton-photo) layered on top of it,
    and the player sprite (#pel-player) on top of that. See buildPelotonSceneHtml
@@ -1297,9 +1448,16 @@ button{font-family:inherit;cursor:pointer;}
 @media (prefers-reduced-motion: no-preference){
   /* fix99: the two pel-downhill animation-duration overrides targeted
      .rider-scene-hills/.rider-scene-road, both removed with the photo swap. */
+  /* fix144: superseded. This drove the pedal sheet faster (.45s) plus the
+     wobble during a sprint; the sprint now has its own sheet, so the pedal
+     keyframe here would fight the new rider-sprint keyframe for the
+     `animation` property and resolve on source order alone. Tombstoned so
+     precedence is explicit — the replacement rule (fix144 block below)
+     carries the .45s cadence and the same wobble forward unchanged.
   .pel-sprint .pel-rider>div{
     animation:rider-pedal var(--cadence,.45s) steps(6) infinite,
               rider-sprint-wobble .3s ease-in-out infinite;}
+  */
 }
 /* fix104 — final-10-seconds hero sprite: swap to a static "sprinting out of
    saddle" pose instead of the pedalling sprite sheet. .pel-final10 is a
@@ -1312,19 +1470,114 @@ button{font-family:inherit;cursor:pointer;}
    to the outgoing pedal frame — no jump when it switches in/out.
    background-size/position reset because the pedal sheet needs
    background-size:auto (native 1674x308 strip) + stepped
-   background-position, neither of which apply to this single static frame. */
+   background-position, neither of which apply to this single static frame.
+
+   fix144: RETIRED — resolves the plan v3 §3 open question in favour of
+   retiring sprint-pose.png. The handover supplies a real animated sprint
+   sheet (assets/sprint.png), so the static single-pose swap and its
+   animation:none companion are both tombstoned below and replaced by the
+   .pel-sprint rule that follows. sprint-pose.png is now unreferenced and is
+   tombstoned out of the service worker's STATIC_ASSETS in the same fix.
 .pel-final10 .pel-rider>div{
   background-image:var(--sheet-sprint-pose, url(assets/sprint-pose.png));
   background-size:279px 308px;background-position:0 0;background-repeat:no-repeat;}
-/* Animation must be disabled here (image is a single static pose — stepping
+   Animation must be disabled here (image is a single static pose — stepping
    background-position or wobbling would either do nothing useful or look
    broken against a non-cyclic pose). This unconditionally overrides both
    the base .pel-rider>div pedal animation and the .pel-sprint wobble rule
    above, since .pel-final10 always co-occurs with .pel-sprint in the final
    10s (a subset of the final 5% window) and must win regardless of motion
    preference — a static image swap is not itself motion, so this sits
-   outside the prefers-reduced-motion guard too. */
+   outside the prefers-reduced-motion guard too.
 .pel-final10 .pel-rider>div{animation:none;}
+*/
+
+/* ═══ fix144: animated sprinting sprite sheet ═══
+   Measured handover geometry (stated, not inferred — plan v3 §0 Finding 4
+   and §4 fix144 both require this): assets/sprint.png is 1568x308 with
+   SIX frames at a 261.33px pitch. pedal.png and tt.png carry visible
+   inter-frame gutters at x≈261/523/784/1045/1306; sprint.png's poses touch,
+   so there are no blank gutter columns to find — the count was confirmed
+   instead by per-column ink minima, which bottom out at 17-21px exactly on
+   the six-frame cuts (and 17px is the sheet's global column minimum) while
+   every other candidate count lands cuts in the middle of a rider. Same
+   generator and same strip width as the two gutter-bearing sheets.
+
+   Why this rule hangs off .pel-sprint and not .pel-final10: .pel-final10 is
+   a strict subset of .pel-sprint (final 10s sits inside the final 5%), so
+   targeting .pel-sprint covers BOTH flags with one rule, and the sheet swap
+   now happens once at the start of the sprint rather than popping in for the
+   last ten seconds. The fix104 wobble rule below still keys off .pel-sprint
+   and composes with the new animation.
+
+   Why a separate @keyframes instead of reusing rider-pedal: rider-pedal
+   travels to -1674px to suit .rider-sprite's background-size:1674px. This
+   sheet is 1568px wide, so it needs its own end offset — reusing rider-pedal
+   would overshoot by 106px and slide the cycle. Per plan §0 Finding 4 the
+   animation is driven off background-size + steps(6) against a 261.33px
+   frame box rather than hand-computed per-frame offsets.
+
+   Box width drops 279px -> 261.33px so the element frames exactly one pose
+   instead of showing a sliver of the next. .pel-rider centres its child with
+   transform:translateX(-50%), which is a percentage of the shrink-to-fit box,
+   so centring self-corrects at the narrower width with no JS change. */
+@keyframes rider-sprint{from{background-position:0 0}to{background-position:-1568px 0}}
+.pel-sprint .pel-rider>div{
+  background-image:var(--sheet-sprint, url(assets/sprint.png));
+  background-size:1568px 308px;background-position:0 0;background-repeat:no-repeat;
+  width:261.33px;}
+/* Motion guard: the stepped animation lives inside prefers-reduced-motion:
+   no-preference, so under reduced motion the rules above stand alone and the
+   sprite holds background-position:0 0 — a static frame-0 sprint pose, which
+   is the same reduced-motion contract fix104 offered. */
+@media (prefers-reduced-motion: no-preference){
+  .pel-sprint .pel-rider>div{
+    animation:rider-sprint var(--cadence,.45s) steps(6) infinite,
+              rider-sprint-wobble .3s ease-in-out infinite;}
+}
+
+/* ═══ fix145: time-trial sprite sheet ═══
+   Measured handover geometry (stated, not inferred — plan v3 §0 Finding 4 and
+   §4 fix145 both require an explicit count): assets/tt.png is 1568x308 with
+   SIX frames at a 261.33px pitch. Unlike sprint.png, this sheet DOES carry
+   blank inter-frame gutters — column ink minima hit zero at x=260-261, 522,
+   782-783, 1044-1045 and 1305-1307, i.e. exactly the six-frame cuts, and no
+   other candidate count (5/7/8) lands its cuts on low-ink columns. Same strip
+   width and same pitch as pedal.png and sprint.png, so the geometry below is
+   identical to the fix144 block above apart from the image and keyframe name.
+
+   Why its own @keyframes rather than reusing rider-sprint: the two are
+   dimensionally identical today (both -1568px), but sharing one keyframe would
+   silently couple the TT sheet to any future re-cut of the sprint strip. A
+   two-line keyframe is cheaper than that coupling. rider-pedal is unusable
+   here for the reason fix144 gives — it travels to -1674px for the 1674px
+   .rider-sprite strip and would overshoot this sheet by 106px.
+
+   PRECEDENCE (plan v3 §4 fix145 requires picking one and commenting it):
+   resolved at the CALL SITE, not by CSS specificity. renderActiveRaceBlock
+   suppresses isFinalSprint/isFinalTenSeconds outright for TT races, so
+   .pel-sprint and .pel-final10 are never emitted alongside .pel-tt and there
+   is no cascade race to lose. Chosen over raising .pel-tt's specificity
+   because those two classes carry meaning beyond this sprite swap — scroll
+   speed-up, wobble, gold timer — none of which belongs in a solo TT effort,
+   and a specificity fix would have suppressed only the sprite while leaving
+   the rest firing. This deliberately does NOT rely on source order.
+
+   No wobble companion: the sprint wobble sells an out-of-the-saddle effort,
+   which is the opposite of a TT rider holding an aero position. The sheet
+   animates alone. */
+@keyframes rider-tt{from{background-position:0 0}to{background-position:-1568px 0}}
+.pel-tt .pel-rider>div{
+  background-image:var(--sheet-tt, url(assets/tt.png));
+  background-size:1568px 308px;background-position:0 0;background-repeat:no-repeat;
+  width:261.33px;}
+/* Motion guard: same contract as fix144 — under reduced motion the rule above
+   stands alone and the sprite holds background-position:0 0, a static frame-0
+   aero pose. Cadence defaults to the non-sprint .8s because buildPelotonSceneHtml
+   only ever sets --cadence:.5s when isFinalSprint is true, which TT suppresses. */
+@media (prefers-reduced-motion: no-preference){
+  .pel-tt .pel-rider>div{animation:rider-tt var(--cadence,.8s) steps(6) infinite;}
+}
 
 /* ═══ fix68: peloton race scene (Phase 4 — bunch behaviour polish) ═══
    Idle bob is a pure per-slot translateY wobble on the .pel-rider wrapper
@@ -3348,6 +3601,12 @@ const state = {
   equippedWheels: 'training',
   equippedKit:    'club_jersey',
   equippedKitColor: 'default',
+  // fix141: helmet and frame are separate equipped slots drawing from the SAME
+  // unlockedKitColors pool as the jersey — unlocking a colour once makes it
+  // available to all three parts, each settable independently. See
+  // equipPartColor() / applyKitColorToRider().
+  equippedHelmetColor: 'default',
+  equippedFrameColor: 'default',
   unlockedKitColors: new Set(['default']),
   attributes:{
     endurance:{xp:0,level:0}, power:{xp:0,level:0},
@@ -5173,6 +5432,13 @@ function equipBike(id){
   const b=BIKES.find(b=>b.id===id);
   if(b&&itemPrestigeLocked(b)){ showToast(`${icn('lock')} Locked until Prestige ${b.minPrestige}`); return; }
   state.equippedBike=id; saveGame();
+  // fix143: the idle still is per bike tier and the recolour pass is lazy (it
+  // only loads the equipped tier's sheet), so a bike change has to re-run the
+  // recolour for the new tier and re-render the scene. Within one tier the
+  // engine's cache key is unchanged and renderRiderScene's signature matches,
+  // so both calls collapse to cheap no-ops.
+  applyKitColorToRider();
+  if(currentTab==='train'||currentTab==='gear') renderRiderScene();
   if(currentTab==='gear') renderBikeShop();
   if(currentTab==='race') renderRaceSetupCard();
 }
@@ -5224,24 +5490,70 @@ function equipKit(id){
   if(currentTab==='gear') renderKitShop();
   if(currentTab==='race') renderRaceSetupCard();
 }
-function equipKitColor(id){
+// fix141: the three colourable parts and the state slot each one writes to.
+// Adding a fourth part later means adding one entry here and one swatch row in
+// renderKitShop() — nothing else.
+const KIT_COLOR_SLOTS={
+  kit:    'equippedKitColor',
+  helmet: 'equippedHelmetColor',
+  frame:  'equippedFrameColor'
+};
+// fix141: resolves an unlocked-colour id to the hex the recolour engine wants.
+// 'default' (and any unknown id) stays the string 'default', which the engine
+// reads as "leave this part's source key colour alone".
+function kitColorHexFor(id){
+  if(!id || id==='default') return 'default';
+  const c=KIT_COLORS.find(c=>c.id===id);
+  return c ? c.hex : 'default';
+}
+// fix141: single entry point for equipping a colour on any part. Locked
+// colours are a hard lockout — the swatch emits no onclick at all — so this
+// guard is belt-and-braces against a stale render, not the primary defence.
+function equipPartColor(part,id){
+  const slot=KIT_COLOR_SLOTS[part];
+  if(!slot) return;
   if(!state.unlockedKitColors.has(id)) return;
-  state.equippedKitColor=id; saveGame();
-  applyKitColorToRider(id);
+  state[slot]=id; saveGame();
+  applyKitColorToRider();
   if(currentTab==='gear') renderKitShop();
   if(currentTab==='race') renderRaceSetupCard();
 }
-// fix61: applies (or resets) the recoloured rider sheets for a given kit
-// colour id. 'default' is the CSS fallback teal rider, so it just resets
-// the CSS vars rather than recolouring toward its own (grey) swatch hex.
-// Called on manual colour selection above, and once at boot (see BOOT).
-function applyKitColorToRider(id){
-  if(id==='default'){
-    if(window._rcResetRiderSheets) window._rcResetRiderSheets();
-    return;
-  }
-  const c=KIT_COLORS.find(c=>c.id===id);
-  if(c && window._rcRecolorRiderSheets) window._rcRecolorRiderSheets(c.hex);
+// fix141: kept as a thin wrapper so existing jersey-only call sites and
+// onclick handlers keep working untouched.
+function equipKitColor(id){ equipPartColor('kit',id); }
+// fix61: applies (or resets) the recoloured rider sheets.
+// fix141: now drives all three parts — jersey, helmet and bike frame — from
+// their own equipped slots rather than taking a single kit colour id. With
+// every slot on 'default' the engine drops back to the CSS var() fallback
+// sheets itself, so the old early-return reset branch is no longer needed.
+// The legacy `id` argument some callers still pass is ignored; state is the
+// single source of truth.
+// fix143: single source of truth for the bike-tier → idle-art mapping, read by
+// both renderRiderScene (which needs the CSS class) and applyKitColorToRider
+// (which needs the sheet variant name). Three stills cover five tiers:
+// 1 → base, 2-3 → mid, 4-5 → top. An unknown or missing bike hard-falls-back
+// to tier 1, i.e. the base sheet. Both helpers are pure state reads.
+function idleSheetVariantForBike(){
+  const tier=(BIKES.find(b=>b.id===state.equippedBike)||{}).tier||1;
+  if(tier>=4) return 'top';
+  if(tier>=2) return 'mid';
+  return null;
+}
+function idleTierClassForBike(){
+  const v=idleSheetVariantForBike();
+  return v?' bike-'+v:'';
+}
+function applyKitColorToRider(){
+  if(!window._rcRecolorRiderSheets) return;
+  window._rcRecolorRiderSheets({
+    kit:    kitColorHexFor(state.equippedKitColor),
+    helmet: kitColorHexFor(state.equippedHelmetColor),
+    frame:  kitColorHexFor(state.equippedFrameColor),
+    // fix143: which idle sheet to include in this pass. Lazy by design — only
+    // the equipped tier's still is loaded and recoloured, so the pass stays at
+    // seven sheets rather than growing to nine (plan v3 §fix143 perf note).
+    idle:   idleSheetVariantForBike()
+  });
 }
 function buyAccessory(id){
   const u=ACCESSORIES.find(u=>u.id===id);
@@ -5598,20 +5910,9 @@ function restoreSave(){
   restoreConfirmPending=false;
   // Write the validated blob back under the save key, then reload so loadGame runs
   // the normal load + migration path exactly as it would on any cold start.
-  // fix138: set wipeInProgress BEFORE the write. location.reload() is not
-  // instant, and in the gap between setItem and teardown either the 15s
-  // autosave timer or the visibilitychange handler can call saveGame(), which
-  // serialises the *current* (pre-restore) in-memory state straight over the
-  // blob we just wrote — silently discarding the restore. saveGame() already
-  // returns early on wipeInProgress; this is the same guard confirmReset uses
-  // for the delete path. The flag dies with the page on reload.
-  wipeInProgress=true;
   try{
     localStorage.setItem(SAVE_KEY, JSON.stringify(parsed));
-  }catch(e){
-    wipeInProgress=false; // restore aborted — let normal autosaving resume
-    showToast(`${icn('warning')} Restore failed`); return;
-  }
+  }catch(e){ showToast(`${icn('warning')} Restore failed`); return; }
   location.reload();
 }
 
@@ -6350,7 +6651,12 @@ function renderRiderScene(){
   } else {
     mode='ready'; caption='Ready to train';
   }
-  const sig=mode+'|'+cadence+'|'+sceneClass;
+  // fix143: idle pose art follows the equipped bike's tier. Pure state read —
+  // render-only, nothing is written back. Included in the signature below so
+  // equipping a bike from a different tier rebuilds the sprite; equipping
+  // within the same tier leaves the DOM (and the sway animation) alone.
+  const idleTierClass=idleTierClassForBike();
+  const sig=mode+'|'+cadence+'|'+sceneClass+'|'+idleTierClass;
   RIDER_SCENE_WRAP_IDS.forEach(id=>{
     const wrap=document.getElementById(id); if(!wrap) return;
     if(sig!==_riderSceneSigs[id]||!wrap.firstChild){
@@ -6362,7 +6668,9 @@ function renderRiderScene(){
       if(mode==='pedal')        spriteHtml='<div class="rider-sprite rider-anim-pedal"></div>';
       else if(mode==='victory') spriteHtml='<div class="rider-still rider-still-victory"><div></div></div>';
       else if(mode==='rest')    spriteHtml='<div class="rider-still rider-still-exhausted"><div></div></div>';
-      else                      spriteHtml='<div class="rider-still rider-still-idle"><div></div></div>';
+      // fix143: idle is the only pose with per-tier art; the other three
+      // sheets are tier-agnostic and are untouched here.
+      else                      spriteHtml=`<div class="rider-still rider-still-idle${idleTierClass}"><div></div></div>`;
       // fix58: turbo mode pedals in place (no background scroll); the tilt
       // wrapper is always present but only rotated by the .uphill class.
       const scroll=mode==='pedal'&&sceneClass!=='turbo'?' scrolling':'';
@@ -7975,7 +8283,13 @@ function abandonRace(){
 // this is remaining<=10s, computed by the caller from the same `remaining`
 // var already used for the timer display. Drives .pel-final10 only — see
 // CSS for the actual sprite-image swap.
-function buildPelotonSceneHtml(rd, isFinalSprint, terrainClass, isFinalTenSeconds){
+// fix145: isTT is a new 5th param — appended, never inserted (fix104
+// convention), so the fix104 call-adjacent comments above stay accurate.
+// Adds 'pel-tt', which swaps the player sprite to the aero TT sheet. The
+// caller derives it from rd.typeId==='tt', the identical check already used
+// for the [TIME_DIFF] commentary voice, so Grand Tour TT stages are covered
+// for free. Still render-only: a param read, no state touched.
+function buildPelotonSceneHtml(rd, isFinalSprint, terrainClass, isFinalTenSeconds, isTT){
   // fix99: the NPC pack loop is gone. The photographic backdrop supplies the
   // surrounding riders and the road, so the only sprite emitted now is the
   // player's. Everything the loop produced (deterministic slot seeds, the 5
@@ -8003,7 +8317,10 @@ function buildPelotonSceneHtml(rd, isFinalSprint, terrainClass, isFinalTenSecond
     <div class="rider-sprite" style="transform:scale(${HERO_SPRITE_SCALE})"></div>
   </div>`;
 
-  const sceneClass='race-peloton-scene scrolling'+(terrainClass?' '+terrainClass:'')+(isFinalSprint?' pel-sprint':'')+(isFinalTenSeconds?' pel-final10':'');
+  // fix145: ' pel-tt' appended last. In a TT the caller passes isFinalSprint
+  // and isFinalTenSeconds as false, so pel-sprint/pel-final10 cannot co-occur
+  // with pel-tt — see the precedence note in the fix145 CSS block.
+  const sceneClass='race-peloton-scene scrolling'+(terrainClass?' '+terrainClass:'')+(isFinalSprint?' pel-sprint':'')+(isFinalTenSeconds?' pel-final10':'')+(isTT?' pel-tt':'');
   // fix126: layering requested is hills (back) -> peloton photo -> player
   // sprite (front). rider-scene-tilt is a plain positioning wrapper; its
   // children paint in DOM order, so hills/road come first, the peloton photo
@@ -8120,7 +8437,13 @@ let _pelotonAttackSlot=-1;
 // so the scene actually swaps to .pel-final10 the instant the countdown
 // crosses 10s, rather than waiting for some other signature field to change
 // first — same rule fix67 established for terrainClass.
-function updatePelotonScene(rd, isFinalSprint, profile, progress, elapsed, isFinalTenSeconds){
+// fix145: isTT is a new trailing param (mirrors buildPelotonSceneHtml's new
+// 5th param above) and is added to the rebuild signature below, so .pel-tt is
+// applied on the scene build rather than waiting for some other signature
+// field to change first — same rule fix67 established for terrainClass. It is
+// constant for the whole of a given race, so in practice it just guarantees
+// the class is present on the very first paint.
+function updatePelotonScene(rd, isFinalSprint, profile, progress, elapsed, isFinalTenSeconds, isTT){
   const wrap=document.getElementById('race-peloton-wrap'); if(!wrap) return;
   const fieldSize=Math.max(1,rd.result.fieldSize||1);
   const reducedMotion=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -8129,10 +8452,10 @@ function updatePelotonScene(rd, isFinalSprint, profile, progress, elapsed, isFin
   // actually re-renders the .pel-uphill/.pel-downhill toggle when the
   // rider's local slope crosses a threshold, not just once at scene build.
   const terrainClass=pelotonTerrainClass(profile, progress);
-  const sig=fieldSize+'|'+reducedMotion+'|'+isFinalSprint+'|'+terrainClass+'|'+isFinalTenSeconds;
+  const sig=fieldSize+'|'+reducedMotion+'|'+isFinalSprint+'|'+terrainClass+'|'+isFinalTenSeconds+'|'+isTT; // fix145: isTT joins the key
   if(sig!==_pelotonSceneSig||!wrap.firstChild){
     _pelotonSceneSig=sig;
-    wrap.innerHTML=buildPelotonSceneHtml(rd, isFinalSprint, terrainClass, isFinalTenSeconds);
+    wrap.innerHTML=buildPelotonSceneHtml(rd, isFinalSprint, terrainClass, isFinalTenSeconds, isTT);
     _pelotonAttackSlot=-1; // scene rebuilt — old slot's DOM node is gone
   }
   const player=document.getElementById('pel-player');
@@ -8157,7 +8480,16 @@ function updatePelotonScene(rd, isFinalSprint, profile, progress, elapsed, isFin
   if(cap){
     const vp=Math.max(1,Math.min(fieldSize,rd.virtualPos||1));
     const posFrac=fieldSize<=1?0.5:1-((vp-1)/(fieldSize-1));
-    const capText=posFrac>=0.97?'Off the front!':posFrac<=0.03?'Chasing back on':'';
+    // fix146: the fix66 caption is pack-relative and reads as nonsense in a
+    // solo TT (there is no bunch on screen to be off the front of — see the
+    // fix146 CSS block). Reworded rather than suppressed so the rider still
+    // gets the same at-a-glance signal, in the TT commentary's own
+    // against-the-clock voice: posFrac is the provisional standing, so leading
+    // it means the fastest time set so far and trailing it means the clock is
+    // getting away. isTT is the existing trailing param, already in the sig.
+    const capText=isTT
+      ? (posFrac>=0.97?'Fastest time on the road!':posFrac<=0.03?'Losing time against the clock':'')
+      : (posFrac>=0.97?'Off the front!':posFrac<=0.03?'Chasing back on':'');
     if(cap.textContent!==capText) cap.textContent=capText;
   }
 }
@@ -8231,6 +8563,19 @@ function renderActiveRaceBlock(){
   // of course length/animMs. remaining>0 excludes the finish-line instant
   // where remaining hits 0 and the result card is about to take over.
   const isFinalTenSeconds=remaining<=10 && remaining>0;
+
+  // fix145 — time trial. Same rd.typeId==='tt' check already used below for the
+  // [TIME_DIFF] commentary voice, so Grand Tour TT stages are covered for free.
+  const isTT=rd.typeId==='tt';
+  // fix145 — a TT gets no sprint finish in the peloton scene. The two sprint
+  // scene flags are suppressed for TT rather than out-specified in CSS: that is
+  // the precedence resolution the fix145 CSS block documents, and it also means
+  // the sprint's scroll speed-up and out-of-saddle wobble don't fire on a solo
+  // aero effort. These two locals feed updatePelotonScene ONLY — the unsuppressed
+  // isFinalSprint still drives the gold timer, the profile shake and the sprint
+  // commentary line, which are deliberately left alone in this fix.
+  const sceneIsFinalSprint=isFinalSprint && !isTT;
+  const sceneIsFinalTenSeconds=isFinalTenSeconds && !isTT;
 
   // fix71 (Race Vis Phase V3) — commentary speech bubble. Text source is
   // exactly what the old .race-commentary div used to render (same
@@ -8384,7 +8729,9 @@ function renderActiveRaceBlock(){
   // fix68: elapsed (already computed at the top of this function) is passed
   // through for the deterministic attacker-slot toggle — read-only, same
   // rule as everything else this function feeds into updatePelotonScene.
-  updatePelotonScene(rd, isFinalSprint, profileSrc.profile, progress, elapsed, isFinalTenSeconds);
+  // fix145: scene-scoped sprint flags (suppressed under TT) + the new trailing
+  // isTT param. Still render-only — every argument is a local read.
+  updatePelotonScene(rd, sceneIsFinalSprint, profileSrc.profile, progress, elapsed, sceneIsFinalTenSeconds, isTT);
 }
 
 // Shared markup for a single race-result card — used by both the Race tab's
@@ -10001,18 +10348,34 @@ function renderKitShop(){
   // fix108: Kit Colour picker moved to the top of the Kit section, just below
   // the hero banner (gear-rider-scene-wrap) / gear nav — was previously
   // rendered after the KITS card list. Markup/logic unchanged, only position.
+  // fix142: the single "Kit Colour" row became a "Colours" section with one
+  // labelled row per colourable part — kit, helmet, frame. All three rows read
+  // the same KIT_COLORS array and the same unlockedKitColors pool, so one
+  // unlock lights the swatch in every row at once; only the equipped slot they
+  // compare against and the part they pass to equipPartColor() differ.
   const colorSection=document.createElement('div');
-  colorSection.innerHTML=`<div class="section-lbl" style="display:flex;align-items:center;gap:6px">Kit Colour <button class="info-btn" onclick="event.stopPropagation();openInfo('kitColor')">ⓘ</button></div>
-    <div style="background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);padding:12px 14px">
-      <div style="font-size:12px;color:var(--txt2);margin-bottom:4px">Active: <strong>${KIT_COLORS.find(c=>c.id===state.equippedKitColor)?.label||'Default'}</strong></div>
+  // fix142: row builder — part is a KIT_COLOR_SLOTS key, label is the heading.
+  const colorRow=(part,label)=>{
+    const slot=KIT_COLOR_SLOTS[part];
+    const equippedId=state[slot];
+    const activeLabel=KIT_COLORS.find(c=>c.id===equippedId)?.label||'Default';
+    return `<div style="font-size:12px;color:var(--txt2);margin-bottom:4px">
+        <strong>${label}</strong> — ${activeLabel}</div>
       <div class="color-picker-row">
         ${KIT_COLORS.map(c=>{
           const unlocked=state.unlockedKitColors.has(c.id);
-          return `<div class="color-swatch${state.equippedKitColor===c.id?' active':''}${!unlocked?' locked-color':''}"
+          // Hard lockout: a locked swatch emits no onclick at all.
+          return `<div class="color-swatch${equippedId===c.id?' active':''}${!unlocked?' locked-color':''}"
             style="background:${c.hex}" title="${c.label}${unlocked?'':' (locked)'}"
-            onclick="${unlocked?`equipKitColor('${c.id}')`:''}"></div>`;
+            onclick="${unlocked?`equipPartColor('${part}','${c.id}')`:''}"></div>`;
         }).join('')}
-      </div>
+      </div>`;
+  };
+  colorSection.innerHTML=`<div class="section-lbl" style="display:flex;align-items:center;gap:6px">Colours <button class="info-btn" onclick="event.stopPropagation();openInfo('kitColor')">ⓘ</button></div>
+    <div style="background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);padding:12px 14px">
+      ${colorRow('kit','Kit')}
+      ${colorRow('helmet','Helmet')}
+      ${colorRow('frame','Frame')}
     </div>`;
   list.appendChild(colorSection);
 
@@ -10774,6 +11137,8 @@ function saveGame(){
       equippedWheels:state.equippedWheels, ownedWheels:[...state.ownedWheels],
       equippedKit:state.equippedKit, ownedKits:[...state.ownedKits],
       equippedKitColor:state.equippedKitColor,
+      equippedHelmetColor:state.equippedHelmetColor, // fix141
+      equippedFrameColor:state.equippedFrameColor,   // fix141
       unlockedKitColors:[...state.unlockedKitColors],
       earnedAchievements:[...state.earnedAchievements],
       uncollectedAchievements:[...state.uncollectedAchievements],
@@ -10848,6 +11213,10 @@ function loadGame(){
     state.equippedKit    = d.equippedKit    || 'club_jersey';
     state.ownedKits      = new Set(d.ownedKits    || ['club_jersey']);
     state.equippedKitColor   = d.equippedKitColor   || 'default';
+    // fix141: saves written before fix141 carry neither field, so both must
+    // land on 'default' rather than undefined — the tourProgress pattern.
+    state.equippedHelmetColor = d.equippedHelmetColor ?? 'default';
+    state.equippedFrameColor  = d.equippedFrameColor  ?? 'default';
     state.unlockedKitColors  = new Set(d.unlockedKitColors || ['default']);
     // fix123: relics must be restored BEFORE the force-unequip block below,
     // since itemPrestigeLocked() reads state.relics for the heirloom-frame
@@ -11299,8 +11668,21 @@ if(state._prestigeGearBenched){
 // <script> block that hasn't executed yet at this point in the file, so
 // this is deferred to DOMContentLoaded (same pattern fix59 uses) rather
 // than called inline here.
-if(state.equippedKitColor && state.equippedKitColor!=='default'){
-  const _applyBootKitColor=()=>applyKitColorToRider(state.equippedKitColor);
+// fix147: the guard used to test the jersey slot alone, so a save with a
+// default jersey but a recoloured helmet or bike frame skipped the boot pass
+// entirely and both came back in their source colours until the player next
+// touched a swatch. It now fires if ANY of the three slots is non-default,
+// read off KIT_COLOR_SLOTS so a fourth part needs no change here. All three
+// on 'default' still short-circuits — the engine's own default branch would
+// only reset to the CSS fallback the page already shows.
+const _bootColorSlotsSet=Object.keys(KIT_COLOR_SLOTS).some(part=>{
+  const v=state[KIT_COLOR_SLOTS[part]];
+  return !!v && v!=='default';
+});
+if(_bootColorSlotsSet){
+  // fix147: applyKitColorToRider reads all three slots from state itself
+  // (fix141); the legacy single-id argument is no longer passed.
+  const _applyBootKitColor=()=>applyKitColorToRider();
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded', _applyBootKitColor);
   } else {
@@ -11483,9 +11865,13 @@ const INFO_TEXTS = {
       Unused items spoil after 7 days, so don't overstock.`
   },
   // fix48: gear tab — kit colour picker
+  // fix142: copy rewritten for the three-slot picker — one shared wardrobe,
+  // three things to paint. Game voice, no mechanics language.
   kitColor: {
-    title: 'Kit Colour',
+    title: 'Colours',
     body: ()=>`Style points only — the peloton judges, the stopwatch doesn't.<br><br>
+      Unlock a colour once and it's yours for the jersey, the helmet and the frame.
+      Match them or clash them, your call.<br><br>
       Colours unlock by winning race type achievements.`
   },
   // fix49: calendar — grand tour card
@@ -11740,7 +12126,17 @@ function closeInfo(ev){
       // fix80: rider tab hero portrait.
       portrait:  'assets/portrait.png',
       // fix83: race tab hero avatar — JPEG rather than PNG, unlike the rest.
-      raceHero:  'assets/race-hero.jpg'
+      raceHero:  'assets/race-hero.jpg',
+      // fix144: animated sprint sheet (1568x308, 6 frames) — replaces the
+      // retired static sprint-pose.png, which was never in the recolour set.
+      sprint:    'assets/sprint.png',
+      // fix145: animated TT sheet (1568x308, 6 frames, gutters at the six-frame
+      // cuts). Same strip geometry as pedal.png and sprint.png.
+      tt:        'assets/tt.png',
+      // fix143: bike-tier idle stills. Only ONE of these is ever loaded in a
+      // given pass — see _rcSheetNamesFor().
+      idleMid:   'assets/idle-mid.png',
+      idleTop:   'assets/idle-top.png'
     };
   }
 
@@ -11810,17 +12206,71 @@ function closeInfo(ev){
     return {h:h, s:s};
   }
 
-  var RC_HUE_MIN = 160, RC_HUE_MAX = 195, RC_SAT_MIN = 0.15;
+  // fix139: the single teal window is now a keyed three-part table.
+  // Superseded (fix62): var RC_HUE_MIN = 160, RC_HUE_MAX = 195, RC_SAT_MIN = 0.15;
+  //
+  // Windows are measured off the shipped art (plan v3 §0) and are mutually
+  // non-overlapping, each ≥15° clear of its nearest occupied neighbour.
+  //
+  // lMin/lMax are NOT optional. HLS saturation is meaningless as L approaches
+  // 0 or 1: a near-white backdrop pixel such as rgb(255,254,252) computes to
+  // hue ~40° at S = 1.0 and would otherwise fall straight into a hue window.
+  // A pixel failing the lightness test is left untouched regardless of hue.
+  var RC_PARTS = {
+    kit:    {hMin:162, hMax:192, sMin:0.20, lMin:0.12, lMax:0.88}, // ~175° teal
+    helmet: {hMin:305, hMax:342, sMin:0.20, lMin:0.12, lMax:0.88}, // ~325° magenta
+    frame:  {hMin:100, hMax:140, sMin:0.20, lMin:0.12, lMax:0.88}  // ~120° green
+  };
+  var RC_PART_NAMES = ['kit','helmet','frame'];
   var RC_GREY_SAT_THRESHOLD = 0.08; // target S below this -> treat as grey ramp
 
-  // Recolours one sheet: loads `img`, remaps teal-hue pixels toward
-  // targetHex (preserving each pixel's own S and L), returns a data URL.
-  // Non-jersey pixels (skin, bike, background, alpha 0) are left untouched.
+  // fix139: normalises whatever the caller passed into a {kit,helmet,frame}
+  // map of hex-or-null. A bare hex string is the legacy kit-only form and is
+  // still honoured so nothing breaks mid-sequence; 'default' (or anything
+  // falsy) on a slot means "leave that part's source key colour alone".
+  // fix143: `idle` is an appended, optional field — the bike-tier idle sheet
+  // variant ('mid' / 'top'), or null for tier 1. It is not a colour and is not
+  // part of RC_PART_NAMES; it only selects which idle sheet the pass loads.
+  // Legacy bare-hex callers get null, i.e. base sheet only.
+  function _rcNormalizeTargets(targets){
+    var out = {kit:null, helmet:null, frame:null, idle:null};
+    if(typeof targets === 'string'){
+      if(targets && targets !== 'default') out.kit = targets;
+      return out;
+    }
+    if(targets && typeof targets === 'object'){
+      RC_PART_NAMES.forEach(function(p){
+        var v = targets[p];
+        if(typeof v === 'string' && v && v !== 'default') out[p] = v;
+      });
+      if(typeof targets.idle === 'string' && RC_IDLE_VARIANT_SHEETS[targets.idle]){
+        out.idle = targets.idle;
+      }
+    }
+    return out;
+  }
+
+  // fix139: cache / in-flight key is the combined triple, not a single hex.
+  // fix143: plus the idle sheet variant — two tiers on the same colour triple
+  // are different result sets, so they must not share a cache entry.
+  function _rcTargetsKey(t){
+    return (t.kit || 'default') + '|' + (t.helmet || 'default') + '|' + (t.frame || 'default')
+      + '|' + (t.idle || 'base');
+  }
+
+  // Recolours one sheet: loads `img`, remaps each keyed region (kit, helmet,
+  // frame) toward its own target hex, preserving each pixel's own lightness,
+  // and returns a data URL. Unkeyed pixels — skin, wheels, tyres, chainset,
+  // bars, saddle, background, alpha 0 — are left untouched.
+  // fix139: `targets` is a normalised {kit,helmet,frame} hex-or-null map
+  // rather than a single hex. One pass over the pixel buffer; the first
+  // matching window wins, so the windows must stay non-overlapping. A part
+  // left null is skipped entirely and keeps its source key colour.
   // fix62: entire body wrapped — a decode failure, a tainted/throwing canvas,
   // or an unexpected getImageData/toDataURL error anywhere in here must not
   // bubble up and break the caller. Returns null on any failure; the caller
   // treats null exactly like "sheet missing" and falls back to default.
-  function recolorSheet(img, targetHex){
+  function recolorSheet(img, targets){
     try{
       var canvas = document.createElement('canvas');
       canvas.width = img.naturalWidth;
@@ -11831,30 +12281,51 @@ function closeInfo(ev){
       var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       var data = imageData.data;
 
-      var targetHsl = hexToHsl(targetHex);
-      var useGreyRamp = targetHsl.s < RC_GREY_SAT_THRESHOLD;
+      // fix139: resolve each requested part once, up front. The grey-ramp
+      // decision is now per-part rather than global — a grey helmet next to a
+      // saturated jersey is a legal combination.
+      var active = [];
+      RC_PART_NAMES.forEach(function(p){
+        if(!targets || !targets[p]) return;
+        var win = RC_PARTS[p];
+        var hsl = hexToHsl(targets[p]);
+        active.push({
+          win: win,
+          h: hsl.h,
+          s: hsl.s,
+          grey: hsl.s < RC_GREY_SAT_THRESHOLD
+        });
+      });
+      if(active.length===0) return null; // nothing requested — caller falls back
 
       for(var i=0;i<data.length;i+=4){
         var a = data[i+3];
         if(a===0) continue;
+        // Recompute this pixel's own L here: it gates the window test (see
+        // the RC_PARTS comment) as well as feeding the grey-ramp and hue-swap
+        // paths below.
+        var r=data[i]/255, g=data[i+1]/255, b=data[i+2]/255;
+        var pxMax=Math.max(r,g,b), pxMin=Math.min(r,g,b);
+        var pxL=(pxMax+pxMin)/2;
         var hs = _rcRgbToHueSat(data[i], data[i+1], data[i+2]);
-        if(hs.h>=RC_HUE_MIN && hs.h<=RC_HUE_MAX && hs.s>RC_SAT_MIN){
-          // Recompute this pixel's own L so the grey-ramp path (and the
-          // normal hue-swap path) both work from freshly-derived lightness.
-          var r=data[i]/255, g=data[i+1]/255, b=data[i+2]/255;
-          var pxMax=Math.max(r,g,b), pxMin=Math.min(r,g,b);
-          var pxL=(pxMax+pxMin)/2;
+        for(var p2=0;p2<active.length;p2++){
+          var part = active[p2];
+          var w = part.win;
+          if(hs.h < w.hMin || hs.h > w.hMax) continue;
+          if(hs.s <= w.sMin) continue;
+          if(pxL < w.lMin || pxL > w.lMax) continue;
           var rgb;
-          if(useGreyRamp){
+          if(part.grey){
             var gv = Math.round(pxL*255);
             rgb = {r:gv, g:gv, b:gv};
           } else {
-            rgb = hslToRgb(targetHsl.h, targetHsl.s, pxL);
+            rgb = hslToRgb(part.h, part.s, pxL);
           }
           data[i]   = rgb.r;
           data[i+1] = rgb.g;
           data[i+2] = rgb.b;
           // alpha (data[i+3]) untouched
+          break; // first matching window wins
         }
       }
 
@@ -11866,24 +12337,79 @@ function closeInfo(ev){
     }
   }
 
-  var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','portrait','raceHero'];
+  // fix144: 'sprint' joins the always-on set rather than going lazy like the
+  // bike-tier idles. It is unconditionally reachable — every road/crit race
+  // ends in a sprint — so deferring it would just move the same work to the
+  // worst possible moment, mid-race at the finish, where a late var() swap
+  // would flash the un-recoloured kit. Seven always-on sheets, plus at most
+  // one lazy tier idle.
+  // fix145: 'tt' joins the always-on set for the same reason fix144 gave for
+  // 'sprint' — it is not conditionally reachable in any useful sense (the
+  // player can start a TT, or a Grand Tour TT stage, at any moment) and a lazy
+  // load would swap the var() mid-race and flash un-recoloured kit. Eight
+  // always-on sheets, plus at most one lazy tier idle.
+  var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','portrait','raceHero','sprint','tt'];
   var RC_VAR_NAMES = {
     pedal: '--sheet-pedal',
     idle: '--sheet-idle',
     victory: '--sheet-victory',
     exhausted: '--sheet-exhausted',
     portrait: '--sheet-portrait',
-    raceHero: '--sheet-race-hero'
+    raceHero: '--sheet-race-hero',
+    // fix144: animated sprint sheet.
+    sprint: '--sheet-sprint',
+    // fix145: animated TT sheet.
+    tt: '--sheet-tt',
+    // fix143: bike-tier idle stills.
+    idleMid: '--sheet-idle-mid',
+    idleTop: '--sheet-idle-top'
   };
 
-  // Session cache: { '#c0392b': { pedal:dataURL, idle:dataURL, ... }, ... }
-  var _rcCache = {};
+  // fix143: RC_SHEET_NAMES above is the always-on set. The bike-tier idle
+  // stills are lazy: a pass loads only the sheet for the tier currently
+  // equipped, so the work stays at seven sheets instead of nine. The variant
+  // arrives on the targets object as `idle:'mid'|'top'|null` and is part of
+  // the cache key, so switching tier is a fresh key rather than a stale hit.
+  // An unknown variant is dropped (base sheet only) rather than throwing.
+  var RC_IDLE_VARIANT_SHEETS = { mid:'idleMid', top:'idleTop' };
 
-  // fix62: tracks colour hexes that currently have a load/recolour run in
-  // flight, so a double-run during boot (e.g. applyKitColorToRider firing
+  function _rcSheetNamesFor(variant){
+    var extra = variant ? RC_IDLE_VARIANT_SHEETS[variant] : null;
+    return extra ? RC_SHEET_NAMES.concat([extra]) : RC_SHEET_NAMES.slice();
+  }
+
+  // Session cache, keyed on the combined triple:
+  // { '#c0392b|default|#2e8b3a': { pedal:dataURL, idle:dataURL, ... }, ... }
+  // fix139: the key space is 12³ now that three slots draw from the same
+  // 12-colour pool, so a player flicking through swatches would otherwise
+  // accumulate unbounded data URLs. Capped at RC_CACHE_MAX with a simple
+  // LRU: _rcCacheOrder holds keys oldest-first, the oldest is evicted on
+  // overflow, and a cache hit moves its key to the back.
+  var _rcCache = {};
+  var _rcCacheOrder = [];
+  var RC_CACHE_MAX = 12;
+
+  function _rcCacheTouch(key){
+    var at = _rcCacheOrder.indexOf(key);
+    if(at !== -1) _rcCacheOrder.splice(at, 1);
+    _rcCacheOrder.push(key);
+  }
+
+  function _rcCachePut(key, results){
+    _rcCache[key] = results;
+    _rcCacheTouch(key);
+    while(_rcCacheOrder.length > RC_CACHE_MAX){
+      var evict = _rcCacheOrder.shift();
+      delete _rcCache[evict];
+    }
+  }
+
+  // fix62: tracks colour combinations that currently have a load/recolour run
+  // in flight, so a double-run during boot (e.g. applyKitColorToRider firing
   // more than once before the first async run finishes) doesn't kick off
-  // duplicate Image loads and duplicate canvas work for the same hex. This
-  // does not block *different* hexes running concurrently.
+  // duplicate Image loads and duplicate canvas work for the same combination.
+  // fix139: keyed on the same triple as the cache. This does not block
+  // *different* combinations running concurrently.
   var _rcInFlight = {};
 
   // Loads all 4 originals once, recolours each to targetHex, and applies
@@ -11892,20 +12418,37 @@ function closeInfo(ev){
   // session so repeat calls with the same hex are instant. Runs fully async
   // and never blocks first paint — a brief teal flash on load while this
   // resolves is expected and fine.
-  function recolorRiderSheets(targetHex){
+  function recolorRiderSheets(targetArg){
+    var key = 'default|default|default';
     try{
-      if(_rcCache[targetHex]){
-        applyCachedSheets(_rcCache[targetHex]);
+      // fix139: accepts {kit,helmet,frame} or, for the legacy kit-only
+      // callers, a bare hex string.
+      var targets = _rcNormalizeTargets(targetArg);
+      key = _rcTargetsKey(targets);
+
+      // All three slots on default — nothing to recolour, so drop straight
+      // back to the CSS var() fallback sheets rather than burning a canvas
+      // pass producing byte-identical copies.
+      if(!targets.kit && !targets.helmet && !targets.frame){
+        resetRiderSheets();
         return;
       }
-      if(_rcInFlight[targetHex]) return; // fix62: same-hex run already in progress
-      _rcInFlight[targetHex] = true;
+
+      if(_rcCache[key]){
+        _rcCacheTouch(key);
+        applyCachedSheets(_rcCache[key]);
+        return;
+      }
+      if(_rcInFlight[key]) return; // fix62: same-combination run already in progress
+      _rcInFlight[key] = true;
 
       var sheets = _rcSheetSources(); // fix136: static assets/ paths
       var results = {};
-      var pending = RC_SHEET_NAMES.length;
+      // fix143: the always-on set plus at most one bike-tier idle sheet.
+      var names = _rcSheetNamesFor(targets.idle);
+      var pending = names.length;
 
-      RC_SHEET_NAMES.forEach(function(name){
+      names.forEach(function(name){
         var uri = sheets[name];
         if(!uri){
           pending--;
@@ -11919,7 +12462,7 @@ function closeInfo(ev){
         var img = new Image();
         img.onload = function(){
           try{
-            results[name] = recolorSheet(img, targetHex);
+            results[name] = recolorSheet(img, targets);
           }catch(e){
             results[name] = null;
             console.warn('[jersey-recolour][fix136] recolour failed for sheet', name, e);
@@ -11937,31 +12480,33 @@ function closeInfo(ev){
       });
 
       function finish(){
-        _rcInFlight[targetHex] = false;
+        _rcInFlight[key] = false;
         // fix62: if every sheet failed to produce a usable result, don't
         // cache/apply an all-null set — fall back to the default rider so
         // the game stays playable rather than showing a half-broken state.
-        var anyUsable = RC_SHEET_NAMES.some(function(n){ return !!results[n]; });
+        var anyUsable = names.some(function(n){ return !!results[n]; });
         if(!anyUsable){
-          console.warn('[jersey-recolour][fix62] all sheets failed for', targetHex, '— falling back to default rider');
+          console.warn('[jersey-recolour][fix62] all sheets failed for', key, '— falling back to default rider');
           resetRiderSheets();
           return;
         }
-        _rcCache[targetHex] = results;
+        _rcCachePut(key, results); // fix139: LRU-capped store
         applyCachedSheets(results);
       }
     }catch(e){
       // fix62: any unexpected synchronous throw (e.g. CSS scraping itself
       // failing) must still leave a playable, default-coloured game.
-      _rcInFlight[targetHex] = false;
+      _rcInFlight[key] = false;
       console.warn('[jersey-recolour][fix62] recolorRiderSheets failed, resetting to default:', e);
       resetRiderSheets();
     }
   }
 
+  // fix143: driven off the results set rather than RC_SHEET_NAMES, so a cached
+  // entry that includes a bike-tier idle sheet applies that sheet too.
   function applyCachedSheets(results){
-    RC_SHEET_NAMES.forEach(function(name){
-      if(results[name]){
+    Object.keys(results).forEach(function(name){
+      if(results[name] && RC_VAR_NAMES[name]){
         document.documentElement.style.setProperty(RC_VAR_NAMES[name], 'url(' + results[name] + ')');
       }
     });
@@ -11974,7 +12519,10 @@ function closeInfo(ev){
   // must not itself be able to throw and leave things worse off.
   function resetRiderSheets(){
     try{
-      RC_SHEET_NAMES.forEach(function(name){
+      // fix143: iterates RC_VAR_NAMES, not RC_SHEET_NAMES, so a bike-tier idle
+      // var set by an earlier pass is cleared too — otherwise a stale
+      // recoloured tier sheet would survive a reset to default colours.
+      Object.keys(RC_VAR_NAMES).forEach(function(name){
         document.documentElement.style.removeProperty(RC_VAR_NAMES[name]);
       });
     }catch(e){
@@ -11982,9 +12530,262 @@ function closeInfo(ev){
     }
   }
 
-  // Console-only for now (fix61 wires this to the Gear tab picker).
+  // fix61 wires this to the Gear tab picker.
+  // fix139: takes {kit, helmet, frame} — each a hex or 'default'. A bare hex
+  // string is still accepted as the kit-only form.
+  //   _rcRecolorRiderSheets({kit:'#a32d2d', helmet:'#185fa5', frame:'#b8860b'})
+  // fix143: optional appended `idle:'mid'|'top'` selects the bike-tier idle
+  // still to include in the pass; omitted or null means tier 1 (base sheet).
+  //   _rcRecolorRiderSheets({kit:'#a32d2d', helmet:'#185fa5', frame:'#b8860b', idle:'top'})
   window._rcRecolorRiderSheets = recolorRiderSheets;
   window._rcResetRiderSheets = resetRiderSheets;
+  // fix149: read-only handle on the live detection table for the skin-safety
+  // regression check below. Exported rather than duplicated so the check can
+  // never pass against a stale copy of the windows — if RC_PARTS is edited,
+  // the check re-measures against the edit. Nothing writes through this.
+  window._rcParts = RC_PARTS;
+})();
+</script>
+
+<!-- fix149: skin-safety regression check (console-only, debug-gated).
+     Replaces the fix138 three-window diagnostic, which was temporary and
+     marked for deletion here. Nothing in this block writes game state, sets
+     a CSS var, or touches the DOM beyond a throwaway canvas, and nothing
+     runs unless the debug flag is set — see RC149_FLAG below.
+
+     WHY THE PLANNED ASSERTION CHANGED (plan v3 §4 fix149):
+     the plan specified "assert the frame window catches zero pixels in the
+     known skin L band (0.55-0.85)". That was written when the frame key was
+     burnt orange and overlapped skin in HUE, so lightness was the only thing
+     separating them. The fix140 re-key moved the frame to ~120° green, and
+     the overlap is gone: skin sits at 5-22°, the frame window at 100-140°,
+     115° clear. What the frame window does still catch in 0.55-0.85 is green
+     frame HIGHLIGHTS — 364 sampled px on idle.png, S~0.75, correct art doing
+     exactly what it should. Asserted as written, this check would fail loudly
+     on clean sheets every boot and be switched off within a day.
+
+     Restated as a hue check, which is what the plan was actually defending:
+     no pixel that reads as SKIN (H 5-22, S>0.20, L 0.55-0.85) may fall inside
+     any part window. That is the condition that would have caught the v2
+     blocker, it is 0 on all six shipped sheets, and it stays meaningful if a
+     future dark-skinned rider option or a shadow pass moves skin lightness —
+     which the lightness form would not. -->
+<script>
+(function(){
+  'use strict';
+
+  // Hard-gated: the check costs a full pixel walk per sheet and is worth
+  // nothing to a player. It runs only when explicitly asked for.
+  //   localStorage.setItem('rcSkinCheck','1')  -> runs on next boot
+  //   _rcSkinSafetyCheck()                     -> runs now, returns a promise
+  var RC149_FLAG = 'rcSkinCheck';
+
+  // The skin band, measured off the shipped art (plan v3 §0, Finding 3).
+  // Deliberately WIDER on lightness than the measured 0.60-0.80 so the check
+  // still fires on art that shades a little darker or lighter than today's.
+  var RC149_SKIN = {hMin:5, hMax:22, sMin:0.20, lMin:0.55, lMax:0.85};
+
+  // Occupancy floor per part, per sheet (plan v3 §1 gate). A sheet whose
+  // frame window collapses to near-nothing has almost certainly lost its
+  // re-key, which reads as "the frame stopped recolouring" in play.
+  var RC149_MIN_PART_PX = 300;
+
+  // Every sheet the recolour pass can reach. Absent files are skipped, not
+  // failed — the bike-tier idles are lazy and one of them is legitimately
+  // never loaded. fix148 FINDING 2 is open: the handover named these
+  // idlemid.png / idletop.png whilst the code expects idle-mid / idle-top,
+  // so both spellings are probed and whichever answers is measured.
+  var RC149_SHEETS = [
+    ['pedal',     'assets/pedal.png'],
+    ['idle',      'assets/idle.png'],
+    ['victory',   'assets/victory.png'],
+    ['exhausted', 'assets/exhausted.png'],
+    ['portrait',  'assets/portrait.png'],
+    ['raceHero',  'assets/race-hero.jpg'],
+    ['sprint',    'assets/sprint.png'],
+    ['tt',        'assets/tt.png'],
+    ['idleMid',   'assets/idle-mid.png'],
+    ['idleMid*',  'assets/idlemid.png'],
+    ['idleTop',   'assets/idle-top.png'],
+    ['idleTop*',  'assets/idletop.png']
+  ];
+
+  // Same math as the engine's _rcRgbToHueSat, plus L, so a pixel classified
+  // here is classified exactly as recolorSheet would classify it.
+  function rc149Hsl(r, g, b){
+    r/=255; g/=255; b/=255;
+    var max = Math.max(r,g,b), min = Math.min(r,g,b);
+    var d = max - min;
+    var l = (max+min)/2;
+    var s = d===0 ? 0 : d/(1-Math.abs(2*l-1));
+    var h = 0;
+    if(d!==0){
+      switch(max){
+        case r: h = ((g-b)/d) % 6; break;
+        case g: h = (b-r)/d + 2; break;
+        case b: h = (r-g)/d + 4; break;
+      }
+      h *= 60;
+      if(h<0) h += 360;
+    }
+    return {h:h, s:s, l:l};
+  }
+
+  function rc149InWindow(px, w){
+    if(px.h < w.hMin || px.h > w.hMax) return false;
+    if(px.s <= w.sMin) return false;
+    if(px.l < w.lMin || px.l > w.lMax) return false;
+    return true;
+  }
+
+  function rc149LoadImage(uri){
+    return new Promise(function(resolve){
+      var img = new Image();
+      img.onload = function(){ resolve(img); };
+      img.onerror = function(){ resolve(null); };
+      img.src = uri;
+    });
+  }
+
+  // Returns null if the pixels cannot be read at all (tainted canvas under
+  // file://), which is a skip, not a failure.
+  function rc149Measure(img, parts, names){
+    var canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    var ctx = canvas.getContext('2d');
+    if(!ctx) return null;
+    ctx.drawImage(img, 0, 0);
+    var data;
+    try{
+      data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    }catch(e){
+      console.warn('[fix149] pixel read blocked (tainted canvas under file://?):', e);
+      return null;
+    }
+
+    var res = {
+      w: canvas.width, h: canvas.height,
+      counts: {}, dual: 0, skin: 0, skinInWindow: {}
+    };
+    names.forEach(function(p){ res.counts[p] = 0; res.skinInWindow[p] = 0; });
+
+    // Every 2nd pixel on both axes, alpha>=128 — the fix138/fix148 sampling
+    // pattern, so the counts printed here are comparable with the fix148
+    // audit numbers in the file header.
+    var stride = 4 * 2;
+    for(var y=0; y<canvas.height; y+=2){
+      var row = y * canvas.width * 4;
+      for(var i=row; i<row + canvas.width*4; i+=stride){
+        if(data[i+3] < 128) continue;
+        var px = rc149Hsl(data[i], data[i+1], data[i+2]);
+        var hits = 0, hitName = null;
+        for(var n=0; n<names.length; n++){
+          if(rc149InWindow(px, parts[names[n]])){ hits++; hitName = names[n]; res.counts[names[n]]++; }
+        }
+        if(hits > 1) res.dual++;
+        if(rc149InWindow(px, RC149_SKIN)){
+          res.skin++;
+          // ASSERTION 2, restated as hue: a skin-reading pixel inside ANY
+          // part window means that part's key has drifted into skin and the
+          // recolour will repaint the rider's arms and face.
+          if(hits > 0) res.skinInWindow[hitName]++;
+        }
+      }
+    }
+    return res;
+  }
+
+  function rc149Run(){
+    var parts = window._rcParts;
+    if(!parts){
+      console.warn('[fix149] _rcParts not exported — recolour engine did not initialise. Nothing to check.');
+      return Promise.resolve(false);
+    }
+    var names = Object.keys(parts);
+    console.log('%c[fix149] skin-safety regression check — no visual change', 'font-weight:bold');
+    console.log('[fix149] part windows:', JSON.stringify(parts));
+    console.log('[fix149] skin band:', JSON.stringify(RC149_SKIN));
+
+    var failures = [];
+    var measured = 0;
+    var seq = Promise.resolve();
+
+    RC149_SHEETS.forEach(function(rec){
+      seq = seq.then(function(){
+        return rc149LoadImage(rec[1]).then(function(img){
+          if(!img) return;
+          var r;
+          try{
+            r = rc149Measure(img, parts, names);
+          }catch(e){
+            console.warn('[fix149] measurement threw for', rec[0], e);
+            return;
+          }
+          if(!r) return;
+          measured++;
+
+          var line = names.map(function(p){ return p + ' ' + r.counts[p]; }).join('  ');
+          console.log('[fix149] ' + rec[0] + '  ' + r.w + 'x' + r.h + '  ' + line +
+            '  skin ' + r.skin);
+
+          // ASSERTION 1 — the windows must stay mutually exclusive; the
+          // engine's "first matching window wins" is only safe if they are.
+          if(r.dual > 0){
+            failures.push(rec[0] + ': ' + r.dual + ' px match two part windows');
+          }
+          // ASSERTION 2 — see the block comment. Hue-based, not L-based.
+          names.forEach(function(p){
+            if(r.skinInWindow[p] > 0){
+              failures.push(rec[0] + ': ' + r.skinInWindow[p] +
+                ' skin-tone px inside the ' + p + ' window');
+            }
+          });
+          // ASSERTION 3 — occupancy floor. Only meaningful on sheets that
+          // show a rider on a bike; a head-and-shoulders portrait has no
+          // frame in it at all, so an empty window there is expected. Warn
+          // rather than fail, and let the reader judge.
+          names.forEach(function(p){
+            if(r.counts[p] > 0 && r.counts[p] < RC149_MIN_PART_PX){
+              console.warn('[fix149] ' + rec[0] + ': only ' + r.counts[p] +
+                ' px in the ' + p + ' window — re-key may have been partial.');
+            }
+          });
+        });
+      });
+    });
+
+    return seq.then(function(){
+      if(measured === 0){
+        console.warn('[fix149] no sheets readable — nothing was checked.');
+        return false;
+      }
+      if(failures.length){
+        console.error('%c[fix149] FAIL — ' + failures.length + ' assertion(s) tripped across ' +
+          measured + ' sheet(s):', 'font-weight:bold;color:#c0392b');
+        failures.forEach(function(f){ console.error('  [fix149] ' + f); });
+        console.error('[fix149] A skin-tone hit means a part key has drifted into skin: the ' +
+          'recolour will repaint arms and face. Re-key the art — do not widen the window.');
+        return false;
+      }
+      console.log('%c[fix149] PASS — ' + measured + ' sheet(s), no window overlap, no skin-tone ' +
+        'pixel inside any part window.', 'font-weight:bold;color:#2e8b3a');
+      return true;
+    });
+  }
+
+  // Always available from the console; auto-runs only behind the flag, and
+  // then deferred so it never competes with first paint.
+  window._rcSkinSafetyCheck = rc149Run;
+  var armed = false;
+  try{ armed = localStorage.getItem(RC149_FLAG) === '1'; }catch(e){ armed = false; }
+  if(armed){
+    if(window.requestIdleCallback){
+      requestIdleCallback(function(){ rc149Run(); }, {timeout:4000});
+    } else {
+      setTimeout(function(){ rc149Run(); }, 2500);
+    }
+  }
 })();
 </script>
 
