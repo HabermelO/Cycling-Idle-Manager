@@ -616,6 +616,31 @@ button{font-family:inherit;cursor:pointer;}
   padding:11px 28px;font-size:.9rem;font-weight:700;cursor:pointer;}
 @keyframes rs-pop-glow{0%,100%{box-shadow:0 0 0 6px rgba(63,196,107,.16),0 0 30px 8px rgba(63,196,107,.5);}
   50%{box-shadow:0 0 0 9px rgba(63,196,107,.26),0 0 44px 14px rgba(63,196,107,.75);}}
+/* fix157: Rider Skills hero banners — one per drill overlay, sitting at the top
+   of the board above the score row. Same 120px height / radius / margin
+   conventions as .ws-game-banner so the drills read as siblings of the workshop
+   mini-games. No url() fallback, exactly as fix137 established: the var is
+   undefined until lazyLoadAssetGroup('riderskills') binds it in
+   startRiderSkillGame(), so nothing is fetched on page load. Decorative only —
+   never read by game logic. */
+.rs-hero{position:relative;height:120px;overflow:hidden;border-radius:var(--radius);
+  border:1px solid var(--border);margin-bottom:8px;background:var(--bg3);}
+.rs-hero-img{position:absolute;inset:0;background-size:cover;background-position:center;}
+.rs-hero-img.fz{background-image:var(--sheet-rs-fz);}
+.rs-hero-img.sl{background-image:var(--sheet-rs-sl);}
+.rs-hero-img.wt{background-image:var(--sheet-rs-wt);}
+/* fix157: per-drill win photo inside the existing .rs-pop-medal. The medallion
+   keeps its border, ring and rs-pop-glow animation — the photo simply fills the
+   circle, so the celebration matches the gut-training one. Hidden by default;
+   rsShowSuccessPop() promotes data-src to src the first time a drill is won and
+   falls back to the inline icon if a game has no image. */
+.rs-pop-photo{display:none;width:100%;height:100%;object-fit:cover;border-radius:50%;}
+/* No overflow:hidden here on purpose — the three sparkle glyphs are absolutely
+   positioned outside the circle and clipping them would kill the effect. The
+   img carries its own border-radius:50% instead. */
+.rs-pop-medal.has-photo{background:var(--bg3);}
+.rs-pop-medal.has-photo .rs-pop-photo{display:block;}
+.rs-pop-medal.has-photo #rs-pop-icon{display:none;}
 /* Locked drill card. The greying is cosmetic only — the lockout itself is
    enforced in rsIsLocked(), checked in startRiderSkillGame() and again at the
    top of each game's own start function. */
@@ -744,11 +769,30 @@ button{font-family:inherit;cursor:pointer;}
 .wt-brief b{color:var(--txt);}
 /* Live feedback line. Colour swaps via a class, not an inline style, so the
    three states are declared in one place. */
+/* fix156: the feedback line is the only thing telling the rider which way to
+   move the sliders, and at 13px plain text it was being missed while their
+   eyes were on the canvas. Now 16px in a tinted box.
+   The box is on the BASE rule, not just the alert states, so the element's
+   height never changes as the state flips — a box that appears and
+   disappears would shunt the sliders up and down mid-drag, which is worse
+   than the small-text problem being fixed.
+   warn and bad both take the red tint: both mean "your position needs
+   adjusting", which is the distinction the box is there to signal. The
+   amber/red text colours still separate the two severities within that.
+   Tombstoned original below (house style: comment out, don't delete).
 .wt-feedback{margin-top:8px;text-align:center;font-size:13px;font-weight:700;
   min-height:19px;color:var(--txt3);transition:color .25s;}
 .wt-feedback.good{color:var(--green-txt);}
 .wt-feedback.warn{color:var(--amber-txt);}
 .wt-feedback.bad{color:var(--red-txt);}
+*/
+.wt-feedback{margin-top:8px;text-align:center;font-size:16px;font-weight:700;
+  line-height:1.35;min-height:22px;padding:8px 10px;border-radius:var(--radius);
+  border:1px solid var(--border);background:var(--bg2);color:var(--txt3);
+  transition:color .25s,background-color .25s,border-color .25s;}
+.wt-feedback.good{color:var(--green-txt);background:var(--green-bg);border-color:var(--green-bd);}
+.wt-feedback.warn{color:var(--amber-txt);background:var(--red-bg);border-color:var(--red-bd);}
+.wt-feedback.bad{color:var(--red-txt);background:var(--red-bg);border-color:var(--red-bd);}
 /* Sliders. The three inputs are the whole control surface, so they get a
    generous 30px touch height rather than the browser default. */
 .wt-sliders{margin-top:10px;}
@@ -2189,6 +2233,9 @@ button{font-family:inherit;cursor:pointer;}
     <button id="fz-quit-btn" class="fz-quit" onclick="requestQuitFeedZone()">Quit</button>
   </div>
   <div class="fz-board">
+    <!-- fix157: drill hero banner, same slot as .ws-game-banner in the workshop
+         mini-games. Decorative only. -->
+    <div class="rs-hero"><div class="rs-hero-img fz"></div></div>
     <div class="fz-row">
       <span>Time: <span id="fz-time">30</span>s</span>
       <span>Carbs: <span id="fz-score">0</span>g</span>
@@ -2226,6 +2273,8 @@ button{font-family:inherit;cursor:pointer;}
     <button id="sl-quit-btn" class="sl-quit" onclick="requestQuitSlipstream()">Quit</button>
   </div>
   <div class="sl-board">
+    <!-- fix157: drill hero banner. Decorative only. -->
+    <div class="rs-hero"><div class="rs-hero-img sl"></div></div>
     <div class="sl-row">
       <span>Time: <span id="sl-time">60</span>s</span>
       <span>Shelter: <span id="sl-score">0</span></span>
@@ -2266,6 +2315,8 @@ button{font-family:inherit;cursor:pointer;}
     <button id="wt-quit-btn" class="wt-quit" onclick="requestQuitWindTunnel()">Quit</button>
   </div>
   <div class="wt-board">
+    <!-- fix157: drill hero banner. Decorative only. -->
+    <div class="rs-hero"><div class="rs-hero-img wt"></div></div>
     <div class="wt-row">
       <span>Time: <span id="wt-time">30</span>s</span>
       <span>Clean air: <span id="wt-score">0</span>%</span>
@@ -2340,6 +2391,10 @@ button{font-family:inherit;cursor:pointer;}
       <span class="rs-pop-sparkle s2">✨</span>
       <span class="rs-pop-sparkle s3">✨</span>
       <span id="rs-pop-icon"></span>
+      <!-- fix157: per-drill win photo. src deferred to data-src and promoted by
+           rsShowSuccessPop() the first time that drill is won, so none of the
+           three files is fetched until it is actually shown. -->
+      <img id="rs-pop-photo" class="rs-pop-photo" alt="">
     </div>
     <div id="rs-pop-title" class="rs-pop-title">Nailed it</div>
     <div id="rs-pop-sub" class="rs-pop-sub"></div>
@@ -6952,6 +7007,15 @@ const LAZY_ASSET_GROUPS = {
   gut: {
     '--sheet-gt-drinks': 'assets/gt-drinks.jpg',
     '--sheet-gt-carbs':  'assets/gt-carbs.jpg'
+  },
+  // fix157: the three drill hero banners. Bound by startRiderSkillGame() on the
+  // first drill launch. The win photos are NOT here — they are <img> elements
+  // promoted from data-src inside rsShowSuccessPop(), so a player who never
+  // wins a drill never downloads them.
+  riderskills: {
+    '--sheet-rs-fz': 'assets/feedzone-scramble.jpg',
+    '--sheet-rs-sl': 'assets/slipstream.jpg',
+    '--sheet-rs-wt': 'assets/wind-tunnel.jpg'
   }
 };
 const _lazyGroupsLoaded = {};
@@ -10109,6 +10173,14 @@ const RS_WIN_COPY={
   sl:{title:'Wheel held',        sub:'The next hour of training is going to stick harder.'},
   wt:{title:'Position dialled',  sub:'You will carry that tuck into your next race.'},
 };
+// fix157: per-drill win photo, shown inside the existing medallion so the
+// celebration matches the gut-training one. A drill with no entry here simply
+// keeps the inline icon — the pop-up must never depend on artwork existing.
+const RS_WIN_IMG={
+  fz:'assets/feedzone-scramble-win.jpg',
+  sl:'assets/slipstream-win.jpg',
+  wt:'assets/wind-tunnel-win.jpg'
+};
 let _rsSuccessPopTimer=null;
 function rsShowSuccessPop(gameId){
   const pop=document.getElementById('rs-success-pop');
@@ -10132,6 +10204,25 @@ function rsShowSuccessPop(gameId){
     if(ti) ti.textContent=c.title;
     if(su) su.textContent=c.sub;
   }catch(e){ console.warn('rsShowSuccessPop: copy fill failed', e); }
+  // fix157: photo fill kept in its own try/catch, separate from the copy fill
+  // above — a failure here must not cost the player the title and sub-line, and
+  // a failure there must not cost them the picture. Both sit ahead of the
+  // display='flex' line, per the fix116/fix126 ordering rule.
+  try{
+    const medal=document.querySelector('#rs-success-pop .rs-pop-medal');
+    const ph=document.getElementById('rs-pop-photo');
+    const src=RS_WIN_IMG[gameId];
+    if(medal && ph && src){
+      // Deferred load: the file is only requested the first time this drill is
+      // actually won. Re-assigning the same src on later wins is a cache hit.
+      if(ph.getAttribute('src')!==src) ph.setAttribute('src', src);
+      ph.alt='';
+      medal.classList.add('has-photo');
+    }else if(medal){
+      // No artwork for this drill — fall back to the inline medallion icon.
+      medal.classList.remove('has-photo');
+    }
+  }catch(e){ console.warn('rsShowSuccessPop: photo fill failed', e); }
   pop.style.display='flex';
   clearTimeout(_rsSuccessPopTimer);
   _rsSuccessPopTimer=setTimeout(rsCloseSuccessPop,3200);
@@ -10294,6 +10385,9 @@ function startRiderSkillGame(gameId){
   // fix155: hard lockout, enforced here rather than trusted to the disabled
   // attribute on the hub button.
   if(!rsCanStart(gameId)){ renderRiderSkillsHub(); return; }
+  // fix157: bind the drill art before the overlay is made visible, so the first
+  // paint of the board already carries its background-image declaration.
+  lazyLoadAssetGroup('riderskills');
   if(gameId==='fz'){ closeRiderSkillsHub(); openFeedZone(); return; }
   if(gameId==='sl'){ closeRiderSkillsHub(); openSlipstream(); return; }
   if(gameId==='wt'){ closeRiderSkillsHub(); openWindTunnel(); return; }
@@ -10318,7 +10412,7 @@ const FZ_ITEM_SIZE    = 44;   // must match .fz-gel/.fz-bidon/.fz-tack width
 // one is taken and every hazard left. 150g is a shade under half of that —
 // deliberately reachable on a first attempt, since the reward is 30 minutes.
 // PROVISIONAL: retune on playtest before fix155.
-const FZ_THRESHOLD    = 150;
+const FZ_THRESHOLD    = 250; // fix156: raised from 150g
 const FZ_BUFF_MULT    = 2;
 const FZ_BUFF_MS      = 30*60*1000;
 
@@ -10538,7 +10632,7 @@ const SL_DRAFT_W      = 60;
 // asks for roughly two thirds of the minute spent sheltered — reachable on a
 // first attempt but not on a drifting one.
 // PROVISIONAL: retune on playtest before fix155.
-const SL_THRESHOLD    = 6000;
+const SL_THRESHOLD    = 11000; // fix156: raised from 6000 — 6000 was clearing on a loose hold
 const SL_BUFF_PCT     = 10;
 const SL_BUFF_MS      = 60*60*1000;
 
