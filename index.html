@@ -560,6 +560,206 @@ button{font-family:inherit;cursor:pointer;}
 .race-overlay-continue-btn{width:100%;padding:13px;border-radius:var(--radius-lg);border:none;cursor:pointer;
   background:var(--accent-grad);color:#fff;font-size:15px;font-weight:700;margin-top:14px;box-shadow:var(--shadow-sm);}
 .race-overlay-continue-btn:active{opacity:.85;}
+/* fix150: Rider Skills Training. Same overlay tier as .race-overlay/.gt-overlay
+   (1800) — Train tab only, never open alongside a race or a gut game. All rules
+   scoped under .rs- so nothing here can leak into other tabs. */
+.rs-overlay{position:fixed;inset:0;height:100dvh;z-index:1800;background:var(--bg);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(env(safe-area-inset-top) + 12px) 1rem calc(1rem + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:center;}
+.rs-overlay-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;max-width:340px;margin-bottom:.75rem;font-size:16px;font-weight:700;}
+.rs-overlay-close{background:var(--bg2);color:var(--txt2);border:.5px solid var(--border);
+  border-radius:99px;padding:6px 14px;font-size:13px;font-weight:700;}
+.rs-overlay-body{width:100%;max-width:340px;}
+.rs-game-card{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-lg);
+  padding:14px;margin-bottom:10px;}
+.rs-game-title{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:700;color:var(--txt);}
+.rs-game-desc{font-size:12.5px;color:var(--txt3);margin-top:4px;line-height:1.45;}
+.rs-game-meta{display:flex;justify-content:space-between;font-size:11.5px;color:var(--txt3);margin-top:8px;}
+.rs-game-btn{width:100%;margin-top:10px;background:var(--green-txt);color:#fff;border:none;
+  border-radius:var(--radius);padding:11px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;}
+.rs-game-btn:disabled{background:var(--bg);color:var(--txt3);border:.5px solid var(--border);cursor:default;}
+/* Countdown pills. Rendered once per open/refresh; only the .rs-pill-time
+   textContent is patched on the tick — never the pill's innerHTML. */
+.rs-pill-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:.55rem;}
+.rs-pill{display:inline-flex;align-items:center;gap:5px;background:var(--bg);
+  border:.5px solid var(--border);border-radius:99px;padding:4px 10px;
+  font-size:11.5px;font-weight:700;color:var(--txt2);}
+.rs-pill-time{color:var(--green-txt);font-variant-numeric:tabular-nums;}
+.rs-none{font-size:12px;color:var(--txt3);margin-top:.5rem;}
+/* fix155: shared success celebration for all three drills. Reuses the fix112
+   .gut-success-pop structure and its keyframes (gut-pop-fade / gut-pop-in /
+   gut-pop-glow / gut-pop-sparkle) rather than duplicating them — one animation
+   vocabulary for every celebration in the game. The medallion holds an inline
+   icon instead of a JPEG: there is no per-drill artwork, and a 180px image per
+   game would be three new base64 payloads for one pop-up. Sits at z-index 1900,
+   above the 1800 game overlays, same as the gut pop. */
+.rs-pop{position:fixed;inset:0;z-index:1900;display:flex;align-items:center;
+  justify-content:center;background:rgba(9,13,22,.72);animation:gut-pop-fade .25s ease;}
+.rs-pop-card{position:relative;width:min(78vw,300px);text-align:center;}
+.rs-pop-medal{position:relative;width:150px;height:150px;margin:0 auto 14px;
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 35%,#2b2f3a,#12151d);
+  border:3px solid var(--green-txt);
+  box-shadow:0 0 0 6px rgba(63,196,107,.16),0 0 30px 8px rgba(63,196,107,.5);
+  animation:gut-pop-in .4s cubic-bezier(.34,1.56,.64,1),rs-pop-glow 1.6s ease-in-out infinite .4s;}
+.rs-pop-medal .icn{width:64px;height:64px;color:var(--green-txt);}
+.rs-pop-sparkle{position:absolute;font-size:22px;pointer-events:none;
+  animation:gut-pop-sparkle 1.8s ease-in-out infinite;filter:drop-shadow(0 0 4px rgba(63,196,107,.9));}
+.rs-pop-sparkle.s1{top:-6px;left:-6px;animation-delay:0s;}
+.rs-pop-sparkle.s2{top:10px;right:-14px;font-size:16px;animation-delay:.4s;}
+.rs-pop-sparkle.s3{bottom:6px;left:-16px;font-size:18px;animation-delay:.8s;}
+.rs-pop-title{font-size:1.1rem;font-weight:800;color:var(--green-txt);margin-bottom:4px;}
+.rs-pop-sub{font-size:.85rem;color:var(--txt2);margin-bottom:16px;line-height:1.45;}
+.rs-pop-btn{background:var(--accent-grad);color:#fff;border:none;border-radius:99px;
+  padding:11px 28px;font-size:.9rem;font-weight:700;cursor:pointer;}
+@keyframes rs-pop-glow{0%,100%{box-shadow:0 0 0 6px rgba(63,196,107,.16),0 0 30px 8px rgba(63,196,107,.5);}
+  50%{box-shadow:0 0 0 9px rgba(63,196,107,.26),0 0 44px 14px rgba(63,196,107,.75);}}
+/* Locked drill card. The greying is cosmetic only — the lockout itself is
+   enforced in rsIsLocked(), checked in startRiderSkillGame() and again at the
+   top of each game's own start function. */
+.rs-game-card.locked{opacity:.72;}
+.rs-lock-note{font-size:11.5px;color:var(--txt3);margin-top:8px;line-height:1.4;}
+/* fix151: Feed Zone Scramble. Sits on the same overlay tier as .rs-overlay
+   (1800) and is only ever opened from the hub, which closes itself first —
+   the two are never on screen together. All rules scoped under .fz-. */
+.fz-overlay{position:fixed;inset:0;height:100dvh;z-index:1800;background:var(--bg);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(env(safe-area-inset-top) + 12px) 1rem calc(1rem + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:center;}
+.fz-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;max-width:340px;margin-bottom:.75rem;font-size:16px;font-weight:700;}
+.fz-quit{background:var(--bg2);color:var(--txt2);border:.5px solid var(--border);
+  border-radius:99px;padding:6px 14px;font-size:13px;font-weight:700;}
+.fz-quit.armed{background:var(--red-bg);color:var(--red-txt);border-color:var(--red-bd);}
+.fz-board{width:100%;max-width:340px;}
+.fz-row{display:flex;justify-content:space-between;font-size:13px;font-weight:700;
+  color:var(--txt2);margin-bottom:8px;font-variant-numeric:tabular-nums;}
+/* Fixed pixel height so the fall distance is identical on every device — the
+   spawn/collision maths reads clientWidth/clientHeight, so a fluid height would
+   change the difficulty with the viewport. */
+.fz-area{position:relative;width:100%;height:360px;overflow:hidden;
+  background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-lg);
+  touch-action:manipulation;-webkit-user-select:none;user-select:none;}
+.fz-area.hit{background:var(--red-bg);}
+.fz-road{position:absolute;top:0;bottom:0;left:50%;width:0;
+  border-left:2px dashed var(--border);opacity:.8;z-index:1;}
+/* fix114 lesson: rapid tapping on a fall target selects text on iOS unless
+   selection and callouts are killed on the item itself, not just the parent. */
+.fz-item{position:absolute;z-index:2;display:flex;align-items:center;justify-content:center;
+  border-radius:var(--radius);border:.5px solid var(--border);
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  touch-action:manipulation;cursor:pointer;}
+.fz-item:active{transform:scale(.86);}
+.fz-item .icn{width:22px;height:22px;}
+.fz-gel{width:44px;height:44px;background:var(--green-bg);color:var(--green-txt);border-color:var(--green-bd);}
+.fz-bidon{width:44px;height:44px;background:var(--blue-bg);color:var(--blue-txt);border-color:var(--blue-bd);}
+.fz-tack{width:44px;height:44px;border-radius:50%;background:var(--red-bg);color:var(--red-txt);border-color:var(--red-bd);}
+.fz-panel{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;padding:1rem;text-align:center;
+  background:rgba(0,0,0,.72);color:#fff;border-radius:var(--radius-lg);}
+.fz-panel.show{display:flex;}
+.fz-panel h3{margin:0;font-size:1.05rem;}
+.fz-panel p{margin:0;font-size:12.5px;line-height:1.5;opacity:.9;max-width:250px;}
+.fz-action{margin-top:6px;background:var(--green-txt);color:#fff;border:none;
+  border-radius:var(--radius);padding:11px 22px;font-size:13px;font-weight:700;cursor:pointer;}
+.fz-legend{display:flex;justify-content:space-between;gap:8px;margin-top:10px;
+  font-size:11.5px;color:var(--txt3);}
+.fz-legend span{display:inline-flex;align-items:center;gap:4px;}
+/* fix152: Slipstream Drafting. Same 1800 overlay tier as .rs-/.fz-, opened only
+   from the hub (which closes itself first), so the three are never co-resident.
+   All rules scoped under .sl-.
+   The canvas keeps a FIXED internal 400x500 coordinate space and is scaled by
+   CSS width:100% — the same reasoning as .fz-area's fixed pixel height. Drift
+   speeds, the draft width and the y-limits are all in canvas units, so a fluid
+   coordinate space would change the difficulty with the viewport. slPointerX()
+   maps the touch back through the rect scale. */
+.sl-overlay{position:fixed;inset:0;height:100dvh;z-index:1800;background:var(--bg);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(env(safe-area-inset-top) + 12px) 1rem calc(1rem + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:center;}
+.sl-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;max-width:340px;margin-bottom:.75rem;font-size:16px;font-weight:700;}
+.sl-quit{background:var(--bg2);color:var(--txt2);border:.5px solid var(--border);
+  border-radius:99px;padding:6px 14px;font-size:13px;font-weight:700;}
+.sl-quit.armed{background:var(--red-bg);color:var(--red-txt);border-color:var(--red-bd);}
+.sl-board{width:100%;max-width:340px;}
+.sl-row{display:flex;justify-content:space-between;font-size:13px;font-weight:700;
+  color:var(--txt2);margin-bottom:8px;font-variant-numeric:tabular-nums;}
+.sl-stage{position:relative;width:100%;border-radius:var(--radius-lg);overflow:hidden;
+  border:.5px solid var(--border);background:var(--bg2);}
+/* touch-action:none, not manipulation: this game steers on touchmove, so the
+   browser must not claim the gesture for scrolling. */
+.sl-canvas{display:block;width:100%;height:auto;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+.sl-panel{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;padding:1rem;text-align:center;
+  background:rgba(0,0,0,.72);color:#fff;}
+.sl-panel.show{display:flex;}
+.sl-panel h3{margin:0;font-size:1.05rem;}
+.sl-panel p{margin:0;font-size:12.5px;line-height:1.5;opacity:.9;max-width:250px;}
+.sl-action{margin-top:6px;background:var(--green-txt);color:#fff;border:none;
+  border-radius:var(--radius);padding:11px 22px;font-size:13px;font-weight:700;cursor:pointer;}
+.sl-legend{display:flex;justify-content:space-between;gap:8px;margin-top:10px;
+  font-size:11.5px;color:var(--txt3);}
+.sl-legend span{display:inline-flex;align-items:center;gap:4px;}
+/* fix153: Wind Tunnel. Same 1800 overlay tier as .rs-/.fz-/.sl-, opened only
+   from the hub (which closes itself first), so no two are ever co-resident.
+   All rules scoped under .wt-.
+   Canvas keeps a FIXED internal 440x250 coordinate space scaled by CSS
+   width:100% — same reasoning as .sl-canvas. Every sprite offset, hip-line
+   fraction and wind-particle bound is in canvas units, so a fluid coordinate
+   space would move the rider around with the viewport.
+   touch-action:manipulation (not none) on the canvas: this game is steered by
+   the sliders below it, never by dragging the scene, so the page must stay
+   scrollable over the picture. */
+.wt-overlay{position:fixed;inset:0;height:100dvh;z-index:1800;background:var(--bg);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(env(safe-area-inset-top) + 12px) 1rem calc(1rem + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:center;}
+.wt-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;max-width:340px;margin-bottom:.75rem;font-size:16px;font-weight:700;}
+.wt-quit{background:var(--bg2);color:var(--txt2);border:.5px solid var(--border);
+  border-radius:99px;padding:6px 14px;font-size:13px;font-weight:700;}
+.wt-quit.armed{background:var(--red-bg);color:var(--red-txt);border-color:var(--red-bd);}
+.wt-board{width:100%;max-width:340px;}
+.wt-row{display:flex;justify-content:space-between;font-size:13px;font-weight:700;
+  color:var(--txt2);margin-bottom:8px;font-variant-numeric:tabular-nums;}
+.wt-stage{position:relative;width:100%;border-radius:var(--radius-lg);overflow:hidden;
+  border:.5px solid var(--border);background:var(--bg2);}
+.wt-canvas{display:block;width:100%;height:auto;touch-action:manipulation;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+.wt-panel{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;padding:1rem;text-align:center;
+  background:rgba(0,0,0,.72);color:#fff;}
+.wt-panel.show{display:flex;}
+.wt-panel h3{margin:0;font-size:1.05rem;}
+.wt-panel p{margin:0;font-size:12.5px;line-height:1.5;opacity:.9;max-width:250px;}
+.wt-action{margin-top:6px;background:var(--green-txt);color:#fff;border:none;
+  border-radius:var(--radius);padding:11px 22px;font-size:13px;font-weight:700;cursor:pointer;}
+/* Brief. Rebuilt once per run in wtStart(); never touched on the tick. */
+.wt-brief{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius);
+  padding:9px 11px;margin-top:10px;font-size:12.5px;color:var(--txt2);line-height:1.45;}
+.wt-brief b{color:var(--txt);}
+/* Live feedback line. Colour swaps via a class, not an inline style, so the
+   three states are declared in one place. */
+.wt-feedback{margin-top:8px;text-align:center;font-size:13px;font-weight:700;
+  min-height:19px;color:var(--txt3);transition:color .25s;}
+.wt-feedback.good{color:var(--green-txt);}
+.wt-feedback.warn{color:var(--amber-txt);}
+.wt-feedback.bad{color:var(--red-txt);}
+/* Sliders. The three inputs are the whole control surface, so they get a
+   generous 30px touch height rather than the browser default. */
+.wt-sliders{margin-top:10px;}
+.wt-slider-group{margin-bottom:10px;}
+.wt-slider-label{display:flex;justify-content:space-between;font-size:11px;
+  text-transform:uppercase;letter-spacing:.5px;color:var(--txt3);margin-bottom:3px;}
+.wt-slider-group input[type=range]{width:100%;height:30px;accent-color:var(--green-txt);
+  cursor:pointer;touch-action:none;}
+.wt-legend{display:flex;justify-content:space-between;gap:8px;margin-top:6px;
+  font-size:11.5px;color:var(--txt3);}
+.wt-legend span{display:inline-flex;align-items:center;gap:4px;}
 /* fix110: Gut Training mini-game overlay. Same fixed/inset/z-index tier as
    .race-overlay (1800) — Train tab only, never open alongside a race. All
    rules scoped under .gt-overlay so nothing here can leak into other tabs. */
@@ -1725,6 +1925,11 @@ button{font-family:inherit;cursor:pointer;}
 <symbol id="icn-thought" viewBox="0 0 24 24"><circle cx="9" cy="9" r="6.5" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16" cy="17" r="2" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="20" cy="21" r="1" fill="currentColor"/></symbol>
 <symbol id="icn-sleep" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M17 3a7 7 0 1 0 4 12.7A7 7 0 0 1 17 3z"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 15h4M3 18h3M2 12h2" opacity=".6"/></symbol>
 <symbol id="icn-bread" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 12a9 5 0 0 1 18 0v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M8 12v6M12 11v7M16 12v6"/></symbol>
+<!-- fix151: two new glyphs for Feed Zone Scramble. The sheet already carries a
+     bidon (icn-drink) but has no gel sachet and no road hazard, so these are
+     added rather than approximated. Same currentColor/stroke-1.8 house style. -->
+<symbol id="icn-gel" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M8 6h8l-1 12a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2L8 6z"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M7 4h10M10 10h4M10 14h4"/></symbol>
+<symbol id="icn-tack" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 12L12 3M12 12l7.8 4.5M12 12L4.2 16.5"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></symbol>
 <symbol id="icn-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M20 20l-5-5"/></symbol>
 <symbol id="icn-dot-yellow" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="currentColor"/></symbol>
 <symbol id="icn-dot-green" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="currentColor"/></symbol>
@@ -1762,6 +1967,9 @@ button{font-family:inherit;cursor:pointer;}
     <div id="energy-card-wrap"></div>
     <div id="weight-card-wrap"></div>
     <div id="gut-train-card-wrap"></div>
+    <!-- fix150: Rider Skills Training card — sits directly beneath Gut Training,
+         same .energy-card visual language. Opens the #rs-overlay hub. -->
+    <div id="rs-train-card-wrap"></div>
     <div id="attr-row" class="attr-row"></div>
     <div class="section-lbl">Training Sessions</div>
     <div id="training-list"></div>
@@ -1960,6 +2168,145 @@ button{font-family:inherit;cursor:pointer;}
   </div>
 </div>
 
+<!-- fix150: Rider Skills hub. Lists the three skill games; each card's body is
+     rebuilt only when the hub is opened or a buff changes, never on the tick.
+     The games themselves land in fix151-153 — the buttons stub out for now. -->
+<div id="rs-overlay" class="rs-overlay" style="display:none">
+  <div class="rs-overlay-head">
+    <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-muscle"></use></svg> Rider Skills</span>
+    <button class="rs-overlay-close" onclick="closeRiderSkillsHub()">Close</button>
+  </div>
+  <div id="rs-hub-body" class="rs-overlay-body"></div>
+</div>
+
+<!-- fix151: Feed Zone Scramble. Opened from the hub via startRiderSkillGame('fz')
+     — the hub closes itself first, so only one 1800-tier overlay is ever up.
+     Items are created and destroyed by fzSpawnItem()/fzEnd(); everything inside
+     #fz-area except .fz-road and the two panels is transient. -->
+<div id="fz-overlay" class="fz-overlay" style="display:none">
+  <div class="fz-head">
+    <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Feed Zone</span>
+    <button id="fz-quit-btn" class="fz-quit" onclick="requestQuitFeedZone()">Quit</button>
+  </div>
+  <div class="fz-board">
+    <div class="fz-row">
+      <span>Time: <span id="fz-time">30</span>s</span>
+      <span>Carbs: <span id="fz-score">0</span>g</span>
+    </div>
+    <div id="fz-area" class="fz-area">
+      <div class="fz-road"></div>
+      <div id="fz-panel-start" class="fz-panel show">
+        <h3>Feed Zone Scramble</h3>
+        <p>Thirty seconds of soigneurs. Grab the gels and bidons as they come past — leave the debris on the road.</p>
+        <button class="fz-action" onclick="fzStart()">Start scramble</button>
+      </div>
+      <div id="fz-panel-end" class="fz-panel">
+        <h3 id="fz-end-title">Zone cleared</h3>
+        <p id="fz-end-copy">You picked up <span id="fz-final">0</span>g of carbs.</p>
+        <button class="fz-action" onclick="fzStart()">Ride it again</button>
+        <button class="fz-action" style="background:var(--bg2);color:var(--txt2)" onclick="closeFeedZone()">Back to skills</button>
+      </div>
+    </div>
+    <div class="fz-legend">
+      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-gel"></use></svg> Gel +10g</span>
+      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Bidon +5g</span>
+      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-tack"></use></svg> Debris &minus;15g</span>
+    </div>
+  </div>
+</div>
+
+<!-- fix152: Slipstream Drafting. Opened from the hub via startRiderSkillGame('sl')
+     — the hub closes itself first, so only one 1800-tier overlay is ever up.
+     The whole scene (road, draft cone, both riders) is canvas-drawn: a CSS road
+     under a canvas would need re-aligning at every device width, whereas the
+     canvas keeps one fixed 400x500 coordinate space and scales as a unit. -->
+<div id="sl-overlay" class="sl-overlay" style="display:none">
+  <div class="sl-head">
+    <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-bike"></use></svg> Slipstream</span>
+    <button id="sl-quit-btn" class="sl-quit" onclick="requestQuitSlipstream()">Quit</button>
+  </div>
+  <div class="sl-board">
+    <div class="sl-row">
+      <span>Time: <span id="sl-time">60</span>s</span>
+      <span>Shelter: <span id="sl-score">0</span></span>
+    </div>
+    <div class="sl-stage">
+      <canvas id="sl-canvas" class="sl-canvas" width="400" height="500"></canvas>
+      <div id="sl-panel-start" class="sl-panel show">
+        <h3>Slipstream Drafting</h3>
+        <p>Slide your finger left and right to sit in the shelter behind the wheel in front. Stay in it and you tuck in closer &mdash; the closer you get, the more you save.</p>
+        <button class="sl-action" onclick="slStart()">Get on the wheel</button>
+      </div>
+      <div id="sl-panel-end" class="sl-panel">
+        <h3 id="sl-end-title">Wheel held</h3>
+        <p id="sl-end-copy">You saved <span id="sl-final">0</span>.</p>
+        <button class="sl-action" onclick="slStart()">Ride it again</button>
+        <button class="sl-action" style="background:var(--bg2);color:var(--txt2)" onclick="closeSlipstream()">Back to skills</button>
+      </div>
+    </div>
+    <div class="sl-legend">
+      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-wind"></use></svg> Green cone = shelter</span>
+      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-bike"></use></svg> Closer = more saved</span>
+    </div>
+  </div>
+</div>
+
+<!-- fix153: Wind Tunnel. Opened from the hub via startRiderSkillGame('wt') —
+     the hub closes itself first, so only one 1800-tier overlay is ever up.
+     The rider is the existing TT sprite sheet drawn to canvas in two slices
+     (torso above the hip line, legs and bike below) so the sliders can tilt
+     and stretch the upper body without the legs following it round. The wind
+     streaks and the tunnel floor are canvas-drawn for the same reason the
+     slipstream road is: one fixed coordinate space that scales as a unit.
+     The three sliders are the only inputs; wtLoop() reads their values every
+     frame, so they need no change listeners and none are bound. -->
+<div id="wt-overlay" class="wt-overlay" style="display:none">
+  <div class="wt-head">
+    <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-wind"></use></svg> Wind Tunnel</span>
+    <button id="wt-quit-btn" class="wt-quit" onclick="requestQuitWindTunnel()">Quit</button>
+  </div>
+  <div class="wt-board">
+    <div class="wt-row">
+      <span>Time: <span id="wt-time">30</span>s</span>
+      <span>Clean air: <span id="wt-score">0</span>%</span>
+    </div>
+    <div class="wt-stage">
+      <canvas id="wt-canvas" class="wt-canvas" width="440" height="250"></canvas>
+      <div id="wt-panel-start" class="wt-panel show">
+        <h3>Wind Tunnel</h3>
+        <p>Thirty seconds in the tunnel. Move the three sliders until the air goes quiet around you &mdash; and keep it quiet as the wind shifts.</p>
+        <button class="wt-action" onclick="wtStart()">Fire up the fans</button>
+      </div>
+      <div id="wt-panel-end" class="wt-panel">
+        <h3 id="wt-end-title">Position dialled</h3>
+        <p id="wt-end-copy">You rode <span id="wt-final">0</span>% of the session in clean air.</p>
+        <button class="wt-action" onclick="wtStart()">Run it again</button>
+        <button class="wt-action" style="background:var(--bg2);color:var(--txt2)" onclick="closeWindTunnel()">Back to skills</button>
+      </div>
+    </div>
+    <div id="wt-brief" class="wt-brief">Fire up the fans to draw a stage.</div>
+    <div id="wt-feedback" class="wt-feedback">Set yourself up before you start.</div>
+    <div class="wt-sliders">
+      <div class="wt-slider-group">
+        <div class="wt-slider-label"><span>Stack height</span><span>Low &rarr; High</span></div>
+        <input id="wt-stack" type="range" min="0" max="100" value="50">
+      </div>
+      <div class="wt-slider-group">
+        <div class="wt-slider-label"><span>Reach</span><span>Short &rarr; Long</span></div>
+        <input id="wt-reach" type="range" min="0" max="100" value="50">
+      </div>
+      <div class="wt-slider-group">
+        <div class="wt-slider-label"><span>Tyre pressure</span><span>Soft &rarr; Hard</span></div>
+        <input id="wt-pressure" type="range" min="0" max="100" value="50">
+      </div>
+    </div>
+    <div class="wt-legend">
+      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-wind"></use></svg> Smooth streaks = clean air</span>
+      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-target"></use></svg> Match the stage</span>
+    </div>
+  </div>
+</div>
+
 <!-- fix112: Gut Training success pop-up — shown when Stage 2 (Fast & Slow
      Carbs) is passed, layered above .gt-overlay. Hidden by default; opened
      via gtShowSuccessPop() / closed via gtCloseSuccessPop(). Purely a
@@ -1977,6 +2324,26 @@ button{font-family:inherit;cursor:pointer;}
     <div class="gut-success-title">Gut Adapted!</div>
     <div class="gut-success-sub">Fast &amp; Slow Carbs complete — nice absorption.</div>
     <button class="gut-success-btn" onclick="event.stopPropagation();gtCloseSuccessPop()">Nice</button>
+  </div>
+</div>
+
+<!-- fix155: Rider Skills success pop-up — one shared celebration for all three
+     drills, layered above the 1800-tier game overlays. Opened via
+     rsShowSuccessPop(gameId) / closed via rsCloseSuccessPop(). Purely
+     celebratory: it never gates game logic, and the buff is already granted
+     and saved before it appears. The medallion icon and both strings are
+     filled in by rsShowSuccessPop(). -->
+<div id="rs-success-pop" class="rs-pop" style="display:none" onclick="rsCloseSuccessPop()">
+  <div class="rs-pop-card">
+    <div class="rs-pop-medal">
+      <span class="rs-pop-sparkle s1">✨</span>
+      <span class="rs-pop-sparkle s2">✨</span>
+      <span class="rs-pop-sparkle s3">✨</span>
+      <span id="rs-pop-icon"></span>
+    </div>
+    <div id="rs-pop-title" class="rs-pop-title">Nailed it</div>
+    <div id="rs-pop-sub" class="rs-pop-sub"></div>
+    <button class="rs-pop-btn" onclick="event.stopPropagation();rsCloseSuccessPop()">Nice</button>
   </div>
 </div>
 
@@ -3663,6 +4030,15 @@ const state = {
   // carb limit each; gutStage tracks progress through the 2-part game chain.
   gutTrainDone: 0,
   gutStage: 0,
+  // fix150: Rider Skills Training. buffs is KEYED, not an array, so replaying a
+  // game refreshes its own buff rather than stacking a second copy — stacking is
+  // trivially exploitable on an idle game with no session cap. Deliberately NOT
+  // cleared by the daily reset: buffs are minutes-long, they expire on their own.
+  riderSkills: {
+    buffs: {},      // {buffId:{expiresAt:epochMs|null, magnitude:n, consumeOnRace:bool}}
+    lastPlayed: {}, // {gameId:epochMs} — cooldown display only in fix150
+    bestScores: {}, // {gameId:n} — hub card display
+  },
   // Daily tasks (Growth tab)
   dailyTasks: {
     resetDate: 0,
@@ -3765,7 +4141,16 @@ function getEquipmentBonusForRace(raceTypeId){
   const wheel = WHEELS.find(w=>w.id===state.equippedWheels) || WHEELS[0];
   const kit   = KITS.find(k=>k.id===state.equippedKit)     || KITS[0];
   const w = EQUIP_WEIGHTS[raceTypeId] || {aero:0.5,climb:0.5};
-  const totalAero  = bike.aeroWatts  + wheel.aeroWatts  + kit.aeroWatts;
+  // fix154: Wind Tunnel's race-scoped buff adds watts to the aero side only —
+  // it is an aero tuck, so it must be weighted by the race type's aero weight
+  // exactly like bike/wheel/kit watts are, not bolted on as a flat bonus. That
+  // means it's worth the most in a TT and least on a hill climb, which is the
+  // honest physical answer. getBuff() is a pure read, so calling it from this
+  // function is safe on the display call sites (Rider tab "Race Bonus", race
+  // card previews) as well as the three scoring paths — and those two agreeing
+  // is the whole reason the accessory watts below live in this function too.
+  const wtAero     = getBuff('wt_aero').magnitude || 0;
+  const totalAero  = bike.aeroWatts  + wheel.aeroWatts  + kit.aeroWatts + wtAero;
   const totalClimb = bike.climbWatts + wheel.climbWatts;
   let bonus = Math.round(totalAero * w.aero + totalClimb * w.climb);
   // Climber passive: +10w on hill climbs from better weight-distribution intuition
@@ -3805,7 +4190,14 @@ function recalc(){
   // shared multiplier read by completeSession(), the active/upcoming session
   // XP-pill previews, and the offline pending-XP calc — so all three agree.
   const workshopTrainingPct=getWorkshopBonuses(state.equippedBike).trainingPct/100;
-  D.sessionMult   = (1 + state.attributes.threshold.level * 0.08) * (1 + trainPct + workshopTrainingPct);
+  // fix154: Slipstream's timed XP buff. Kept as its own multiplied factor rather
+  // than added into the (trainPct + workshopTrainingPct) sum so it stays visibly
+  // separate from permanent progression and can't quietly inflate the workshop
+  // cap. Because it is TIMED, D.sessionMult goes stale when it expires — so
+  // recalc() is called from the pruneBuffs() branch in gameTick() and from
+  // grantBuff(), which are the only two places the buff set ever changes.
+  const slXpPct=getBuff('sl_xp').magnitude || 0;
+  D.sessionMult   = (1 + state.attributes.threshold.level * 0.08) * (1 + trainPct + workshopTrainingPct) * (1 + slXpPct/100);
   // Lifetime Goal perks — each track's tier-3 grants a small permanent boost to
   // race prize money, stacking across tracks. Read from claimedGoalTiers so it
   // survives prestige and reload with no separate state needed. Max +12% if
@@ -4716,6 +5108,13 @@ function completeRace(){
   state.lastPrizePot = (prizeTable && prizeTable[0]) || 0;
   const bonusToastText = rollRaceBonus(rd, prizeTable);
 
+  // fix154: race-scoped buffs (Wind Tunnel aero) are spent here — completeRace()
+  // is the single funnel for normal, club, calendar-event AND Grand Tour stage
+  // results, so one call covers every path. Placed before the recalc/save on the
+  // next line so the save is written with the buff already gone. Wrapped per the
+  // fix116 rule: this is trailing work and must not be able to abort the result
+  // screen below it.
+  try{ consumeRaceBuffs(); }catch(e){}
   updateActivityDots(); checkCategoryPromotion(); checkAchievements(); checkLifetimeGoals(); updateSponsorBadge(); updateCalendarBadge(); recalc(); saveGame();
   // The full-screen win ceremony already communicates position + prize, so the
   // small bottom toast is suppressed for 1st place to avoid showing the same
@@ -6610,7 +7009,7 @@ function updateHeader(){
 // ═══════════════════════════════════════════════════════════
 // TRAIN TAB
 // ═══════════════════════════════════════════════════════════
-function renderTrainTab(){ renderRiderScene(); renderActiveBoostsPill(); renderEnergyCard(); renderWeightCard(); renderGutTrainCard(); renderAttrRow(); renderActiveSession(); renderSessionList(); }
+function renderTrainTab(){ renderRiderScene(); renderActiveBoostsPill(); renderEnergyCard(); renderWeightCard(); renderGutTrainCard(); renderRiderSkillsCard(); renderAttrRow(); renderActiveSession(); renderSessionList(); }
 
 // fix54: rider sprite scene. Reads existing session/energy state only —
 // no state of its own beyond a DOM cache + last-rendered signature.
@@ -9532,6 +9931,1318 @@ function getWorkshopBonuses(bikeId){
   return {raceFlatPct, raceAeroPct, weightDeltaKg, trainingPct};
 }
 
+// ── fix150: Rider Skills — temporary buff engine ────────────────────────
+// The codebase had no expiring-effect concept before this: Gut Training is a
+// permanent counter, Workshop tuning is permanent levels. All three Rider
+// Skills rewards are temporary, so they need one shared, auditable engine
+// rather than three ad-hoc timers.
+//
+// RENDER-ONLY DISCIPLINE: getBuff() is a pure read and must never write to
+// state — it is called from render paths and from the 100ms tick. pruneBuffs()
+// is the ONLY time-based mutator and is called from gameTick() alone, so every
+// expiry write happens in exactly one place.
+//
+// Two buff shapes:
+//   timed      — expiresAt:<epochMs>, cleared by pruneBuffs()
+//   race-scoped— expiresAt:null + consumeOnRace:true, cleared only by an
+//                explicit consumeRaceBuffs() at race resolution. Never expires
+//                on the clock, so a buff earned before bed is still there in
+//                the morning, which is what "next race" means to a player.
+const RS_GAMES=[
+  {id:'fz', name:'Feed Zone Scramble', icon:'drink',
+   desc:'Grab the right bottles on the fly. Nail it and your legs come back quicker for half an hour.',
+   buffId:'fz_regen'},
+  {id:'sl', name:'Slipstream Drafting', icon:'bike',
+   desc:'Hold the wheel in front without touching it. Hold it long enough and the next hour of training sticks harder.',
+   buffId:'sl_xp'},
+  {id:'wt', name:'Wind Tunnel', icon:'wind',
+   desc:'Dial in your position until the airflow goes quiet. Find the tuck and you carry it into your next race.',
+   buffId:'wt_aero'},
+];
+
+// Player-facing copy for an active buff. Answers "what is this doing for me?"
+// in the game's voice — no mechanics words (no multiplier / regen / magnitude).
+const RS_BUFF_COPY={
+  fz_regen:{icon:'battery', label:'Legs recovering faster'},
+  sl_xp:   {icon:'chart-up', label:'Training sticking harder'},
+  wt_aero: {icon:'wind',     label:'Aero tuck dialled in'},
+};
+
+function rsStore(){
+  // Defensive accessor: never assume the shape survived a save/load round-trip.
+  if(!state.riderSkills) state.riderSkills={buffs:{},lastPlayed:{},bestScores:{}};
+  if(!state.riderSkills.buffs) state.riderSkills.buffs={};
+  if(!state.riderSkills.lastPlayed) state.riderSkills.lastPlayed={};
+  if(!state.riderSkills.bestScores) state.riderSkills.bestScores={};
+  return state.riderSkills;
+}
+
+// PURE READ. Reads Date.now() on every call so a countdown is always live, and
+// returns a fresh object each time so a caller can't mutate stored state
+// through the return value.
+function getBuff(id){
+  const b=state.riderSkills&&state.riderSkills.buffs&&state.riderSkills.buffs[id];
+  if(!b) return {active:false, magnitude:0, msLeft:0, consumeOnRace:false};
+  if(b.consumeOnRace) return {active:true, magnitude:b.magnitude||0, msLeft:Infinity, consumeOnRace:true};
+  const msLeft=(b.expiresAt||0)-Date.now();
+  if(msLeft<=0) return {active:false, magnitude:0, msLeft:0, consumeOnRace:false};
+  return {active:true, magnitude:b.magnitude||0, msLeft, consumeOnRace:false};
+}
+
+// durationMs null → race-scoped. Re-granting an already-active buff REFRESHES
+// it (overwrites expiresAt) rather than extending or stacking.
+function grantBuff(id, magnitude, durationMs){
+  const s=rsStore();
+  s.buffs[id]=(durationMs==null)
+    ? {expiresAt:null, magnitude, consumeOnRace:true}
+    : {expiresAt:Date.now()+durationMs, magnitude, consumeOnRace:false};
+  // fix154: sl_xp feeds D.sessionMult, which is only recomputed in recalc().
+  // Without this the buff would not apply until some unrelated event happened
+  // to trigger a recalc. Called before saveGame() so the save reflects it.
+  recalc();
+  saveGame();
+  const copy=RS_BUFF_COPY[id];
+  if(copy) showToast(`${icn(copy.icon)} ${copy.label}`);
+  if(currentTab==='train') renderRiderSkillsCard();
+}
+
+// The ONLY time-based mutator. Called from gameTick() and nowhere else.
+// Returns true when something was actually removed, so the caller can decide
+// whether a re-render is warranted instead of re-rendering every tick.
+function pruneBuffs(){
+  const s=state.riderSkills; if(!s||!s.buffs) return false;
+  const now=Date.now(); let changed=false;
+  for(const id of Object.keys(s.buffs)){
+    const b=s.buffs[id];
+    if(!b){ delete s.buffs[id]; changed=true; continue; }
+    if(b.consumeOnRace) continue;           // never expires on the clock
+    if((b.expiresAt||0)<=now){ delete s.buffs[id]; changed=true; }
+  }
+  if(changed) saveGame();
+  return changed;
+}
+
+// Clears every race-scoped buff. Wired to race resolution in fix154; defined
+// here so the engine is complete and testable in one fix.
+function consumeRaceBuffs(){
+  const s=state.riderSkills; if(!s||!s.buffs) return;
+  let changed=false;
+  for(const id of Object.keys(s.buffs)){
+    if(s.buffs[id]&&s.buffs[id].consumeOnRace){ delete s.buffs[id]; changed=true; }
+  }
+  if(changed) saveGame();
+}
+
+// mm:ss for anything under an hour, h:mm above it. Race-scoped buffs have no
+// clock, so they read as a state ("next race") rather than a countdown.
+function rsFormatLeft(msLeft){
+  if(!isFinite(msLeft)) return 'next race';
+  const total=Math.max(0,Math.ceil(msLeft/1000));
+  const h=Math.floor(total/3600), m=Math.floor((total%3600)/60), sec=total%60;
+  if(h>0) return `${h}h ${String(m).padStart(2,'0')}m`;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+// List of currently-active buffs, in RS_GAMES order so the pills never reshuffle
+// between renders (reshuffling would defeat the surgical textContent patch).
+function rsActiveBuffs(){
+  const out=[];
+  for(const g of RS_GAMES){
+    const b=getBuff(g.buffId);
+    if(b.active) out.push({id:g.buffId, msLeft:b.msLeft});
+  }
+  return out;
+}
+
+// ── fix155: hard lockout ────────────────────────────────────────────────
+// Standing preference is a hard lockout, not a greyed button. The lock is the
+// drill's OWN buff still being active — a drill cannot be replayed while what
+// it gives you is already running.
+//
+// Why self-limiting is the right shape here:
+//   - no separate cooldown clock to store, migrate or drift out of sync;
+//   - it cannot be cheesed by rolling the device clock BACK, because a
+//     backwards roll makes the buff look like it has longer left, not less;
+//   - rolling the clock FORWARD to clear the lock also expires the buff, so
+//     the player gains nothing they did not already lose.
+// The wt_aero buff is race-scoped (msLeft:Infinity), so the Wind Tunnel stays
+// locked until the buff is spent in a race. That is deliberate: banking a
+// second aero boost on top of an unspent one is exactly the stacking the keyed
+// buff map exists to prevent.
+//
+// PURE READ — getBuff() only. Called from render paths and from every start
+// path, so it must never write.
+function rsIsLocked(gameId){
+  const g=RS_GAMES.find(x=>x.id===gameId); if(!g) return false;
+  return getBuff(g.buffId).active;
+}
+
+// Player-facing "why can't I play this?" line. No mechanics words — it says
+// what is already running and what has to happen before another go.
+function rsLockCopy(gameId){
+  const g=RS_GAMES.find(x=>x.id===gameId); if(!g) return '';
+  const b=getBuff(g.buffId);
+  if(!b.active) return '';
+  if(b.consumeOnRace) return 'You are already carrying this into your next race — go and use it first.';
+  return `Already working — ${rsFormatLeft(b.msLeft)} left. Come back when it wears off.`;
+}
+
+// The single enforcement point. Every start path calls this; if it returns
+// false the caller must return immediately. Toasts the reason so a blocked tap
+// is never silent.
+function rsCanStart(gameId){
+  if(!rsIsLocked(gameId)) return true;
+  const g=RS_GAMES.find(x=>x.id===gameId);
+  showToast(`${icn(g?g.icon:'star')} ${rsLockCopy(gameId)}`);
+  return false;
+}
+
+// ── fix155: shared success celebration ──────────────────────────────────
+// One pop-up for all three drills. Per the fix116 rule the celebration must
+// not sit behind anything that can throw; per the fix126 refinement it must
+// also fire against SETTLED DOM, because a render firing after display='flex'
+// destroys the popup without throwing at all. Each *End() therefore runs its
+// save work inside try/catch FIRST and calls this LAST — the try/catch
+// guarantees this line is reached, and nothing runs after it.
+const RS_WIN_COPY={
+  fz:{title:'Musette full',      sub:'Your legs will come back quicker for the next half hour.'},
+  sl:{title:'Wheel held',        sub:'The next hour of training is going to stick harder.'},
+  wt:{title:'Position dialled',  sub:'You will carry that tuck into your next race.'},
+};
+let _rsSuccessPopTimer=null;
+function rsShowSuccessPop(gameId){
+  const pop=document.getElementById('rs-success-pop');
+  // Diagnostic, not user-facing: a missing celebration should be discoverable
+  // rather than a silent early return (the fix126 lesson).
+  if(!pop){ console.warn('rsShowSuccessPop: #rs-success-pop not found in DOM'); return; }
+  // Re-parent defensively so no ancestor's display:none or subtree rebuild can
+  // hide it out from under us.
+  try{
+    if(pop.parentElement!==document.body) document.body.appendChild(pop);
+  }catch(e){ console.warn('rsShowSuccessPop: re-parent failed', e); }
+  // Content fill is wrapped for the same reason the fix137 image promote is:
+  // a stale copy line is far cheaper than no celebration at all.
+  try{
+    const g=RS_GAMES.find(x=>x.id===gameId);
+    const c=RS_WIN_COPY[gameId]||{title:'Nailed it', sub:'That one counts.'};
+    const ic=document.getElementById('rs-pop-icon');
+    const ti=document.getElementById('rs-pop-title');
+    const su=document.getElementById('rs-pop-sub');
+    if(ic) ic.innerHTML=icn(g?g.icon:'star');
+    if(ti) ti.textContent=c.title;
+    if(su) su.textContent=c.sub;
+  }catch(e){ console.warn('rsShowSuccessPop: copy fill failed', e); }
+  pop.style.display='flex';
+  clearTimeout(_rsSuccessPopTimer);
+  _rsSuccessPopTimer=setTimeout(rsCloseSuccessPop,3200);
+}
+function rsCloseSuccessPop(){
+  const pop=document.getElementById('rs-success-pop'); if(!pop) return;
+  pop.style.display='none';
+  clearTimeout(_rsSuccessPopTimer);
+  _rsSuccessPopTimer=null;
+}
+
+// ── fix155: console assertion harness ───────────────────────────────────
+// Not wired to anything and never called on load — run rsSelfTest() from the
+// console. It saves and restores the real buff map around its probes so a
+// player who opens the console loses nothing. Returns true when every
+// assertion holds.
+function rsSelfTest(){
+  const s=rsStore();
+  const backup=JSON.parse(JSON.stringify(s.buffs));
+  const fails=[];
+  const ok=(cond,msg)=>{ if(!cond){ fails.push(msg); console.error('rsSelfTest FAIL:',msg);} };
+  try{
+    // 1. No buff outlives its expiresAt.
+    s.buffs={};
+    s.buffs.__t_past={expiresAt:Date.now()-1000, magnitude:2, consumeOnRace:false};
+    s.buffs.__t_live={expiresAt:Date.now()+60000, magnitude:3, consumeOnRace:false};
+    s.buffs.__t_race={expiresAt:null, magnitude:4, consumeOnRace:true};
+    ok(getBuff('__t_past').active===false, 'expired buff still reads active');
+    pruneBuffs();
+    ok(!('__t_past' in s.buffs), 'pruneBuffs left an expired buff in the map');
+    ok('__t_live' in s.buffs,   'pruneBuffs removed a live buff');
+    ok('__t_race' in s.buffs,   'pruneBuffs removed a race-scoped buff');
+
+    // 2. getBuff() never mutates. Deep-freeze probe: a write attempt inside
+    //    getBuff would throw in strict mode and at minimum fail this compare.
+    const before=JSON.stringify(s.buffs);
+    Object.freeze(s.buffs.__t_live);
+    Object.freeze(s.buffs);
+    for(let i=0;i<5;i++){ getBuff('__t_live'); getBuff('__t_race'); getBuff('__nope'); }
+    ok(JSON.stringify(s.buffs)===before, 'getBuff mutated the buff map');
+    // The returned object must be a copy — mutating it must not reach state.
+    const r=getBuff('__t_live'); r.magnitude=999;
+    ok(getBuff('__t_live').magnitude===3, 'getBuff returned a live reference into state');
+    s.buffs=JSON.parse(before); // unfreeze by replacement
+
+    // 3. Race-scoped buffs are cleared only by consumeRaceBuffs().
+    consumeRaceBuffs();
+    ok(!('__t_race' in s.buffs), 'consumeRaceBuffs left a race-scoped buff behind');
+    ok('__t_live' in s.buffs,    'consumeRaceBuffs cleared a timed buff');
+
+    // 4. Every rAF / interval handle clears on abandon.
+    ok(fzTickId===null&&fzSpawnId===null&&fzRafIds.size===0, 'feed zone handles still live');
+    ok(slTickId===null&&slRafId===null, 'slipstream handles still live');
+    ok(wtTickId===null&&(wtRafId===null||wtOpen), 'wind tunnel handles still live');
+
+    // 5. Lockout holds while the drill's own buff is active.
+    s.buffs={};
+    s.buffs.fz_regen={expiresAt:Date.now()+60000, magnitude:2, consumeOnRace:false};
+    ok(rsIsLocked('fz')===true,  'fz not locked while its buff is running');
+    ok(rsIsLocked('sl')===false, 'sl locked by another drill\u2019s buff');
+    s.buffs.wt_aero={expiresAt:null, magnitude:4, consumeOnRace:true};
+    ok(rsIsLocked('wt')===true,  'wt not locked while an unspent aero buff is banked');
+
+    // 6. Save migration: every riderSkills sub-object survives a missing key.
+    ok(rsStore().buffs&&rsStore().lastPlayed&&rsStore().bestScores, 'rsStore left a sub-object undefined');
+  }catch(e){
+    fails.push('threw: '+e.message);
+    console.error('rsSelfTest threw', e);
+  }finally{
+    s.buffs=backup;
+    try{ recalc(); saveGame(); }catch(e){ console.warn('rsSelfTest: restore save failed', e); }
+  }
+  if(fails.length) console.error(`rsSelfTest: ${fails.length} failure(s)`, fails);
+  else console.log('rsSelfTest: all assertions passed');
+  return fails.length===0;
+}
+
+// ── Train tab card ──────────────────────────────────────────────────────
+// Full innerHTML rebuild happens ONLY here (open, buff grant, buff expiry) —
+// never on the tick. rsTickBuffPills() does the per-tick countdown.
+function renderRiderSkillsCard(){
+  const wrap=document.getElementById('rs-train-card-wrap'); if(!wrap) return;
+  const active=rsActiveBuffs();
+
+  const pills=active.length
+    ? `<div class="rs-pill-row">${active.map(a=>{
+        const copy=RS_BUFF_COPY[a.id]||{icon:'star',label:'Active'};
+        return `<span class="rs-pill" data-buff="${a.id}">${icn(copy.icon)} ${copy.label} <span class="rs-pill-time">${rsFormatLeft(a.msLeft)}</span></span>`;
+      }).join('')}</div>`
+    : `<div class="rs-none">Nothing running right now — pick a skill and earn yourself an edge.</div>`;
+
+  wrap.innerHTML=`<div class="energy-card">
+    <div class="energy-head"><span class="energy-label">${icn('muscle')} Rider Skills</span><span class="energy-amount">${active.length} active</span></div>
+    <div class="energy-meta"><span>Short drills, short-lived rewards</span><span>${RS_GAMES.length} drills</span></div>
+    ${pills}
+    <button onclick="openRiderSkillsHub()" style="width:100%;margin-top:.6rem;background:var(--green-txt);color:#fff;border:none;border-radius:var(--radius);padding:11px;text-align:center;font-size:13px;font-weight:700;cursor:pointer">Open Rider Skills</button>
+  </div>`;
+}
+
+// Per-tick countdown. Patches ONLY the .rs-pill-time textContent of pills that
+// already exist — no innerHTML rebuild, so CSS transitions are never restarted
+// (the DOM-rebuild lesson). If the set of active buffs has changed, the card is
+// rebuilt once rather than patched.
+function rsTickBuffPills(){
+  const wrap=document.getElementById('rs-train-card-wrap'); if(!wrap) return;
+  const nodes=wrap.querySelectorAll('.rs-pill'); if(!nodes.length) return;
+  for(const node of nodes){
+    const id=node.getAttribute('data-buff');
+    const b=getBuff(id);
+    const t=node.querySelector('.rs-pill-time');
+    if(!t) continue;
+    const next=b.active?rsFormatLeft(b.msLeft):'0:00';
+    if(t.textContent!==next) t.textContent=next; // guarded write — no DOM thrash
+  }
+}
+
+// ── Hub overlay ─────────────────────────────────────────────────────────
+function openRiderSkillsHub(){
+  const ov=document.getElementById('rs-overlay'); if(!ov) return;
+  renderRiderSkillsHub();
+  ov.style.display='block';
+  document.body.style.overflow='hidden';
+}
+function closeRiderSkillsHub(){
+  const ov=document.getElementById('rs-overlay'); if(!ov) return;
+  ov.style.display='none';
+  document.body.style.overflow='';
+  if(currentTab==='train') renderRiderSkillsCard();
+}
+
+function renderRiderSkillsHub(){
+  const body=document.getElementById('rs-hub-body'); if(!body) return;
+  const s=rsStore();
+  body.innerHTML=RS_GAMES.map(g=>{
+    const b=getBuff(g.buffId);
+    const best=s.bestScores[g.id];
+    const bestTxt=(best==null)?'Not yet ridden':`Best: ${best}`;
+    // fix155: b.active IS the lockout condition (see rsIsLocked). The disabled
+    // attribute here is cosmetic — startRiderSkillGame() and each game's own
+    // start function re-check, so a hand-fired onclick still cannot start it.
+    const locked=b.active;
+    const stateTxt=locked?(b.consumeOnRace?'Banked for your next race':`Running — ${rsFormatLeft(b.msLeft)} left`):'Ready';
+    const note=locked?`<div class="rs-lock-note">${rsLockCopy(g.id)}</div>`:'';
+    return `<div class="rs-game-card${locked?' locked':''}">
+      <div class="rs-game-title">${icn(g.icon)} ${g.name}</div>
+      <div class="rs-game-desc">${g.desc}</div>
+      <div class="rs-game-meta"><span>${bestTxt}</span><span>${stateTxt}</span></div>
+      ${note}
+      <button class="rs-game-btn" ${locked?'disabled':''} onclick="startRiderSkillGame('${g.id}')">${locked?'Not yet':'Start drill'}</button>
+    </div>`;
+  }).join('');
+}
+
+// Dispatcher. fix151 lands the 'fz' branch, fix152 the 'sl' branch, fix153 the
+// 'wt' branch — one branch per fix. The trailing toast is now unreachable for
+// every id in RS_GAMES and is kept only as the guard for a future game id
+// added to the table before its branch exists.
+function startRiderSkillGame(gameId){
+  const g=RS_GAMES.find(x=>x.id===gameId); if(!g) return;
+  // fix155: hard lockout, enforced here rather than trusted to the disabled
+  // attribute on the hub button.
+  if(!rsCanStart(gameId)){ renderRiderSkillsHub(); return; }
+  if(gameId==='fz'){ closeRiderSkillsHub(); openFeedZone(); return; }
+  if(gameId==='sl'){ closeRiderSkillsHub(); openSlipstream(); return; }
+  if(gameId==='wt'){ closeRiderSkillsHub(); openWindTunnel(); return; }
+  showToast(`${icn(g.icon)} ${g.name} — rolling out soon`);
+}
+
+// ── fix151: Feed Zone Scramble ──────────────────────────────────────────
+// Ported from the standalone Feedzone_scramble_minigame.html. Three changes
+// made during the port, all deliberate:
+//   1. Every requestAnimationFrame handle is tracked in fzRafIds and cancelled
+//      in fzEnd(). The standalone file leaked one rAF chain per live item on
+//      game over — a real bug, not carried over.
+//   2. mousedown → pointerdown, so a tap registers on touch without waiting
+//      for the synthesised mouse event.
+//   3. +10/+5/BAD text tokens replaced with cycling iconography (gel, bidon,
+//      road debris). Sizes and hit areas are unchanged, so the spawn and
+//      collision logic is identical to the source.
+const FZ_DURATION_SEC = 30;
+const FZ_SPAWN_MS     = 600;
+const FZ_ITEM_SIZE    = 44;   // must match .fz-gel/.fz-bidon/.fz-tack width
+// Threshold: an attentive 30s run spawns ~50 items worth ~325g if every good
+// one is taken and every hazard left. 150g is a shade under half of that —
+// deliberately reachable on a first attempt, since the reward is 30 minutes.
+// PROVISIONAL: retune on playtest before fix155.
+const FZ_THRESHOLD    = 150;
+const FZ_BUFF_MULT    = 2;
+const FZ_BUFF_MS      = 30*60*1000;
+
+let fzActive=false, fzScore=0, fzTimeLeft=FZ_DURATION_SEC;
+let fzTickId=null, fzSpawnId=null, fzHitTimer=null;
+const fzRafIds=new Set();
+let _fzQuitArmed=false, _fzQuitTimer=null;
+
+function openFeedZone(){
+  const ov=document.getElementById('fz-overlay'); if(!ov) return;
+  fzResetPanels(true);
+  fzScore=0; fzTimeLeft=FZ_DURATION_SEC; fzUpdateUI();
+  ov.style.display='flex';
+  document.body.style.overflow='hidden';
+}
+
+// Single teardown point for every handle this game owns. Called from fzEnd(),
+// quitFeedZone() and fzStart() so no path can leave a timer or rAF running.
+function fzClearHandles(){
+  clearInterval(fzTickId);  fzTickId=null;
+  clearInterval(fzSpawnId); fzSpawnId=null;
+  clearTimeout(fzHitTimer); fzHitTimer=null;
+  fzRafIds.forEach(id=>cancelAnimationFrame(id));
+  fzRafIds.clear();
+}
+
+function fzClearItems(){
+  const area=document.getElementById('fz-area'); if(!area) return;
+  area.querySelectorAll('.fz-item').forEach(el=>el.remove());
+  area.classList.remove('hit');
+}
+
+function fzResetPanels(showStart){
+  const s=document.getElementById('fz-panel-start');
+  const e=document.getElementById('fz-panel-end');
+  if(s) s.classList.toggle('show', !!showStart);
+  if(e) e.classList.remove('show');
+}
+
+function fzStart(){
+  // fix155: the end panel's "Ride it again" button calls straight in here,
+  // bypassing the hub entirely — so the lockout is re-checked at the start
+  // function itself, not only at the dispatcher. Blocked runs bounce back to
+  // the hub so the player can see why.
+  if(!rsCanStart('fz')){ closeFeedZone(); return; }
+  fzClearHandles();
+  fzClearItems();
+  fzResetPanels(false);
+  fzActive=true; fzScore=0; fzTimeLeft=FZ_DURATION_SEC;
+  fzUpdateUI();
+  fzTickId=setInterval(()=>{
+    fzTimeLeft--;
+    fzUpdateUI();
+    if(fzTimeLeft<=0) fzEnd();
+  },1000);
+  fzSpawnId=setInterval(fzSpawnItem, FZ_SPAWN_MS);
+}
+
+function fzSpawnItem(){
+  const area=document.getElementById('fz-area'); if(!area||!fzActive) return;
+  const el=document.createElement('div');
+  const r=Math.random();
+  let icon, value;
+  if(r<0.5){ el.className='fz-item fz-gel';   icon='gel';   value=10; }
+  else if(r<0.8){ el.className='fz-item fz-bidon'; icon='drink'; value=5; }
+  else { el.className='fz-item fz-tack';  icon='tack';  value=-15; }
+  el.innerHTML=icn(icon);
+  el.dataset.value=String(value);
+  el.style.left=Math.random()*Math.max(0,(area.clientWidth-FZ_ITEM_SIZE))+'px';
+  el.style.top=(-FZ_ITEM_SIZE)+'px';
+  el.addEventListener('pointerdown', ()=>{
+    if(!fzActive) return;
+    fzScore+=parseInt(el.dataset.value,10)||0;
+    fzUpdateUI();
+    el.remove();
+    if((parseInt(el.dataset.value,10)||0)<0){
+      area.classList.add('hit');
+      clearTimeout(fzHitTimer);
+      fzHitTimer=setTimeout(()=>area.classList.remove('hit'),150);
+    }
+  });
+  area.appendChild(el);
+  fzAnimateItem(el, area);
+}
+
+// Per-item fall. Every handle goes into fzRafIds and is removed as soon as it
+// fires, so the set only ever holds live chains and fzClearHandles() can cancel
+// the lot without touching the DOM.
+function fzAnimateItem(el, area){
+  let pos=-FZ_ITEM_SIZE;
+  const speed=2+Math.random()*4;
+  function move(){
+    if(!fzActive){ el.remove(); return; }
+    pos+=speed;
+    el.style.top=pos+'px';
+    if(pos>area.clientHeight){ el.remove(); return; }
+    const id=requestAnimationFrame(()=>{ fzRafIds.delete(id); move(); });
+    fzRafIds.add(id);
+  }
+  const id0=requestAnimationFrame(()=>{ fzRafIds.delete(id0); move(); });
+  fzRafIds.add(id0);
+}
+
+function fzUpdateUI(){
+  const t=document.getElementById('fz-time');
+  const s=document.getElementById('fz-score');
+  if(t) t.textContent=String(Math.max(0,fzTimeLeft));
+  if(s) s.textContent=String(fzScore);
+}
+
+// fix116 rule: the celebration/result surface goes up FIRST, then every write
+// that could throw runs behind try/catch. A failed save must not cost the
+// player the panel telling them what they earned.
+function fzEnd(){
+  fzActive=false;
+  fzClearHandles();
+  fzClearItems();
+  const won=fzScore>=FZ_THRESHOLD;
+
+  const title=document.getElementById('fz-end-title');
+  const copy=document.getElementById('fz-end-copy');
+  const fin=document.getElementById('fz-final');
+  if(fin) fin.textContent=String(fzScore);
+  if(title) title.textContent=won?'Musette full':'Came up short';
+  if(copy) copy.textContent=won
+    ? `${fzScore}g on board. Your legs will come back quicker for the next half hour.`
+    : `${fzScore}g on board — you need ${FZ_THRESHOLD}g to ride away with anything. Go again.`;
+  fzResetPanels(false);
+  const endPanel=document.getElementById('fz-panel-end');
+  if(endPanel) endPanel.classList.add('show');
+
+  try{
+    const store=rsStore();
+    if(store.bestScores.fz==null||fzScore>store.bestScores.fz) store.bestScores.fz=fzScore;
+    store.lastPlayed.fz=Date.now();
+    if(won) grantBuff('fz_regen', FZ_BUFF_MULT, FZ_BUFF_MS); // grantBuff saves
+    else saveGame();
+  }catch(e){
+    console.warn('fzEnd: post-game save failed', e);
+  }
+
+  // fix155: celebration fires LAST, outside the try/catch that precedes it —
+  // the try/catch guarantees this line is reached even if the save throws
+  // (fix116), and running it after all DOM work means nothing rebuilds the
+  // popup out from under it (fix126).
+  if(won) rsShowSuccessPop('fz');
+}
+
+// Two-tap confirm, no confirm() — mirrors requestQuitGutOverlay().
+function requestQuitFeedZone(){
+  const btn=document.getElementById('fz-quit-btn');
+  if(!_fzQuitArmed){
+    _fzQuitArmed=true;
+    if(btn){ btn.textContent='Tap again to quit'; btn.classList.add('armed'); }
+    clearTimeout(_fzQuitTimer);
+    _fzQuitTimer=setTimeout(()=>{
+      _fzQuitArmed=false;
+      if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
+    },3000);
+    return;
+  }
+  clearTimeout(_fzQuitTimer);
+  _fzQuitArmed=false;
+  quitFeedZone();
+}
+function quitFeedZone(){
+  fzActive=false;
+  fzClearHandles();
+  closeFeedZone();
+}
+// Abandoning banks nothing — the run has to be finished for the score to count.
+function closeFeedZone(){
+  const ov=document.getElementById('fz-overlay'); if(!ov) return;
+  fzActive=false;
+  fzClearHandles();
+  fzClearItems();
+  fzResetPanels(true);
+  ov.style.display='none';
+  document.body.style.overflow='';
+  _fzQuitArmed=false;
+  clearTimeout(_fzQuitTimer); _fzQuitTimer=null;
+  const btn=document.getElementById('fz-quit-btn');
+  if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
+  openRiderSkillsHub();
+}
+
+// ── fix152: Slipstream Drafting ─────────────────────────────────────────
+// Ported from the standalone Slipstream_drafting_minigame.html. Changes made
+// during the port, all deliberate:
+//   1. Both handles are cleared in one place. The standalone file cleared its
+//      setInterval inside the tick and simply let the rAF chain stop itself via
+//      isPlaying — that leaves a live frame in flight when the overlay closes.
+//      slClearHandles() cancels the rAF handle explicitly.
+//   2. The score loop is stepped at a FIXED 1/60s, accumulated from the real
+//      frame delta. The source added points per animation frame, so a 120Hz
+//      phone scored double a 60Hz one. Same for the leader drift and the
+//      player's fore/aft movement — the whole simulation is now frame-rate
+//      independent. That was a real bug in the source, not carried over.
+//   3. The two flat rectangles are replaced with a top-down road scene: drawn
+//      asphalt with verges and a scrolling dashed centre line, riders as
+//      rounded bodies with a helmet dot and two wheel marks, and the draft zone
+//      made VISIBLE as a translucent cone behind the leader. The cone is the
+//      playability fix — draftWidth was previously an invisible band the player
+//      was expected to aim at blind.
+//   4. Jersey recolour of the player rider is deliberately NOT done here: it
+//      touches the canvas hue-remap pipeline, which is its own blast radius.
+//
+// Scene colours are literals, not CSS vars — canvas has no access to custom
+// properties, and asphalt/verge/jersey are scene art rather than UI chrome.
+const SL_DURATION_SEC = 60;
+const SL_W = 400, SL_H = 500;      // fixed canvas coordinate space
+const SL_STEP_MS      = 1000/60;   // fixed simulation step
+const SL_MAX_Y        = 420;       // dropped off the back
+const SL_MIN_Y        = 160;       // glued to the leader's wheel
+const SL_DRAFT_W      = 60;
+// Threshold: a run that finds the wheel early and holds it banks ~9-11k. 6000
+// asks for roughly two thirds of the minute spent sheltered — reachable on a
+// first attempt but not on a drifting one.
+// PROVISIONAL: retune on playtest before fix155.
+const SL_THRESHOLD    = 6000;
+const SL_BUFF_PCT     = 10;
+const SL_BUFF_MS      = 60*60*1000;
+
+let slActive=false, slScore=0, slTimeLeft=SL_DURATION_SEC;
+let slTickId=null, slRafId=null, slLastFrame=0, slAccMs=0, slRoadOffset=0;
+const slPlayer={x:SL_W/2-10, y:SL_MAX_Y, w:20, h:40};
+const slLeader={x:SL_W/2-10, y:100, w:20, h:40, dx:2};
+let _slQuitArmed=false, _slQuitTimer=null;
+
+function openSlipstream(){
+  const ov=document.getElementById('sl-overlay'); if(!ov) return;
+  slBindSteering(); // idempotent; done here so the init path stays untouched
+  slResetPanels(true);
+  slScore=0; slTimeLeft=SL_DURATION_SEC; slResetRiders(); slUpdateUI();
+  ov.style.display='flex';
+  document.body.style.overflow='hidden';
+  slDraw(); // paint the scene behind the start panel
+}
+
+function slResetRiders(){
+  slPlayer.x=SL_W/2-slPlayer.w/2; slPlayer.y=SL_MAX_Y;
+  slLeader.x=SL_W/2-slLeader.w/2; slLeader.y=100; slLeader.dx=2;
+  slRoadOffset=0;
+}
+
+// Single teardown point for every handle this game owns. Called from slEnd(),
+// quitSlipstream() and slStart() so no path can leave a timer or frame running.
+function slClearHandles(){
+  clearInterval(slTickId); slTickId=null;
+  if(slRafId!=null) cancelAnimationFrame(slRafId);
+  slRafId=null;
+}
+
+function slResetPanels(showStart){
+  const s=document.getElementById('sl-panel-start');
+  const e=document.getElementById('sl-panel-end');
+  if(s) s.classList.toggle('show', !!showStart);
+  if(e) e.classList.remove('show');
+}
+
+// Maps a client x back through the CSS scale into the fixed 400-wide space.
+function slPointerX(canvas, clientX){
+  const rect=canvas.getBoundingClientRect();
+  if(!rect.width) return slPlayer.x;
+  return (clientX-rect.left)*(SL_W/rect.width);
+}
+
+function slStart(){
+  const canvas=document.getElementById('sl-canvas'); if(!canvas) return;
+  // fix155: same re-check as fzStart — "Ride it again" reaches here directly.
+  if(!rsCanStart('sl')){ closeSlipstream(); return; }
+  slClearHandles();
+  slResetPanels(false);
+  slActive=true; slScore=0; slTimeLeft=SL_DURATION_SEC; slResetRiders();
+  slUpdateUI();
+  slTickId=setInterval(()=>{
+    slTimeLeft--;
+    slUpdateUI();
+    if(slTimeLeft<=0) slEnd();
+  },1000);
+  slLastFrame=0; slAccMs=0;
+  slRafId=requestAnimationFrame(slLoop);
+}
+
+// Steering. Listeners are bound once at load (see the binder below), not per
+// start, so repeated runs can't stack duplicates.
+function slHandleSteer(clientX){
+  if(!slActive) return;
+  const canvas=document.getElementById('sl-canvas'); if(!canvas) return;
+  slPlayer.x=slPointerX(canvas, clientX)-slPlayer.w/2;
+}
+
+// One fixed simulation step. Pure sim — no drawing, no DOM.
+function slStep(){
+  slLeader.x+=slLeader.dx;
+  if(Math.random()<0.02) slLeader.dx=(Math.random()-0.5)*6;
+  if(slLeader.x<50) slLeader.dx=Math.abs(slLeader.dx);
+  if(slLeader.x>SL_W-50-slLeader.w) slLeader.dx=-Math.abs(slLeader.dx);
+
+  if(slPlayer.x<0) slPlayer.x=0;
+  if(slPlayer.x>SL_W-slPlayer.w) slPlayer.x=SL_W-slPlayer.w;
+
+  const centre=slLeader.x+slLeader.w/2;
+  const pc=slPlayer.x+slPlayer.w/2;
+  const inDraft=(pc>=centre-SL_DRAFT_W/2 && pc<=centre+SL_DRAFT_W/2);
+
+  if(inDraft){
+    slPlayer.y-=1.2;
+    if(slPlayer.y<SL_MIN_Y) slPlayer.y=SL_MIN_Y;
+    const closeness=(SL_MAX_Y-slPlayer.y)/(SL_MAX_Y-SL_MIN_Y);
+    slScore+=1+Math.floor(closeness*4);
+  }else{
+    slPlayer.y+=2.5;
+    if(slPlayer.y>SL_MAX_Y) slPlayer.y=SL_MAX_Y;
+  }
+  // Road scroll speed rises as the player tucks in — reads as going faster.
+  slRoadOffset=(slRoadOffset+6+(SL_MAX_Y-slPlayer.y)/40)%48;
+}
+
+// Top-down rider: rounded body, helmet dot at the leading (upper) edge, two
+// wheel marks. Drawn in canvas units so it scales with everything else.
+function slDrawRider(ctx, r, jersey, helmet){
+  const cx=r.x+r.w/2;
+  ctx.fillStyle='rgba(0,0,0,.28)';
+  ctx.beginPath();
+  ctx.ellipse(cx+2, r.y+r.h/2+3, r.w*0.55, r.h*0.5, 0, 0, Math.PI*2);
+  ctx.fill();
+  // wheel marks, fore and aft of the body
+  ctx.fillStyle='#1b1b1b';
+  ctx.fillRect(cx-2, r.y-5, 4, 9);
+  ctx.fillRect(cx-2, r.y+r.h-4, 4, 9);
+  // body
+  ctx.fillStyle=jersey;
+  ctx.beginPath();
+  const rad=r.w/2;
+  ctx.moveTo(r.x, r.y+rad);
+  ctx.quadraticCurveTo(r.x, r.y, cx, r.y);
+  ctx.quadraticCurveTo(r.x+r.w, r.y, r.x+r.w, r.y+rad);
+  ctx.lineTo(r.x+r.w, r.y+r.h-rad);
+  ctx.quadraticCurveTo(r.x+r.w, r.y+r.h, cx, r.y+r.h);
+  ctx.quadraticCurveTo(r.x, r.y+r.h, r.x, r.y+r.h-rad);
+  ctx.closePath();
+  ctx.fill();
+  // shoulders
+  ctx.fillStyle='rgba(255,255,255,.18)';
+  ctx.fillRect(r.x+1, r.y+r.h*0.42, r.w-2, 3);
+  // helmet
+  ctx.fillStyle=helmet;
+  ctx.beginPath();
+  ctx.arc(cx, r.y+7, 6, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function slDraw(){
+  const canvas=document.getElementById('sl-canvas'); if(!canvas) return;
+  const ctx=canvas.getContext('2d'); if(!ctx) return;
+
+  // verge / asphalt
+  ctx.fillStyle='#3d5a3a';
+  ctx.fillRect(0,0,SL_W,SL_H);
+  ctx.fillStyle='#3a3a3e';
+  ctx.fillRect(28,0,SL_W-56,SL_H);
+  ctx.fillStyle='#e8e8e8';
+  ctx.fillRect(28,0,3,SL_H);
+  ctx.fillRect(SL_W-31,0,3,SL_H);
+
+  // scrolling dashed centre line
+  ctx.fillStyle='rgba(255,255,255,.35)';
+  for(let y=-48+slRoadOffset; y<SL_H; y+=48){
+    ctx.fillRect(SL_W/2-2, y, 4, 26);
+  }
+
+  // draft cone behind the leader — the thing the player is aiming at
+  const lc=slLeader.x+slLeader.w/2, lb=slLeader.y+slLeader.h;
+  const grad=ctx.createLinearGradient(0, lb, 0, SL_H);
+  grad.addColorStop(0,'rgba(70,220,110,.42)');
+  grad.addColorStop(1,'rgba(70,220,110,.06)');
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  ctx.moveTo(lc, lb);
+  ctx.lineTo(lc-SL_DRAFT_W/2, SL_H);
+  ctx.lineTo(lc+SL_DRAFT_W/2, SL_H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle='rgba(70,220,110,.55)';
+  ctx.lineWidth=1.5;
+  ctx.stroke();
+
+  slDrawRider(ctx, slLeader, '#d94141', '#f2f2f2');
+  const tucked=slPlayer.y<=SL_MIN_Y+5;
+  slDrawRider(ctx, slPlayer, tucked?'#3fc46b':'#3aa0e0', '#101418');
+}
+
+function slLoop(ts){
+  if(!slActive){ slRafId=null; return; }
+  if(!slLastFrame) slLastFrame=ts;
+  // Clamp the delta so a backgrounded tab doesn't fast-forward the whole run
+  // on return — 250ms is four steps' worth of catch-up, no more.
+  slAccMs+=Math.min(250, ts-slLastFrame);
+  slLastFrame=ts;
+  while(slAccMs>=SL_STEP_MS){ slStep(); slAccMs-=SL_STEP_MS; }
+  slDraw();
+  slUpdateUI();
+  slRafId=requestAnimationFrame(slLoop);
+}
+
+function slUpdateUI(){
+  const t=document.getElementById('sl-time');
+  const s=document.getElementById('sl-score');
+  const tv=String(Math.max(0,slTimeLeft));
+  const sv=String(slScore);
+  if(t&&t.textContent!==tv) t.textContent=tv;   // guarded writes — the loop
+  if(s&&s.textContent!==sv) s.textContent=sv;   // runs every frame
+}
+
+// fix116 rule: the result surface goes up FIRST, then every write that could
+// throw runs behind try/catch.
+function slEnd(){
+  slActive=false;
+  slClearHandles();
+  slDraw();
+  const won=slScore>=SL_THRESHOLD;
+
+  const title=document.getElementById('sl-end-title');
+  const copy=document.getElementById('sl-end-copy');
+  const fin=document.getElementById('sl-final');
+  if(fin) fin.textContent=String(slScore);
+  if(title) title.textContent=won?'Wheel held':'Blown out the back';
+  if(copy) copy.textContent=won
+    ? `${slScore} saved sitting in. The next hour of training will stick harder.`
+    : `${slScore} saved — you need ${SL_THRESHOLD} to take anything away from it. Get back on that wheel.`;
+  slResetPanels(false);
+  const endPanel=document.getElementById('sl-panel-end');
+  if(endPanel) endPanel.classList.add('show');
+
+  try{
+    const store=rsStore();
+    if(store.bestScores.sl==null||slScore>store.bestScores.sl) store.bestScores.sl=slScore;
+    store.lastPlayed.sl=Date.now();
+    if(won) grantBuff('sl_xp', SL_BUFF_PCT, SL_BUFF_MS); // grantBuff saves
+    else saveGame();
+  }catch(e){
+    console.warn('slEnd: post-game save failed', e);
+  }
+
+  // fix155: celebration last, for the same fix116/fix126 reasons as fzEnd().
+  if(won) rsShowSuccessPop('sl');
+}
+
+// Two-tap confirm, no confirm() — mirrors requestQuitFeedZone().
+function requestQuitSlipstream(){
+  const btn=document.getElementById('sl-quit-btn');
+  if(!_slQuitArmed){
+    _slQuitArmed=true;
+    if(btn){ btn.textContent='Tap again to quit'; btn.classList.add('armed'); }
+    clearTimeout(_slQuitTimer);
+    _slQuitTimer=setTimeout(()=>{
+      _slQuitArmed=false;
+      if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
+    },3000);
+    return;
+  }
+  clearTimeout(_slQuitTimer);
+  _slQuitArmed=false;
+  quitSlipstream();
+}
+function quitSlipstream(){
+  slActive=false;
+  slClearHandles();
+  closeSlipstream();
+}
+// Abandoning banks nothing — the run has to be finished for the score to count.
+function closeSlipstream(){
+  const ov=document.getElementById('sl-overlay'); if(!ov) return;
+  slActive=false;
+  slClearHandles();
+  slResetPanels(true);
+  ov.style.display='none';
+  document.body.style.overflow='';
+  _slQuitArmed=false;
+  clearTimeout(_slQuitTimer); _slQuitTimer=null;
+  const btn=document.getElementById('sl-quit-btn');
+  if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
+  openRiderSkillsHub();
+}
+
+// Steering listeners bound exactly once. Guarded by _slSteerBound so a second
+// call (hot reload, defensive re-entry) can never double-bind.
+let _slSteerBound=false;
+function slBindSteering(){
+  if(_slSteerBound) return;
+  const canvas=document.getElementById('sl-canvas'); if(!canvas) return;
+  canvas.addEventListener('pointermove', e=>{ slHandleSteer(e.clientX); });
+  canvas.addEventListener('pointerdown', e=>{ slHandleSteer(e.clientX); });
+  canvas.addEventListener('touchmove', e=>{
+    if(slActive) e.preventDefault();            // don't let the page scroll mid-run
+    if(e.touches&&e.touches[0]) slHandleSteer(e.touches[0].clientX);
+  }, {passive:false});
+  _slSteerBound=true;
+}
+
+// ── fix153: Wind Tunnel ─────────────────────────────────────────────────
+// Ported from the standalone Wind_tunnel_minigame.html. updateLogic()'s aero
+// maths and drawWind()'s particle field carry over intact; four things changed
+// during the port, all deliberate:
+//
+//   1. The stick figure is gone. The rider is the existing TT sprite sheet
+//      (assets/tt.png, frame 0 of six at a 261.33px pitch — the geometry
+//      stated in the fix145 CSS block), drawn to canvas in TWO SLICES about
+//      the hip line: the legs-and-bike slice is drawn square, the torso slice
+//      is rotated and stretched by the sliders. A single-slice deform tilts
+//      the legs with the torso, which reads as the whole bike falling over.
+//      Honest limitation: a raster sprite cannot actually re-pose, so this is
+//      a transform proxy — it reads as tucking, it is not real articulation.
+//      If the seam at the hip line shows on device, WT_HIP_FRAC is the one
+//      number to move.
+//   2. Sprite source is read from --sheet-tt, not hard-coded to the file, so
+//      the rider wears the player's recoloured jersey like every other
+//      surface. If the sheet is missing or the recolour never ran, the port's
+//      original drawn rider stands in — see wtDrawFallbackRider(). Never a
+//      blank canvas.
+//   3. The source had no win condition at all: one static target, no clock,
+//      no score. That solves in three seconds and then sits there. The demand
+//      now drifts on a slow sine (the wind shifting through the session), the
+//      run is timed, and the score is the PERCENTAGE of the run spent in clean
+//      air — a percentage rather than a point total so the number means the
+//      same thing on a 60Hz and a 120Hz phone.
+//   4. Fixed 1/60s simulation step accumulated from the real frame delta, for
+//      that same frame-rate independence (the fix152 lesson).
+//
+// Scene colours are literals, not CSS vars — canvas cannot read custom
+// properties, and tunnel floor / wind streaks are scene art, not UI chrome.
+const WT_DURATION_SEC = 30;
+const WT_W = 440, WT_H = 250;      // fixed canvas coordinate space
+const WT_STEP_MS      = 1000/60;   // fixed simulation step
+const WT_FRAME_W      = 261.33;    // tt.png: 1568 / 6 frames
+const WT_FRAME_H      = 308;
+const WT_HIP_FRAC     = 0.50;      // fraction of frame height that is the hip line
+const WT_CLEAN_BAND   = 6;         // |difference| inside this counts as clean air
+const WT_CLOSE_BAND   = 14;        // ...and inside this counts as half
+// Threshold: the gust swing is +/-12 against a 6-wide clean band, so a player
+// who finds the setup and then keeps nudging it lands around 75-85%. One who
+// sets it once and lets go lands near 45%. 65 asks for active tracking without
+// asking for perfection.
+// PROVISIONAL: retune on playtest before fix155.
+const WT_THRESHOLD    = 65;
+// Watts added to totalAero for the next race (wired in fix154). Bike aero runs
+// 0-~15w, so 4w is about one tier of wheels for one race — meaningful without
+// distorting the equipment ladder.
+const WT_BUFF_WATTS   = 4;
+const WT_GUST_AMP     = 12;
+const WT_GUST_RATE    = 0.008;     // radians per fixed step ~= 13s period
+
+const WT_STAGES=[
+  {name:'Flat and windy',  aero:88, note:'Nothing to hide behind out there. Get low and get long.'},
+  {name:'Cobbled sectors', aero:20, note:'Sit up and soften it — you want to float over the stones, not fight them.'},
+  {name:'Rolling hills',   aero:52, note:'Middle ground. Comfortable enough to go again, quick enough to matter.'},
+  {name:'Mountain summit', aero:32, note:'It is a long way up. Give yourself room to breathe.'},
+];
+
+let wtOpen=false, wtActive=false, wtTimeLeft=WT_DURATION_SEC;
+let wtTickId=null, wtRafId=null, wtLastFrame=0, wtAccMs=0;
+let wtSteps=0, wtCleanSteps=0, wtScore=0;
+let wtStage=WT_STAGES[0], wtGustPhase=0, wtDiff=0;
+let wtParticles=null, wtSprite=null, wtSpriteReady=false;
+let _wtQuitArmed=false, _wtQuitTimer=null;
+
+// Reads the live recolour var so the tunnel rider wears the same kit as the
+// Train scene and the peloton. Falls back to the raw asset, which is what the
+// CSS url() fallback resolves to anyway.
+function wtSpriteSrc(){
+  try{
+    const v=getComputedStyle(document.documentElement).getPropertyValue('--sheet-tt');
+    const m=v&&v.match(/url\(\s*["']?([^"')]+)["']?\s*\)/);
+    if(m&&m[1]) return m[1];
+  }catch(e){ /* computed style unavailable — fall through */ }
+  return 'assets/tt.png';
+}
+
+// Loaded once per overlay open. Re-loaded if the source string has changed
+// since last time, which happens when the player swaps jersey between runs.
+function wtEnsureSprite(){
+  const src=wtSpriteSrc();
+  if(wtSprite && wtSprite.dataset && wtSprite.dataset.wtSrc===src) return;
+  const img=new Image();
+  img.dataset.wtSrc=src;
+  wtSpriteReady=false;
+  img.onload=()=>{ if(wtSprite===img) wtSpriteReady=true; };
+  img.onerror=()=>{ if(wtSprite===img) wtSpriteReady=false; };
+  wtSprite=img;
+  img.src=src;
+}
+
+function wtEnsureParticles(){
+  if(wtParticles) return;
+  wtParticles=[];
+  for(let i=0;i<40;i++){
+    wtParticles.push({
+      x:Math.random()*WT_W,
+      baseY:20+Math.random()*(WT_H-60),
+      y:0,
+      length:20+Math.random()*40,
+      speed:3+Math.random()*4,
+    });
+  }
+}
+
+function wtSliders(){
+  const s=document.getElementById('wt-stack');
+  const r=document.getElementById('wt-reach');
+  const p=document.getElementById('wt-pressure');
+  return {
+    stack:    s?parseInt(s.value,10)||0:50,
+    reach:    r?parseInt(r.value,10)||0:50,
+    pressure: p?parseInt(p.value,10)||0:50,
+  };
+}
+
+// Source's aero maths, unchanged: low stack, long reach and hard tyres all
+// push the player's aero score up. PURE READ — no state writes, called from
+// the render path.
+function wtPlayerAero(){
+  const v=wtSliders();
+  return ((100-v.stack)+v.reach+v.pressure)/3;
+}
+
+// What the tunnel is asking for right now: the stage's base demand plus the
+// gust swing. PURE READ.
+function wtDemand(){
+  return Math.max(0, Math.min(100, wtStage.aero + Math.sin(wtGustPhase)*WT_GUST_AMP));
+}
+
+// Single teardown point for every handle this game owns. Called from wtEnd(),
+// quitWindTunnel(), closeWindTunnel() and wtStart(), so no path can leave a
+// timer or a frame in flight.
+function wtClearHandles(){
+  clearInterval(wtTickId); wtTickId=null;
+  if(wtRafId!=null) cancelAnimationFrame(wtRafId);
+  wtRafId=null;
+}
+
+function wtResetPanels(showStart){
+  const s=document.getElementById('wt-panel-start');
+  const e=document.getElementById('wt-panel-end');
+  if(s) s.classList.toggle('show', !!showStart);
+  if(e) e.classList.remove('show');
+}
+
+function openWindTunnel(){
+  const ov=document.getElementById('wt-overlay'); if(!ov) return;
+  wtEnsureSprite(); wtEnsureParticles();
+  wtClearHandles();
+  wtResetPanels(true);
+  wtActive=false; wtOpen=true;
+  wtTimeLeft=WT_DURATION_SEC; wtSteps=0; wtCleanSteps=0; wtScore=0; wtGustPhase=0;
+  wtUpdateUI();
+  ov.style.display='flex';
+  document.body.style.overflow='hidden';
+  // The loop runs for as long as the overlay is open, not just during a run,
+  // so the player can move the sliders and watch the rider change shape before
+  // committing to the clock. wtStep() — and therefore all scoring — is gated
+  // on wtActive.
+  wtLastFrame=0; wtAccMs=0;
+  wtRafId=requestAnimationFrame(wtLoop);
+}
+
+function wtStart(){
+  const canvas=document.getElementById('wt-canvas'); if(!canvas) return;
+  // fix155: same re-check as fzStart/slStart. The wind tunnel's buff is
+  // race-scoped, so this holds until the banked watts are actually spent.
+  if(!rsCanStart('wt')){ closeWindTunnel(); return; }
+  wtClearHandles();
+  wtResetPanels(false);
+  wtStage=WT_STAGES[Math.floor(Math.random()*WT_STAGES.length)];
+  wtGustPhase=Math.random()*Math.PI*2;
+  wtActive=true; wtOpen=true;
+  wtTimeLeft=WT_DURATION_SEC; wtSteps=0; wtCleanSteps=0; wtScore=0;
+  // Brief is rebuilt exactly here — once per run, never on the tick.
+  const brief=document.getElementById('wt-brief');
+  if(brief) brief.innerHTML=`<b>${wtStage.name}.</b> ${wtStage.note}`;
+  wtUpdateUI();
+  wtTickId=setInterval(()=>{
+    wtTimeLeft--;
+    wtUpdateUI();
+    if(wtTimeLeft<=0) wtEnd();
+  },1000);
+  wtLastFrame=0; wtAccMs=0;
+  wtRafId=requestAnimationFrame(wtLoop);
+}
+
+// One fixed simulation step. Pure sim — no drawing, no DOM.
+function wtStep(){
+  wtGustPhase+=WT_GUST_RATE;
+  wtDiff=wtPlayerAero()-wtDemand();
+  const d=Math.abs(wtDiff);
+  wtSteps++;
+  if(d<=WT_CLEAN_BAND)      wtCleanSteps+=1;
+  else if(d<=WT_CLOSE_BAND) wtCleanSteps+=0.5;
+  wtScore=Math.round(100*wtCleanSteps/wtSteps);
+}
+
+// Wind streaks. Ported from drawWind(): particles run right to left (into the
+// rider, who faces right) and wobble harder the further off the setup is.
+function wtDrawWind(ctx, diffAbs){
+  ctx.strokeStyle = diffAbs<=WT_CLEAN_BAND ? 'rgba(70,220,110,.55)'
+                  : diffAbs<=25            ? 'rgba(240,170,40,.5)'
+                                           : 'rgba(230,80,80,.5)';
+  ctx.lineWidth=2;
+  const amp = diffAbs<=WT_CLEAN_BAND ? 0 : Math.min(26, diffAbs*0.3);
+  for(const p of wtParticles){
+    p.x-=p.speed;
+    if(p.x<-60){ p.x=WT_W+60; p.baseY=20+Math.random()*(WT_H-60); }
+    p.y=p.baseY+(amp?Math.sin(p.x*0.05)*amp:0);
+    const tailY=p.baseY+(amp?Math.sin((p.x+p.length)*0.05)*amp:0);
+    ctx.beginPath();
+    ctx.moveTo(p.x,p.y);
+    ctx.lineTo(p.x+p.length,tailY);
+    ctx.stroke();
+  }
+}
+
+// Fallback when the sprite sheet has not loaded: the port's original drawn
+// rider, scaled into this coordinate space. Deliberately kept — a missing
+// asset should cost fidelity, never leave an empty tunnel.
+function wtDrawFallbackRider(ctx, v, floorY){
+  const hbY=floorY-120+(v.stack*0.35);
+  const hbX=300+((v.reach-50)*0.5);
+  const rear={x:130,y:floorY-30}, front={x:330,y:floorY-30};
+  const bb={x:225,y:floorY-30}, saddle={x:185,y:floorY-118};
+  ctx.strokeStyle='#5a5a62'; ctx.lineWidth=4; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.beginPath();
+  ctx.moveTo(rear.x,rear.y); ctx.lineTo(bb.x,bb.y); ctx.lineTo(saddle.x,saddle.y); ctx.lineTo(rear.x,rear.y);
+  ctx.moveTo(saddle.x,saddle.y+10); ctx.lineTo(hbX-20,hbY+20); ctx.lineTo(bb.x,bb.y);
+  ctx.moveTo(hbX-20,hbY+20); ctx.lineTo(front.x,front.y);
+  ctx.stroke();
+  ctx.strokeStyle='#9a9aa2'; ctx.lineWidth=3+(v.pressure/25);
+  ctx.beginPath(); ctx.arc(rear.x,rear.y,30,0,Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(front.x,front.y,30,0,Math.PI*2); ctx.stroke();
+  const hip={x:190,y:floorY-123}, sh={x:hbX-60,y:hbY-30};
+  ctx.strokeStyle='#3fc46b'; ctx.lineWidth=8;
+  ctx.beginPath(); ctx.moveTo(hip.x,hip.y); ctx.lineTo(sh.x,sh.y); ctx.lineTo(hbX,hbY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(hip.x,hip.y); ctx.lineTo(245,floorY-78); ctx.lineTo(bb.x,bb.y+12); ctx.stroke();
+  ctx.fillStyle='#f2f2f2';
+  ctx.beginPath(); ctx.arc(sh.x+25,sh.y-20,13,0,Math.PI*2); ctx.fill();
+}
+
+// Two-slice sprite draw. The lower slice (legs, cranks, bike) is square to the
+// floor; the upper slice (torso, arms, helmet) pivots and stretches about the
+// hip line. Everything is in canvas units, so the whole thing scales with the
+// element.
+function wtDrawSpriteRider(ctx, v, floorY){
+  const destH=176, s=destH/WT_FRAME_H, destW=WT_FRAME_W*s;
+  const bx=WT_W/2-destW/2;
+  const by=floorY-destH;
+  const hipSrcY=WT_FRAME_H*WT_HIP_FRAC;
+  const upperH=destH*WT_HIP_FRAC;
+  const hipY=by+upperH;
+  const pivotX=bx+destW*0.50;
+
+  // Road buzz: hard tyres rattle. Purely cosmetic, and small enough that it
+  // never obscures the shape the player is reading.
+  const buzz=(v.pressure/100)*2.2;
+  const jitter=buzz?(Math.random()-0.5)*buzz:0;
+
+  // Lower slice — legs and bike, drawn square.
+  ctx.drawImage(wtSprite, 0, hipSrcY, WT_FRAME_W, WT_FRAME_H-hipSrcY,
+                bx, hipY+jitter, destW, destH-upperH);
+
+  // Upper slice — low stack tips the torso forward, long reach stretches it out.
+  const angle=((100-v.stack)/100)*0.30-0.10;   // -0.10 upright .. +0.20 tucked
+  const stretchX=1+((v.reach-50)/50)*0.10;     // 0.90 .. 1.10
+  ctx.save();
+  ctx.translate(pivotX, hipY+jitter);
+  ctx.rotate(angle);
+  ctx.scale(stretchX,1);
+  ctx.drawImage(wtSprite, 0, 0, WT_FRAME_W, hipSrcY,
+                bx-pivotX, -upperH, destW, upperH);
+  ctx.restore();
+}
+
+function wtDraw(){
+  const canvas=document.getElementById('wt-canvas'); if(!canvas) return;
+  const ctx=canvas.getContext('2d'); if(!ctx) return;
+  const v=wtSliders();
+  const diffAbs=Math.abs(wtActive?wtDiff:(wtPlayerAero()-wtDemand()));
+  const floorY=WT_H-26;
+
+  // Tunnel: dark chamber, lit floor band.
+  ctx.fillStyle='#15161b'; ctx.fillRect(0,0,WT_W,WT_H);
+  const glow=ctx.createLinearGradient(0,0,0,WT_H);
+  glow.addColorStop(0,'rgba(90,120,170,.16)');
+  glow.addColorStop(1,'rgba(90,120,170,0)');
+  ctx.fillStyle=glow; ctx.fillRect(0,0,WT_W,WT_H);
+
+  wtDrawWind(ctx, diffAbs);
+
+  ctx.fillStyle='#26272e'; ctx.fillRect(0,floorY,WT_W,WT_H-floorY);
+  ctx.fillStyle='rgba(255,255,255,.14)'; ctx.fillRect(0,floorY,WT_W,2);
+
+  if(wtSpriteReady&&wtSprite) wtDrawSpriteRider(ctx,v,floorY);
+  else wtDrawFallbackRider(ctx,v,floorY);
+}
+
+function wtLoop(ts){
+  if(!wtOpen){ wtRafId=null; return; }
+  if(!wtLastFrame) wtLastFrame=ts;
+  // Clamp the delta so a backgrounded tab doesn't fast-forward the run on
+  // return — 250ms is four steps' worth of catch-up, no more.
+  wtAccMs+=Math.min(250, ts-wtLastFrame);
+  wtLastFrame=ts;
+  if(wtActive){
+    while(wtAccMs>=WT_STEP_MS){ wtStep(); wtAccMs-=WT_STEP_MS; }
+  }else{
+    wtAccMs=0;
+  }
+  wtDraw();
+  wtUpdateUI();
+  wtRafId=requestAnimationFrame(wtLoop);
+}
+
+// Guarded writes only — this runs every frame, so an unconditional write would
+// churn the DOM sixty times a second for no visible change.
+function wtUpdateUI(){
+  const t=document.getElementById('wt-time');
+  const s=document.getElementById('wt-score');
+  const f=document.getElementById('wt-feedback');
+  const tv=String(Math.max(0,wtTimeLeft));
+  const sv=String(wtScore);
+  if(t&&t.textContent!==tv) t.textContent=tv;
+  if(s&&s.textContent!==sv) s.textContent=sv;
+  if(!f) return;
+  if(!wtActive){
+    const idle='Set yourself up before you start.';
+    if(f.textContent!==idle) f.textContent=idle;
+    if(f.className!=='wt-feedback') f.className='wt-feedback';
+    return;
+  }
+  const d=wtDiff, a=Math.abs(d);
+  let msg, cls;
+  if(a<=WT_CLEAN_BAND){      msg='Silent air. Hold it right there.';                          cls='wt-feedback good'; }
+  else if(a<=25){            msg=d>0?'Too stretched out — your back will not last this.'
+                                   :'You are catching air. Get lower, get longer.';           cls='wt-feedback warn'; }
+  else{                      msg=d>0?'Rattling your bones. Ease it off.'
+                                   :'You are riding a parachute out there.';                  cls='wt-feedback bad'; }
+  if(f.textContent!==msg) f.textContent=msg;
+  if(f.className!==cls) f.className=cls;
+}
+
+// fix116 rule: the result surface goes up FIRST, then every write that could
+// throw runs behind try/catch.
+function wtEnd(){
+  wtActive=false;
+  wtClearHandles();
+  wtDraw();
+  const won=wtScore>=WT_THRESHOLD;
+
+  const title=document.getElementById('wt-end-title');
+  const copy=document.getElementById('wt-end-copy');
+  const fin=document.getElementById('wt-final');
+  if(fin) fin.textContent=String(wtScore);
+  if(title) title.textContent=won?'Position dialled':'Still fighting the air';
+  if(copy) copy.textContent=won
+    ? `${wtScore}% of the session in clean air. You will carry that tuck into your next race.`
+    : `${wtScore}% in clean air — you need ${WT_THRESHOLD}% before it is worth taking to a race. Chase the wind as it moves.`;
+  wtResetPanels(false);
+  const endPanel=document.getElementById('wt-panel-end');
+  if(endPanel) endPanel.classList.add('show');
+
+  try{
+    const store=rsStore();
+    if(store.bestScores.wt==null||wtScore>store.bestScores.wt) store.bestScores.wt=wtScore;
+    store.lastPlayed.wt=Date.now();
+    // Race-scoped: durationMs null, so it waits on the clock for as long as it
+    // takes the player to start a race. Consumed in consumeRaceBuffs().
+    if(won) grantBuff('wt_aero', WT_BUFF_WATTS, null); // grantBuff saves
+    else saveGame();
+  }catch(e){
+    console.warn('wtEnd: post-game save failed', e);
+  }
+
+  // The loop stops with the run; wtDraw() above left the final frame on screen.
+  wtRafId=null;
+
+  // fix155: celebration last, for the same fix116/fix126 reasons as fzEnd().
+  if(won) rsShowSuccessPop('wt');
+}
+
+// Two-tap confirm, no confirm() — mirrors requestQuitSlipstream().
+function requestQuitWindTunnel(){
+  const btn=document.getElementById('wt-quit-btn');
+  if(!_wtQuitArmed){
+    _wtQuitArmed=true;
+    if(btn){ btn.textContent='Tap again to quit'; btn.classList.add('armed'); }
+    clearTimeout(_wtQuitTimer);
+    _wtQuitTimer=setTimeout(()=>{
+      _wtQuitArmed=false;
+      if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
+    },3000);
+    return;
+  }
+  clearTimeout(_wtQuitTimer);
+  _wtQuitArmed=false;
+  quitWindTunnel();
+}
+function quitWindTunnel(){
+  wtActive=false; wtOpen=false;
+  wtClearHandles();
+  closeWindTunnel();
+}
+// Abandoning banks nothing — the run has to be finished for the score to count.
+function closeWindTunnel(){
+  const ov=document.getElementById('wt-overlay'); if(!ov) return;
+  wtActive=false; wtOpen=false;
+  wtClearHandles();
+  wtResetPanels(true);
+  ov.style.display='none';
+  document.body.style.overflow='';
+  _wtQuitArmed=false;
+  clearTimeout(_wtQuitTimer); _wtQuitTimer=null;
+  const btn=document.getElementById('wt-quit-btn');
+  if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
+  openRiderSkillsHub();
+}
+
 // Spend handler: single-tap purchase, mirrors buyAccessory()'s mutate→
 // recalc→save→toast pattern. No confirm() — a 1-level tuning spend is a
 // small, reversible-in-spirit incremental buy (same tier as existing
@@ -11164,6 +12875,7 @@ function saveGame(){
       carbWarningShownToday:state.carbWarningShownToday,
       gutTrainDone:state.gutTrainDone,
       gutStage:state.gutStage,
+      riderSkills:state.riderSkills, // fix150
       dailyTasks:state.dailyTasks,
       sponsor:state.sponsor,
       calendar:state.calendar,
@@ -11294,6 +13006,15 @@ function loadGame(){
     // stage progress (identical to a fresh morning reset).
     state.gutTrainDone = d.gutTrainDone || 0;
     state.gutStage = d.gutStage || 0;
+    // fix150: saves predating Rider Skills have no riderSkills key at all, and a
+    // save written mid-development may have the object but be missing a sub-key.
+    // Guard each field individually — the tourProgress lesson: a top-level
+    // `?? {}` is not enough when the sub-keys are read unconditionally.
+    state.riderSkills = {
+      buffs:      d.riderSkills?.buffs      ?? {},
+      lastPlayed: d.riderSkills?.lastPlayed ?? {},
+      bestScores: d.riderSkills?.bestScores ?? {},
+    };
     // Defensive merge: if new task ids are added in a future update, fill in defaults
     // for any keys missing from an older save rather than crashing or losing state.
     const defaultProgress=Object.fromEntries(DAILY_TASKS.map(t=>[t.id,false]));
@@ -11391,7 +13112,31 @@ function applyOfflineProgress(){
   // TODAY's fatigue-adjusted allocation — not state.maxEnergy. This is what stops
   // an overnight close-and-reopen from silently erasing the fatigue penalty.
   if(state.energy<state.todayEnergyAllocation){
-    const regenGained=Math.min(state.todayEnergyAllocation-state.energy, ENERGY_REGEN_RATE*awaySec);
+    // fix154: the subtle one. The buff must be evaluated against the AWAY WINDOW,
+    // not against "is it active right now" — a buff with 5 minutes left when the
+    // app closed should accelerate 5 minutes of an 8-hour absence, not all of it,
+    // and equally it shouldn't be ignored just because it expired mid-absence.
+    // So: intersect [closedAt, now] with [.., expiresAt] and only that overlap
+    // gets the faster rate.
+    //
+    // This reads the RAW buff record rather than getBuff(), deliberately. By the
+    // time we get here the buff may already have expired, and getBuff() would
+    // report it inactive and silently drop the span it legitimately covered.
+    // The read does not mutate — pruneBuffs() in gameTick() still owns cleanup.
+    let regenSecEquivalent=awaySec;
+    try{
+      const fz=state.riderSkills&&state.riderSkills.buffs&&state.riderSkills.buffs.fz_regen;
+      if(fz && !fz.consumeOnRace && fz.expiresAt){
+        const mult=fz.magnitude||1;
+        if(mult>1){
+          const closedAt=Date.now()-awayMs;
+          const coveredMs=Math.max(0, Math.min(fz.expiresAt, Date.now()) - closedAt);
+          const coveredSec=Math.min(awaySec, coveredMs/1000);
+          regenSecEquivalent = awaySec + (mult-1)*coveredSec;
+        }
+      }
+    }catch(e){ regenSecEquivalent=awaySec; } // never let a bad record cost the player their base regen
+    const regenGained=Math.min(state.todayEnergyAllocation-state.energy, ENERGY_REGEN_RATE*regenSecEquivalent);
     if(regenGained>=1){
       state.energy=Math.min(state.todayEnergyAllocation, state.energy+regenGained);
       summary.energy+=regenGained;
@@ -11421,6 +13166,23 @@ function gameTick(){
   // handles it correctly with no new code path.
   if(document.hidden) return;
   lastTick=now;
+  // fix150: the single place expiring buffs are written. pruneBuffs() returns
+  // true only when a key was actually removed, so the card rebuild happens on
+  // the one tick where the set changed; every other tick just patches the
+  // countdown text. Both are cheap and neither touches unrelated DOM.
+  // fix154: recalc() on the expiry tick too — sl_xp lives inside D.sessionMult,
+  // so an expired buff must stop paying out immediately rather than at whatever
+  // unrelated event next happens to call recalc().
+  if(pruneBuffs()){
+    recalc();
+    if(currentTab==='train') renderRiderSkillsCard();
+    // fix155: if the hub is open when a buff expires, its card is still showing
+    // the lockout. Rebuilt here only — this branch runs on expiry, not every
+    // tick, so it is not a per-tick innerHTML rebuild.
+    const rsOv=document.getElementById('rs-overlay');
+    if(rsOv&&rsOv.style.display!=='none') renderRiderSkillsHub();
+  }
+  else if(currentTab==='train') rsTickBuffPills();
   // Passive sponsor income. Capped at SPONSOR_OFFLINE_CAP_SEC because delta can
   // now legitimately be hours rather than 100ms.
   if(D.sponsorPerSec>0) earnMoney(D.sponsorPerSec*Math.min(delta,SPONSOR_OFFLINE_CAP_SEC));
@@ -11433,7 +13195,12 @@ function gameTick(){
   // the cap. Header updates only when the displayed integer changes to avoid DOM thrash.
   if(!document.hidden && state.energy<state.todayEnergyAllocation){
     const prevFloor=Math.floor(state.energy);
-    state.energy=Math.min(state.todayEnergyAllocation, state.energy+ENERGY_REGEN_RATE*delta);
+    // fix154: Feed Zone's timed buff multiplies the regen RATE, not the cap.
+    // todayEnergyAllocation still bounds the result, so a buff refills the daily
+    // pot faster but can never raise the ceiling or undo the fatigue penalty.
+    // pruneBuffs() has already run this tick, so this read is never stale.
+    const regenMult=getBuff('fz_regen').magnitude || 1;
+    state.energy=Math.min(state.todayEnergyAllocation, state.energy+ENERGY_REGEN_RATE*regenMult*delta);
     if(Math.floor(state.energy)!==prevFloor) updateHeader();
   }
   if(state.session.active){
