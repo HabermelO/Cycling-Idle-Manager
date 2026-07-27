@@ -10,7 +10,7 @@
 // The old cache is deleted automatically on the next SW activation.
 // fix150 (release pass): bumped for the v26 release build. Also carries the
 // two asset corrections found by the offline-reload test — see below.
-const CACHE_VERSION = 'cim-v3.8.00';   // fix151: rider sheets re-keyed to alpha
+const CACHE_VERSION = 'cim-v3.8.01';   // fix151: rider sheets re-keyed to alpha
                                        // and idle stills cropped to content.
                                        // Bumped so the old opaque-white art is
                                        // evicted rather than served from cache.
