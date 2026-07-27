@@ -13,7 +13,12 @@
 // fix157: bumped for the six Rider Skills drill images added below. Without
 // this bump the old cache survives activation and the new files are never
 // precached, so they would 404 offline despite being listed.
-const CACHE_VERSION = 'cim-v3.8.02';   // fix157: rider skills art
+// fix157: rider skills art
+// const CACHE_VERSION = 'cim-v3.8.00';
+// const CACHE_VERSION = 'cim-v3.8.01';   // fix159: sprint.png re-keyed to alpha
+// const CACHE_VERSION = 'cim-v3.8.02';   // fix161: assets/rider-front.png added
+const CACHE_VERSION = 'cim-v3.8.03';   // fix162: assets/race-hero-bg.jpg added
+
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
 // inside the HTML. cache.addAll() is all-or-nothing: if ANY path below 404s
@@ -68,6 +73,17 @@ const STATIC_ASSETS = [
   './assets/wind-tunnel.jpg',
   './assets/wind-tunnel-win.jpg',
   './assets/rider-photo.png',
+  // fix161: front-on rider still, added to the recolour sheet set this fix.
+  // Always-on, so it is fetched on the first recolour pass and must be here or
+  // an offline load falls back to a missing url() and the hero shows nothing.
+  './assets/rider-front.png',
+  // fix162: Race tab hero backdrop. Opaque scene, never recoloured, bound by a
+  // plain CSS url() rather than a --sheet-* var, so nothing else fetches it —
+  // if it is missing from this manifest the hero is a bare --bg3 box offline.
+  // NOTE: './assets/race-hero.jpg' above is now unreferenced by CSS but stays
+  // precached deliberately — 'raceHero' is still in RC_SHEET_NAMES, so the
+  // recolour pass still fetches it. Retiring both is its own fix.
+  './assets/race-hero-bg.jpg',
 ];
 
 // ── Install: pre-cache everything ───────────────────────────
