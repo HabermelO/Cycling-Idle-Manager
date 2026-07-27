@@ -129,7 +129,81 @@
        harmless; left in place.
 
      Not verified here, needs a device: install-from-scratch over a throttled
-     network, and a jank pass whilst cycling swatches on a mid-range phone. -->
+     network, and a jank pass whilst cycling swatches on a mid-range phone.
+
+     ═══ fix159 — sprint-finish white-box sprite ═══════════════════════════
+     Reported: during a club hill race, at the sprint finish, a white
+     background square-boxed sprite started shaking in the peloton scene.
+
+     ASSET-ONLY OUTCOME. Zero CSS and zero JS changed in this fix — the only
+     edits are this comment and the service worker CACHE_VERSION bump, so the
+     art pass stays independently revertable exactly as fix140 did it.
+
+     DIAGNOSIS — the plan's four candidates, three ruled out from source:
+
+       (4) .pel-final10 tombstone leaking — RULED OUT. The single inline CSS
+           block carries 98 comment-opens and 98 comment-closes, and every
+           comment closes before the next opens. The fix104 block is
+           genuinely closed; sprint-pose.png is inert.
+
+       (2) recolour output tainted/failed — RULED OUT. recolorSheet skips
+           a===0 outright, never writes data[i+3], and returns
+           toDataURL('image/png'). Alpha is preserved end to end. On failure
+           it returns null and the CSS falls back to url(assets/sprint.png) —
+           the same file. No path here CREATES white; it can only reproduce
+           candidate 1, which is exactly what it did.
+
+       (3) geometry mismatch exposing sheet margin — RULED OUT, and this
+           also re-characterises fix148 FINDING 1 above. .rider-sprite's
+           background-size:1674px against a 1568px sheet is not a mismatch
+           that exposes blank strip: it is a uniform upscale. 1568 -> 1674
+           puts the six frames at exactly a 279px pitch, which is the
+           declared box width, and rider-pedal travels to -1674px, the full
+           SCALED strip width. Self-consistent. The .pel-sprint override
+           (1568 / 261.33) is self-consistent at native scale. Both states
+           frame exactly one pose, so neither the steady state nor the
+           transition between them can paint sheet margin. FINDING 1 is
+           "the Train sprite renders 6.8% larger than native", not "wrong
+           frame" — still worth its own fix, but it is NOT this bug and the
+           .rider-sprite rule is deliberately left untouched here.
+
+       (1) assets/sprint.png backdrop is opaque white — CONFIRMED. This is
+           a REGRESSION of fix150's B3, not a gap fix150 missed: B3 re-keyed
+           all six sheets, and tt.png still carries that key today whilst
+           sprint.png has been re-flattened somewhere in the art pipeline
+           since. Mechanism as predicted — RC_PARTS guards lMax:0.88, so
+           white is deliberately excluded from every recolour window,
+           survives the pass untouched, and is baked into the PNG output.
+           The engine faithfully reproduces the box rather than masking it.
+
+     PROBE (fix148 Part B format) — every pixel, before -> after re-key:
+
+       sheet       mode        a==0            opaque near-white   verdict
+       sprint.png  RGB   ->    0    ( 0.00%)   263504 (54.56%)     FAIL
+                   RGBA  -> 223334  (46.24%)    40095  (8.30%)     PASS
+       tt.png      RGBA     234008  (48.45%)    25878  (5.36%)     PASS
+
+     All four corners of sprint.png read (255,255,255,255) before and
+     (255,255,255,0) after. tt.png's corners were already transparent and it
+     was NOT touched — its 5.36% opaque near-white is legitimate art (white
+     shoes, sock cuffs, jersey stripe, eye whites), which is also why the
+     re-key is a border flood-fill and not a global white->alpha replace: a
+     global replace would punch holes through those same features on the
+     sprint sheet. Post-key sprint.png retains 40095 opaque near-white px,
+     confirming the interior whites survived.
+
+     Re-key procedure (identical to fix140): border flood-fill at
+     min(r,g,b)>=246, then a 1px feather on the fill boundary — 5164 px land
+     on intermediate alpha (1.07%), against tt.png's 3179 (0.66%), so the
+     soft edge matches the sheet that was already correct. Per-frame
+     transparency is even across all six cuts (45.7-46.5%), confirming no
+     frame was partially missed.
+
+     CACHE_VERSION bumped to cim-v3.8.01. The filename is unchanged so
+     STATIC_ASSETS needs no edit, but WITHOUT the bump every already-installed
+     PWA keeps serving the old white-backdrop sheet from cache indefinitely
+     and the bug survives the deploy. -->
+
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -351,6 +425,24 @@ button{font-family:inherit;cursor:pointer;}
   background:var(--blue-bg);color:var(--blue-txt);font-weight:600;border:.5px solid var(--blue-bd);}
 .race-energy-badge.unaffordable{background:var(--red-bg);color:var(--red-txt);border-color:var(--red-bd);}
 .race-equip-bonus{font-size:10px;padding:2px 7px;border-radius:99px;font-weight:700;}
+/* fix160 — "Enter a Race" entry card and the Club / UCI discipline rows.
+   Follows the .race-card conventions above (same radius, padding, shadow and
+   :active feedback) so the chooser reads as part of the same list family. */
+.race-entry-card{background:var(--bg);border:1px solid var(--border2);border-radius:var(--radius);
+  padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow-sm);transition:opacity .2s;}
+.race-entry-card.available{cursor:pointer;}
+.race-entry-card.available:active{opacity:.75;}
+.race-entry-card.locked{opacity:.65;border-color:var(--border);cursor:default;}
+.race-entry-head{display:flex;align-items:center;gap:8px;}
+.race-entry-chev{font-size:12px;color:var(--txt3);flex-shrink:0;}
+.race-disc-row{display:flex;align-items:center;gap:8px;background:var(--bg3);
+  border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;
+  margin:0 0 8px 12px;cursor:pointer;transition:opacity .2s;}
+.race-disc-row:active{opacity:.75;}
+.race-disc-row.open{background:var(--bg);border-color:var(--border2);}
+.race-disc-text{flex:1;min-width:0;}
+.race-disc-name{font-size:13.5px;font-weight:600;}
+.race-disc-desc{font-size:11px;color:var(--txt3);margin-top:1px;}
 .active-race{border-radius:var(--radius-lg);padding:16px 14px;margin-bottom:.75rem;
   border:1.5px solid var(--red-bd);background:var(--red-bg);}
 .race-run-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
@@ -480,6 +572,18 @@ button{font-family:inherit;cursor:pointer;}
 .gear-nav-btn{flex-shrink:0;padding:7px 13px;border:1.5px solid var(--border);border-radius:99px;
   background:var(--bg);color:var(--txt2);font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;}
 .gear-nav-btn.active{border-color:var(--green-bd);background:var(--green-bg);color:var(--green-txt);font-weight:700;}
+/* fix165: Workshop tuning-target selector. Deliberately built on the existing
+   .gear-nav / .gear-nav-btn pill conventions rather than a new component, so a
+   pill here reads identically to the game selector directly above it. The only
+   additions are the group label and the "on the bike" marker dot. */
+.ws-target-wrap{margin-top:10px;}
+.ws-target-group{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+  color:var(--txt3);margin:8px 0 4px;}
+.ws-target-row{display:flex;gap:5px;overflow-x:auto;padding-bottom:3px;-webkit-overflow-scrolling:touch;}
+.ws-target-btn{-webkit-tap-highlight-color:transparent;}
+.ws-target-btn .ws-target-dot{display:inline-block;width:6px;height:6px;border-radius:99px;
+  background:var(--green-bd);margin-right:5px;vertical-align:middle;}
+.ws-bench-note{font-size:11px;color:var(--txt3);margin:6px 0 2px;}
 .equip-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
   padding:13px 14px;margin-bottom:8px;box-shadow:var(--shadow-sm);transition:border-color .15s,background .15s,opacity .2s;}
 .equip-card.equipped{border-color:var(--green-bd);}
@@ -1448,21 +1552,39 @@ button{font-family:inherit;cursor:pointer;}
    new art, so a still image was kept instead of a whole-image wobble).
    fix87 added a decorative backdrop (Option B, see below) so the card fills
    like the Workshop/Race heroes; sprite itself is unchanged. ═══ */
-.rider-portrait-wrap{position:relative;height:200px;overflow:hidden;border-radius:var(--radius-lg);
-  border:1px solid var(--border);margin-bottom:.6rem;
-  background:linear-gradient(#8ecae6 0 62%,#74c69d 62% 78%,#5a5f66 78% 100%);}
-/* ═══ fix87: decorative backdrop (Option B, no new art supplied) — the
-   220×196 portrait sprite doesn't fill the 200px-tall card on its own, so a
-   static sky/grass/road gradient (matching .rider-scene's palette) sits
-   behind it via ::before so the Rider tab hero reads as a full banner like
-   the Workshop/Race hero cards. Sprite and its recolour engine untouched. */
+/* fix163: the fix87 gradient was an explicit "Option B, no new art supplied"
+   stopgap; it is superseded by the photographic backdrop layer below, so the
+   wrap falls back to the plain --bg3 box used by .race-hero-wrap and
+   .workshop-hero-wrap. Tombstoned (fix136 form):
+.rider-portrait-wrap{...background:linear-gradient(#8ecae6 0 62%,#74c69d 62% 78%,#5a5f66 78% 100%);}
 .rider-portrait-wrap::before{content:'';position:absolute;left:0;right:0;bottom:0;height:13%;
   background:repeating-linear-gradient(90deg,#fff 0 26px,transparent 26px 60px);
   background-size:auto 4px;background-position:0 0;background-repeat:repeat-x;opacity:.9;}
 .rider-portrait{position:absolute;left:50%;top:50%;width:220px;height:196px;
   transform:translate(-50%,-50%);transform-origin:center bottom;
-  background:var(--sheet-portrait, url(assets/portrait.png)) center/contain no-repeat;
-  }
+  background:var(--sheet-portrait, url(assets/portrait.png)) center/contain no-repeat;}
+   --sheet-portrait / assets/portrait.png are now unreferenced. 'portrait'
+   deliberately stays in RC_SHEET_NAMES / _rcSheetSources — retiring a sheet
+   changes the always-on count and the recolour cache key space, so it is its
+   own fix, flagged as a follow-up alongside raceHero (fix162). */
+.rider-portrait-wrap{position:relative;height:200px;overflow:hidden;border-radius:var(--radius-lg);
+  border:1px solid var(--border);margin-bottom:.6rem;background:var(--bg3);}
+/* ═══ fix163: Rider tab hero is now a composition, mirroring fix162's Race
+   hero exactly — photographic backdrop then front-on rider, painting order is
+   DOM order so no z-index. Backdrop reuses assets/race-hero-bg.jpg (plan
+   option 1: no distinct rider-hero-bg.jpg was supplied), which means zero new
+   assets and zero new precache entries — the service worker is untouched by
+   this stage. It is a scene, never recoloured, and bound eagerly rather than
+   via LAZY_ASSET_GROUPS because the Rider tab is a primary tab. The rider
+   layer reads --sheet-rider-front (fix161), the same var the Race hero reads,
+   so both heroes recolour from a single recolour pass. */
+.rider-hero-bg{position:absolute;inset:0;
+  background:url(assets/race-hero-bg.jpg) center/cover no-repeat;}
+/* contain + bottom-anchored, sized as a percentage of the wrap rather than a
+   fixed px width, so the rider scales with the viewport instead of cropping at
+   320px or floating at 430px. Matches .race-hero-rider. */
+.rider-hero-rider{position:absolute;left:0;right:0;bottom:0;height:96%;
+  background:var(--sheet-rider-front, url(assets/rider-front.png)) bottom center/contain no-repeat;}
 /* ═══ fix83: Race tab hero avatar (static scene, mirrors the fix80
    rider-portrait hero conventions). Jersey colour follows equipped kit —
    recoloured via the shared --sheet-race-hero var, same hue-rotate/canvas
@@ -1470,8 +1592,29 @@ button{font-family:inherit;cursor:pointer;}
    which replaced the _rcFindSheetCss stylesheet scrape). */
 .race-hero-wrap{position:relative;height:200px;overflow:hidden;border-radius:var(--radius-lg);
   border:1px solid var(--border);margin-bottom:.6rem;background:var(--bg3);}
+/* fix162: superseded by the two-layer composition below. Tombstoned, not
+   deleted, per house style. --sheet-race-hero / assets/race-hero.jpg are now
+   unreferenced; 'raceHero' deliberately stays in RC_SHEET_NAMES and
+   _rcSheetSources — retiring a sheet changes the always-on count and the
+   recolour cache key space, so it is its own fix, not a rider on this one.
 .race-hero-img{position:absolute;inset:0;
   background:var(--sheet-race-hero, url(assets/race-hero.jpg)) center/contain no-repeat;}
+*/
+/* ═══ fix162: Race tab hero is now a composition — photographic backdrop with
+   the front-on rider layered over it, mirroring buildPelotonSceneHtml's
+   backdrop-then-sprite DOM order. Painting order is DOM order, so no z-index.
+   The backdrop is a plain url() and is never recoloured: it is a scene, not a
+   rider sheet. It is bound eagerly rather than through LAZY_ASSET_GROUPS
+   because the Race tab is a primary tab, not an overlay — same rule that keeps
+   the peloton art eager. The rider layer reads --sheet-rider-front (fix161) so
+   equipped kit/helmet colour follows through the shared recolour engine. */
+.race-hero-bg{position:absolute;inset:0;
+  background:url(assets/race-hero-bg.jpg) center/cover no-repeat;}
+/* contain + bottom-anchored, sized as a percentage of the wrap rather than a
+   fixed px width, so the rider scales with the viewport instead of cropping at
+   320px or floating at 430px. */
+.race-hero-rider{position:absolute;left:0;right:0;bottom:0;height:96%;
+  background:var(--sheet-rider-front, url(assets/rider-front.png)) bottom center/contain no-repeat;}
 .rider-still-exhausted{height:309px;}
 .rider-still-exhausted>div{background-image:var(--sheet-exhausted, url(assets/exhausted.png));
   animation:rider-breathe 2.8s ease-in-out infinite;}
@@ -2021,8 +2164,13 @@ button{font-family:inherit;cursor:pointer;}
   <div id="tab-race" style="display:none">
     <!-- fix83: static hero avatar, mirrors the fix80 rider-portrait hero markup
          conventions. Jersey colour follows equipped kit (see applyKitColorToRider /
-         _rcRecolorRiderSheets, which now also drives --sheet-race-hero). -->
-    <div class="race-hero-wrap"><div class="race-hero-img"></div></div>
+         _rcRecolorRiderSheets, which now also drives --sheet-race-hero).
+         fix162: now a two-layer composition — .race-hero-bg (opaque scene,
+         never recoloured) then .race-hero-rider (front-on rider, recoloured
+         via --sheet-rider-front). Still static markup rendered once, so
+         renderRaceTab() needs no change; the recolour arrives by CSS var.
+         Same contract as fix83. -->
+    <div class="race-hero-wrap"><div class="race-hero-bg"></div><div class="race-hero-rider"></div></div>
     <div id="weather-banner-wrap"></div>
     <div id="rival-wrap"></div>
     <div id="race-setup-wrap"></div>
@@ -2030,12 +2178,20 @@ button{font-family:inherit;cursor:pointer;}
     <div id="series-wrap"></div>
     <div id="active-race-wrap"></div>
     <div id="race-result-wrap"></div>
-    <div class="section-lbl">Club Races</div>
-    <!-- fix133: club races are excluded from the micro-league series -->
-    <div class="cat-desc" style="color:var(--txt3);margin:-.25rem 0 .4rem">No series points</div>
-    <div id="club-race-list"></div>
-    <div class="section-lbl">Available Races</div>
-    <div id="race-list"></div>
+    <!-- fix160: the two always-open lists are now behind a single "Enter a Race"
+         card that opens a discipline chooser. The #club-race-list and #race-list
+         ids are retained deliberately so renderClubRaces() / renderRaceTypes()
+         need no edit — only their containers' visibility changes. -->
+    <div id="race-entry-wrap"></div>
+    <div id="race-entry-club" style="display:none">
+      <!-- fix133: club races are excluded from the micro-league series -->
+      <div class="cat-desc" style="color:var(--txt3);margin:-.25rem 0 .4rem">No series points</div>
+      <div id="club-race-list"></div>
+    </div>
+    <div id="race-entry-uci" style="display:none">
+      <div class="cat-desc" style="color:var(--txt3);margin:-.25rem 0 .4rem">Category points and prize money on the line</div>
+      <div id="race-list"></div>
+    </div>
     <div class="section-lbl" style="margin-top:.75rem">Recent Results</div>
     <div id="race-history"></div>
   </div>
@@ -2046,8 +2202,13 @@ button{font-family:inherit;cursor:pointer;}
          overflow:hidden box is actually the box reserved in the tab, instead
          of the JS injecting a redundant inner .rider-portrait-wrap that had
          no height of its own. id retained so renderRiderPortrait() can still
-         find and idempotency-check it. -->
-    <div id="rider-portrait-wrap" class="rider-portrait-wrap"></div>
+         find and idempotency-check it.
+         fix163: now a two-layer composition — .rider-hero-bg (opaque scene,
+         never recoloured) then .rider-hero-rider (front-on rider, recoloured
+         via --sheet-rider-front). Both layers live in static markup, matching
+         the fix162 Race hero, so renderRiderPortrait() has nothing left to
+         inject and its body is tombstoned. -->
+    <div id="rider-portrait-wrap" class="rider-portrait-wrap"><div class="rider-hero-bg"></div><div class="rider-hero-rider"></div></div>
     <div class="section-lbl">Rider Performance</div>
     <div id="rider-stats"></div>
     <div class="section-lbl" style="margin-top:1rem">FTP &amp; W/kg Progress</div>
@@ -2435,7 +2596,10 @@ button{font-family:inherit;cursor:pointer;}
 // ═══════════════════════════════════════════════════════════
 const SAVE_KEY     = 'cycling-idle-v4';
 const DAILY_ENERGY = 100, MAX_ENERGY_CAP = 150;
-const ENERGY_REGEN_RATE = 1/600; // 1 energy per 10 minutes = 6 per hour
+// fix158: superseded — const ENERGY_REGEN_RATE = 1/600; // 1 energy per 10 minutes = 6 per hour
+// fix158: regen doubled. Refill speed only — daily ceiling (todayEnergyAllocation) unchanged.
+// Single source of truth so the offline path (~13233) and tick path (~13297) cannot drift.
+const ENERGY_REGEN_RATE = 1/300; // 1 energy per 5 minutes = 12 per hour
 const MAX_FTP = 550, MAX_VO2 = 85, MAX_SPRINT = 2000;
 
 const ENERGY_ITEMS = [
@@ -4138,7 +4302,10 @@ const state = {
   // 9999 — see spec). tuning is keyed per bike id so switching bikes switches
   // active buffs: tuning[bikeId] = {drivetrain:0,aero:0,weight:0,bearings:0}.
   // Levels are permanent (never touched by handlePrestige()'s reset list).
-  workshop: { mg:0, tuning:{} },
+  // fix164: tuning keys are now namespaced ('bike:<id>' / 'wheel:<id>') and
+  // tuningTarget holds the currently selected tuning target (the UI for
+  // changing it lands in fix165; until then it stays on the starter bike).
+  workshop: { mg:0, tuning:{}, tuningTarget:'bike:starter' },
 };
 const D = { sponsorPerSec:0, sessionMult:1, legacyPrizeMult:1, trainingBoostPct:0, raceDayPct:0, accessoryWatts:0 };
 
@@ -4185,7 +4352,8 @@ function getWeightFactorForRace(raceTypeId){
   // currently equipped bike only (per-bike tuning, spec §Spending MG). This is
   // the single effective-weight read every scoring AND preview call site
   // shares, so a shaved bike's advantage shows up identically everywhere.
-  const workshopWeightDelta=getWorkshopBonuses(state.equippedBike).weightDeltaKg;
+  // fix164: combined read — equipped bike + equipped wheels, clamped once.
+  const workshopWeightDelta=getCombinedWorkshopBonuses().weightDeltaKg;
   const effectiveWeight=Math.max(1,state.riderWeight+workshopWeightDelta);
   const rawFactor=DEFAULT_RIDER_WEIGHT/effectiveWeight;
   return 1+(rawFactor-1)*sensitivity;
@@ -4218,6 +4386,66 @@ function getEquipmentBonusForRace(raceTypeId){
   return bonus;
 }
 
+// ─── GEAR FITNESS (fix166) ──────────────────────────────────────────────
+// From Category 3 upwards, equipment stops being a flat watts bonus bolted
+// onto playerScore (by Cat 3 playerBase is large enough that ±20w is noise)
+// and starts acting as a multiplier on the finished score. Nothing new is
+// invented here: the same EQUIP_WEIGHTS that already make deep wheels bad on
+// a hill climb are reused, so light wheels for hill climbs and aero for TTs /
+// road races is exactly what the mechanic rewards.
+//
+// The reference is derived from the tier ladder, not hand-tuned: it is the
+// best weighted watts a correctly-kitted rider of that category could carry,
+// summed per slot (slots are additive, so the best combination is the sum of
+// the per-slot bests).
+//
+// Deliberately gear-only on BOTH sides of the ratio: accessory watts, the
+// climber passive and the Wind Tunnel buff all live in
+// getEquipmentBonusForRace() and are still added to playerScore additively as
+// before. Keeping them out of this ratio means the fitness figure answers one
+// question only — "is the bike/wheels/kit right for this race?" — and it
+// leaves the race-card watts badge and the Rider tab "Race Bonus" reading the
+// same untouched function, which fix154 requires.
+//
+// Club races are excluded (see simulateRaceResult). CLUB_RACE is the cheap,
+// always-pullable retention loop; gating it on gear makes that loop worse.
+const GEAR_FITNESS_EXPECTED_TIER = {cat3:3, cat2:4, cat1:4, pro:5};
+// Ramped in over four categories so promotion day is never a cliff.
+const GEAR_FITNESS_RAMP          = {cat3:0.25, cat2:0.50, cat1:0.75, pro:1.00};
+const GEAR_FITNESS_FLOOR   = 0.85; // wrongly kitted = disadvantaged, never eliminated
+const GEAR_FITNESS_CEILING = 1.10; // perfectly kitted = an edge, never a substitute for fitness
+const GEAR_FITNESS_PIVOT   = 0.85; // ratio at which the multiplier is exactly 1.00
+const GEAR_FITNESS_SLOPE   = 0.50;
+
+function gearWattsForRace(raceTypeId, bike, wheel, kit){
+  const w = EQUIP_WEIGHTS[raceTypeId] || {aero:0.5,climb:0.5};
+  const aero  = (bike.aeroWatts||0)+(wheel.aeroWatts||0)+(kit.aeroWatts||0);
+  const climb = (bike.climbWatts||0)+(wheel.climbWatts||0);
+  return aero*w.aero + climb*w.climb;
+}
+
+function gearFitnessReference(raceTypeId, maxTier){
+  const w = EQUIP_WEIGHTS[raceTypeId] || {aero:0.5,climb:0.5};
+  const bestOf=(arr,fn)=>arr.reduce((m,it)=>((it.tier||1)<=maxTier?Math.max(m,fn(it)):m), 0);
+  const scoreGear=it=>(it.aeroWatts||0)*w.aero+(it.climbWatts||0)*w.climb;
+  return bestOf(BIKES,scoreGear)+bestOf(WHEELS,scoreGear)+bestOf(KITS,it=>(it.aeroWatts||0)*w.aero);
+}
+
+function getGearFitness(raceTypeId){
+  const cat=RACE_CATEGORIES[state.raceCategory]; if(!cat) return 1;
+  const ramp=GEAR_FITNESS_RAMP[cat.id]||0;
+  if(ramp<=0) return 1; // uncat / cat5 / cat4 — byte-identical behaviour to fix165
+  const ref=gearFitnessReference(raceTypeId, GEAR_FITNESS_EXPECTED_TIER[cat.id]||3);
+  if(!(ref>0)) return 1; // no positive reference for this race type — no effect
+  const bike  = BIKES.find(b=>b.id===state.equippedBike)   || BIKES[0];
+  const wheel = WHEELS.find(w=>w.id===state.equippedWheels) || WHEELS[0];
+  const kit   = KITS.find(k=>k.id===state.equippedKit)     || KITS[0];
+  const raw   = gearWattsForRace(raceTypeId, bike, wheel, kit) / ref;
+  const full  = Math.min(GEAR_FITNESS_CEILING, Math.max(GEAR_FITNESS_FLOOR,
+                  1 + (raw - GEAR_FITNESS_PIVOT) * GEAR_FITNESS_SLOPE));
+  return 1 + (full - 1) * ramp;
+}
+
 function recalc(){
   // Extras (Accessories) — sum bonuses from every accessory currently
   // "active": permanent ones the player owns (boughtUpgrades), plus timed
@@ -4244,7 +4472,8 @@ function recalc(){
   // at +6% inside getWorkshopBonuses()). Folded into sessionMult — the single
   // shared multiplier read by completeSession(), the active/upcoming session
   // XP-pill previews, and the offline pending-XP calc — so all three agree.
-  const workshopTrainingPct=getWorkshopBonuses(state.equippedBike).trainingPct/100;
+  // fix164: combined read — equipped bike + equipped wheels, clamped once.
+  const workshopTrainingPct=getCombinedWorkshopBonuses().trainingPct/100;
   // fix154: Slipstream's timed XP buff. Kept as its own multiplied factor rather
   // than added into the (trainPct + workshopTrainingPct) sum so it stays visibly
   // separate from permanent progression and can't quietly inflate the workshop
@@ -4797,7 +5026,10 @@ function simulateRaceResult(raceTypeId, opts={}){
   // only to crit/tt (spec: "Aero bonus applies only to crit + tt"). Both are
   // already hard-clamped inside getWorkshopBonuses() so this is a single,
   // safe multiplier read for the equipped bike.
-  const wb=getWorkshopBonuses(state.equippedBike);
+  // fix164: combined read — equipped bike + equipped wheels, summed then
+  // clamped once, so bike+wheels reaches the same ceiling faster, not a
+  // higher one.
+  const wb=getCombinedWorkshopBonuses();
   const workshopAeroPct=(raceTypeId==='crit'||raceTypeId==='tt') ? wb.raceAeroPct : 0;
   const workshopMult=1+(wb.raceFlatPct+workshopAeroPct)/100;
   playerScore*=workshopMult;
@@ -4808,6 +5040,11 @@ function simulateRaceResult(raceTypeId, opts={}){
   // (see fix107 comment there) so the multiplier alone isn't the only guard.
   const noTTBike = raceTypeId==='tt' && !state.equippedTTBike;
   if(noTTBike) playerScore*=0.6;
+  // fix166 — gear fitness. Sits with the other player-side modifiers, after
+  // weight and before weather. Returns exactly 1 below Cat 3 and for club
+  // races, so nothing below that gate moves by a single bit.
+  const gearFitness = isClub ? 1 : getGearFitness(raceTypeId);
+  playerScore*=gearFitness;
   // Weather applies equally to player and AI — it shifts which race types are
   // favourable today, not raw win probability. Applied AFTER weight so both modifiers
   // are transparent in the race card badges.
@@ -5714,6 +5951,10 @@ function simulateCalendarEventResult(eventId){
   }
   const weightFactor=getWeightFactorForRace(ev.raceTypeId);
   playerScore*=weightFactor;
+  // fix166 — gear fitness, same gate and same multiplier as category races.
+  // Calendar events have their own tier, but the ramp reads the player's
+  // RACE_CATEGORIES index so the two paths can never drift apart.
+  playerScore*=getGearFitness(ev.raceTypeId);
   // Extras (Accessories) race-day % — same bonus as normal races.
   playerScore*=(1+(D.raceDayPct||0));
 
@@ -5772,6 +6013,73 @@ function startCalendarEvent(eventId){
 //   sprint-heavy weights    → sprinter bonus (flat/sprint stages)
 //   full weight-sensitivity → climber bonus (high-mountain stages)
 //   near-pure FTP, no weight-sensitivity → rouleur bonus (time trial stages)
+// ─── GRAND TOUR DIFFICULTY (fix167) ─────────────────────────────────────
+// A Grand Tour should need top-tier equipment AND a very high FTP to win
+// overall, with podiums the honest reward for anything short of that.
+//
+// Two things had to change to get there, and the second one was not obvious
+// until it was measured:
+//
+// 1. Gear tier. "Top tier" is read straight off the existing tier ladder —
+//    tier-5 bike, tier-4 wheels, tier-4 kit. Those are minPrestige 6 / 4 / 6
+//    items, so this is ALREADY a prestige gate by construction; no second
+//    independent gate is added here that could drift away from
+//    itemPrestigeLocked. Meeting 0/1/2/3 of the three slots scales the
+//    finished stage score.
+//
+// 2. The field. The old fixed AI band [430,560] could not gate anything: the
+//    AI score is a raw base, while the player's score carries vo2Mult ×
+//    specialisation × weightFactor × race-day % on top of theirs. By the time
+//    a rider is signing up for a Grand Tour that stack is ~3×, so the player
+//    beat every AI in the field on every stage regardless of gear — a 1,000-
+//    tour sim put stage wins at 100.0% and no band lift inside a sane range
+//    moved it (500-590 was still 100.0%). Simply lifting the band, as first
+//    planned, was measured and rejected.
+//    So each AI now races the BETTER of two scores: its own absolute band
+//    score (raised to an elite [485,585] — this is the "you need a very high
+//    FTP to be here at all" floor, and it is what still keeps a 380-FTP rider
+//    out of GC contention) and a score pegged to a fraction of the player's
+//    own pre-gear score. Above the floor the field rides with the player
+//    rather than behind them, which is what makes the ±5% gear swing actually
+//    decide the race instead of being lost in a 3× gap.
+//
+// The multipliers are a CEILING change, not a floor one: the worst loadout
+// still finishes ~92% top-10 on stages, because "podium is acceptable" is the
+// design contract and a Grand Tour that spits an under-geared rider out the
+// back is just a wall, not a difficulty.
+//
+// Grand Tours only. simulateRaceResult and simulateCalendarEventResult are
+// untouched — non-GT pro calendar events keep their fix166 behaviour exactly.
+const GT_AI_FTP_BAND    = [485,585]; // was [430,560] — elite floor for the field
+const GT_AI_TRACK       = 0.855;     // AI ride at ~85.5% of the player's pre-gear score
+const GT_AI_FIELD_SIGMA = 0.08;      // spread of the tracked field, normal-distributed
+// Slots met (bike t5 / wheels t4 / kit t4) → stage score multiplier.
+const GT_GEAR_TIER_MULT = [0.975, 0.99, 1.005, 1.03];
+const GT_REQUIRED_TIER  = {bike:5, wheels:4, kit:4};
+
+// Which of the three top-tier slots the player is currently meeting. Shared by
+// the scoring path and the sign-up card so the warning can never disagree with
+// what the race actually does.
+function getGrandTourGearTier(){
+  const bike  = BIKES.find(b=>b.id===state.equippedBike)   || BIKES[0];
+  const wheel = WHEELS.find(w=>w.id===state.equippedWheels) || WHEELS[0];
+  const kit   = KITS.find(k=>k.id===state.equippedKit)     || KITS[0];
+  const missing=[];
+  if((bike.tier||1)  < GT_REQUIRED_TIER.bike)   missing.push('bike');
+  if((wheel.tier||1) < GT_REQUIRED_TIER.wheels) missing.push('wheels');
+  if((kit.tier||1)   < GT_REQUIRED_TIER.kit)    missing.push('skinsuit');
+  const slotsMet=3-missing.length;
+  return {slotsMet, missing, mult:GT_GEAR_TIER_MULT[slotsMet]};
+}
+
+// Box-Muller. Local to the Grand Tour field so nothing else inherits it.
+function gtFieldGauss(){
+  let u=0,v=0;
+  while(u===0) u=Math.random();
+  while(v===0) v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
 function simulateGrandTourStageResult(tourId, stageIndex){
   const ev=CALENDAR_EVENTS.find(e=>e.id===tourId); if(!ev) return null;
   const stage=GRAND_TOUR_STAGES[tourId]?.[stageIndex]; if(!stage) return null;
@@ -5805,21 +6113,33 @@ function simulateGrandTourStageResult(tourId, stageIndex){
   // Extras (Accessories) race-day % — same bonus as normal races and calendar events.
   playerScore*=(1+(D.raceDayPct||0));
 
-  // Fixed elite AI band, same tier convention as other Pro calendar events —
-  // Grand Tours are all 'pro' tier invitational fields of specialists.
-  const ftpBand=[430,560];
+  // fix167: the pre-gear score. Captured BEFORE the gear-tier multiplier so
+  // the field is pegged to the rider's engine, not to the wheels they chose —
+  // otherwise better gear would drag the whole field up with it and cancel
+  // itself out.
+  const gtCore=playerScore;
+  const gearTier=getGrandTourGearTier();
+  playerScore*=gearTier.mult;
+
+  // fix167: elite AI band raised to [485,585] (was [430,560]) and each rider
+  // races the better of its absolute score and a score tracking gtCore. See
+  // the GRAND TOUR DIFFICULTY block above simulateGrandTourStageResult for why
+  // the band alone was measured and found insufficient.
+  const ftpBand=GT_AI_FTP_BAND;
   let beaten=0;
   for(let i=0;i<ev.fieldSize-1;i++){
     const aiFTP=ftpBand[0]+Math.random()*(ftpBand[1]-ftpBand[0]);
     const aiVO2=30+(aiFTP-50)/500*55, aiSprint=300+(aiFTP-50)/500*1700;
     const aiBase=stage.weights.ftp*aiFTP+stage.weights.vo2*Math.max(0,(aiVO2-30)/55*100)+stage.weights.sprint*Math.max(0,(aiSprint-300)/1700*100);
-    const aiScore=aiBase+(Math.random()-0.5)*Math.max(10,aiBase*0.12)*2;
+    const aiAbsolute=aiBase+(Math.random()-0.5)*Math.max(10,aiBase*0.12)*2;
+    const aiTracked =gtCore*GT_AI_TRACK*(1+gtFieldGauss()*GT_AI_FIELD_SIGMA);
+    const aiScore=Math.max(aiAbsolute, aiTracked);
     if(aiScore>playerScore) beaten++;
   }
   const position=beaten+1;
   const prize=stage.prizes[Math.min(position-1,stage.prizes.length-1)]||0;
   const gcPoints=stage.gcPoints[Math.min(position-1,stage.gcPoints.length-1)]||0;
-  return {position,fieldSize:ev.fieldSize,prize,gcPoints,equipBonus,weightFactor};
+  return {position,fieldSize:ev.fieldSize,prize,gcPoints,equipBonus,weightFactor,gearTierSlots:gearTier.slotsMet};
 }
 
 // Starts the NEXT unraced stage of a signed-up Grand Tour. Stage 1 is
@@ -6498,7 +6818,9 @@ const ONBOARDING_STEPS = [
     body:'Tap any session below to begin — try Aerobic Base first. Training builds your attributes, which raise your FTP (power output).',
     actionEvent:'started_session' },
 
-  { id:'race_intro', tab:'race', target:'#race-list',
+  // fix160: #race-list is hidden until the chooser is opened, so the spotlight
+  // targets the always-present entry card instead.
+  { id:'race_intro', tab:'race', target:'#race-entry-wrap',
     eyebrow:'Step 3', title:'Race for Prize Money',
     body:'Races earn prize money and category points. Win enough points and you\'ll be promoted to a tougher category with bigger prizes.' },
 
@@ -7942,7 +8264,7 @@ function renderWeatherBanner(){
   </div>`;
 }
 
-function renderRaceTab(){ renderWeatherBanner(); renderRivalCard(); renderRaceSetupCard(); renderCategoryCard(); renderSeriesCard(); renderActiveRaceBlock(); renderRaceResultBlock(); renderClubRaces(); renderRaceTypes(); renderRaceHistory(); }
+function renderRaceTab(){ renderWeatherBanner(); renderRivalCard(); renderRaceSetupCard(); renderCategoryCard(); renderSeriesCard(); renderActiveRaceBlock(); renderRaceResultBlock(); renderRaceEntry(); /* fix160 */ renderClubRaces(); renderRaceTypes(); renderRaceHistory(); }
 
 function renderRivalCard(){
   const wrap=document.getElementById('rival-wrap');
@@ -9270,6 +9592,63 @@ function renderRaceOverlayResult(){
   }
 }
 
+// fix160 — "Enter a Race" gating. View state is module-scope, not saved state:
+// a saved field would need a loadGame() ?? guard and a migration for zero
+// gameplay benefit, and the tab should open in a known (closed) state each
+// session. Same precedent as sponsorViewMode / calendarShowHistory.
+// null = closed | 'menu' = chooser open | 'club' | 'uci' = that sub-list open
+let raceEntryView=null;
+
+function setRaceEntryView(v){
+  if(!v) v=null;
+  // Hard lockout: while a race or a training session is running the chooser
+  // cannot be opened at all, and any open view collapses.
+  if(state.raceActive||state.session.active){ raceEntryView=null; renderRaceTab(); return; }
+  raceEntryView=(v&&raceEntryView===v)?'menu':v;
+  renderRaceTab();
+}
+
+function renderRaceEntry(){
+  const wrap=document.getElementById('race-entry-wrap'); if(!wrap) return;
+  const clubWrap=document.getElementById('race-entry-club');
+  const uciWrap=document.getElementById('race-entry-uci');
+  const busy=state.raceActive||state.session.active;
+  if(busy) raceEntryView=null;
+  if(clubWrap) clubWrap.style.display=(raceEntryView==='club')?'':'none';
+  if(uciWrap)  uciWrap.style.display=(raceEntryView==='uci')?'':'none';
+  if(busy){
+    // Locked card. The per-card `available` gating inside renderClubRaces() and
+    // renderRaceTypes() stays as belt-and-braces (fix107 pattern).
+    const why=state.raceActive?'You are out on the road — see it through first.'
+                              :'You are mid-session — finish the training first.';
+    wrap.innerHTML=`<div class="race-entry-card locked"><div class="race-entry-head">
+      <div class="race-type-icon">${icn('lock')}</div>
+      <div class="race-card-text"><div class="race-card-name">Enter a Race</div>
+      <div class="race-card-desc">${why}</div></div>
+      <span class="race-status" style="color:var(--txt3)">Busy</span></div></div>`;
+    return;
+  }
+  const open=raceEntryView!==null;
+  let html=`<div class="race-entry-card available" onclick="setRaceEntryView('${open?'':'menu'}')">
+    <div class="race-entry-head"><div class="race-type-icon">${icn('flag')}</div>
+    <div class="race-card-text"><div class="race-card-name">Enter a Race</div>
+    <div class="race-card-desc">Pick a start sheet and pin on a number</div></div>
+    <span class="race-entry-chev">${open?'▲':'▼'}</span></div></div>`;
+  if(open){
+    html+=`<div class="race-disc-row${raceEntryView==='club'?' open':''}" onclick="setRaceEntryView('club')">
+      <div class="race-type-icon">${icn('rider')}</div>
+      <div class="race-disc-text"><div class="race-disc-name">Club Races</div>
+      <div class="race-disc-desc">Cheap, no cooldown — prize money only</div></div>
+      <span class="race-entry-chev">${raceEntryView==='club'?'▲':'▼'}</span></div>
+      <div class="race-disc-row${raceEntryView==='uci'?' open':''}" onclick="setRaceEntryView('uci')">
+      <div class="race-type-icon">${icn('trophy')}</div>
+      <div class="race-disc-text"><div class="race-disc-name">UCI Points Races</div>
+      <div class="race-disc-desc">Category points and bigger prize money</div></div>
+      <span class="race-entry-chev">${raceEntryView==='uci'?'▲':'▼'}</span></div>`;
+  }
+  wrap.innerHTML=html;
+}
+
 // Club Races (Phase 1A) — ultra-cheap, no-cooldown compact rows above the
 // normal Available Races list. Same 4 RACE_TYPES, flat 3-energy cost, no
 // cooldown gate. Reuses .race-card styling with a .club-race-row padding
@@ -9343,11 +9722,27 @@ function renderRaceTypes(){
     const ttWarnLine = showTTWarn
       ? `<div class="race-tt-warn"><span>${icn('warning')} No TT bike — far off the pace, 0 category points</span><span class="race-tt-warn-link" data-tt-warn-link="1">Gear shop</span></div>`
       : '';
+    // fix166 — gear-fitness warning. From Cat 3 up, the bike/wheels/kit you
+    // race on multiplies your finishing score, so the player must be told
+    // before they commit that the wheels on the bike are the wrong ones for
+    // this course. getGearFitness() returns exactly 1 below Cat 3, so this
+    // line never appears for new riders. Reuses the .race-tt-warn styling —
+    // no new CSS.
+    const gearFit = getGearFitness(rt.id);
+    const showGearWarn = gearFit < 0.995;
+    const gearHint = {crit:'deeper aero wheels and a skinsuit',
+                      road:'a faster all-round wheelset',
+                      tt:'the deepest aero setup you own',
+                      hill:'lighter climbing wheels'}[rt.id] || 'a better-suited setup';
+    const gearWarnLine = showGearWarn
+      ? `<div class="race-tt-warn"><span>${icn('warning')} Wrong kit for this course — ${gearHint} would suit it far better</span><span class="race-tt-warn-link" data-tt-warn-link="1">Gear shop</span></div>`
+      : '';
     const div=document.createElement('div'); div.className='race-card'+(available?' available':'');
     if(!available) div.style.opacity='0.65';
     div.innerHTML=`<div class="race-card-head"><div class="race-type-icon">${icn(rt.icon)}</div><div class="race-card-text"><div class="race-card-name">${rt.name}</div><div class="race-card-desc">${rt.desc}</div></div>${statusHtml}</div>
       ${courseLine}
       ${ttWarnLine}
+      ${gearWarnLine}
       <div class="race-meta">
         ${energyDisplay}
         <span class="race-meta-badge race-prize-badge">Prize: £${cat.prizes[cat.prizes.length-1]||0}–${fmtMoney(cat.prizes[0])}</span>
@@ -9355,13 +9750,16 @@ function renderRaceTypes(){
         ${showWeightBadge?`<span class="race-equip-bonus" style="background:${weightBg};color:${weightCol};padding:2px 7px;border-radius:99px;font-weight:700;font-size:10px">${icn('scale')} ${weightPct>0?'+':''}${weightPct}%</span>`:''}
         ${showWxBadge?`<span class="race-equip-bonus" style="background:${wxBg};color:${wxCol};padding:2px 7px;border-radius:99px;font-weight:700;font-size:10px">${icn(condition.icon)} ${wxPct>0?'+':''}${wxPct}%</span>`:''}
       </div>`;
-    if(showTTWarn){
+    if(showTTWarn||showGearWarn){
       // The "Gear shop" link must jump tabs WITHOUT also triggering the card's
       // own click-to-race handler (that handler is only attached when
       // `available`, but this stopPropagation keeps behaviour correct even if
       // that changes later — belt-and-braces, matches project conventions).
-      const linkEl=div.querySelector('[data-tt-warn-link]');
-      if(linkEl) linkEl.addEventListener('click',(e)=>{ e.stopPropagation(); showTab('gear'); });
+      // fix166: both warn lines can be present at once (a TT with no TT bike
+      // and the wrong wheels), so bind every link, not just the first.
+      div.querySelectorAll('[data-tt-warn-link]').forEach(linkEl=>{
+        linkEl.addEventListener('click',(e)=>{ e.stopPropagation(); showTab('gear'); });
+      });
     }
     if(available) div.addEventListener('click',()=>startRace(rt.id));
     list.appendChild(div);
@@ -9393,13 +9791,16 @@ function renderRiderTab(){ renderRiderPortrait(); renderRiderStats(); renderFtpC
 // fix80: static hero portrait for the Rider tab. Renders once (idempotent —
 // checks firstChild like renderRiderScene does) since the art itself never
 // changes shape, only its jersey colour via the shared --sheet-portrait var.
+// fix163: both hero layers now live in static markup (#rider-portrait-wrap),
+// so there is nothing left to inject and the firstChild guard has nothing to
+// guard. Body tombstoned rather than the function deleted: renderRiderTab()
+// still calls it and the handler audit still resolves the name, so keeping the
+// signature holds this stage to a single planned region.
+// Tombstoned (fix136 form):
+//   const wrap=document.getElementById('rider-portrait-wrap');
+//   if(!wrap||wrap.firstChild) return;
+//   wrap.innerHTML='<div class="rider-portrait"></div>';
 function renderRiderPortrait(){
-  const wrap=document.getElementById('rider-portrait-wrap');
-  if(!wrap||wrap.firstChild) return;
-  // fix84: wrap itself already carries the .rider-portrait-wrap class in
-  // static markup (see #rider-portrait-wrap), so only the inner .rider-portrait
-  // scene div needs to be injected here — no more redundant nested wrapper.
-  wrap.innerHTML='<div class="rider-portrait"></div>';
 }
 
 // Chart.js instance — held in module scope so we can destroy and recreate cleanly
@@ -9876,8 +10277,10 @@ function renderWorkshopSection(){
   card.innerHTML=`<div class="equip-head">
     <div class="equip-main">
       <div class="equip-model">${icn('wrench')} Workshop bench</div>
+      <!-- fix165: copy updated — tuning is no longer locked to the equipped
+           bike, so "your equipped bike" was about to become a lie. -->
       <div class="equip-desc">Play a mechanic-themed skill game to earn Marginal Gains (MG). Bank them
-        here, then spend on permanent tuning buffs for your equipped bike below. Capped at 9,999 MG.</div>
+        here, then put the work into any bike or wheelset in your shed. Capped at 9,999 MG.</div>
       <div style="display:flex;align-items:baseline;gap:8px;margin-top:10px">
         <div id="workshop-mg-val" style="font-size:28px;font-weight:800;line-height:1">${state.workshop.mg}</div>
         <div style="font-size:11px;color:var(--txt2)">MG banked</div>
@@ -9892,17 +10295,38 @@ function renderWorkshopSection(){
   renderWsGameSelector();
   renderWsGamePanel();
 
-  // fix77/Fix 3 — Tuning tracks + spend. Four upgrade-card rows for the
-  // EQUIPPED bike only (spec: "switching bikes switches active buffs"), so
-  // this section always reads state.equippedBike fresh on every render.
+  // fix77/Fix 3 — Tuning tracks + spend.
+  // fix165 (UI layer): the four track cards now follow the SELECTED tuning
+  // target rather than the equipped bike. fix164 already made the model layer
+  // target-aware (namespaced keys + getCombinedWorkshopBonuses reading the
+  // equipped bike AND equipped wheels), so nothing about scoring changes here —
+  // only which target's levels are on screen and which one a spend lands on.
+  // The equipped-only contract for BONUSES is unchanged: work done on a target
+  // you are not riding sits on the bench until you fit it.
+  const target=wsCurrentTuningTarget();
   const tuneHead=document.createElement('div');
   tuneHead.className='section-lbl';
   tuneHead.style.marginTop='14px';
-  const bike=BIKES.find(b=>b.id===state.equippedBike)||BIKES[0];
-  tuneHead.textContent=`Tuning — ${bike.model}`;
+  tuneHead.textContent=`Tuning — ${target.label}`;
   list.appendChild(tuneHead);
 
-  const tuning=getBikeTuning(bike.id);
+  // Target selector. Full re-render on switch (see wsSelectTuningTarget), which
+  // routes through the wsStopGame() at the top of this function — the fix88
+  // orphaned-rAF failure mode. No partial re-render path is introduced.
+  const tsel=document.createElement('div');
+  tsel.className='ws-target-wrap';
+  tsel.innerHTML=wsTuningTargetHtml();
+  list.appendChild(tsel);
+
+  if(!target.equipped){
+    const note=document.createElement('div');
+    note.className='ws-bench-note';
+    note.textContent='On the bench, not on the bike — fit it in the Gear tab and the work comes with you.';
+    list.appendChild(note);
+  }
+
+  // readTuning (not getTuning) — render paths must never create state entries.
+  const tuning=readTuning(target.key);
   WORKSHOP_TRACKS.forEach(track=>{
     const level=tuning[track.key]||0;
     // fix120: effMax replaces raw track.maxLevel as the "can I buy more"
@@ -9939,6 +10363,62 @@ function renderWorkshopSection(){
   });
 }
 
+// ── fix165: Workshop tuning targets, UI layer ───────────────────────────────
+// Presentation only. Every key produced here is a fix164 namespaced key
+// (tuningKey('bike'|'wheel', id)), so the model layer needs no knowledge of the
+// selector existing. TT bikes remain out of scope (fix164's stated deferral).
+//
+// OWNERSHIP IS THE LIST: a player cannot tune what is not in the shed, so the
+// list is derived from state.ownedBikes / state.ownedWheels on every render
+// rather than cached — buying a bike makes it appear with no extra wiring.
+function wsTuningTargetList(){
+  const out=[];
+  BIKES.forEach(b=>{ if(state.ownedBikes.has(b.id)) out.push({
+    key:tuningKey('bike',b.id), kind:'bike',
+    label:(b.brand?b.brand+' ':'')+b.model, equipped:state.equippedBike===b.id}); });
+  WHEELS.forEach(w=>{ if(state.ownedWheels.has(w.id)) out.push({
+    key:tuningKey('wheel',w.id), kind:'wheel',
+    label:w.name, equipped:state.equippedWheels===w.id}); });
+  return out;
+}
+
+// Resolves state.workshop.tuningTarget to a real, still-owned entry. Pure read —
+// never repairs state, because it is called from render paths. A stale/sold-off
+// key simply falls back to the equipped bike, which is exactly the pre-fix165
+// behaviour, so a corrupt save degrades to the old UI rather than to nothing.
+function wsCurrentTuningTarget(){
+  const list=wsTuningTargetList();
+  const sel=state.workshop&&state.workshop.tuningTarget;
+  return list.find(t=>t.key===sel)
+      || list.find(t=>t.key===tuningKey('bike',state.equippedBike))
+      || list[0]
+      || {key:tuningKey('bike','starter'), kind:'bike', label:'Entry Road Bike', equipped:true};
+}
+
+function wsTuningTargetHtml(){
+  const cur=wsCurrentTuningTarget().key;
+  const groups=[['bike','Bikes'],['wheel','Wheels']];
+  return groups.map(([kind,heading])=>{
+    const items=wsTuningTargetList().filter(t=>t.kind===kind);
+    if(!items.length) return '';
+    return `<div class="ws-target-group">${heading}</div>
+      <div class="ws-target-row">${items.map(t=>`<button type="button"
+        class="gear-nav-btn ws-target-btn${t.key===cur?' active':''}"
+        onclick="wsSelectTuningTarget('${t.key}')">${t.equipped?'<span class="ws-target-dot"></span>':''}${t.label}</button>`).join('')}</div>`;
+  }).join('');
+}
+
+// The only writer of state.workshop.tuningTarget. Full section re-render, so the
+// wsStopGame() at the top of renderWorkshopSection tears down any running
+// mini-game rAF loop before the panel it draws into is discarded (fix88).
+function wsSelectTuningTarget(key){
+  if(!wsTuningTargetList().some(t=>t.key===key)) return; // never trust the DOM
+  if(state.workshop.tuningTarget===key) return;
+  state.workshop.tuningTarget=key;
+  saveGame();
+  renderWorkshopSection();
+}
+
 // ── Workshop tuning tracks (fix77/Fix 3) ────────────────────────────────────
 // Per spec table: 4 tracks, 6 levels each, cost curve 25|25|40|30 × 1.8^level
 // (level = CURRENT level being upgraded FROM, i.e. cost to go from level->level+1).
@@ -9959,14 +10439,35 @@ const WORKSHOP_TRACKS=[
    effectLabel:l=>`+${l}% training XP`},
 ];
 
-// Returns the per-bike tuning object, creating a fresh all-zero entry if this
-// bike has never been tuned before. Never persists by itself — callers that
-// mutate the result are responsible for saveGame().
-function getBikeTuning(bikeId){
-  if(!state.workshop.tuning[bikeId]){
-    state.workshop.tuning[bikeId]={drivetrain:0,aero:0,weight:0,bearings:0};
+// fix164 (model layer): state.workshop.tuning is now keyed by a NAMESPACED
+// target key rather than a bare bike id, because BIKES / TT_BIKES / WHEELS are
+// three independent id namespaces with no uniqueness guarantee between them:
+//   'bike:tarmac_sl7'   'wheel:zipp_303'   'ttbike:tt_pro' (reserved, unused)
+// Bare-id saves are rewritten exactly once in loadGame() — see the migration
+// there. TT bikes are deliberately OUT of scope for this stage (they would add
+// a race-type-dependent read in the combine function); flagged as follow-up.
+function tuningKey(kind,id){ return kind+':'+id; }
+
+// Returns the tuning object for a namespaced target key, creating a fresh
+// all-zero entry if this target has never been tuned before. Never persists by
+// itself — callers that mutate the result are responsible for saveGame().
+function getTuning(targetKey){
+  if(!state.workshop.tuning[targetKey]){
+    state.workshop.tuning[targetKey]={drivetrain:0,aero:0,weight:0,bearings:0};
   }
-  return state.workshop.tuning[bikeId];
+  return state.workshop.tuning[targetKey];
+}
+
+// Non-creating read — safe to call from render paths without writing state.
+function readTuning(targetKey){
+  return (state.workshop&&state.workshop.tuning&&state.workshop.tuning[targetKey])
+    ||{drivetrain:0,aero:0,weight:0,bearings:0};
+}
+
+// fix164: thin shim so the existing bike-only call sites do not all have to
+// move in this stage.
+function getBikeTuning(bikeId){
+  return getTuning(tuningKey('bike',bikeId));
 }
 
 // Cost to go from `level` to `level+1` on a track: baseCost × 1.8^level.
@@ -9982,7 +10483,14 @@ function workshopTrackCost(track,level){
 // "clamp the combined Workshop contribution in one place" guardrail.
 // Returns: {raceFlatPct, raceAeroPct, weightDeltaKg, trainingPct}
 function getWorkshopBonuses(bikeId){
-  const t=(state.workshop.tuning&&state.workshop.tuning[bikeId])||{drivetrain:0,aero:0,weight:0,bearings:0};
+  // fix164: reads the namespaced key now; the bare-id argument is unchanged so
+  // every existing call site keeps working.
+  return workshopBonusesFromLevels(readTuning(tuningKey('bike',bikeId)));
+}
+
+// fix164: the clamp lives here and ONLY here, so both the single-target read
+// above and the combined read below hit exactly the same ceiling.
+function workshopBonusesFromLevels(t){
   const drivetrain=t.drivetrain||0, aero=t.aero||0, weight=t.weight||0, bearings=t.bearings||0;
 
   // Hard caps enforced here, not just implied by the level×step data above,
@@ -9993,6 +10501,25 @@ function getWorkshopBonuses(bikeId){
   const trainingPct   = Math.min(6, bearings*1);
 
   return {raceFlatPct, raceAeroPct, weightDeltaKg, trainingPct};
+}
+
+// getCombinedWorkshopBonuses() — fix164. Bike tuning AND wheel tuning both
+// count, but the RAW LEVELS are summed FIRST and the existing caps are applied
+// ONCE at the end. A player who maxes bike and wheels reaches the same ceiling
+// faster; they do not reach a higher one. That preserves the fix77 guardrail
+// ("clamp the combined Workshop contribution in one place"), which is the whole
+// reason getWorkshopBonuses() exists.
+// Only the EQUIPPED bike and EQUIPPED wheels contribute — tuning a bike you are
+// not riding does nothing until you equip it (existing fix77 contract).
+function getCombinedWorkshopBonuses(){
+  const b=readTuning(tuningKey('bike', state.equippedBike));
+  const w=readTuning(tuningKey('wheel', state.equippedWheels));
+  return workshopBonusesFromLevels({
+    drivetrain:(b.drivetrain||0)+(w.drivetrain||0),
+    aero:      (b.aero||0)      +(w.aero||0),
+    weight:    (b.weight||0)    +(w.weight||0),
+    bearings:  (b.bearings||0)  +(w.bearings||0),
+  });
 }
 
 // ── fix150: Rider Skills — temporary buff engine ────────────────────────
@@ -11344,8 +11871,11 @@ function closeWindTunnel(){
 function handleWorkshopSpend(trackKey){
   const track=WORKSHOP_TRACKS.find(t=>t.key===trackKey);
   if(!track) return;
-  const bike=BIKES.find(b=>b.id===state.equippedBike)||BIKES[0];
-  const tuning=getBikeTuning(bike.id);
+  // fix165 (scope extension over the plan's listed regions — recorded here
+  // deliberately): the spend has to follow the selector or the new UI would
+  // silently bank the player's MG into the equipped bike. getTuning (not
+  // readTuning) because this path DOES mutate and must create the entry.
+  const tuning=getTuning(wsCurrentTuningTarget().key);
   const level=tuning[trackKey]||0;
   // fix120: the real gate — prestige-scaled effMax, not the track's raw
   // maxLevel. UI already hides the buy affordance above this cap, but the
@@ -11998,8 +12528,10 @@ function wsAwardMG(gained, msgEl, msg){
 // ticking. Safe to call when the Workshop tab isn't the active view (all
 // getElementById lookups no-op to null in that case).
 function wsRefreshTuningCardsAfford(){
-  const bike=BIKES.find(b=>b.id===state.equippedBike)||BIKES[0];
-  const tuning=getBikeTuning(bike.id);
+  // fix165: must read the SELECTED target, not the equipped bike — otherwise an
+  // MG award while tuning a non-equipped target would repaint the cards with the
+  // equipped bike's levels and rebind the spend handler against the wrong item.
+  const tuning=readTuning(wsCurrentTuningTarget().key);
   WORKSHOP_TRACKS.forEach(track=>{
     const div=document.getElementById(`workshop-track-${track.key}`);
     if(!div) return; // Workshop tab not currently rendered — nothing to sync
@@ -12813,7 +13345,22 @@ function grandTourCardHtml(ev, mode){
       const label=proLocked?`${icn('lock')} Reach Pro to unlock`:slotsFull?'No slots remaining':cantAfford?`Need ${fmtMoney(ev.entryFee)}`:`Enter — ${fmtMoney(ev.entryFee)}`;
       actionHtml=`<button class="cal-signup-btn" onclick="signUpForCalendarEvent('${ev.id}')" ${disabled?'disabled':''}>${label}</button>`;
     }
-    bodyHtml='';
+    // fix167 — say it BEFORE the five-day commitment, not on stage 3. A Grand
+    // Tour has a hard same-day lockout and a forfeit rule, so discovering
+    // mid-tour that the bike was never good enough is the worst feedback loop
+    // in the game. getGrandTourGearTier() is the same read the stage scoring
+    // uses, so this line can never disagree with the race.
+    const gt=getGrandTourGearTier();
+    if(gt.slotsMet<3){
+      const list=gt.missing.length===1 ? gt.missing[0]
+               : gt.missing.slice(0,-1).join(', ')+' and '+gt.missing[gt.missing.length-1];
+      const line = gt.slotsMet===2
+        ? `Your ${list} is a step off what the leaders will be on — stage podiums are on, the overall win will be a stretch.`
+        : `Your ${list} won't hold the wheels of a Grand Tour field. Expect to finish, not to contend.`;
+      bodyHtml=`<div class="cal-event-desc" style="color:var(--amber-txt);margin-top:.25rem">${icn('warning')} ${line}</div>`;
+    } else {
+      bodyHtml='';
+    }
   } else {
     // scheduled — in progress, forfeited, or (guard) complete
     if(tp && tp.forfeited){
@@ -13165,14 +13712,24 @@ function loadGame(){
       const wmg = Number.isFinite(d.workshop?.mg) ? d.workshop.mg : 0;
       const wtuning = {};
       if(d.workshop?.tuning && typeof d.workshop.tuning==='object'){
-        Object.entries(d.workshop.tuning).forEach(([bikeId,t])=>{
-          wtuning[bikeId] = {
+        Object.entries(d.workshop.tuning).forEach(([k,t])=>{
+          // fix164 MIGRATION: pre-fix164 saves key tuning by a bare bike id.
+          // Rewrite those to 'bike:<id>' exactly once. The guard is the key
+          // shape itself — an already-namespaced key contains ':' and is left
+          // alone — so re-running the migration on a migrated save is a no-op
+          // and can never produce 'bike:bike:…'.
+          const key = k.includes(':') ? k : ('bike:'+k);
+          wtuning[key] = {
             drivetrain: t?.drivetrain||0, aero: t?.aero||0,
             weight: t?.weight||0, bearings: t?.bearings||0,
           };
         });
       }
-      state.workshop = { mg: Math.max(0, Math.min(9999, wmg)), tuning: wtuning };
+      // fix164: tuningTarget defaults to the equipped bike. state.equippedBike
+      // is already restored above, so this reads the loaded value, not 'starter'.
+      const wtarget = (typeof d.workshop?.tuningTarget==='string' && d.workshop.tuningTarget.includes(':'))
+        ? d.workshop.tuningTarget : ('bike:'+state.equippedBike);
+      state.workshop = { mg: Math.max(0, Math.min(9999, wmg)), tuning: wtuning, tuningTarget: wtarget };
     }
   }catch(e){ console.warn('[CIM] Load failed:',e); }
 }
@@ -13994,6 +14551,22 @@ function closeInfo(ev){
       // fix145: animated TT sheet (1568x308, 6 frames, gutters at the six-frame
       // cuts). Same strip geometry as pedal.png and sprint.png.
       tt:        'assets/tt.png',
+      // fix161: front-on rider still (700x392, PNG with alpha). Sourced from
+      // Front_on_racer.jpeg: the pure-white backdrop was flood-keyed to alpha
+      // from the border only (interior whites on the bike and shorts are kept)
+      // and the sheet was downscaled from 1400x784, because recolorSheet runs a
+      // per-pixel JS loop on every kit/helmet change and 1.1M px would have made
+      // this the most expensive sheet in the set. Measured on the shipped file:
+      //   kit    (162-192, teal)     3798 px  PASS
+      //   helmet (305-342, magenta)  1652 px  PASS
+      //   frame  (100-140, green)       0 px  NOT KEYED - see below
+      //   two-window overlaps           0 px  PASS
+      // The bike frame is burnt orange (hue 0-30), the same band as skin, and
+      // no RC_PARTS window can separate them on S or L. Re-keying it to the
+      // fix140 green family is manual art work, so this sheet ships with the
+      // frame slot deliberately not applying - a fixed-colour frame on the hero
+      // rather than orange skin. Decided up front, not discovered at runtime.
+      riderFront: 'assets/rider-front.png',
       // fix143: bike-tier idle stills. Only ONE of these is ever loaded in a
       // given pass — see _rcSheetNamesFor().
       idleMid:   'assets/idle-mid.png',
@@ -14209,7 +14782,13 @@ function closeInfo(ev){
   // player can start a TT, or a Grand Tour TT stage, at any moment) and a lazy
   // load would swap the var() mid-race and flash un-recoloured kit. Eight
   // always-on sheets, plus at most one lazy tier idle.
-  var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','portrait','raceHero','sprint','tt'];
+  // fix161: 'riderFront' joins the always-on set, making nine. Same reasoning
+  // as fix144/fix145 above: it is destined for the Race tab and the Rider tab,
+  // both reachable at any moment, so a lazy bind would swap the var under the
+  // player and flash un-recoloured kit. Nine always-on sheets, plus at most one
+  // lazy tier idle.
+  // var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','portrait','raceHero','sprint','tt'];
+  var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','portrait','raceHero','sprint','tt','riderFront'];
   var RC_VAR_NAMES = {
     pedal: '--sheet-pedal',
     idle: '--sheet-idle',
@@ -14221,6 +14800,10 @@ function closeInfo(ev){
     sprint: '--sheet-sprint',
     // fix145: animated TT sheet.
     tt: '--sheet-tt',
+    // fix161: front-on rider still. applyCachedSheets and resetRiderSheets are
+    // already driven off this map (fix143), so they need no edit. No CSS reads
+    // --sheet-rider-front yet - the hero compositions land in fix162/fix163.
+    riderFront: '--sheet-rider-front',
     // fix143: bike-tier idle stills.
     idleMid: '--sheet-idle-mid',
     idleTop: '--sheet-idle-top'
