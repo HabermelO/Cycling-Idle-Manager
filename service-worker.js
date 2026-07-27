@@ -10,10 +10,10 @@
 // The old cache is deleted automatically on the next SW activation.
 // fix150 (release pass): bumped for the v26 release build. Also carries the
 // two asset corrections found by the offline-reload test — see below.
-const CACHE_VERSION = 'cim-v3.8.01';   // fix151: rider sheets re-keyed to alpha
-                                       // and idle stills cropped to content.
-                                       // Bumped so the old opaque-white art is
-                                       // evicted rather than served from cache.
+// fix157: bumped for the six Rider Skills drill images added below. Without
+// this bump the old cache survives activation and the new files are never
+// precached, so they would 404 offline despite being listed.
+const CACHE_VERSION = 'cim-v3.8.02';   // fix157: rider skills art
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
 // inside the HTML. cache.addAll() is all-or-nothing: if ANY path below 404s
@@ -55,6 +55,18 @@ const STATIC_ASSETS = [
   './assets/idle-top.png',
   './assets/victory.png',
   './assets/gut-success.jpg',
+  // fix157: Rider Skills drill art — three hero banners shown at the top of the
+  // fz/sl/wt overlay boards, and three win photos shown inside the shared
+  // #rs-success-pop medallion. Both sets are lazy at runtime (the heroes via
+  // lazyLoadAssetGroup('riderskills'), the win photos via a data-src promote in
+  // rsShowSuccessPop), so they are never fetched on page load — but they must
+  // still be precached here or a drill opened offline shows an empty banner.
+  './assets/feedzone-scramble.jpg',
+  './assets/feedzone-scramble-win.jpg',
+  './assets/slipstream.jpg',
+  './assets/slipstream-win.jpg',
+  './assets/wind-tunnel.jpg',
+  './assets/wind-tunnel-win.jpg',
   './assets/rider-photo.png',
 ];
 
