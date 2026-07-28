@@ -1,4 +1,57 @@
 <!DOCTYPE html>
+<!-- fix169: retire the 'portrait' and 'raceHero' recolour sheets. Code only —
+     no art in this fix, no gameplay change, no state change.
+
+     WHY NOW: fix162 and fix163 replaced both hero surfaces with two-layer
+     compositions reading --sheet-rider-front, leaving --sheet-portrait and
+     --sheet-race-hero unread by any CSS rule. Both sheets nonetheless kept
+     being fetched, decoded and per-pixel recoloured on every kit, helmet or
+     frame colour change. Both fix162 and fix163 explicitly deferred the
+     removal to its own fix on the grounds that it moves the always-on count
+     and the recolour cache key space. This is that fix.
+
+     REGIONS TOUCHED (seven in this file, two in the service worker):
+       1. _rcSheetSources()   — both entries tombstoned
+       2. RC_SHEET_NAMES      — nine always-on sheets -> seven
+       3. RC_VAR_NAMES        — both entries tombstoned
+       4. .rider-portrait CSS tombstone  — comment corrected, it asserted the
+                                           opposite of what now holds
+       5. .race-hero-img CSS tombstone   — same correction
+       6. RC149_SHEETS        — the fix149 skin-safety harness list, both
+                                entries tombstoned so the diagnostic stops
+                                measuring sheets the engine cannot reach
+       7. this header
+       8. service worker CACHE_VERSION   — bumped
+       9. service worker STATIC_ASSETS   — both files dropped
+     FOUR lists referenced these sheets, not three. RC149_SHEETS was found by
+     the post-edit reference sweep rather than the up-front plan; it is in
+     scope because the fix is "retire from every list", not "retire from the
+     three lists I happened to grep first".
+     No other function is touched. .rider-portrait-wrap stays live: it is the
+     card, still used by #rider-portrait-wrap in the markup, not the sheet.
+
+     EFFECT: a 22% cut to per-recolour work (seven sheets instead of nine) and
+     the removal of the only JPEG decode in the recolour path, since raceHero
+     was the one non-PNG sheet. Two precache entries and two dead custom
+     properties also go.
+
+     NOT IN THIS FIX — the sprite re-key art pass (plan sprite-rekey-plan-v1
+     Stages A/B/C) is NOT here and did not land. Stage B (helmet re-key) and
+     Stage C (frame re-key) both failed their own stated preconditions and are
+     escalated under plan §5 pending re-drawn art; the remaining Stage A sheets
+     need the V4 visual gate, which was unavailable. The _rcSheetSources note
+     saying the riderFront frame slot is "deliberately not applying" therefore
+     REMAINS TRUE and is deliberately left uncorrected.
+
+     OPEN, FOUND WHILE INVESTIGATING, NOT FIXED HERE — on victory and
+     exhausted the helmet is painted white and its white is reachable from the
+     image border, so the fix140/fix159 border flood keys the helmet dome to
+     alpha along with the backdrop. Reproducing that flood on the raw sources
+     gives 1713 px (45.5% of the helmet bbox) transparent on victory and
+     1570 px (52.3%) on exhausted. If the shipped assets were built that way
+     they render a head-shaped hole over any card background. Unconfirmed
+     against the deployed assets/ — run helmet_probe.py to settle it. Its own
+     fix either way; nothing here depends on the answer. -->
 <!-- fix140: art swap only — re-keyed rider sheets (bike frame burnt orange ->
      green #2e8b3a family, H 100-140; white backdrop replaced with alpha) land
      in ./assets/. No HTML/CSS/JS behaviour change, so the art pass stays
@@ -1563,10 +1616,14 @@ button{font-family:inherit;cursor:pointer;}
 .rider-portrait{position:absolute;left:50%;top:50%;width:220px;height:196px;
   transform:translate(-50%,-50%);transform-origin:center bottom;
   background:var(--sheet-portrait, url(assets/portrait.png)) center/contain no-repeat;}
-   --sheet-portrait / assets/portrait.png are now unreferenced. 'portrait'
-   deliberately stays in RC_SHEET_NAMES / _rcSheetSources — retiring a sheet
-   changes the always-on count and the recolour cache key space, so it is its
-   own fix, flagged as a follow-up alongside raceHero (fix162). */
+   --sheet-portrait / assets/portrait.png are now unreferenced.
+   SUPERSEDED (fix169): this block used to read "'portrait' deliberately stays
+   in RC_SHEET_NAMES / _rcSheetSources — retiring a sheet changes the always-on
+   count and the recolour cache key space, so it is its own fix, flagged as a
+   follow-up alongside raceHero (fix162)." fix169 IS that fix. 'portrait' is
+   gone from RC_SHEET_NAMES, RC_VAR_NAMES and _rcSheetSources, and
+   ./assets/portrait.png is out of the service worker manifest. Nothing reads
+   --sheet-portrait; the rule above stays tombstoned. */
 .rider-portrait-wrap{position:relative;height:200px;overflow:hidden;border-radius:var(--radius-lg);
   border:1px solid var(--border);margin-bottom:.6rem;background:var(--bg3);}
 /* ═══ fix163: Rider tab hero is now a composition, mirroring fix162's Race
@@ -1594,9 +1651,14 @@ button{font-family:inherit;cursor:pointer;}
   border:1px solid var(--border);margin-bottom:.6rem;background:var(--bg3);}
 /* fix162: superseded by the two-layer composition below. Tombstoned, not
    deleted, per house style. --sheet-race-hero / assets/race-hero.jpg are now
-   unreferenced; 'raceHero' deliberately stays in RC_SHEET_NAMES and
-   _rcSheetSources — retiring a sheet changes the always-on count and the
-   recolour cache key space, so it is its own fix, not a rider on this one.
+   unreferenced.
+   SUPERSEDED (fix169): this block used to read "'raceHero' deliberately stays
+   in RC_SHEET_NAMES and _rcSheetSources — retiring a sheet changes the
+   always-on count and the recolour cache key space, so it is its own fix, not
+   a rider on this one." fix169 IS that fix. 'raceHero' is gone from all three
+   lists and ./assets/race-hero.jpg is out of the service worker manifest. Note
+   ./assets/race-hero-bg.jpg is a DIFFERENT file — the opaque backdrop scene
+   read by .race-hero-bg — and stays precached.
 .race-hero-img{position:absolute;inset:0;
   background:var(--sheet-race-hero, url(assets/race-hero.jpg)) center/contain no-repeat;}
 */
@@ -14541,12 +14603,40 @@ function closeInfo(ev){
       idle:      'assets/idle.png',
       victory:   'assets/victory.png',
       exhausted: 'assets/exhausted.png',
-      // fix80: rider tab hero portrait.
-      portrait:  'assets/portrait.png',
-      // fix83: race tab hero avatar — JPEG rather than PNG, unlike the rest.
-      raceHero:  'assets/race-hero.jpg',
+      // fix169: 'portrait' and 'raceHero' retired. Both surfaces were replaced
+      // by two-layer compositions that read --sheet-rider-front instead —
+      // .rider-hero-rider (fix163) and .race-hero-rider (fix162) — so neither
+      // --sheet-portrait nor --sheet-race-hero has been read by any CSS rule
+      // since fix163. The sheets kept loading and recolouring anyway on every
+      // kit/helmet/frame change, writing two custom properties nothing
+      // consumed. fix162 deferred the removal because it changes the always-on
+      // count and the recolour cache key space; this is that fix. Tombstoned
+      // rather than deleted, per house style:
+      //   // fix80: rider tab hero portrait.
+      //   portrait:  'assets/portrait.png',
+      //   // fix83: race tab hero avatar — JPEG rather than PNG, unlike the rest.
+      //   raceHero:  'assets/race-hero.jpg',
+      // Drops the always-on set from nine sheets to seven and removes the only
+      // JPEG decode in the recolour path. See RC_SHEET_NAMES / RC_VAR_NAMES
+      // below and STATIC_ASSETS in service-worker-5-4.js — all three lists have
+      // to move together or a name survives with no source and _rcApplySheets
+      // sets a var from an undefined result.
       // fix144: animated sprint sheet (1568x308, 6 frames) — replaces the
       // retired static sprint-pose.png, which was never in the recolour set.
+      // fix168: sprint.png and pedal.png below were rebuilt from the raw art
+      // with ENCLOSED-region alpha, not just the border flood fix140/fix159
+      // used. A border flood cannot reach a white region that the silhouette
+      // encloses, which is why the wheel interiors stayed opaque white over
+      // the peloton scene. sprint.png loses 12 wheel pockets (2470-3327 px,
+      // two per frame); pedal.png is unchanged in classification — its wheel
+      // interiors already reach the image border, so the border flood was
+      // always correct there and it is re-emitted only so both strips come
+      // off the same pipeline. RGB is bit-identical to the source on both, so
+      // the recolour engine (recolorSheet, RC_PARTS, _rcSheetSources) is
+      // untouched and every key count is unchanged — see the fix168 report.
+      // The other seven sheets are NOT re-keyed this fix: they need the 1:1
+      // visual gate, and the helmet/frame re-key (plan §2/§3) is deferred with
+      // them. The riderFront frame note below therefore still stands.
       sprint:    'assets/sprint.png',
       // fix145: animated TT sheet (1568x308, 6 frames, gutters at the six-frame
       // cuts). Same strip geometry as pedal.png and sprint.png.
@@ -14787,15 +14877,31 @@ function closeInfo(ev){
   // both reachable at any moment, so a lazy bind would swap the var under the
   // player and flash un-recoloured kit. Nine always-on sheets, plus at most one
   // lazy tier idle.
+  // fix169: 'portrait' and 'raceHero' retired — see the tombstone at
+  // _rcSheetSources. Nine always-on sheets become SEVEN. Nothing else in the
+  // pass is conditional on the count, so this line and RC_VAR_NAMES below are
+  // the whole change: _rcSheetNamesFor still concats at most one lazy tier
+  // idle, _rcApplySheets is driven off the results set (fix143) and
+  // resetRiderSheets iterates RC_VAR_NAMES (fix143), so both follow
+  // automatically. Existing session cache entries keyed under the old
+  // nine-sheet space are not invalidated and do not need to be: a hit replays
+  // whatever it stored, and _rcApplySheets skips any name without a
+  // RC_VAR_NAMES entry, so a stale 'portrait' value is dropped rather than
+  // written to a dead var.
   // var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','portrait','raceHero','sprint','tt'];
-  var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','portrait','raceHero','sprint','tt','riderFront'];
+  // var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','portrait','raceHero','sprint','tt','riderFront'];
+  var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','sprint','tt','riderFront'];
   var RC_VAR_NAMES = {
     pedal: '--sheet-pedal',
     idle: '--sheet-idle',
     victory: '--sheet-victory',
     exhausted: '--sheet-exhausted',
-    portrait: '--sheet-portrait',
-    raceHero: '--sheet-race-hero',
+    // fix169: retired alongside RC_SHEET_NAMES above. resetRiderSheets
+    // iterates this map to removeProperty, so dropping the entries here is
+    // what stops the two dead custom properties being written and cleared on
+    // every pass. Tombstoned, not deleted:
+    //   portrait: '--sheet-portrait',
+    //   raceHero: '--sheet-race-hero',
     // fix144: animated sprint sheet.
     sprint: '--sheet-sprint',
     // fix145: animated TT sheet.
@@ -15044,8 +15150,15 @@ function closeInfo(ev){
     ['idle',      'assets/idle.png'],
     ['victory',   'assets/victory.png'],
     ['exhausted', 'assets/exhausted.png'],
-    ['portrait',  'assets/portrait.png'],
-    ['raceHero',  'assets/race-hero.jpg'],
+    // fix169: 'portrait' and 'raceHero' retired from the recolour set, so this
+    // harness must stop probing them or it reports part-occupancy for two
+    // sheets the engine can no longer reach — a verification harness that
+    // measures files nobody renders is worse than one that says nothing. They
+    // are also out of the service worker manifest now, so offline they would
+    // 404 into the "absent files are skipped" path and print nothing useful
+    // anyway. Tombstoned, not deleted, per house style:
+    //   ['portrait',  'assets/portrait.png'],
+    //   ['raceHero',  'assets/race-hero.jpg'],
     ['sprint',    'assets/sprint.png'],
     ['tt',        'assets/tt.png'],
     ['idleMid',   'assets/idle-mid.png'],
