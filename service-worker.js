@@ -28,7 +28,11 @@
 // fix169: bumped because STATIC_ASSETS below loses two entries. The manifest
 // is only read at install, so without a bump the old cache survives activation
 // and both retired files stay resident.
-const CACHE_VERSION = 'cim-v3.8.05';   // fix169: portrait.png + race-hero.jpg retired
+// const CACHE_VERSION = 'cim-v3.8.05';   // fix169: portrait.png + race-hero.jpg retired
+// fix170: bumped because STATIC_ASSETS below GAINS assets/home-bg.jpg. The
+// manifest is only read at install, so without a bump the old cache survives
+// activation and the home hub renders on bare sky colour when offline.
+const CACHE_VERSION = 'cim-v3.8.06';   // fix170: assets/home-bg.jpg added
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
@@ -42,6 +46,9 @@ const STATIC_ASSETS = [
   './icon-512.png',
   './apple-touch-icon.png',
   './favicon.png',
+  // fix170: home hub art. Loads on every cold start (home is the landing tab),
+  // so it is precached rather than left to the runtime handler.
+  './assets/home-bg.jpg',
   './assets/workshop-hero.jpg',
   // fix169: assets/race-hero.jpg retired — 'raceHero' is out of
   // RC_SHEET_NAMES / RC_VAR_NAMES / _rcSheetSources, so nothing fetches it
