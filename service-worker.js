@@ -29,10 +29,12 @@
 // is only read at install, so without a bump the old cache survives activation
 // and both retired files stay resident.
 // const CACHE_VERSION = 'cim-v3.8.05';   // fix169: portrait.png + race-hero.jpg retired
-// fix170: bumped because STATIC_ASSETS below GAINS assets/home-bg.jpg. The
-// manifest is only read at install, so without a bump the old cache survives
-// activation and the home hub renders on bare sky colour when offline.
-const CACHE_VERSION = 'cim-v3.8.06';   // fix170: assets/home-bg.jpg added
+// const CACHE_VERSION = 'cim-v3.8.06';   // fix170: assets/home-bg.jpg added
+// fix172: bumped again. home-bg.jpg keeps its FILENAME but its CONTENTS changed
+// (corrected caption, re-cut to 768x1707). A same-name asset swap is the one
+// case where forgetting this bump fails silently — the old image just keeps
+// being served from the previous cache forever.
+const CACHE_VERSION = 'cim-v3.8.07';   // fix172: home-bg.jpg re-cut
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
