@@ -17,7 +17,18 @@
 // const CACHE_VERSION = 'cim-v3.8.00';
 // const CACHE_VERSION = 'cim-v3.8.01';   // fix159: sprint.png re-keyed to alpha
 // const CACHE_VERSION = 'cim-v3.8.02';   // fix161: assets/rider-front.png added
-const CACHE_VERSION = 'cim-v3.8.03';   // fix162: assets/race-hero-bg.jpg added
+// const CACHE_VERSION = 'cim-v3.8.03';   // fix162: assets/race-hero-bg.jpg added
+// const CACHE_VERSION = 'cim-v3.8.04';   // fix168: sprint.png/pedal.png re-keyed
+// NOTE (fix169): the copy of this file in the project snapshot was still on
+// 'cim-v3.8.03', but the fix168 handover records it shipping 'cim-v3.8.04'.
+// The .04 rung is tombstoned above so the ladder stays honest either way.
+// VERIFY the deployed service worker is on .04 before shipping .05 — if the
+// fix168 bump was lost in transit, clients are still serving the pre-fix168
+// sprint.png out of the .03 cache and this bump is what finally clears it.
+// fix169: bumped because STATIC_ASSETS below loses two entries. The manifest
+// is only read at install, so without a bump the old cache survives activation
+// and both retired files stay resident.
+const CACHE_VERSION = 'cim-v3.8.05';   // fix169: portrait.png + race-hero.jpg retired
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
@@ -32,7 +43,12 @@ const STATIC_ASSETS = [
   './apple-touch-icon.png',
   './favicon.png',
   './assets/workshop-hero.jpg',
-  './assets/race-hero.jpg',
+  // fix169: assets/race-hero.jpg retired — 'raceHero' is out of
+  // RC_SHEET_NAMES / RC_VAR_NAMES / _rcSheetSources, so nothing fetches it
+  // any more. Tombstoned, not deleted, per house style. NOT to be confused
+  // with './assets/race-hero-bg.jpg' further down, which is the opaque
+  // backdrop scene read by .race-hero-bg and MUST stay.
+  // './assets/race-hero.jpg',
   // fix144: sprint-pose.png retired — the static final-10s pose is replaced
   // by the animated assets/sprint.png sheet and is no longer referenced by
   // any CSS var or rule, so it is dropped from the precache manifest.
@@ -46,7 +62,9 @@ const STATIC_ASSETS = [
   './assets/tt.png',       // fix145: 1568x308, 6-frame TT sheet
   './assets/pedal.png',
   './assets/ws-bearings.jpg',
-  './assets/portrait.png',
+  // fix169: assets/portrait.png retired — 'portrait' is out of the recolour
+  // lists and no CSS rule reads --sheet-portrait since fix163.
+  // './assets/portrait.png',
   './assets/ws-bleed.jpg',
   './assets/gt-drinks.jpg',
   './assets/gt-carbs.jpg',
@@ -80,9 +98,9 @@ const STATIC_ASSETS = [
   // fix162: Race tab hero backdrop. Opaque scene, never recoloured, bound by a
   // plain CSS url() rather than a --sheet-* var, so nothing else fetches it —
   // if it is missing from this manifest the hero is a bare --bg3 box offline.
-  // NOTE: './assets/race-hero.jpg' above is now unreferenced by CSS but stays
-  // precached deliberately — 'raceHero' is still in RC_SHEET_NAMES, so the
-  // recolour pass still fetches it. Retiring both is its own fix.
+  // SUPERSEDED (fix169): this note used to say './assets/race-hero.jpg' above
+  // stayed precached deliberately because 'raceHero' was still in
+  // RC_SHEET_NAMES. fix169 retired it, so that entry is now tombstoned too.
   './assets/race-hero-bg.jpg',
 ];
 
