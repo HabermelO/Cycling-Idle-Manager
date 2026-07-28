@@ -2077,9 +2077,9 @@ button{font-family:inherit;cursor:pointer;}
    hotspots and the coming-soon pill. No HTML captions, no HTML bottom bar.
 
    Coordinate space: percentages of #home-stage, which is pinned to the art's
-   true CONTENT box (769x1376), not the raw 784x1400 file — the source JPEG
+   true CONTENT box (768x1376) of the source JPEG, extended vertically by the
    carries a white margin on the right and bottom which is cropped out of
-   assets/home-bg.jpg. Every percentage below was measured against 769x1376. */
+   re-cut into assets/home-bg.jpg. Percentages below are of the 768x1707 re-cut. */
 /* fix171: the hub is now the full viewport, not a card in the page flow. The
    header and the tab bar are gone from this screen entirely — the art paints
    its own banner plate and its own bottom bar, so any HTML chrome on top would
@@ -2108,20 +2108,20 @@ button{font-family:inherit;cursor:pointer;}
    viewport. Sizing to max() in both axes and centring is exactly what cover
    does — no JS, no resize listener, no drift.
 
-   Why this is safe: the re-cut art is 769x1709 (0.450), and phone viewports run
+   Why this is safe: the re-cut art is 768x1707 (0.450), and phone viewports run
    ~0.45 to ~0.56. Cover therefore always scales to WIDTH and crops HEIGHT, and
-   the crop is centred. The re-cut added 167px above and 166px below the
-   original 769x1376 composition, so at the widest viewport in that range the
+   the crop is centred. The re-cut added 166px above and 165px below the
+   original 768x1376 composition, so at the widest viewport in that range the
    crop removes precisely those bands and nothing else. No icon can ever be
    clipped, at any phone aspect. */
 #home-art{
   position:absolute;
   left:50%; top:50%;
   transform:translate(-50%,-50%);
-  width:max(100vw, calc(100vh * 769 / 1709));
-  height:max(100vh, calc(100vw * 1709 / 769));
-  width:max(100vw, calc(100dvh * 769 / 1709));
-  height:max(100dvh, calc(100vw * 1709 / 769));
+  width:max(100vw, calc(100vh * 768 / 1707));
+  height:max(100vh, calc(100vw * 1707 / 768));
+  width:max(100vw, calc(100dvh * 768 / 1707));
+  height:max(100dvh, calc(100vw * 1707 / 768));
   background:var(--sheet-home-bg) center/100% 100% no-repeat;
 }
 
@@ -2162,11 +2162,11 @@ body.home-open{overflow:hidden;}
    The art paints a plate with three recessed blank slots. Only the slot
    interiors are live; the plate itself stays painted.
    tombstone (fix170): against the 769x1376 content box these were
-   top:1.02%; height:2.83%. fix171 re-measures them onto the 769x1709 re-cut —
+   top:1.02%; height:2.83%. fix172 re-measures them onto the 768x1707 re-cut —
    same slots, now sitting 167px lower in a taller canvas. */
 .home-banner-slot{
   position:absolute;
-  top:10.59%; height:2.28%;
+  top:10.54%; height:2.28%;
   display:flex; align-items:center; justify-content:center;
   overflow:hidden;
   border-radius:4px;
@@ -2178,9 +2178,9 @@ body.home-open{overflow:hidden;}
   letter-spacing:.2px;
   container-type:inline-size;
 }
-#home-slot-money  {left:19.38%; width:15.08%;}
-#home-slot-ftp    {left:50.72%; width:10.66%;}
-#home-slot-energy {left:73.73%; width:15.60%;}
+#home-slot-money  {left:19.40%; width:15.10%;}
+#home-slot-ftp    {left:50.78%; width:10.68%;}
+#home-slot-energy {left:73.83%; width:15.62%;}
 
 /* Energy slot doubles as a gauge. --home-energy-pct is patched by
    renderHomeBanner as a bare number 0-100, so the fill animates on a single
@@ -2201,7 +2201,7 @@ body.home-open{overflow:hidden;}
    Single pre-built node, text patched in place, never created per tap. */
 /* tombstone (fix170): top:56% against the 769x1376 box. */
 #home-toast{
-  position:absolute; left:50%; top:54.90%;
+  position:absolute; left:50%; top:54.87%;
   transform:translate(-50%,-50%) scale(.9);
   padding:10px 18px; border-radius:999px;
   background:rgba(14,20,32,.94);
@@ -2418,14 +2418,14 @@ body.home-open{overflow:hidden;}
        highlight on the bar. Home's show/hide is handled explicitly instead.
        The existing tab bar is untouched and remains the fallback navigation.
 
-       Every coordinate below is a measured percentage of the art's 769x1376
-       content box. The nine circle centres come from Hough detection; the five
+       Every coordinate below is a measured percentage of the art's 768x1707
+       re-cut canvas. The nine circle centres come from Hough detection; the five
        bottom-bar targets and the three banner slots from glyph-blob detection.
        Hit sizes are uniform, not pixel-exact — thumbs beat precision. -->
   <div id="tab-home" style="display:none">
     <div id="home-stage">
       <!-- #home-art is the exact cover rect (see CSS). Every percentage below is
-           a percentage OF THIS ELEMENT, i.e. of the 769x1709 re-cut art, never of
+           a percentage OF THIS ELEMENT, i.e. of the 768x1707 re-cut art, never of
            the viewport — which is what keeps the hotspots welded to the painted
            circles at any phone aspect. -->
       <div id="home-art">
@@ -2436,28 +2436,28 @@ body.home-open{overflow:hidden;}
 
         <!-- Icons 1-9, reading order left-to-right, top-to-bottom. Tapping one is
              exactly equivalent to the old tab-bar button for that panel. -->
-        <button class="home-hot" data-hot="1" style="--hx:19.51%;--hy:28.50%;--hw:22%;--hh:9.90%" aria-label="Tasks" onclick="homeGo('growth')"></button>
-        <button class="home-hot" data-hot="2" style="--hx:80.62%;--hy:28.50%;--hw:22%;--hh:9.90%" aria-label="Gear" onclick="homeGo('gear')"></button>
+        <button class="home-hot" data-hot="1" style="--hx:19.01%;--hy:28.71%;--hw:22%;--hh:9.90%" aria-label="Tasks" onclick="homeGo('growth')"></button>
+        <button class="home-hot" data-hot="2" style="--hx:80.73%;--hy:28.47%;--hw:22%;--hh:9.90%" aria-label="Gear" onclick="homeGo('gear')"></button>
         <!-- Icon 3 (Skills): routed to Train, where renderRiderSkillsCard()
              already lives. Skills has no panel of its own and promoting it to a
              tab would mean touching TABS — a separate fix. -->
-        <button class="home-hot" data-hot="3" style="--hx:18.73%;--hy:40.67%;--hw:22%;--hh:9.90%" aria-label="Skills" onclick="homeGo('train')"></button>
-        <button class="home-hot" data-hot="4" style="--hx:81.14%;--hy:40.67%;--hw:22%;--hh:9.90%" aria-label="Train" onclick="homeGo('train')"></button>
-        <button class="home-hot" data-hot="5" style="--hx:19.51%;--hy:66.18%;--hw:22%;--hh:9.90%" aria-label="Warehouse" onclick="homeGo('workshop')"></button>
+        <button class="home-hot" data-hot="3" style="--hx:18.75%;--hy:40.66%;--hw:22%;--hh:9.90%" aria-label="Skills" onclick="homeGo('train')"></button>
+        <button class="home-hot" data-hot="4" style="--hx:80.99%;--hy:40.66%;--hw:22%;--hh:9.90%" aria-label="Train" onclick="homeGo('train')"></button>
+        <button class="home-hot" data-hot="5" style="--hx:19.79%;--hy:66.20%;--hw:22%;--hh:9.90%" aria-label="Warehouse" onclick="homeGo('workshop')"></button>
         <!-- Icon 6 is both larger and lower than its row siblings. It is NOT on
-             the 66.18% line and must not be normalised into the row. -->
-        <button class="home-hot" data-hot="6" style="--hx:49.93%;--hy:70.51%;--hw:30%;--hh:13.50%" aria-label="Race" onclick="homeGo('race')"></button>
-        <button class="home-hot" data-hot="7" style="--hx:79.58%;--hy:66.18%;--hw:22%;--hh:9.90%" aria-label="Sponsors" onclick="homeGo('sponsors')"></button>
-        <button class="home-hot" data-hot="8" style="--hx:19.77%;--hy:78.00%;--hw:22%;--hh:9.90%" aria-label="Calendar" onclick="homeGo('calendar')"></button>
-        <button class="home-hot" data-hot="9" style="--hx:79.84%;--hy:77.65%;--hw:22%;--hh:9.90%" aria-label="Rider attributes" onclick="homeGo('rider')"></button>
+             the 66.20% line and must not be normalised into the row. -->
+        <button class="home-hot" data-hot="6" style="--hx:49.74%;--hy:70.53%;--hw:30%;--hh:13.50%" aria-label="Race" onclick="homeGo('race')"></button>
+        <button class="home-hot" data-hot="7" style="--hx:80.21%;--hy:66.20%;--hw:22%;--hh:9.90%" aria-label="Sponsors" onclick="homeGo('sponsors')"></button>
+        <button class="home-hot" data-hot="8" style="--hx:19.79%;--hy:78.03%;--hw:22%;--hh:9.90%" aria-label="Calendar" onclick="homeGo('calendar')"></button>
+        <button class="home-hot" data-hot="9" style="--hx:79.95%;--hy:77.80%;--hw:22%;--hh:9.90%" aria-label="Rider attributes" onclick="homeGo('rider')"></button>
 
         <!-- Painted bottom bar. Two settings cogs, one either side of PLAY —
              confirmed by measurement, both route to the same lockout. -->
-        <button class="home-hot home-hot-rect" data-hot="10" style="--hx:5.98%;--hy:87.55%;--hw:12%;--hh:5.23%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
-        <button class="home-hot home-hot-rect" data-hot="11" style="--hx:50.07%;--hy:87.55%;--hw:30%;--hh:5.23%" aria-label="Play" onclick="homeGo('train')"></button>
-        <button class="home-hot home-hot-rect" data-hot="12" style="--hx:72.82%;--hy:87.55%;--hw:10%;--hh:5.23%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
-        <button class="home-hot home-hot-rect" data-hot="13" style="--hx:83.55%;--hy:87.55%;--hw:10%;--hh:5.23%" aria-label="Shop, coming soon" onclick="homeComingSoon('Shop')"></button>
-        <button class="home-hot home-hot-rect" data-hot="14" style="--hx:93.95%;--hy:87.55%;--hw:10.5%;--hh:5.23%" aria-label="Profile" onclick="homeGo('rider')"></button>
+        <button class="home-hot home-hot-rect" data-hot="10" style="--hx:5.98%;--hy:87.59%;--hw:12%;--hh:5.24%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
+        <button class="home-hot home-hot-rect" data-hot="11" style="--hx:50.07%;--hy:87.59%;--hw:30%;--hh:5.24%" aria-label="Play" onclick="homeGo('train')"></button>
+        <button class="home-hot home-hot-rect" data-hot="12" style="--hx:72.82%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
+        <button class="home-hot home-hot-rect" data-hot="13" style="--hx:83.55%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Shop, coming soon" onclick="homeComingSoon('Shop')"></button>
+        <button class="home-hot home-hot-rect" data-hot="14" style="--hx:93.95%;--hy:87.59%;--hw:10.5%;--hh:5.24%" aria-label="Profile" onclick="homeGo('rider')"></button>
 
         <div id="home-toast"></div>
       </div>
@@ -7673,8 +7673,8 @@ const LAZY_ASSET_GROUPS = {
   },
   // fix170: the home hub art. Unlike every other group here, this one loads on
   // EVERY cold start, because home is the landing tab — so it is budgeted
-  // accordingly: 769x1376 content box downscaled to 620x1109, q64, 4:2:0
-  // progressive = 99.9 KB (source JPEG was 173 KB). It carries the background,
+  // accordingly: 768x1376 source, extended to a 768x1707 canvas, downscaled to
+  // 640x1422, q58, 4:2:0 progressive = 99.6 KB (source JPEG was 173 KB). It carries the background,
   // all nine icon circles, their captions, the banner plate and the bottom bar,
   // so there is no second request behind it.
   home: {
@@ -7697,7 +7697,49 @@ function lazyLoadAssetGroup(group){
 
 const TABS=['train','race','rider','gear','workshop','growth','sponsors','calendar'];
 let currentTab='train';
+
+// fix172: back-gesture support. A PWA with a single history entry has nothing
+// to pop, so Android's back gesture / iOS edge-swipe closed the app outright —
+// which got much worse in fix171, when the tab bar went away and the hub became
+// the only way back. The model kept here is deliberately shallow:
+//
+//     [home]            on the hub
+//     [home, <tab>]     on any panel
+//
+// Never deeper. Panel-to-panel replaces rather than pushes, so back is always
+// exactly one step from any screen and always lands on the hub. Back FROM the
+// hub falls through to the platform and closes the app, which is what a player
+// expects from a home screen.
+let _navFromPop=false;   // set only while a popstate is being serviced
+let _navPopPending=false; // guards a double-tap of Home racing the async back()
+function homeSyncHistory(name){
+  if(_navFromPop) return false;
+  const st = history.state && history.state.tab ? history.state.tab : null;
+  if(name==='home'){
+    // Sitting on a pushed panel entry: unwind it rather than stacking a second
+    // home entry, otherwise the stack grows once per panel visit and back stops
+    // being able to exit at all.
+    if(st && st!=='home' && !_navPopPending){ _navPopPending=true; history.back(); return true; }
+    if(!st) history.replaceState({tab:'home'},'');
+    return false;
+  }
+  if(st===name) return false;
+  if(st && st!=='home') history.replaceState({tab:name},''); // panel -> panel
+  else history.pushState({tab:name},'');                     // hub -> panel
+  return false;
+}
+window.addEventListener('popstate', function(e){
+  _navPopPending=false;
+  const t = (e.state && e.state.tab) || 'home';
+  _navFromPop=true;
+  try{ showTab(t); }
+  finally{ _navFromPop=false; }
+});
+
 function showTab(name){
+  // Returning to the hub from a panel is serviced by the popstate handler
+  // above, which calls back into showTab — so this call bows out here.
+  if(homeSyncHistory(name)) return;
   // fix137: bind the workshop art before the tab is made visible, so the
   // first paint of the tab already has its background-image declarations.
   if(name==='workshop') lazyLoadAssetGroup('workshop');
@@ -14612,6 +14654,9 @@ if(state.raceActive && state.raceData){ openRaceOverlay(); renderActiveRaceBlock
 // this and still routes a brand-new player to Train, which is correct — the
 // tour teaches the session loop, not the hub.
 // tombstone: updateUI();
+// fix172: seed the base history entry before the first render, so the very
+// first back gesture has something of ours to pop instead of closing the app.
+history.replaceState({tab:'home'},'');
 showTab('home');
 updateActivityDots();
 updateGrowthBadge();
