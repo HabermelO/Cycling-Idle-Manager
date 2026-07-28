@@ -339,7 +339,11 @@ body{font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
   background:var(--bg3);color:var(--txt);min-height:100vh;min-height:100dvh;
   overscroll-behavior-y:none;
   padding-top:env(safe-area-inset-top);}
-#app{max-width:600px;margin:0 auto;padding:1rem 1rem calc(5.5rem + env(safe-area-inset-bottom));}
+/* tombstone (fix171): the 5.5rem bottom padding existed solely to clear the
+   fixed .main-tabs bar. With the bar retired the reserve is dead space, but the
+   safe-area inset must stay or content runs under the home indicator.
+   #app{max-width:600px;margin:0 auto;padding:1rem 1rem calc(5.5rem + env(safe-area-inset-bottom));} */
+#app{max-width:600px;margin:0 auto;padding:1rem 1rem calc(1.5rem + env(safe-area-inset-bottom));}
 button{font-family:inherit;cursor:pointer;}
 .game-header{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);
   padding:1rem 1.25rem;margin-bottom:.75rem;box-shadow:var(--shadow-md);}
@@ -376,6 +380,22 @@ button{font-family:inherit;cursor:pointer;}
 .main-tab.sponsor-ready .main-tab-icon::after{background:var(--green-txt);}
 .main-tab.calendar-ready .main-tab-icon::after{background:var(--purple-txt);}
 @keyframes pulse-dot{from{opacity:.3}to{opacity:1}}
+/* fix171: the five attention badges above lived on the tab bar. With the bar
+   retired they move onto the matching hub icon — same five states, same pulse,
+   same colours, just parented to a transparent hotspot instead of a button.
+   Sat at the upper-right of the painted circle, outside the glyph artwork. */
+.home-hot::before{
+  content:'';position:absolute;top:8%;right:8%;width:13px;height:13px;
+  border-radius:50%;border:2px solid rgba(10,14,22,.55);
+  display:none;animation:pulse-dot 1s ease-in-out infinite alternate;}
+.home-hot.session-active::before,.home-hot.race-active::before,
+.home-hot.growth-ready::before,.home-hot.sponsor-ready::before,
+.home-hot.calendar-ready::before{display:block;}
+.home-hot.session-active::before{background:var(--blue-txt);}
+.home-hot.race-active::before{background:var(--red-txt);}
+.home-hot.growth-ready::before{background:var(--amber-txt);}
+.home-hot.sponsor-ready::before{background:var(--green-txt);}
+.home-hot.calendar-ready::before{background:var(--purple-txt);}
 .section-lbl{font-size:11px;font-weight:600;color:var(--txt3);
   text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;padding:0 2px;}
 .energy-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);
@@ -2049,6 +2069,171 @@ button{font-family:inherit;cursor:pointer;}
    updatePelotonScene — the existing 1.6s left transition on .pel-rider
    handles the forward-and-back motion, this rule only nudges the target. */
 .pel-rider.pel-attack{left:calc(var(--pel-base-left,50%) + 6%) !important;}
+
+/* ═══════════ fix170: HOME HUB ═══════════
+   The art is load-bearing. It carries the background, the nine icon circles,
+   their captions, the top banner plate and the bottom bar chrome. Nothing is
+   rendered on top of it except the three live banner slots, the invisible
+   hotspots and the coming-soon pill. No HTML captions, no HTML bottom bar.
+
+   Coordinate space: percentages of #home-stage, which is pinned to the art's
+   true CONTENT box (769x1376), not the raw 784x1400 file — the source JPEG
+   carries a white margin on the right and bottom which is cropped out of
+   assets/home-bg.jpg. Every percentage below was measured against 769x1376. */
+/* fix171: the hub is now the full viewport, not a card in the page flow. The
+   header and the tab bar are gone from this screen entirely — the art paints
+   its own banner plate and its own bottom bar, so any HTML chrome on top would
+   be a second copy of furniture the player can already see.
+
+   tombstone (fix170): the stage used to be an in-flow box at the art's aspect
+   with a max-width short-screen guard —
+     position:relative; width:100%; aspect-ratio:769/1376;
+     max-width:min(100%, calc(92vh * 769 / 1376));
+     background:var(--sheet-home-bg) center/cover no-repeat; border-radius:10px;
+   That letterboxed on tall phones, which is exactly what going fullscreen
+   replaces. */
+#home-stage{
+  position:fixed;
+  inset:0;
+  z-index:90;
+  overflow:hidden;
+  background:#7fb8d4; /* sky, shown for the one frame before the jpeg lands */
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* The art layer reproduces `background-size:cover` geometry as a real element,
+   so hotspots can stay simple percentages OF THE ART rather than of the
+   viewport. Sizing to max() in both axes and centring is exactly what cover
+   does — no JS, no resize listener, no drift.
+
+   Why this is safe: the re-cut art is 769x1709 (0.450), and phone viewports run
+   ~0.45 to ~0.56. Cover therefore always scales to WIDTH and crops HEIGHT, and
+   the crop is centred. The re-cut added 167px above and 166px below the
+   original 769x1376 composition, so at the widest viewport in that range the
+   crop removes precisely those bands and nothing else. No icon can ever be
+   clipped, at any phone aspect. */
+#home-art{
+  position:absolute;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  width:max(100vw, calc(100vh * 769 / 1709));
+  height:max(100vh, calc(100vw * 1709 / 769));
+  width:max(100vw, calc(100dvh * 769 / 1709));
+  height:max(100dvh, calc(100vw * 1709 / 769));
+  background:var(--sheet-home-bg) center/100% 100% no-repeat;
+}
+
+/* While the hub is up nothing behind it should scroll or peek through. */
+body.home-open{overflow:hidden;}
+
+/* Hotspots. Transparent <button>s, centre-anchored via translate(-50%,-50%) so
+   the measured circle centre is the literal --hx/--hy pair with no arithmetic
+   at the call site. Hit size is deliberately UNIFORM rather than pixel-exact:
+   11% of stage width for icons 1-5 and 7-9, 15% for the larger offset Race
+   icon. At a 390px viewport that is a 43-59px target. */
+.home-hot{
+  position:absolute;
+  left:var(--hx); top:var(--hy);
+  width:var(--hw,22%); height:var(--hh,22%);
+  transform:translate(-50%,-50%);
+  padding:0; margin:0; border:0; background:transparent;
+  border-radius:50%;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  appearance:none; -webkit-appearance:none;
+}
+.home-hot.home-hot-rect{border-radius:8px;}
+.home-hot:active{transform:translate(-50%,-50%) scale(0.94);}
+@media (prefers-reduced-motion: no-preference){
+  .home-hot{transition:transform .12s ease;}
+}
+.home-hot:focus-visible{outline:3px solid #fff;outline-offset:-3px;}
+
+/* Debug overlay (see homeDebugToggle). Off by default, never persisted. */
+#home-stage.home-debug .home-hot{background:rgba(255,0,255,.28);outline:2px solid #ff0;}
+#home-stage.home-debug .home-hot::after{
+  content:attr(data-hot);position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);color:#ff0;font:700 13px/1 monospace;
+}
+
+/* ── Top banner ──────────────────────────────────────────────
+   The art paints a plate with three recessed blank slots. Only the slot
+   interiors are live; the plate itself stays painted.
+   tombstone (fix170): against the 769x1376 content box these were
+   top:1.02%; height:2.83%. fix171 re-measures them onto the 769x1709 re-cut —
+   same slots, now sitting 167px lower in a taller canvas. */
+.home-banner-slot{
+  position:absolute;
+  top:10.59%; height:2.28%;
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+  border-radius:4px;
+  pointer-events:none; /* the banner is read-only; taps fall through to the art */
+  font-weight:800;
+  font-size:clamp(9px, 2.6cqw, 15px);
+  color:#f2f7ff;
+  text-shadow:0 1px 2px rgba(0,0,0,.85);
+  letter-spacing:.2px;
+  container-type:inline-size;
+}
+#home-slot-money  {left:19.38%; width:15.08%;}
+#home-slot-ftp    {left:50.72%; width:10.66%;}
+#home-slot-energy {left:73.73%; width:15.60%;}
+
+/* Energy slot doubles as a gauge. --home-energy-pct is patched by
+   renderHomeBanner as a bare number 0-100, so the fill animates on a single
+   custom-property write with no innerHTML churn. */
+#home-slot-energy::before{
+  content:'';position:absolute;inset:0;
+  width:calc(var(--home-energy-pct,0) * 1%);
+  background:linear-gradient(90deg, rgba(90,200,120,.75), rgba(140,230,150,.55));
+  border-radius:4px;
+}
+@media (prefers-reduced-motion: no-preference){
+  #home-slot-energy::before{transition:width .35s ease;}
+}
+#home-slot-energy .home-slot-txt{position:relative;}
+
+/* ── Coming-soon pill ────────────────────────────────────────
+   Informational, not destructive: no confirm(), no modal, no two-tap flow.
+   Single pre-built node, text patched in place, never created per tap. */
+/* tombstone (fix170): top:56% against the 769x1376 box. */
+#home-toast{
+  position:absolute; left:50%; top:54.90%;
+  transform:translate(-50%,-50%) scale(.9);
+  padding:10px 18px; border-radius:999px;
+  background:rgba(14,20,32,.94);
+  border:1px solid rgba(255,255,255,.22);
+  color:#fff; font-weight:700; font-size:15px;
+  box-shadow:0 6px 20px rgba(0,0,0,.45);
+  pointer-events:none; opacity:0; visibility:hidden;
+  white-space:nowrap;
+}
+#home-toast.on{opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1);}
+
+/* fix171: return-to-home. With the tab bar gone, this is the ONLY way back to
+   the hub, so it is a single shared node in the header rather than nine copies
+   pasted into nine panels — one control, one place to fix, and it cannot drift
+   out of sync between tabs. Sized past the 44px minimum. */
+.home-back{
+  display:flex; align-items:center; gap:6px;
+  min-height:44px; padding:0 14px 0 10px;
+  border:1px solid var(--border); border-radius:999px;
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:700;
+  box-shadow:var(--shadow-md);
+}
+.home-back:active{transform:scale(.96);}
+@media (prefers-reduced-motion: no-preference){
+  .home-back{transition:transform .12s ease;}
+}
+.game-header-top{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:.75rem;}
+.game-header-top .game-title{margin-bottom:0;}
+@media (prefers-reduced-motion: no-preference){
+  #home-toast{transition:opacity .18s ease, transform .18s ease;}
+}
 </style>
 </head>
 <body>
@@ -2183,12 +2368,22 @@ button{font-family:inherit;cursor:pointer;}
 <symbol id="icn-dot-yellow" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="currentColor"/></symbol>
 <symbol id="icn-dot-green" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="currentColor"/></symbol>
 <symbol id="icn-cross" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 5l14 14M19 5L5 19"/></symbol>
+<!-- fix171: home glyph for the return-to-hub button. Same currentColor
+     convention as every other symbol here. -->
+<symbol id="icn-home" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 11l9-7 9 7"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5.5 9.5V20h13V9.5"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M10 20v-5h4v5"/></symbol>
 <symbol id="icn-tag" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M11 3l9 9-8 8-9-9V4h7z"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/></symbol>
 </svg>
 <!-- ═══════════════ END PHASE 5 SPRITE ═══════════════ -->
 <div id="app">
   <header class="game-header">
-    <div class="game-title"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-rider"></use></svg> <span class="accent">Cycling</span> Idle Manager</div>
+    <!-- fix171: the hub is the only navigation now, so every tab needs a way
+         back to it. One shared button in the shared header covers all eight
+         panels; the header itself is hidden on the hub (see showTab), so this
+         can never appear on the screen it returns to. -->
+    <div class="game-header-top">
+      <div class="game-title"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-rider"></use></svg> <span class="accent">Cycling</span> Idle Manager</div>
+      <button class="home-back" id="home-back-btn" aria-label="Back to home" onclick="showTab('home')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-home"></use></svg> Home</button>
+    </div>
     <div class="stat-row">
       <div class="stat-item"><div class="stat-val" id="hdr-money">£0</div><div class="stat-lbl">Prize Money</div></div>
       <div class="stat-item"><div class="stat-val" id="hdr-ftp">50</div><div class="stat-lbl">FTP (w)</div></div>
@@ -2196,6 +2391,15 @@ button{font-family:inherit;cursor:pointer;}
       <div class="stat-item"><div class="stat-val" id="hdr-cat">Uncat</div><div class="stat-lbl">Category</div><div class="stat-sublbl" id="hdr-weather" style="color:var(--txt2)"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-sun"></use></svg></div></div>
     </div>
   </header>
+  <!-- ═══════════ fix171: TAB BAR RETIRED ═══════════
+       The hub is now the only navigation. The eight .main-tab buttons are
+       tombstoned rather than deleted, house style, and because showTab()
+       still runs its index-mapped active-state sweep over .main-tab — that
+       sweep is a harmless no-op against an empty NodeList, and keeping the
+       markup here documents the TABS-order coupling for whoever restores or
+       replaces the bar later. TABS itself is untouched.
+       Return-to-hub lives on .home-back in the shared header instead.
+
   <div class="main-tabs">
     <button class="main-tab active" id="tab-btn-train" onclick="showTab('train')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-rider"></use></svg></span><span class="main-tab-label">Train</span></button>
     <button class="main-tab" id="tab-btn-race" onclick="showTab('race')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-flag"></use></svg></span><span class="main-tab-label">Race</span></button>
@@ -2205,6 +2409,59 @@ button{font-family:inherit;cursor:pointer;}
     <button class="main-tab" id="tab-btn-growth" onclick="showTab('growth')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-clipboard"></use></svg></span><span class="main-tab-label">Tasks</span></button>
     <button class="main-tab" id="tab-btn-sponsors" onclick="showTab('sponsors')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-handshake"></use></svg></span><span class="main-tab-label">Sponsors</span></button>
     <button class="main-tab" id="tab-btn-calendar" onclick="showTab('calendar')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-calendar"></use></svg></span><span class="main-tab-label">Calendar</span></button>
+  </div>
+  -->
+  <!-- ═══════════ fix170: HOME HUB ═══════════
+       Registered OUTSIDE the TABS array and with no .main-tab button of its
+       own. showTab() maps buttons to tabs BY INDEX, so a ninth TABS entry
+       without a ninth button would silently desynchronise every active-state
+       highlight on the bar. Home's show/hide is handled explicitly instead.
+       The existing tab bar is untouched and remains the fallback navigation.
+
+       Every coordinate below is a measured percentage of the art's 769x1376
+       content box. The nine circle centres come from Hough detection; the five
+       bottom-bar targets and the three banner slots from glyph-blob detection.
+       Hit sizes are uniform, not pixel-exact — thumbs beat precision. -->
+  <div id="tab-home" style="display:none">
+    <div id="home-stage">
+      <!-- #home-art is the exact cover rect (see CSS). Every percentage below is
+           a percentage OF THIS ELEMENT, i.e. of the 769x1709 re-cut art, never of
+           the viewport — which is what keeps the hotspots welded to the painted
+           circles at any phone aspect. -->
+      <div id="home-art">
+        <!-- Live banner. Read-only, pointer-events:none, mirrors updateHeader(). -->
+        <div class="home-banner-slot" id="home-slot-money"><span class="home-slot-txt" id="home-money">&#8212;</span></div>
+        <div class="home-banner-slot" id="home-slot-ftp"><span class="home-slot-txt" id="home-ftp">&#8212;</span></div>
+        <div class="home-banner-slot" id="home-slot-energy"><span class="home-slot-txt" id="home-energy">&#8212;</span></div>
+
+        <!-- Icons 1-9, reading order left-to-right, top-to-bottom. Tapping one is
+             exactly equivalent to the old tab-bar button for that panel. -->
+        <button class="home-hot" data-hot="1" style="--hx:19.51%;--hy:28.50%;--hw:22%;--hh:9.90%" aria-label="Tasks" onclick="homeGo('growth')"></button>
+        <button class="home-hot" data-hot="2" style="--hx:80.62%;--hy:28.50%;--hw:22%;--hh:9.90%" aria-label="Gear" onclick="homeGo('gear')"></button>
+        <!-- Icon 3 (Skills): routed to Train, where renderRiderSkillsCard()
+             already lives. Skills has no panel of its own and promoting it to a
+             tab would mean touching TABS — a separate fix. -->
+        <button class="home-hot" data-hot="3" style="--hx:18.73%;--hy:40.67%;--hw:22%;--hh:9.90%" aria-label="Skills" onclick="homeGo('train')"></button>
+        <button class="home-hot" data-hot="4" style="--hx:81.14%;--hy:40.67%;--hw:22%;--hh:9.90%" aria-label="Train" onclick="homeGo('train')"></button>
+        <button class="home-hot" data-hot="5" style="--hx:19.51%;--hy:66.18%;--hw:22%;--hh:9.90%" aria-label="Warehouse" onclick="homeGo('workshop')"></button>
+        <!-- Icon 6 is both larger and lower than its row siblings. It is NOT on
+             the 66.18% line and must not be normalised into the row. -->
+        <button class="home-hot" data-hot="6" style="--hx:49.93%;--hy:70.51%;--hw:30%;--hh:13.50%" aria-label="Race" onclick="homeGo('race')"></button>
+        <button class="home-hot" data-hot="7" style="--hx:79.58%;--hy:66.18%;--hw:22%;--hh:9.90%" aria-label="Sponsors" onclick="homeGo('sponsors')"></button>
+        <button class="home-hot" data-hot="8" style="--hx:19.77%;--hy:78.00%;--hw:22%;--hh:9.90%" aria-label="Calendar" onclick="homeGo('calendar')"></button>
+        <button class="home-hot" data-hot="9" style="--hx:79.84%;--hy:77.65%;--hw:22%;--hh:9.90%" aria-label="Rider attributes" onclick="homeGo('rider')"></button>
+
+        <!-- Painted bottom bar. Two settings cogs, one either side of PLAY —
+             confirmed by measurement, both route to the same lockout. -->
+        <button class="home-hot home-hot-rect" data-hot="10" style="--hx:5.98%;--hy:87.55%;--hw:12%;--hh:5.23%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
+        <button class="home-hot home-hot-rect" data-hot="11" style="--hx:50.07%;--hy:87.55%;--hw:30%;--hh:5.23%" aria-label="Play" onclick="homeGo('train')"></button>
+        <button class="home-hot home-hot-rect" data-hot="12" style="--hx:72.82%;--hy:87.55%;--hw:10%;--hh:5.23%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
+        <button class="home-hot home-hot-rect" data-hot="13" style="--hx:83.55%;--hy:87.55%;--hw:10%;--hh:5.23%" aria-label="Shop, coming soon" onclick="homeComingSoon('Shop')"></button>
+        <button class="home-hot home-hot-rect" data-hot="14" style="--hx:93.95%;--hy:87.55%;--hw:10.5%;--hh:5.23%" aria-label="Profile" onclick="homeGo('rider')"></button>
+
+        <div id="home-toast"></div>
+      </div>
+    </div>
   </div>
   <div id="tab-train">
     <div id="rider-scene-wrap"></div>
@@ -4596,9 +4853,22 @@ function grantRegenEnergy(n){
   return state.energy-before;
 }
 
+// fix171: which hub icon carries which badge. The tab bar used to own all five
+// attention states; with the bar retired they hang off the matching hotspot.
+// Numbers are the data-hot indices in the hub markup.
+const HOME_BADGE_HOT = { train:4, race:6, growth:1, sponsors:7, calendar:8 };
+function homeBadgeEl(tab){
+  return document.querySelector('#home-art .home-hot[data-hot="' + HOME_BADGE_HOT[tab] + '"]');
+}
+
 function updateActivityDots(){
-  document.getElementById('tab-btn-train').classList.toggle('session-active',!!state.session.active);
-  document.getElementById('tab-btn-race').classList.toggle('race-active',!!state.raceActive);
+  // tombstone (fix171): these two used to be unguarded getElementById calls on
+  // '#tab-btn-train' / '#tab-btn-race'. Once the bar was retired those returned
+  // null and threw on .classList — this function runs at boot, so it took the
+  // whole app down. Guarded now regardless of what the hub markup is doing.
+  const t=homeBadgeEl('train'), r=homeBadgeEl('race');
+  if(t) t.classList.toggle('session-active',!!state.session.active);
+  if(r) r.classList.toggle('race-active',!!state.raceActive);
 }
 
 // How much energy you'll wake up with tomorrow based on today's training load
@@ -5826,7 +6096,7 @@ function checkSponsorWeeklyReset(){
 // Lights up the Sponsors tab when there's something ready to claim, or when a tier is
 // unlocked and waiting to be picked for the first time.
 function updateSponsorBadge(){
-  const btn=document.getElementById('tab-btn-sponsors'); if(!btn) return;
+  const btn=homeBadgeEl('sponsors'); if(!btn) return; // fix171: was #tab-btn-sponsors
   const active=getActiveSponsorDef();
   let ready=false;
   if(active){
@@ -6246,7 +6516,7 @@ function startGrandTourStage(tourId){
 // Lights up the Calendar tab whenever there's a signed-up event ready to race,
 // or the player has just become eligible and hasn't signed up for anything yet.
 function updateCalendarBadge(){
-  const btn=document.getElementById('tab-btn-calendar'); if(!btn) return;
+  const btn=homeBadgeEl('calendar'); if(!btn) return; // fix171: was #tab-btn-calendar
   if(!isCalendarUnlocked()){ btn.classList.remove('calendar-ready'); return; }
   const hasUnracedSignup = state.calendar.signups.some(id=>!state.calendar.completed[id]);
   const hasOpenSlot = state.calendar.signups.length<getCalendarSlotLimit();
@@ -6588,7 +6858,7 @@ function claimAllDailyTasks(){
 // Lights up the Growth tab with a pulsing dot whenever a completed task is waiting to be claimed
 function updateGrowthBadge(){
   const hasClaimable=DAILY_TASKS.some(t=>state.dailyTasks.progress[t.id]&&!state.dailyTasks.claimed[t.id]);
-  const btn=document.getElementById('tab-btn-growth');
+  const btn=homeBadgeEl('growth'); // fix171: was #tab-btn-growth
   if(btn) btn.classList.toggle('growth-ready',hasClaimable);
 }
 
@@ -6890,7 +7160,7 @@ const ONBOARDING_STEPS = [
     eyebrow:'Step 4', title:'Your Rival',
     body:'A named rider follows you through your whole career. Beat them enough times and the bragging rights are real — check back here often.' },
 
-  { id:'gear_intro', tab:'gear', target:'#tab-btn-gear',
+  { id:'gear_intro', tab:'home', target:'[data-hot="2"]', // fix171: was the tab-bar Gear button
     eyebrow:'Step 5', title:'The Gear Shop',
     body:'Bikes, wheels, kit and energy items all live here. Here\'s a little starting cash to get you going — let\'s spend some of it.' },
 
@@ -6899,11 +7169,11 @@ const ONBOARDING_STEPS = [
     body:'Tap the Energy Gel to buy one — it tops up your energy and helps you recover faster overnight.',
     actionEvent:'bought_item' },
 
-  { id:'rider_intro', tab:'rider', target:'#tab-btn-rider',
+  { id:'rider_intro', tab:'home', target:'[data-hot="9"]', // fix171: was the tab-bar Rider button
     eyebrow:'Step 7', title:'Track Your Progress',
     body:'Your FTP, attributes, achievements and lifetime career goals all live on the Rider tab — check in often to see how far you\'ve come.' },
 
-  { id:'more_tabs', tab:'rider', target:'#tab-btn-growth',
+  { id:'more_tabs', tab:'home', target:'[data-hot="1"]', // fix171: was the tab-bar Tasks button
     eyebrow:'Step 8', title:'Sponsors, Calendar & Tasks',
     body:'Sign a sponsor for weekly bonuses, enter marquee Calendar events, and complete daily tasks for extra rewards — all worth exploring as you grow.' },
 
@@ -7400,6 +7670,15 @@ const LAZY_ASSET_GROUPS = {
     '--sheet-rs-fz': 'assets/feedzone-scramble.jpg',
     '--sheet-rs-sl': 'assets/slipstream.jpg',
     '--sheet-rs-wt': 'assets/wind-tunnel.jpg'
+  },
+  // fix170: the home hub art. Unlike every other group here, this one loads on
+  // EVERY cold start, because home is the landing tab — so it is budgeted
+  // accordingly: 769x1376 content box downscaled to 620x1109, q64, 4:2:0
+  // progressive = 99.9 KB (source JPEG was 173 KB). It carries the background,
+  // all nine icon circles, their captions, the banner plate and the bottom bar,
+  // so there is no second request behind it.
+  home: {
+    '--sheet-home-bg': 'assets/home-bg.jpg'
   }
 };
 const _lazyGroupsLoaded = {};
@@ -7422,12 +7701,28 @@ function showTab(name){
   // fix137: bind the workshop art before the tab is made visible, so the
   // first paint of the tab already has its background-image declarations.
   if(name==='workshop') lazyLoadAssetGroup('workshop');
+  // fix170: same precedent — bind the hub art BEFORE the panel is revealed, so
+  // the first paint already carries its background-image declaration.
+  if(name==='home') lazyLoadAssetGroup('home');
   // fix88: leaving the workshop tab must never leave a mini-game rAF loop
   // running off-tab (spec guardrail). wsStopGame() is a no-op if nothing's
   // running, so this is safe on every tab switch, not just workshop->other.
   if(currentTab==='workshop' && name!=='workshop' && typeof wsStopGame==='function') wsStopGame();
   currentTab=name;
   TABS.forEach(t=>{ document.getElementById('tab-'+t).style.display=t===name?'':'none'; });
+  // fix170: home is deliberately NOT in TABS (see the panel comment — the
+  // button bar is index-mapped), so its visibility is swept here by hand.
+  // Leaving name==='home' matching nothing in the .main-tab sweep below is
+  // also intended: on the hub, no bar button is highlighted.
+  const homeEl=document.getElementById('tab-home');
+  if(homeEl) homeEl.style.display = name==='home' ? '' : 'none';
+  // fix171: on the hub the art carries its own banner plate and its own bottom
+  // bar, so the HTML header would be a duplicate of furniture already painted.
+  // Hidden here rather than inside the panel so there is exactly one place that
+  // decides what chrome the hub shows.
+  const hdrEl=document.querySelector('.game-header');
+  if(hdrEl) hdrEl.style.display = name==='home' ? 'none' : '';
+  document.body.classList.toggle('home-open', name==='home');
   document.querySelectorAll('.main-tab').forEach((btn,i)=>btn.classList.toggle('active',TABS[i]===name));
   updateUI();
 }
@@ -7452,6 +7747,87 @@ function updateHeader(){
     const {condition,intensity}=getDailyWeather();
     wEl.innerHTML=`${icn(condition.icon)} ${WEATHER_INTENSITY_LABELS[intensity]}`;
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// HOME HUB (fix170)
+// ═══════════════════════════════════════════════════════════
+// Render-only. Nothing in this section writes to state, and nothing here is
+// persisted — saveGame()'s payload is unchanged by this fix.
+
+// Hotspot navigation. A thin wrapper rather than onclick="showTab('x')" purely
+// so a tap on the hub always dismisses a pending coming-soon pill first; the
+// pill is informational and must not linger behind the tab you just opened.
+function homeGo(tab){
+  homeHideToast();
+  showTab(tab);
+}
+
+let _homeToastTimer=null;
+// The pill is a single pre-built node. Its text is patched; it is never
+// created or destroyed per tap. Informational only — no confirm(), no modal,
+// no two-tap flow, and no state written.
+function homeComingSoon(label){
+  const el=document.getElementById('home-toast');
+  if(!el) return;
+  el.textContent = label + ' — coming soon';
+  el.classList.add('on');
+  if(_homeToastTimer) clearTimeout(_homeToastTimer);
+  _homeToastTimer=setTimeout(homeHideToast, 1800);
+}
+function homeHideToast(){
+  if(_homeToastTimer){ clearTimeout(_homeToastTimer); _homeToastTimer=null; }
+  const el=document.getElementById('home-toast');
+  if(el) el.classList.remove('on');
+}
+
+// Banner. MIRRORS updateHeader() — it does not call it, and updateHeader() is
+// not modified, so the two read the same sources and can never disagree.
+// Node refs cached once; updates patch textContent only, behind a value
+// signature, so a tick that changes nothing touches no DOM at all.
+let _homeBannerNodes=null, _homeBannerSig='';
+function renderHomeBanner(){
+  if(currentTab!=='home') return;
+  if(!_homeBannerNodes){
+    const m=document.getElementById('home-money'),
+          f=document.getElementById('home-ftp'),
+          e=document.getElementById('home-energy'),
+          slot=document.getElementById('home-slot-energy');
+    if(!m||!f||!e||!slot) return;
+    _homeBannerNodes={money:m, ftp:f, energy:e, slot:slot};
+  }
+  const n=_homeBannerNodes;
+  const rs=getRiderStats();
+  const en=Math.floor(state.energy);
+  const max=Math.max(state.maxEnergy, en);
+  const money=fmtMoney(state.money);
+  const sig=money+'|'+rs.ftp+'|'+en+'/'+max;
+  if(sig===_homeBannerSig) return;
+  _homeBannerSig=sig;
+  n.money.textContent  = money;
+  n.ftp.textContent    = rs.ftp;
+  n.energy.textContent = en + '/' + max;
+  // Bare number, consumed by calc(var(--home-energy-pct) * 1%) in the CSS, so
+  // the gauge animates on a custom-property write rather than an innerHTML
+  // rebuild — the fill's transition is never restarted by a DOM swap.
+  n.slot.style.setProperty('--home-energy-pct', max>0 ? (en/max*100).toFixed(1) : '0');
+}
+
+// The hotspot layer is static markup built once in the HTML, so opening the hub
+// only has to refresh the banner. Kept as its own function so updateUI()'s
+// dispatch table stays uniform across tabs.
+function renderHomeTab(){
+  homeHideToast();
+  renderHomeBanner();
+}
+
+// Calibration aid. Outlines every hotspot with its index so the boxes can be
+// checked against the painted circles on a real device. Off by default, no
+// persisted flag, console-reachable: homeDebugToggle().
+// Left dormant rather than deleted once alignment is signed off.
+function homeDebugToggle(){
+  const st=document.getElementById('home-stage');
+  if(st) st.classList.toggle('home-debug');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -13516,6 +13892,7 @@ function calendarEventCardHtml(ev, mode){
 // ═══════════════════════════════════════════════════════════
 function updateUI(){
   updateHeader();
+  if(currentTab==='home')     renderHomeTab();
   if(currentTab==='train')    renderTrainTab();
   if(currentTab==='race')     renderRaceTab();
   if(currentTab==='growth')   renderGrowthTab();
@@ -13914,7 +14291,10 @@ function gameTick(){
     // pruneBuffs() has already run this tick, so this read is never stale.
     const regenMult=getBuff('fz_regen').magnitude || 1;
     state.energy=Math.min(state.todayEnergyAllocation, state.energy+ENERGY_REGEN_RATE*regenMult*delta);
-    if(Math.floor(state.energy)!==prevFloor) updateHeader();
+    // fix170: the hub banner mirrors updateHeader(), so it refreshes wherever
+    // updateHeader() does. renderHomeBanner() early-returns off-hub, so this
+    // costs one comparison per regen tick on every other tab.
+    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); }
   }
   if(state.session.active){
     const t=TRAINING.find(t=>t.id===state.session.typeId);
@@ -14226,7 +14606,13 @@ if(state.raceActive && state.raceData && !state.raceData.hiddenAt && state._last
   }
 }
 if(state.raceActive && state.raceData){ openRaceOverlay(); renderActiveRaceBlock(); }
-updateUI();
+// fix170: the hub replaces Train as the landing screen. showTab() calls
+// updateUI() itself, so this supersedes the bare updateUI() that used to sit
+// here rather than adding a second render pass. Onboarding still runs after
+// this and still routes a brand-new player to Train, which is correct — the
+// tour teaches the session loop, not the hub.
+// tombstone: updateUI();
+showTab('home');
 updateActivityDots();
 updateGrowthBadge();
 updateSponsorBadge();
