@@ -1589,6 +1589,69 @@ button{font-family:inherit;cursor:pointer;}
   cursor:pointer;border-radius:50%;flex-shrink:0;}
 .info-btn:active{opacity:.7;}
 
+/* ═══ fix180: hub skin — Rider tab pilot ═══════════════════════════════════
+   Replicates the painted hub (#home-stage) inside a panel: sky backdrop,
+   parchment/wood plates, chunky soft edges, big glyphs, no prose.
+   Everything is SCOPED to #tab-rider.hub-skin, and works by re-declaring the
+   existing :root custom properties on that subtree — so every card the Rider
+   renderers already emit (.energy-card, .stats-grid, .attr-card, chart, …)
+   picks the new palette up without a single JS change. Both light and dark
+   schemes get the same painted values on purpose: the hub art has no dark
+   variant, so a dark-mode Rider tab would clash with the scene it came from.
+   To extend to another tab: add class="hub-skin" to that #tab-* wrapper.
+   To revert: delete this block and the two class attributes. */
+#tab-rider.hub-skin{
+  /* painted surfaces — parchment plate on wood, per the hub signage */
+  --bg:#F8ECD2;--bg2:#F0DFBC;--bg3:#E3CDA2;--bg-rgb:248,236,210;
+  --txt:#33251A;--txt2:#6B523A;--txt3:#94785A;
+  --border:rgba(90,55,28,.30);--border2:rgba(90,55,28,.48);
+  --shadow-sm:0 2px 0 rgba(90,55,28,.22), 0 4px 12px rgba(30,50,70,.16);
+  --shadow-md:0 3px 0 rgba(90,55,28,.26), 0 8px 20px rgba(30,50,70,.20);
+  --radius:16px;--radius-lg:22px;
+  /* hub sky, matching #home-stage's placeholder and <meta name="theme-color"> */
+  --hub-sky:#7fb8d4;--hub-sky-deep:#5e9dbe;
+  /* bleed the sky to the full app width — #app carries 1rem of side padding */
+  margin:-1rem -1rem 0;padding:1rem 1rem 1.25rem;
+  background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%)
+             fixed;
+  color:var(--txt);
+}
+/* Section headers become painted plates: glyph + short label + ⓘ, nothing else.
+   The prose that used to sit under these lives in INFO_TEXTS now. */
+#tab-rider.hub-skin .section-lbl{
+  display:flex;align-items:center;gap:8px;
+  font-size:13px;font-weight:800;letter-spacing:.01em;text-transform:none;
+  color:#FDF4E2;text-shadow:0 1px 0 rgba(30,50,70,.45);
+  padding:0 4px;margin-bottom:.5rem;
+}
+#tab-rider.hub-skin .section-lbl .icn{
+  width:1.15em;height:1.15em;flex-shrink:0;opacity:.95;
+}
+#tab-rider.hub-skin .section-lbl .info-btn{
+  color:#FDF4E2;opacity:.85;margin-left:auto;
+}
+/* Plates sit on the sky with a wooden lip rather than a hairline border. */
+#tab-rider.hub-skin .energy-card,
+#tab-rider.hub-skin .stats-grid,
+#tab-rider.hub-skin .attr-card,
+#tab-rider.hub-skin .hub-plate{
+  border:1.5px solid var(--border2);
+}
+#tab-rider.hub-skin .hub-plate{
+  background:var(--bg);border-radius:var(--radius-lg);
+  padding:1rem;box-shadow:var(--shadow-sm);
+}
+/* Buttons read as carved wood, not flat chips. */
+#tab-rider.hub-skin .gear-nav-btn,
+#tab-rider.hub-skin .danger-btn{
+  border-radius:14px;border-width:1.5px;box-shadow:var(--shadow-sm);
+  font-weight:800;
+}
+#tab-rider.hub-skin textarea{
+  border:1.5px solid var(--border2)!important;background:var(--bg2)!important;
+  border-radius:12px!important;
+}
+
 /* ═══ fix54: rider sprite scene (Train tab) ═══ */
 .rider-sprite{width:279px;height:308px;background:var(--sheet-pedal, url(assets/pedal.png)) no-repeat;
   background-size:1674px 308px;transform-origin:bottom center;}
@@ -2644,7 +2707,10 @@ body.home-open{overflow:hidden;}
     <div class="section-lbl" style="margin-top:.75rem">Recent Results</div>
     <div id="race-history"></div>
   </div>
-  <div id="tab-rider" style="display:none">
+  <!-- fix180: hub-skin is the painted-panel pilot (see the CSS block of the
+       same number). Class only — showTab() writes .style.display and never
+       touches className, so nothing can strip it. -->
+  <div id="tab-rider" class="hub-skin" style="display:none">
     <!-- fix80: hero portrait with idle sway, jersey colour follows equipped kit
          fix84: wrapper class now lives on the static element itself (matching
          the race-hero-wrap / workshop-hero-wrap pattern) so the 200px sized,
@@ -2658,27 +2724,32 @@ body.home-open{overflow:hidden;}
          the fix162 Race hero, so renderRiderPortrait() has nothing left to
          inject and its body is tombstoned. -->
     <div id="rider-portrait-wrap" class="rider-portrait-wrap"><div class="rider-hero-bg"></div><div class="rider-hero-rider"></div></div>
-    <div class="section-lbl">Rider Performance</div>
+    <!-- fix180: headers are now glyph + two-word label + ⓘ. Every longer
+         explanation moved into INFO_TEXTS under the key named on each button;
+         no wording was deleted, only relocated behind the icon. -->
+    <div class="section-lbl"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-person"></use></svg> Performance <button class="info-btn" onclick="openInfo('riderPerformance')">ⓘ</button></div>
     <div id="rider-stats"></div>
-    <div class="section-lbl" style="margin-top:1rem">FTP &amp; W/kg Progress</div>
+    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-chart-up"></use></svg> Power Trend <button class="info-btn" onclick="openInfo('powerTrend')">ⓘ</button></div>
     <div id="ftp-chart-wrap"></div>
-    <div class="section-lbl" style="margin-top:1rem">Specialisation</div>
+    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-mountain"></use></svg> Specialism <button class="info-btn" onclick="openInfo('specialisation')">ⓘ</button></div>
     <div id="spec-area"></div>
-    <div class="section-lbl" style="margin-top:1rem">Fitness Attributes</div>
+    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-muscle"></use></svg> Attributes <button class="info-btn" onclick="openInfo('attributes')">ⓘ</button></div>
     <div id="attr-cards"></div>
-    <div class="section-lbl" style="margin-top:1rem">Season Progress <button class="info-btn" onclick="openInfo('prestige')">ⓘ</button></div>
+    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-crown"></use></svg> Season <button class="info-btn" onclick="openInfo('prestige')">ⓘ</button></div>
     <div id="prestige-area"></div>
-    <div class="section-lbl" style="margin-top:1rem">Grand Tour Relics</div>
+    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-gem"></use></svg> Relics <button class="info-btn" onclick="openInfo('relics')">ⓘ</button></div>
     <div id="relic-shelf-area"></div>
-    <div class="section-lbl" style="margin-top:1rem">Career Stats</div>
+    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-trophy"></use></svg> Career <button class="info-btn" onclick="openInfo('careerStats')">ⓘ</button></div>
     <div class="stats-grid" id="stats-grid"></div>
-    <div class="section-lbl" style="margin-top:1rem">Save Data</div>
-    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;box-shadow:var(--shadow-sm)">
-      <p style="font-size:12px;color:var(--txt3);line-height:1.5;margin-bottom:.75rem">Progress is stored only on this device. Back it up before clearing your browser or moving to a new phone — paste the code back in to restore.</p>
+    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-clipboard"></use></svg> Save Data <button class="info-btn" onclick="openInfo('saveData')">ⓘ</button></div>
+    <!-- fix180: the explanatory paragraph that sat here is now INFO_TEXTS.saveData,
+         reached by the ⓘ on the header above. Placeholders shortened to labels;
+         the full "tap to select, then copy" guidance moved there too. -->
+    <div class="hub-plate">
       <button class="gear-nav-btn" style="width:100%" onclick="backupSave()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-clipboard"></use></svg> Back Up Save</button>
-      <textarea id="backup-code" readonly onclick="this.select()" placeholder="Your backup code appears here — tap to select, then copy." style="width:100%;margin-top:.6rem;min-height:64px;font-size:11px;font-family:monospace;color:var(--txt);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.5rem;resize:vertical"></textarea>
+      <textarea id="backup-code" readonly onclick="this.select()" placeholder="Backup code" style="width:100%;margin-top:.6rem;min-height:64px;font-size:11px;font-family:monospace;color:var(--txt);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.5rem;resize:vertical"></textarea>
       <div style="height:1px;background:var(--border);margin:.9rem 0"></div>
-      <textarea id="restore-code" placeholder="Paste a backup code here to restore progress…" style="width:100%;min-height:64px;font-size:11px;font-family:monospace;color:var(--txt);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.5rem;resize:vertical"></textarea>
+      <textarea id="restore-code" placeholder="Paste code" style="width:100%;min-height:64px;font-size:11px;font-family:monospace;color:var(--txt);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.5rem;resize:vertical"></textarea>
       <button id="restore-btn" class="danger-btn" style="width:100%;margin-top:.6rem" onclick="restoreSave()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Restore From Code</button>
     </div>
     <div style="text-align:center;margin-top:1rem">
@@ -15211,6 +15282,43 @@ const INFO_TEXTS = {
     body: ()=>`Gold, silver, and bronze badges mark a podium finish (top 3) — any other position shows a plain rank badge.<br><br>
       A gold bonus pill means a sponsor or race organiser threw in a surprise extra reward. A finish-kick pill means you saved legs and gained places late on.<br><br>
       Calendar events don't count toward category points or race cooldowns — they're one-off races on the calendar, not part of normal progression.`
+  },
+  // fix180: topics for the Rider tab headers. These carry the wording that used
+  // to sit on the panel itself — the tab now shows glyphs and numbers only.
+  riderPerformance: {
+    title: 'Performance',
+    body: ()=>`Your headline numbers. <strong>FTP</strong> is the power you can hold for an hour — the single best measure of how strong you are. <strong>W/kg</strong> is that power divided by your weight, and it's what decides whether you can follow the climbers.<br><br>
+      Train to raise FTP. Watch your weight to raise W/kg without losing a single watt.`
+  },
+  powerTrend: {
+    title: 'Power Trend',
+    body: ()=>`Every session you finish nudges this line. Flat stretches mean you've stopped pushing hard enough to grow — or you've been racing tired.<br><br>
+      Look for the shape, not the day-to-day: a line that keeps climbing means your training block is working.`
+  },
+  specialisation: {
+    title: 'Specialism',
+    body: ()=>`Pick the kind of rider you want to be. A specialism needs certain fitness attributes at a minimum level before you can claim it, and once claimed it permanently boosts the races and training zones that suit that style.<br><br>
+      Climbers own the mountains, sprinters own bunch finishes, and a rouleur is dangerous everywhere — especially against the clock. Choose the one that matches the races you actually want to win.`
+  },
+  attributes: {
+    title: 'Attributes',
+    body: ()=>`Your five fitness attributes each level up on their own, fed by the training zones that stress them. The bar shows how close the next level is.<br><br>
+      Levels here do two jobs: they hand you the bonus listed under each attribute, and they open the door to specialisms that demand them.`
+  },
+  relics: {
+    title: 'Relics',
+    body: ()=>`Trophies from the Grand Tours. Each one is a permanent record of a tour you finished — they stay on the shelf through every new season.<br><br>
+      An empty shelf just means the big three are still ahead of you.`
+  },
+  careerStats: {
+    title: 'Career',
+    body: ()=>`The running total of everything you've done since your first ride — races started, wins taken, distance covered and money earned.<br><br>
+      Unlike your season standing, none of this ever resets.`
+  },
+  saveData: {
+    title: 'Save Data',
+    body: ()=>`Your progress is stored only on this device. Back it up before you clear your browser or move to a new phone.<br><br>
+      Tap <strong>Back Up Save</strong>, then tap the code to select it and copy it somewhere safe. To bring it back, paste that code into the lower box and tap <strong>Restore From Code</strong>.`
   }
 };
 
