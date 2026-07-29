@@ -262,7 +262,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Cycling Idle Manager</title>
-<meta name="theme-color" content="#1a6b38">
+<!-- fix177: theme-color was #1a6b38 (jersey green), which painted the PWA
+     splash/status bar green against the hub's sky. Now matches #home-stage's
+     sky placeholder and manifest.json background_color/theme_color — change
+     all three together. -->
+<meta name="theme-color" content="#7fb8d4">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Cycling IM">
@@ -749,6 +753,18 @@ button{font-family:inherit;cursor:pointer;}
 .rs-overlay-close{background:var(--bg2);color:var(--txt2);border:.5px solid var(--border);
   border-radius:99px;padding:6px 14px;font-size:13px;font-weight:700;}
 .rs-overlay-body{width:100%;max-width:340px;}
+
+/* fix173: morning collect scrim. Same overlay family as .rs-overlay but one
+   tier below it (1750) — the skills drills must still be able to sit above.
+   pointer-events on the scrim are live purely to swallow taps aimed at the
+   hotspots underneath; the scrim itself has no handler, so tapping it does
+   nothing. That is the hard lockout: collect, or nothing. */
+#morning-layer{position:fixed;inset:0;height:100dvh;z-index:1750;
+  background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(env(safe-area-inset-top) + 12px) 1rem calc(1rem + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:center;justify-content:center;}
+#morning-layer-card{width:100%;max-width:340px;}
 .rs-game-card{background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-lg);
   padding:14px;margin-bottom:10px;}
 .rs-game-title{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:700;color:var(--txt);}
@@ -1228,6 +1244,44 @@ button{font-family:inherit;cursor:pointer;}
 .task-check{font-size:20px;}
 .task-claim-btn{font-size:15px;font-weight:700;padding:7px 14px;border-radius:var(--radius);
   border:none;cursor:pointer;background:var(--amber-txt);color:#fff;white-space:nowrap;}
+/* ── fix176: Daily Tasks presented as a clipboard (Route A — pure CSS, no
+   asset, zero bytes added, themes in dark mode).
+   Deliberately a NEW class set: sponsor objectives (~13601) reuse .task-card
+   and must keep the flat-card look, so nothing above is touched. */
+.clipboard-wrap{
+  --clip-board:#C9A96B;--clip-edge:rgba(74,54,22,.45);
+  --clip-metal:#B9BCC4;--clip-metal2:#8E939C;
+  --clip-paper:#FFFDF4;--clip-rule:rgba(74,54,22,.14);--clip-ink:#2C2415;
+  position:relative;margin-bottom:.75rem;padding:30px 10px 12px;
+  border-radius:10px;background:var(--clip-board);
+  border:1px solid var(--clip-edge);box-shadow:var(--shadow-md);}
+/* the clip — drawn with pseudo-elements, no image */
+.clipboard-wrap::before{content:'';position:absolute;top:-9px;left:50%;
+  transform:translateX(-50%);width:76px;height:22px;border-radius:5px;
+  background:linear-gradient(180deg,var(--clip-metal),var(--clip-metal2));
+  border:1px solid var(--clip-edge);box-shadow:0 2px 5px rgba(0,0,0,.28);}
+.clipboard-wrap::after{content:'';position:absolute;top:10px;left:50%;
+  transform:translateX(-50%);width:36px;height:7px;
+  border-radius:0 0 4px 4px;background:var(--clip-metal2);opacity:.8;}
+.clip-task{display:flex;align-items:center;gap:12px;padding:12px 12px;
+  background:var(--clip-paper);color:var(--clip-ink);
+  border-bottom:1px solid var(--clip-rule);
+  transition:opacity .2s,background .2s;}
+.clip-task:first-of-type{border-radius:4px 4px 0 0;}
+.clip-task:last-of-type{border-bottom:none;border-radius:0 0 4px 4px;}
+.clip-task.done-unclaimed{background:var(--amber-bg);}
+.clip-task.claimed{opacity:.55;}
+.clip-task .task-desc,.clip-task .task-reward{color:inherit;opacity:.7;}
+.clip-task .task-reward{opacity:.85;}
+/* pencil tick + empty box for the status column */
+.clip-tick{display:inline-block;font-size:20px;line-height:1;
+  transform:rotate(-7deg);color:var(--clip-ink);opacity:.85;}
+.clip-tick-box{display:inline-block;width:17px;height:17px;border-radius:2px;
+  border:1.5px solid var(--clip-rule);}
+@media(prefers-color-scheme:dark){.clipboard-wrap{
+  --clip-board:#6B5732;--clip-edge:rgba(0,0,0,.5);
+  --clip-metal:#767B85;--clip-metal2:#4E535C;
+  --clip-paper:#241F16;--clip-rule:rgba(255,255,255,.12);--clip-ink:#EDE6D6;}}
 .lifetime-placeholder{text-align:center;padding:2.5rem 1rem;color:var(--txt3);font-size:13px;line-height:1.5;}
 .lifetime-placeholder-icon{font-size:40px;margin-bottom:.5rem;}
 /* ── Lifetime Goals — deliberately distinct from the task-card / ach-card look:
@@ -1999,10 +2053,41 @@ button{font-family:inherit;cursor:pointer;}
    no-preference, so under reduced motion the rules above stand alone and the
    sprite holds background-position:0 0 — a static frame-0 sprint pose, which
    is the same reduced-motion contract fix104 offered. */
+/* ═══ fix175: peloton-only sprint wobble ═══
+   The rule below used to compose rider-sprint-wobble (line ~1735), which is
+   authored for the TRAIN scene: every one of its keyframes writes a full
+   transform of translateX(-50%) scale(.6). Because transform is a single
+   property, that wholesale replaced the inline transform:scale(HERO_SPRITE_SCALE)
+   that buildPelotonSceneHtml writes on the sprite, with two visible faults:
+
+     - size: HERO_SPRITE_SCALE is ~.364 (112px inside the 120px scene); the
+       keyframe forced .6 -> 185px, so ~65px overflowed the top and the head
+       was cropped off.
+     - position: the -50% centring belongs on the PARENT .pel-rider here
+       (fix127), so re-applying it to the child shifted the sprite ~half its
+       own box left and it read as dropping back into the bunch, whatever
+       virtualPos said. pelotonPosFracToLeftPct was never at fault.
+
+   This is a fix144 regression: fix104's static-pose swap set animation:none
+   and so suppressed the wobble; fix144 retired that and let it back in.
+
+   Fix: a peloton-local copy of the keyframes. No translateX (the parent owns
+   centring) and every keyframe restates scale(var(--hero-scale)) so the JS
+   scale survives the animation. Shake is carried by the rotation alone.
+   The fallback in var() matches the current HERO_SPRITE_SCALE value and only
+   ever applies if the inline property is missing.
+
+   rider-sprint-wobble at line ~1735 is deliberately left UNTOUCHED — it is
+   still correct for .rider-scene.sprintmode, per fix67's standing "do NOT
+   retarget shared keyframes" note. */
+@keyframes pel-sprint-wobble{
+  0%,100%{transform:scale(var(--hero-scale,.364))}
+  25%{transform:scale(var(--hero-scale,.364)) rotate(-1.5deg)}
+  75%{transform:scale(var(--hero-scale,.364)) rotate(1.5deg)}}
 @media (prefers-reduced-motion: no-preference){
   .pel-sprint .pel-rider>div{
     animation:rider-sprint var(--cadence,.45s) steps(6) infinite,
-              rider-sprint-wobble .3s ease-in-out infinite;}
+              pel-sprint-wobble .3s ease-in-out infinite;} /* fix175 */
 }
 
 /* ═══ fix145: time-trial sprite sheet ═══
@@ -2079,7 +2164,19 @@ button{font-family:inherit;cursor:pointer;}
    Coordinate space: percentages of #home-stage, which is pinned to the art's
    true CONTENT box (768x1376) of the source JPEG, extended vertically by the
    carries a white margin on the right and bottom which is cropped out of
-   re-cut into assets/home-bg.jpg. Percentages below are of the 768x1707 re-cut. */
+   re-cut into assets/home-bg.jpg. Percentages below are of the 768x1707 re-cut.
+
+   fix179: the artwork was replaced with a new painting. NOT ONE NUMBER IN THIS
+   SECTION CHANGED, and that is deliberate rather than lucky — the new source
+   JPEG (784x1400) carries the same 769x1376 composition with the same white
+   right/bottom margin, so cropping to 768x1376 and re-padding by the same
+   166/165 bands reproduces the identical 768x1707 canvas. Every icon centre,
+   banner slot and bottom-bar cell was re-measured against the new art before
+   the swap and lands within a pixel of its old --hx/--hy. If the art is ever
+   re-commissioned at a DIFFERENT composition, this whole block has to be
+   re-measured — do not assume a future drop-in is as clean as this one.
+   Filename is unchanged, so the service worker CACHE_VERSION is bumped
+   (cim-v3.8.09) or installed PWAs keep painting the old picture. */
 /* fix171: the hub is now the full viewport, not a card in the page flow. The
    header and the tab bar are gone from this screen entirely — the art paints
    its own banner plate and its own bottom bar, so any HTML chrome on top would
@@ -2097,6 +2194,9 @@ button{font-family:inherit;cursor:pointer;}
   inset:0;
   z-index:90;
   overflow:hidden;
+  /* fix177: this hex is the single source of truth for the launch colour —
+     kept in sync with <meta name="theme-color"> (~line 265) and with
+     manifest.json background_color + theme_color. */
   background:#7fb8d4; /* sky, shown for the one frame before the jpeg lands */
   user-select:none;
   -webkit-user-select:none;
@@ -2349,6 +2449,9 @@ body.home-open{overflow:hidden;}
 <symbol id="icn-warning" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 3l10 18H2L12 3z"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 10v5"/><circle cx="12" cy="18" r="1" fill="currentColor"/></symbol>
 <symbol id="icn-sunrise" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 17h16M6 17a6 6 0 0 1 12 0"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 8V5M5.5 12l1.5-1.5M18.5 12L17 10.5"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M2 21h20"/></symbol>
 <symbol id="icn-scale" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M7 21h10"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 7h14"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 7L2 13a3 3 0 0 0 6 0L5 7zM19 7l-3 6a3 3 0 0 0 6 0l-3-6z"/></symbol>
+<!-- fix176: hand-drawn pencil tick for the Daily Tasks clipboard. Path only,
+     so it recolours with currentColor like every other icn(). -->
+<symbol id="icn-tick-pencil" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M3.6 12.9c1.7.5 3 1.7 4.2 3.5.5.8 1.1.7 1.4-.2C11 12.2 14.2 7.9 19.8 4.5"/></symbol>
 <symbol id="icn-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M8 12.5l2.5 2.5L16 9"/></symbol>
 <symbol id="icn-chart-down" viewBox="0 0 24 24"><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 5h16"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 9l5 5 4-3 6 7"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M15 18h4v-4"/></symbol>
 <symbol id="icn-note" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M8 8h8M8 12h8M8 16h5"/></symbol>
@@ -2409,6 +2512,14 @@ body.home-open{overflow:hidden;}
     <button class="main-tab" id="tab-btn-growth" onclick="showTab('growth')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-clipboard"></use></svg></span><span class="main-tab-label">Tasks</span></button>
     <button class="main-tab" id="tab-btn-sponsors" onclick="showTab('sponsors')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-handshake"></use></svg></span><span class="main-tab-label">Sponsors</span></button>
     <button class="main-tab" id="tab-btn-calendar" onclick="showTab('calendar')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-calendar"></use></svg></span><span class="main-tab-label">Calendar</span></button>
+    <!-- fix174: ninth button, added at the same time as the ninth TABS entry.
+         showTab() maps TABS onto .main-tab BY INDEX, so the two lists must stay
+         the same length and the same order. The sweep is a no-op today (this
+         block is commented out, so the NodeList is empty), but leaving the
+         button out would silently desynchronise every highlight the moment
+         anyone un-tombstones the bar. Must remain LAST — 'skills' is appended
+         to the end of TABS, not inserted. -->
+    <button class="main-tab" id="tab-btn-skills" onclick="showTab('skills')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-muscle"></use></svg></span><span class="main-tab-label">Skills</span></button>
   </div>
   -->
   <!-- ═══════════ fix170: HOME HUB ═══════════
@@ -2438,10 +2549,11 @@ body.home-open{overflow:hidden;}
              exactly equivalent to the old tab-bar button for that panel. -->
         <button class="home-hot" data-hot="1" style="--hx:19.01%;--hy:28.71%;--hw:22%;--hh:9.90%" aria-label="Tasks" onclick="homeGo('growth')"></button>
         <button class="home-hot" data-hot="2" style="--hx:80.73%;--hy:28.47%;--hw:22%;--hh:9.90%" aria-label="Gear" onclick="homeGo('gear')"></button>
-        <!-- Icon 3 (Skills): routed to Train, where renderRiderSkillsCard()
-             already lives. Skills has no panel of its own and promoting it to a
-             tab would mean touching TABS — a separate fix. -->
-        <button class="home-hot" data-hot="3" style="--hx:18.75%;--hy:40.66%;--hw:22%;--hh:9.90%" aria-label="Skills" onclick="homeGo('train')"></button>
+        <!-- Icon 3 (Skills): fix174 promoted Skills to its own panel, so this
+             now lands on #tab-skills instead of dropping the player on Train to
+             hunt for a card. TABS gained a ninth entry in the same fix; see the
+             tab-bar tombstone above for the index-map coupling. -->
+        <button class="home-hot" data-hot="3" style="--hx:18.75%;--hy:40.66%;--hw:22%;--hh:9.90%" aria-label="Skills" onclick="homeGo('skills')"></button>
         <button class="home-hot" data-hot="4" style="--hx:80.99%;--hy:40.66%;--hw:22%;--hh:9.90%" aria-label="Train" onclick="homeGo('train')"></button>
         <button class="home-hot" data-hot="5" style="--hx:19.79%;--hy:66.20%;--hw:22%;--hh:9.90%" aria-label="Warehouse" onclick="homeGo('workshop')"></button>
         <!-- Icon 6 is both larger and lower than its row siblings. It is NOT on
@@ -2462,6 +2574,17 @@ body.home-open{overflow:hidden;}
         <div id="home-toast"></div>
       </div>
     </div>
+    <!-- fix173: morning "start your day" collect ritual. Lives on the hub
+         because fix171 made the hub the landing screen — the card used to be a
+         branch of the Train energy card, which the player could walk straight
+         past. Sits inside #tab-home so it is swept out of view with the panel;
+         the hard lockout in useEnergyItem() covers every other tab.
+         Deliberately NOT dismissable: the scrim carries no onclick and there is
+         no close button. The only exit is collecting. One button, so the
+         two-tap-confirm rule does not apply. No confirm(). -->
+    <div id="morning-layer" style="display:none">
+      <div id="morning-layer-card"></div>
+    </div>
   </div>
   <div id="tab-train">
     <div id="rider-scene-wrap"></div>
@@ -2473,9 +2596,16 @@ body.home-open{overflow:hidden;}
     <div id="energy-card-wrap"></div>
     <div id="weight-card-wrap"></div>
     <div id="gut-train-card-wrap"></div>
-    <!-- fix150: Rider Skills Training card — sits directly beneath Gut Training,
-         same .energy-card visual language. Opens the #rs-overlay hub. -->
+    <!-- fix174 tombstone: the Rider Skills card no longer lives on Train — the
+         hub hotspot goes straight to #tab-skills, so the card was one tap of
+         indirection for nothing. The active-buff pills it used to carry moved
+         to #rs-buff-wrap at the top of the Skills panel; renderRiderSkillsCard()
+         survives by name and now targets that wrap instead.
+    fix150: Rider Skills Training card — sits directly beneath Gut Training,
+         same .energy-card visual language. Opens the #rs-overlay hub.
     <div id="rs-train-card-wrap"></div>
+    -->
+
     <div id="attr-row" class="attr-row"></div>
     <div class="section-lbl">Training Sessions</div>
     <div id="training-list"></div>
@@ -2586,6 +2716,16 @@ body.home-open{overflow:hidden;}
       <div id="ach-area"></div>
     </div>
   </div>
+  <!-- fix174: Rider Skills panel. Was the #rs-overlay hub (fix150); the list
+       markup is unchanged and #rs-hub-body kept its id, so renderRiderSkillsHub()
+       needed no retarget. The three drill boards (fz/sl/wt) stay overlays on the
+       1800 tier — they cover this panel, and their close functions call
+       openRiderSkillsHub(), which now just returns here. -->
+  <div id="tab-skills" style="display:none">
+    <div id="rs-buff-wrap"></div>
+    <div class="section-lbl">Skill Drills</div>
+    <div id="rs-hub-body" class="rs-overlay-body"></div>
+  </div>
   <div id="tab-sponsors" style="display:none">
     <div id="sponsors-content"></div>
   </div>
@@ -2695,6 +2835,14 @@ body.home-open{overflow:hidden;}
 <!-- fix150: Rider Skills hub. Lists the three skill games; each card's body is
      rebuilt only when the hub is opened or a buff changes, never on the tick.
      The games themselves land in fix151-153 — the buttons stub out for now. -->
+
+<!-- fix174 tombstone: the hub is a panel now (#tab-skills, above). This shell
+     is kept as the record of what moved. NOTE the id #rs-hub-body must exist in
+     exactly ONE place — it now lives in the panel, so this block must stay
+     commented out or getElementById will resolve to whichever comes first.
+     The .rs-overlay* CSS rules at ~743 are left in place: .rs-overlay-body is
+     still applied to the panel body, and the drill overlays reference the same
+     tier in their comments.
 <div id="rs-overlay" class="rs-overlay" style="display:none">
   <div class="rs-overlay-head">
     <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-muscle"></use></svg> Rider Skills</span>
@@ -2702,6 +2850,7 @@ body.home-open{overflow:hidden;}
   </div>
   <div id="rs-hub-body" class="rs-overlay-body"></div>
 </div>
+-->
 
 <!-- fix151: Feed Zone Scramble. Opened from the hub via startRiderSkillGame('fz')
      — the hub closes itself first, so only one 1800-tier overlay is ever up.
@@ -4624,7 +4773,10 @@ const state = {
   // fix164: tuning keys are now namespaced ('bike:<id>' / 'wheel:<id>') and
   // tuningTarget holds the currently selected tuning target (the UI for
   // changing it lands in fix165; until then it stays on the starter bike).
-  workshop: { mg:0, tuning:{}, tuningTarget:'bike:starter' },
+  // fix178: mgWindowStart/mgWindowEarned back the rolling 30-minute earn
+  // ceiling in wsAwardMG. Both need ?? guards in loadGame (the tourProgress
+  // lesson) — a save from fix177 or earlier carries neither.
+  workshop: { mg:0, tuning:{}, tuningTarget:'bike:starter', mgWindowStart:0, mgWindowEarned:0 },
 };
 const D = { sponsorPerSec:0, sessionMult:1, legacyPrizeMult:1, trainingBoostPct:0, raceDayPct:0, accessoryWatts:0 };
 
@@ -5022,10 +5174,19 @@ function checkDailyReset(){
 // Grants the withheld energy + any streak milestone reward.
 function collectMorningReward(){
   const pmr=state.pendingMorningReward; if(!pmr) return;
-  // Set energy to exactly today's fatigue-adjusted allocation. state.energy was
-  // already zeroed at the daily reset boundary, but we assign rather than add here
-  // as a safety net in case any idle regen ticked between reset and this tap.
-  state.energy=pmr.energy;
+  // fix173: tear the popup down BEFORE any of the mutation/reward work below,
+  // which can throw (earnMoney, item grants). A trailing dismiss would leave
+  // the scrim welded over the hub with no way out — the gtShowSuccessPop
+  // lesson. Render-only call, so doing it first costs nothing.
+  try{ dismissMorningPopup(); }catch(e){}
+  // fix173: was a bare assign — `state.energy=pmr.energy` — which erased any
+  // energy gained between the day boundary and the tap. The old comment called
+  // it a safety net against idle regen, but it clobbered legitimate gains too
+  // (bars eaten before collecting, offline regen). Take the better of the two:
+  // the morning allocation is a floor, never a ceiling. The hard lockout in
+  // useEnergyItem() means a bar can no longer be eaten first, but this stays as
+  // belt-and-braces for any other path that credits energy pre-collect.
+  state.energy=Math.max(state.energy, pmr.energy);
   state.pendingMorningReward=null;
   // Apply streak milestone reward
   const r=pmr.reward||{type:'none'};
@@ -6762,6 +6923,15 @@ function buyEnergyItem(id){
 }
 
 function useEnergyItem(id){
+  // fix173 HARD LOCKOUT — must stay the first statement in this function, ahead
+  // of every mutation (inventory splice, state.energy, state.carbsToday). The
+  // reported bug: eat a bar before collecting, and the carbs stuck while the
+  // energy was wiped by collectMorningReward()'s assign. Blocking the eat
+  // outright is preferred over reconciling afterwards.
+  if(state.pendingMorningReward){
+    showToast(`${icn('sunrise')} Fuel can wait — head home and start your day first`);
+    return;
+  }
   const item=ENERGY_ITEMS.find(e=>e.id===id); if(!item) return;
   // FIFO — use the oldest instance of this item type first, so freshness is spent down naturally
   const candidates=state.energyInventory.filter(e=>e.itemType===id).sort((a,b)=>a.purchasedAt-b.purchasedAt);
@@ -7695,7 +7865,11 @@ function lazyLoadAssetGroup(group){
   _lazyGroupsLoaded[group] = true;
 }
 
-const TABS=['train','race','rider','gear','workshop','growth','sponsors','calendar'];
+// fix174: 'skills' appended (never inserted) — showTab() maps this array onto
+// the .main-tab buttons BY INDEX, so appending is the only edit that leaves
+// the existing eight mappings intact. The matching ninth button was added to
+// the tombstoned bar markup in the same fix.
+const TABS=['train','race','rider','gear','workshop','growth','sponsors','calendar','skills'];
 let currentTab='train';
 
 // fix172: back-gesture support. A PWA with a single history entry has nothing
@@ -7766,6 +7940,10 @@ function showTab(name){
   if(hdrEl) hdrEl.style.display = name==='home' ? 'none' : '';
   document.body.classList.toggle('home-open', name==='home');
   document.querySelectorAll('.main-tab').forEach((btn,i)=>btn.classList.toggle('active',TABS[i]===name));
+  // fix173: the collect ritual belongs to the hub. Raised on every hub entry
+  // (showMorningPopup no-ops when nothing is pending) and torn down on the way
+  // out, so the layer can never be left mounted behind another panel.
+  if(name==='home') showMorningPopup(); else dismissMorningPopup();
   updateUI();
 }
 
@@ -7803,6 +7981,27 @@ function updateHeader(){
 function homeGo(tab){
   homeHideToast();
   showTab(tab);
+}
+
+// fix173: morning collect popup. Render-only — neither of these writes to
+// state; the mutation still happens exactly once, in collectMorningReward().
+// showMorningPopup() is idempotent and is safe to call on every hub entry: it
+// no-ops when there is nothing pending.
+function showMorningPopup(){
+  if(!state.pendingMorningReward) return;
+  const layer=document.getElementById('morning-layer');
+  const card=document.getElementById('morning-layer-card');
+  if(!layer||!card) return;
+  card.innerHTML=buildMorningRewardHtml();
+  layer.style.display='';
+}
+
+function dismissMorningPopup(){
+  const layer=document.getElementById('morning-layer');
+  const card=document.getElementById('morning-layer-card');
+  if(!layer) return;
+  layer.style.display='none';
+  if(card) card.innerHTML=''; // drop the markup so a stale streak can't flash on re-open
 }
 
 let _homeToastTimer=null;
@@ -7875,7 +8074,9 @@ function homeDebugToggle(){
 // ═══════════════════════════════════════════════════════════
 // TRAIN TAB
 // ═══════════════════════════════════════════════════════════
-function renderTrainTab(){ renderRiderScene(); renderActiveBoostsPill(); renderEnergyCard(); renderWeightCard(); renderGutTrainCard(); renderRiderSkillsCard(); renderAttrRow(); renderActiveSession(); renderSessionList(); }
+// fix174: renderRiderSkillsCard() dropped — the card moved to the Skills panel
+// and its wrap is tombstoned in the Train markup, so the call was a no-op.
+function renderTrainTab(){ renderRiderScene(); renderActiveBoostsPill(); renderEnergyCard(); renderWeightCard(); renderGutTrainCard(); renderAttrRow(); renderActiveSession(); renderSessionList(); }
 
 // fix54: rider sprite scene. Reads existing session/energy state only —
 // no state of its own beyond a DOM cache + last-rendered signature.
@@ -7969,12 +8170,15 @@ function renderActiveBoostsPill(){
   wrap.innerHTML=`<div style="margin-bottom:.5rem;display:flex;gap:6px;flex-wrap:wrap">${pills}</div>`;
 }
 
-function renderEnergyCard(){
-  const wrap=document.getElementById('energy-card-wrap');
-
-  // ── MORNING COLLECT: show streak card instead of normal energy card ──
-  if(state.pendingMorningReward){
+// fix173: the morning collect ritual no longer lives inside renderEnergyCard.
+// It was a branch on the Train-tab energy card, but fix171 made the hub the
+// landing screen — so the player could reach the Train inventory pill (and eat
+// a bar) without ever meeting the collect card. The markup is unchanged; it is
+// merely built here and mounted into #morning-layer over the hub instead.
+// Render-only: builds a string, writes nothing to state.
+function buildMorningRewardHtml(){
     const pmr=state.pendingMorningReward;
+    if(!pmr) return '';
     const streak=pmr.streak||1;
     const next=getNextStreakMilestone(streak);
     const MILESTONES=[{day:3,icon:'drink'},{day:7,icon:'star'},{day:14,icon:'gem'},{day:30,icon:'trophy'}];
@@ -7994,7 +8198,7 @@ function renderEnergyCard(){
     const nextHtml=next
       ? `<div style="font-size:11px;color:var(--txt3);text-align:center;margin-bottom:10px">Next milestone: <strong>Day ${next.day} ${icn(next.icon)}</strong></div>`
       : `<div style="font-size:11px;color:var(--green-txt);font-weight:600;text-align:center;margin-bottom:10px">${icn('trophy')} Max streak — top reward every day!</div>`;
-    wrap.innerHTML=`<div class="collect-ready" onclick="collectMorningReward()" style="background:var(--green-bg);border:2px solid var(--green-txt);padding:1.25rem;cursor:pointer;margin-bottom:.75rem">
+    return `<div class="collect-ready" onclick="collectMorningReward()" style="background:var(--green-bg);border:2px solid var(--green-txt);padding:1.25rem;cursor:pointer;margin-bottom:.75rem">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <span style="font-size:13px;font-weight:600;color:var(--green-txt)">${icn('fire')} ${streak} day${streak!==1?'s':''} in a row</span>
         <span style="font-size:20px;font-weight:800;color:var(--green-txt)">${icn('sunrise')}</span>
@@ -8008,10 +8212,15 @@ function renderEnergyCard(){
       ${nextHtml}
       <div style="background:var(--green-txt);color:#fff;border-radius:var(--radius);padding:11px;text-align:center;font-size:13px;font-weight:700;letter-spacing:.05em">TAP TO START YOUR DAY</div>
     </div>`;
-    return;
-  }
+}
+
+function renderEnergyCard(){
+  const wrap=document.getElementById('energy-card-wrap');
 
   // ── NORMAL ENERGY CARD ────────────────────────────────────────
+  // fix173: the pendingMorningReward branch that used to sit above this line is
+  // gone — the collect card is now the hub popup (buildMorningRewardHtml /
+  // showMorningPopup). This is the only branch.
   const e=Math.floor(state.energy);
   const barCls=e<=15?'critical':e<=35?'low':'';
   // Group inventory instances by item type for compact pill display. The pill shows
@@ -9577,9 +9786,15 @@ function buildPelotonSceneHtml(rd, isFinalSprint, terrainClass, isFinalTenSecond
   // updatePelotonScene (via clampHeroSpriteLeftPct) so this initial left% can
   // stay exactly what pelotonPosFracToLeftPct returns — the clamp runs again on
   // every tick regardless of what's set here.
+  // fix175: the scale is ALSO published as --hero-scale so CSS keyframes can
+  // rebuild the full transform without losing it. transform is a single
+  // property, so any keyframe that animates it replaces this inline value
+  // outright — the sprint wobble did exactly that and forced scale(.6) (185px
+  // in a 120px scene, head cropped). pel-sprint-wobble now reads --hero-scale
+  // back, so the animated transform and the static one agree.
   const playerCadence=isFinalSprint?'.5s':'.8s';
   const playerHtml=`<div id="pel-player" class="pel-rider" style="left:${pelotonPosFracToLeftPct(rd)}%;bottom:2px;--cadence:${playerCadence}">
-    <div class="rider-sprite" style="transform:scale(${HERO_SPRITE_SCALE})"></div>
+    <div class="rider-sprite" style="transform:scale(var(--hero-scale));--hero-scale:${HERO_SPRITE_SCALE}"></div>
   </div>`;
 
   // fix145: ' pel-tt' appended last. In a TT the caller passes isFinalSprint
@@ -11074,7 +11289,7 @@ function grantBuff(id, magnitude, durationMs){
   saveGame();
   const copy=RS_BUFF_COPY[id];
   if(copy) showToast(`${icn(copy.icon)} ${copy.label}`);
-  if(currentTab==='train') renderRiderSkillsCard();
+  if(currentTab==='skills') renderRiderSkillsCard(); // fix174: was 'train'
 }
 
 // The ONLY time-based mutator. Called from gameTick() and nowhere else.
@@ -11307,11 +11522,16 @@ function rsSelfTest(){
   return fails.length===0;
 }
 
-// ── Train tab card ──────────────────────────────────────────────────────
+// ── Skills panel buff card ──────────────────────────────────────────────
+// fix174: was the Train-tab card (#rs-train-card-wrap, now tombstoned). Kept its
+// name — it is referenced from several buff-grant/expiry paths — but it now
+// renders into #rs-buff-wrap at the top of the Skills panel, directly above the
+// drill list. The "Open Rider Skills" button went with the move: you are already
+// on the panel, so it had nowhere left to take you.
 // Full innerHTML rebuild happens ONLY here (open, buff grant, buff expiry) —
 // never on the tick. rsTickBuffPills() does the per-tick countdown.
 function renderRiderSkillsCard(){
-  const wrap=document.getElementById('rs-train-card-wrap'); if(!wrap) return;
+  const wrap=document.getElementById('rs-buff-wrap'); if(!wrap) return;
   const active=rsActiveBuffs();
 
   const pills=active.length
@@ -11325,7 +11545,6 @@ function renderRiderSkillsCard(){
     <div class="energy-head"><span class="energy-label">${icn('muscle')} Rider Skills</span><span class="energy-amount">${active.length} active</span></div>
     <div class="energy-meta"><span>Short drills, short-lived rewards</span><span>${RS_GAMES.length} drills</span></div>
     ${pills}
-    <button onclick="openRiderSkillsHub()" style="width:100%;margin-top:.6rem;background:var(--green-txt);color:#fff;border:none;border-radius:var(--radius);padding:11px;text-align:center;font-size:13px;font-weight:700;cursor:pointer">Open Rider Skills</button>
   </div>`;
 }
 
@@ -11334,7 +11553,7 @@ function renderRiderSkillsCard(){
 // (the DOM-rebuild lesson). If the set of active buffs has changed, the card is
 // rebuilt once rather than patched.
 function rsTickBuffPills(){
-  const wrap=document.getElementById('rs-train-card-wrap'); if(!wrap) return;
+  const wrap=document.getElementById('rs-buff-wrap'); if(!wrap) return; // fix174: was #rs-train-card-wrap
   const nodes=wrap.querySelectorAll('.rs-pill'); if(!nodes.length) return;
   for(const node of nodes){
     const id=node.getAttribute('data-buff');
@@ -11346,18 +11565,31 @@ function rsTickBuffPills(){
   }
 }
 
-// ── Hub overlay ─────────────────────────────────────────────────────────
-function openRiderSkillsHub(){
-  const ov=document.getElementById('rs-overlay'); if(!ov) return;
+// ── Hub panel ───────────────────────────────────────────────────────────
+// fix174: the hub stopped being an overlay and became #tab-skills. Both
+// functions below are live onclick / call targets (the three drill close
+// handlers call openRiderSkillsHub()), so they keep their names.
+
+// Panel renderer, called from the updateUI() dispatcher. Buff card first, then
+// the drill list — same order the overlay used.
+function renderRiderSkillsTab(){
+  renderRiderSkillsCard();
   renderRiderSkillsHub();
-  ov.style.display='block';
-  document.body.style.overflow='hidden';
 }
+
+// Now simply "go to the Skills panel". Still the single entry point, so the
+// drill overlays' "back" path is unchanged from their side. showTab() runs the
+// render via updateUI(), so no explicit render call is needed here.
+function openRiderSkillsHub(){
+  showTab('skills');
+}
+
+// fix174: there is no longer an overlay to close — the panel is swept by
+// showTab() like any other. Kept as a named no-op because startRiderSkillGame()
+// calls it before opening each drill board, and because it clears the scroll
+// lock defensively in case a drill overlay left one behind.
 function closeRiderSkillsHub(){
-  const ov=document.getElementById('rs-overlay'); if(!ov) return;
-  ov.style.display='none';
   document.body.style.overflow='';
-  if(currentTab==='train') renderRiderSkillsCard();
 }
 
 function renderRiderSkillsHub(){
@@ -12405,13 +12637,33 @@ let wsLastBurstAt = 0;        // reuse the 300ms burst throttle from the old tap
 // renderWsGameSelector() — draws the 3 selector buttons into #workshop-game-select.
 // Rebuilt on every renderWorkshopSection() call so the active-button highlight
 // stays in sync; this is cheap (3 buttons) so no special-casing needed.
+// fix178: when the rolling earn window is spent the three buttons render dead
+// (no onclick emitted at all, so the handler audit sees one target, not two)
+// with a countdown line beneath. Hard lockout — there is no reduced-payout tail.
+// The wrap becomes a column in that state so the countdown sits under the row.
 function renderWsGameSelector(){
   const wrap=document.getElementById('workshop-game-select');
   if(!wrap) return;
-  wrap.innerHTML = WORKSHOP_GAMES.map(g=>`<button type="button"
-    class="gear-nav-btn${wsActiveGame===g.key?' active':''}"
-    style="flex:1;text-align:center;-webkit-tap-highlight-color:transparent"
-    onclick="wsSelectGame('${g.key}')">${icn(g.icon)} ${g.name}</button>`).join('');
+  const shutMs = wsMgWindowRemaining();
+  const btns = WORKSHOP_GAMES.map(g=> shutMs>0
+    ? `<button type="button" disabled
+        class="gear-nav-btn"
+        style="flex:1;text-align:center;opacity:.45;cursor:default;
+        -webkit-tap-highlight-color:transparent">${icn(g.icon)} ${g.name}</button>`
+    : `<button type="button"
+        class="gear-nav-btn${wsActiveGame===g.key?' active':''}"
+        style="flex:1;text-align:center;-webkit-tap-highlight-color:transparent"
+        onclick="wsSelectGame('${g.key}')">${icn(g.icon)} ${g.name}</button>`).join('');
+  if(shutMs > 0){
+    wrap.style.flexDirection = 'column';
+    wrap.innerHTML = `<div style="display:flex;gap:8px">${btns}</div>
+      <div style="font-size:11px;color:var(--txt2);text-align:center">
+        Bench is full — the boss wants the bikes back on the road. Back in ${wsMgWindowLabel(shutMs)}.
+      </div>`;
+  }else{
+    wrap.style.flexDirection = '';
+    wrap.innerHTML = btns;
+  }
 }
 
 // renderWsGameBanner() — fix93: (re)draws #workshop-game-banner, a 120px
@@ -12632,6 +12884,15 @@ const WS_BR_BALL_COUNT = 9;
 const WS_BR_CX = 100, WS_BR_CY = 100;      // hub center, in the 200x200 viewBox
 const WS_BR_RADIUS = 80;                    // ball-ring / grease-ring radius
 const WS_BR_RING_INNER = 40, WS_BR_RING_OUTER = 110; // valid radial band, scaled 1:1 to viewBox px
+// fix178: pacing gates. A 2π finger sweep can be completed in well under a
+// second, which put Pack Bearings roughly an order of magnitude ahead of the
+// other two benches on MG/minute. MIN_SWEEP is a hard lockout (reject + reset,
+// no partial credit — scaled payouts just teach mashing); COOLDOWN stops a
+// completed lap rolling straight into the next one.
+const WS_BR_MIN_SWEEP_MS = 1800;  // fastest lap that still counts
+const WS_BR_COOLDOWN_MS  = 600;   // dead time after a packed bearing
+let wsBrStartedAt = 0;       // ms, first accepted move of the current sweep (0 = not started)
+let wsBrCooldownUntil = 0;   // ms, moves before this timestamp earn no credit
 let wsBrPrevAngle = null;    // radians, previous pointer angle (null = not tracing)
 let wsBrAccumAngle = 0;      // radians, accumulated clockwise sweep (0..2π)
 let wsBrPanelEl = null;      // cached panel root, for getBoundingClientRect() per move
@@ -12644,6 +12905,8 @@ let wsBrPanelEl = null;      // cached panel root, for getBoundingClientRect() p
 function renderWsBearingsGame(panel){
   wsBrPrevAngle = null;
   wsBrAccumAngle = 0;
+  wsBrStartedAt = 0;        // fix178
+  wsBrCooldownUntil = 0;    // fix178
   wsBrPanelEl = panel;
 
   const maxDashOffset = 2 * Math.PI * WS_BR_RADIUS;
@@ -12721,6 +12984,17 @@ function wsBrHandleMove(e){
 
   const angle = Math.atan2(dy, dx);
 
+  // fix178: post-award dead time. The angle is still tracked so the next
+  // legitimate sweep starts from where the finger actually is (otherwise the
+  // first accepted move after the cooldown would credit the whole gap), but
+  // nothing accumulates and nothing repaints.
+  const nowMs = Date.now();
+  if(nowMs < wsBrCooldownUntil){
+    wsBrPrevAngle = angle;
+    return;
+  }
+  if(!wsBrStartedAt) wsBrStartedAt = nowMs; // first accepted move of this sweep
+
   if(wsBrPrevAngle !== null){
     let delta = angle - wsBrPrevAngle;
     if(delta > Math.PI) delta -= 2 * Math.PI;
@@ -12742,7 +13016,16 @@ function wsBrHandleMove(e){
   if(msgEl && wsBrAccumAngle < 2*Math.PI) msgEl.textContent = 'Packing...';
 
   if(wsBrAccumAngle >= 2 * Math.PI){
-    wsAwardMG(6, null, 'Perfectly packed.');
+    // fix178: a lap that lands inside WS_BR_MIN_SWEEP_MS is rejected outright —
+    // no MG, progress wiped. Reward also drops 6 → 3, which with the minimum
+    // sweep puts this bench at roughly 1 MG/sec, alongside Bleed Brakes rather
+    // than an order of magnitude ahead of it.
+    if((nowMs - wsBrStartedAt) < WS_BR_MIN_SWEEP_MS){
+      wsBrReset("Too fast — you'll fling the grease out. Steady laps.");
+      return;
+    }
+    wsAwardMG(3, null, 'Perfectly packed.');
+    wsBrCooldownUntil = nowMs + WS_BR_COOLDOWN_MS;
     wsBrReset(null, true); // true = skip overwriting the award message
   }
 }
@@ -12768,6 +13051,9 @@ function wsBrUpdateBalls(progressPct){
 function wsBrReset(msg, keepAwardMsg){
   wsBrAccumAngle = 0;
   wsBrPrevAngle = null;
+  wsBrStartedAt = 0; // fix178: next sweep re-stamps on its first accepted move.
+                     // wsBrCooldownUntil is deliberately NOT cleared here — the
+                     // post-award dead time has to survive the reset that follows it.
 
   const greaseEl = document.getElementById('ws-br-grease');
   if(greaseEl){
@@ -12970,7 +13256,66 @@ function wsStopGame(){
 // wsRefreshTuningCardsAfford() below is the surgical fix: it re-evaluates and
 // repatches ONLY the tuning-card affordability/cost bits after every award,
 // leaving the mini-game panel and its rAF loop completely untouched.
+// ── fix178: global rolling earn window ────────────────────────────────────
+// A per-game gate only ever paces one bench, so the ceiling lives here, at the
+// single mutation point every game already funnels through — one edit covers
+// all three and anything added later.
+//
+// Keyed off a stored timestamp rather than a calendar day, matching the sponsor
+// weekly window and kit perishing: a day gate would be frozen by
+// isClockRewound(), which would let a rewound clock lock the bench forever.
+const WS_MG_WINDOW_MS  = 30 * 60 * 1000;
+const WS_MG_WINDOW_CAP = 500;
+
+// wsMgWindowTick(now) — expires the window if it has run its course, or if the
+// device clock has moved BACKWARDS past its start (a rewind must never leave the
+// bench permanently shut). Also the tolerant normaliser for the two fields, so
+// any save that predates them heals on first award.
+function wsMgWindowTick(now){
+  const w = state.workshop;
+  if(typeof w.mgWindowStart !== 'number' || !isFinite(w.mgWindowStart)) w.mgWindowStart = 0;
+  if(typeof w.mgWindowEarned !== 'number' || !isFinite(w.mgWindowEarned)) w.mgWindowEarned = 0;
+  if(!w.mgWindowStart) return;
+  if(now < w.mgWindowStart || (now - w.mgWindowStart) >= WS_MG_WINDOW_MS){
+    w.mgWindowStart = 0;
+    w.mgWindowEarned = 0;
+  }
+}
+
+// wsMgWindowRemaining() — ms until the bench reopens, or 0 if it is open.
+// Pure read apart from the tick's expiry housekeeping.
+function wsMgWindowRemaining(){
+  const now = Date.now();
+  wsMgWindowTick(now);
+  const w = state.workshop;
+  if(!w.mgWindowStart || w.mgWindowEarned < WS_MG_WINDOW_CAP) return 0;
+  return Math.max(0, WS_MG_WINDOW_MS - (now - w.mgWindowStart));
+}
+
+// wsMgWindowLabel(ms) — immersive copy helper. Always at least "1m" so the
+// countdown never reads "0m" while the bench is still shut.
+function wsMgWindowLabel(ms){
+  return Math.max(1, Math.ceil(ms / 60000)) + 'm';
+}
+
 function wsAwardMG(gained, msgEl, msg){
+  // fix178: window check runs BEFORE the 0–9999 clamp below, so a capped bench
+  // banks nothing at all rather than banking and then clamping.
+  const nowW = Date.now();
+  wsMgWindowTick(nowW);
+  if(gained > 0){
+    const room = WS_MG_WINDOW_CAP - state.workshop.mgWindowEarned;
+    if(room <= 0){
+      const shutEl = msgEl || document.getElementById('workshop-game-msg');
+      if(shutEl) shutEl.textContent =
+        'Bench is full — the boss wants the bikes back on the road. Back in '
+        + wsMgWindowLabel(wsMgWindowRemaining()) + '.';
+      renderWsGameSelector(); // repaint the buttons into their shut state
+      return 0;
+    }
+    gained = Math.min(gained, room);
+  }
+
   const before = state.workshop.mg;
   state.workshop.mg = Math.max(0, Math.min(9999, state.workshop.mg + gained));
   const actual = state.workshop.mg - before;
@@ -12983,6 +13328,14 @@ function wsAwardMG(gained, msgEl, msg){
     targetMsgEl.textContent = (state.workshop.mg >= 9999)
       ? 'MG banked is full (9,999 max)'
       : (msg || '');
+  }
+
+  // fix178: book what was actually banked against the window. `actual` (not
+  // `gained`) is the right number — the 9999 clamp above can shave it.
+  if(actual > 0){
+    if(!state.workshop.mgWindowStart) state.workshop.mgWindowStart = nowW;
+    state.workshop.mgWindowEarned += actual;
+    if(state.workshop.mgWindowEarned >= WS_MG_WINDOW_CAP) renderWsGameSelector();
   }
 
   const now = Date.now();
@@ -13396,10 +13749,11 @@ function renderDailyTasks(){
   const cardsHtml=DAILY_TASKS.map(t=>{
     const done=state.dailyTasks.progress[t.id], claimed=state.dailyTasks.claimed[t.id];
     let statusHtml;
-    if(claimed)   statusHtml=`<span class="task-check" style="color:var(--green-txt)">${icn('check-circle')}</span>`;
+    // fix176: clipboard styling — pencil tick when claimed, empty box when not.
+    if(claimed)   statusHtml=`<span class="clip-tick">${icn('tick-pencil','20px')}</span>`;
     else if(done) statusHtml=`<button class="task-claim-btn" onclick="claimDailyTask('${t.id}')">Claim</button>`;
-    else          statusHtml=`<span class="task-check" style="color:var(--txt3)">⬜</span>`;
-    return `<div class="task-card ${claimed?'claimed':done?'done-unclaimed':''}">
+    else          statusHtml=`<span class="clip-tick-box"></span>`;
+    return `<div class="clip-task ${claimed?'claimed':done?'done-unclaimed':''}">
       <div class="task-icon">${icn(t.icon)}</div>
       <div class="task-info">
         <div class="task-name">${t.name}</div>
@@ -13409,7 +13763,8 @@ function renderDailyTasks(){
       <div class="task-status">${statusHtml}</div>
     </div>`;
   }).join('');
-  wrap.innerHTML=summaryHtml+cardsHtml;
+  // fix176: rows sit on the clipboard board rather than as free-floating cards.
+  wrap.innerHTML=summaryHtml+`<div class="clipboard-wrap">${cardsHtml}</div>`;
 }
 
 function renderLifetimeTasks(){
@@ -13943,6 +14298,7 @@ function updateUI(){
   if(currentTab==='rider')    renderRiderTab();
   if(currentTab==='gear')     renderGearTab();
   if(currentTab==='workshop') renderWorkshopSection();
+  if(currentTab==='skills')   renderRiderSkillsTab(); // fix174
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -14210,7 +14566,14 @@ function loadGame(){
       // is already restored above, so this reads the loaded value, not 'starter'.
       const wtarget = (typeof d.workshop?.tuningTarget==='string' && d.workshop.tuningTarget.includes(':'))
         ? d.workshop.tuningTarget : ('bike:'+state.equippedBike);
-      state.workshop = { mg: Math.max(0, Math.min(9999, wmg)), tuning: wtuning, tuningTarget: wtarget };
+      // fix178: both window fields default to 0 on any save that predates them,
+      // which reads as "no window running" — the first award opens a fresh one.
+      const wWinStart = (typeof d.workshop?.mgWindowStart === 'number' && isFinite(d.workshop.mgWindowStart))
+        ? d.workshop.mgWindowStart : 0;
+      const wWinEarned = (typeof d.workshop?.mgWindowEarned === 'number' && isFinite(d.workshop.mgWindowEarned))
+        ? Math.max(0, d.workshop.mgWindowEarned) : 0;
+      state.workshop = { mg: Math.max(0, Math.min(9999, wmg)), tuning: wtuning, tuningTarget: wtarget,
+        mgWindowStart: wWinStart, mgWindowEarned: wWinEarned };
     }
   }catch(e){ console.warn('[CIM] Load failed:',e); }
 }
@@ -14307,14 +14670,13 @@ function gameTick(){
   // unrelated event next happens to call recalc().
   if(pruneBuffs()){
     recalc();
-    if(currentTab==='train') renderRiderSkillsCard();
-    // fix155: if the hub is open when a buff expires, its card is still showing
-    // the lockout. Rebuilt here only — this branch runs on expiry, not every
-    // tick, so it is not a per-tick innerHTML rebuild.
-    const rsOv=document.getElementById('rs-overlay');
-    if(rsOv&&rsOv.style.display!=='none') renderRiderSkillsHub();
+    // fix174: both the card and the drill list now live on the same panel, so
+    // one guard covers what used to be a tab check plus an overlay-visibility
+    // check. fix155's point stands: this branch runs on expiry, not every tick,
+    // so the innerHTML rebuild is not a per-tick rebuild.
+    if(currentTab==='skills'){ renderRiderSkillsCard(); renderRiderSkillsHub(); }
   }
-  else if(currentTab==='train') rsTickBuffPills();
+  else if(currentTab==='skills') rsTickBuffPills(); // fix174: was 'train'
   // Passive sponsor income. Capped at SPONSOR_OFFLINE_CAP_SEC because delta can
   // now legitimately be hours rather than 100ms.
   if(D.sponsorPerSec>0) earnMoney(D.sponsorPerSec*Math.min(delta,SPONSOR_OFFLINE_CAP_SEC));
@@ -14598,7 +14960,12 @@ ensureCalendarSeasonStarted();
 checkDailyReset();
 // If a morning reward is already pending (restored from save or daily reset
 // just fired on load), show the collect card straight away.
-if(state.pendingMorningReward && currentTab==='train') renderEnergyCard();
+// fix173 tombstone: the collect card is no longer a Train-tab render, and this
+// line ran before the landing tab was chosen anyway. Boot ends with
+// showTab('home') further down, and showTab()'s fix173 hook raises the popup
+// there — so calling showMorningPopup() here as well would only paint into a
+// panel that is still display:none. Left as a marker of where this used to fire.
+// tombstone: if(state.pendingMorningReward && currentTab==='train') renderEnergyCard();
 // fix38: capture the offline summary — hadPriorSave is read BEFORE applyOfflineProgress
 // touches state, so a brand-new player (no _lastSavedAt yet) never sees a welcome-back
 // modal on their very first session.
