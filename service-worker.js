@@ -39,7 +39,8 @@
 // fix179: same reason as fix172 — home-bg.jpg keeps its FILENAME but its
 // CONTENTS changed (new artwork, identical geometry). Without a bump every
 // installed PWA keeps repainting the old art out of the v3.8.08 cache.
-const CACHE_VERSION = 'cim-v3.8.12';   // fix179: home-bg.jpg artwork swapped
+// const CACHE_VERSION = 'cim-v3.8.09';   // fix179: home-bg.jpg artwork swapped
+const CACHE_VERSION = 'cim-v3.8.10';   // fix183: assets/rider-bg.jpg added
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
@@ -56,6 +57,11 @@ const STATIC_ASSETS = [
   // fix170: home hub art. Loads on every cold start (home is the landing tab),
   // so it is precached rather than left to the runtime handler.
   './assets/home-bg.jpg',
+  // fix183: Rider tab scene. Precached rather than left to the runtime handler
+  // so the tab is painted on a cold, offline first visit — it is bound lazily
+  // in showTab(), which means a runtime-only cache would miss on exactly the
+  // first open, the one time the placeholder sky would be visible.
+  './assets/rider-bg.jpg',
   './assets/workshop-hero.jpg',
   // fix169: assets/race-hero.jpg retired — 'raceHero' is out of
   // RC_SHEET_NAMES / RC_VAR_NAMES / _rcSheetSources, so nothing fetches it
