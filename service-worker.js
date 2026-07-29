@@ -34,7 +34,12 @@
 // (corrected caption, re-cut to 768x1707). A same-name asset swap is the one
 // case where forgetting this bump fails silently — the old image just keeps
 // being served from the previous cache forever.
-const CACHE_VERSION = 'cim-v3.8.07';   // fix172: home-bg.jpg re-cut
+// const CACHE_VERSION = 'cim-v3.8.07';   // fix172: home-bg.jpg re-cut
+// const CACHE_VERSION = 'cim-v3.8.08';   // fix177: splash colour -> #7fb8d4 (forces new manifest.json)
+// fix179: same reason as fix172 — home-bg.jpg keeps its FILENAME but its
+// CONTENTS changed (new artwork, identical geometry). Without a bump every
+// installed PWA keeps repainting the old art out of the v3.8.08 cache.
+const CACHE_VERSION = 'cim-v3.8.09';   // fix179: home-bg.jpg artwork swapped
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
