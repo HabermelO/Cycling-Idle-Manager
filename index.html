@@ -349,15 +349,35 @@ body{font-family:'Nunito',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
    #app{max-width:600px;margin:0 auto;padding:1rem 1rem calc(5.5rem + env(safe-area-inset-bottom));} */
 #app{max-width:600px;margin:0 auto;padding:1rem 1rem calc(1.5rem + env(safe-area-inset-bottom));}
 button{font-family:inherit;cursor:pointer;}
+/* fix182 tombstone: the old header was a full card — panel background, 1px
+   border, 16/20px padding, shadow, an 18px title line of its own and a row of
+   19px values each stacked over an uppercase caption. On a phone that ate the
+   top fifth of every panel and read as a second, competing surface next to the
+   painted hub bar. Replaced below by a flat strip: no card, no title, one
+   hairline, values inline with their captions. Kept, not deleted, house style.
 .game-header{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);
   padding:1rem 1.25rem;margin-bottom:.75rem;box-shadow:var(--shadow-md);}
 .game-title{font-size:18px;font-weight:800;letter-spacing:-.01em;margin-bottom:.75rem;}
-.game-title .accent{color:var(--accent);}
 .stat-row{display:flex;gap:.5rem;flex-wrap:wrap;}
 .stat-item{flex:1;min-width:56px;}
 .stat-val{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;}
 .stat-lbl{font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:.04em;margin-top:3px;}
 .stat-sublbl{font-size:10px;color:var(--blue-txt);margin-top:2px;font-weight:600;}
+*/
+/* fix182: flat strip. Transparent so the panel below owns the background, with
+   a single hairline to separate it — nothing here should read as a card. */
+.game-header{background:transparent;border:0;border-bottom:1px solid var(--border);
+  border-radius:0;padding:0 0 .5rem;margin-bottom:.75rem;box-shadow:none;}
+.game-title{display:none;}
+.game-title .accent{color:var(--accent);}
+/* Values sit on ONE line with their captions rather than stacked over them —
+   that is where most of the reclaimed height comes from. Wrapping is allowed
+   so a long weather label cannot push the row off the right edge. */
+.stat-row{display:flex;gap:.5rem .75rem;flex-wrap:wrap;align-items:baseline;}
+.stat-item{display:flex;align-items:baseline;gap:4px;min-width:0;}
+.stat-val{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;}
+.stat-lbl{font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:.04em;}
+.stat-sublbl{font-size:9px;color:var(--blue-txt);font-weight:600;}
 .main-tabs{position:fixed;bottom:0;left:0;right:0;z-index:100;
   display:flex;background:var(--bg);border-top:.5px solid var(--border);
   padding:6px 2px calc(6px + env(safe-area-inset-bottom));gap:1px;
@@ -2425,8 +2445,20 @@ body.home-open{overflow:hidden;}
 @media (prefers-reduced-motion: no-preference){
   .home-back{transition:transform .12s ease;}
 }
+/* fix182 tombstone: the top strip used to be its own line (title left, Home
+   right) sitting above the stat row, so the header was always two lines tall.
+   The title is now display:none and the stats share this line instead.
 .game-header-top{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:.75rem;}
+*/
+.game-header-top{display:flex; align-items:center; gap:10px; margin-bottom:0;}
 .game-header-top .game-title{margin-bottom:0;}
+/* Stats take the remaining width and hug the right edge, so Home stays pinned
+   left where the thumb expects it on every panel. */
+.game-header-top .stat-row{flex:1; justify-content:flex-end;}
+/* fix182: Home is now the tallest thing in the strip, so it sets the header's
+   height. Trimmed to a compact pill — still past the 44px tap minimum, which
+   is why the padding came off rather than the height. */
+.game-header .home-back{min-height:44px; padding:0 12px 0 9px; font-size:12px; box-shadow:none;}
 @media (prefers-reduced-motion: no-preference){
   #home-toast{transition:opacity .18s ease, transform .18s ease;}
 }
@@ -2582,12 +2614,21 @@ body.home-open{overflow:hidden;}
     <div class="game-header-top">
       <div class="game-title"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-rider"></use></svg> <span class="accent">Cycling</span> Idle Manager</div>
       <button class="home-back" id="home-back-btn" aria-label="Back to home" onclick="showTab('home')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-home"></use></svg> Home</button>
-    </div>
-    <div class="stat-row">
-      <div class="stat-item"><div class="stat-val" id="hdr-money">£0</div><div class="stat-lbl">Prize Money</div></div>
-      <div class="stat-item"><div class="stat-val" id="hdr-ftp">50</div><div class="stat-lbl">FTP (w)</div></div>
-      <div class="stat-item"><div class="stat-val" id="hdr-energy">100/100</div><div class="stat-lbl"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-bolt"></use></svg> Energy</div><div class="stat-sublbl" id="hdr-energy-tmr"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-sleep"></use></svg> tmr: 100</div></div>
-      <div class="stat-item"><div class="stat-val" id="hdr-cat">Uncat</div><div class="stat-lbl">Category</div><div class="stat-sublbl" id="hdr-weather" style="color:var(--txt2)"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-sun"></use></svg></div></div>
+    <!-- fix182: the stat row moved INSIDE .game-header-top so the whole header
+         is one line instead of two. Every id here is unchanged — updateHeader()
+         writes to hdr-money, hdr-ftp, hdr-energy, hdr-cat, hdr-energy-tmr and
+         hdr-weather by id and is not touched by this fix. The captions that
+         used to sit under each value are now beside it, abbreviated, and the
+         bolt/sleep/sun glyphs are dropped: updateHeader() rewrites the innerHTML
+         of hdr-energy-tmr and hdr-weather on every tick and paints its own
+         icons into them, so the ones baked in here were only ever placeholders
+         for the first frame. -->
+      <div class="stat-row">
+        <div class="stat-item"><div class="stat-val" id="hdr-money">£0</div></div>
+        <div class="stat-item"><div class="stat-val" id="hdr-ftp">50</div><div class="stat-lbl">w</div></div>
+        <div class="stat-item"><div class="stat-val" id="hdr-energy">100/100</div><div class="stat-sublbl" id="hdr-energy-tmr">tmr: 100</div></div>
+        <div class="stat-item"><div class="stat-val" id="hdr-cat">Uncat</div><div class="stat-sublbl" id="hdr-weather" style="color:var(--txt2)"></div></div>
+      </div>
     </div>
   </header>
   <!-- ═══════════ fix171: TAB BAR RETIRED ═══════════
