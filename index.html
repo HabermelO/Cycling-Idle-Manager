@@ -1652,6 +1652,39 @@ button{font-family:inherit;cursor:pointer;}
   border-radius:12px!important;
 }
 
+/* ═══ fix181: no-scroll layout + painted-scene hook ═══════════════════════
+   --sheet-rider-scene is the per-tab painted backdrop, bound the same way the
+   hub art is (lazyLoadAssetGroup sets the custom property; see fix137). Until
+   a jpeg is dropped in it falls back to the fix180 sky gradient, so the tab is
+   fully working art-or-no-art. To wire the art up later: add the tab to
+   LAZY_ASSET_GROUPS and set --sheet-rider-scene to the url() — no CSS edit.
+   The scene is fixed-attachment so plates scroll over a still backdrop rather
+   than dragging it, which is what sells the hub feel. */
+#tab-rider.hub-skin{
+  background:var(--sheet-rider-scene,
+    linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
+    center/cover no-repeat fixed;
+  min-height:calc(100dvh - 1rem);
+}
+/* The 200px hero is the single biggest cost against the no-scroll budget —
+   at 140px the Form section clears a 390x844 phone with room to spare. */
+#tab-rider.hub-skin .rider-portrait-wrap{
+  height:140px;margin-bottom:.5rem;
+  border:1.5px solid var(--border2);
+}
+/* Pill nav becomes painted signage: parchment on wood, active pill lit. */
+#tab-rider.hub-skin .gear-nav{
+  gap:6px;margin-bottom:.6rem;
+}
+#tab-rider.hub-skin .gear-nav-btn{
+  background:rgba(248,236,210,.82);border-color:var(--border2);color:var(--txt2);
+  box-shadow:0 2px 0 rgba(90,55,28,.28);
+}
+#tab-rider.hub-skin .gear-nav-btn.active{
+  background:var(--bg);border-color:#8A5A34;color:var(--txt);
+  box-shadow:0 2px 0 #8A5A34;
+}
+
 /* ═══ fix54: rider sprite scene (Train tab) ═══ */
 .rider-sprite{width:279px;height:308px;background:var(--sheet-pedal, url(assets/pedal.png)) no-repeat;
   background-size:1674px 308px;transform-origin:bottom center;}
@@ -2724,24 +2757,34 @@ body.home-open{overflow:hidden;}
          the fix162 Race hero, so renderRiderPortrait() has nothing left to
          inject and its body is tombstoned. -->
     <div id="rider-portrait-wrap" class="rider-portrait-wrap"><div class="rider-hero-bg"></div><div class="rider-hero-rider"></div></div>
-    <!-- fix180: headers are now glyph + two-word label + ⓘ. Every longer
-         explanation moved into INFO_TEXTS under the key named on each button;
-         no wording was deleted, only relocated behind the icon. -->
-    <div class="section-lbl"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-person"></use></svg> Performance <button class="info-btn" onclick="openInfo('riderPerformance')">ⓘ</button></div>
-    <div id="rider-stats"></div>
-    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-chart-up"></use></svg> Power Trend <button class="info-btn" onclick="openInfo('powerTrend')">ⓘ</button></div>
-    <div id="ftp-chart-wrap"></div>
-    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-mountain"></use></svg> Specialism <button class="info-btn" onclick="openInfo('specialisation')">ⓘ</button></div>
-    <div id="spec-area"></div>
-    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-muscle"></use></svg> Attributes <button class="info-btn" onclick="openInfo('attributes')">ⓘ</button></div>
-    <div id="attr-cards"></div>
-    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-crown"></use></svg> Season <button class="info-btn" onclick="openInfo('prestige')">ⓘ</button></div>
-    <div id="prestige-area"></div>
-    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-gem"></use></svg> Relics <button class="info-btn" onclick="openInfo('relics')">ⓘ</button></div>
-    <div id="relic-shelf-area"></div>
-    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-trophy"></use></svg> Career <button class="info-btn" onclick="openInfo('careerStats')">ⓘ</button></div>
-    <div class="stats-grid" id="stats-grid"></div>
-    <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-clipboard"></use></svg> Save Data <button class="info-btn" onclick="openInfo('saveData')">ⓘ</button></div>
+    <div class="gear-nav" id="rider-nav"></div>
+    <!-- fix181: the eight stacked sections below are unchanged in content and
+         keep every id their renderers look up — they are simply grouped into
+         five wrappers, one shown at a time by renderRiderSection(). -->
+    <div id="rider-section-form">
+      <div class="section-lbl"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-person"></use></svg> Performance <button class="info-btn" onclick="openInfo('riderPerformance')">ⓘ</button></div>
+      <div id="rider-stats"></div>
+      <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-muscle"></use></svg> Attributes <button class="info-btn" onclick="openInfo('attributes')">ⓘ</button></div>
+      <div id="attr-cards"></div>
+    </div>
+    <div id="rider-section-power" style="display:none">
+      <div class="section-lbl"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-chart-up"></use></svg> Power Trend <button class="info-btn" onclick="openInfo('powerTrend')">ⓘ</button></div>
+      <div id="ftp-chart-wrap"></div>
+    </div>
+    <div id="rider-section-path" style="display:none">
+      <div class="section-lbl"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-mountain"></use></svg> Specialism <button class="info-btn" onclick="openInfo('specialisation')">ⓘ</button></div>
+      <div id="spec-area"></div>
+      <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-crown"></use></svg> Season <button class="info-btn" onclick="openInfo('prestige')">ⓘ</button></div>
+      <div id="prestige-area"></div>
+    </div>
+    <div id="rider-section-career" style="display:none">
+      <div class="section-lbl"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-trophy"></use></svg> Career <button class="info-btn" onclick="openInfo('careerStats')">ⓘ</button></div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-gem"></use></svg> Relics <button class="info-btn" onclick="openInfo('relics')">ⓘ</button></div>
+      <div id="relic-shelf-area"></div>
+    </div>
+    <div id="rider-section-save" style="display:none">
+      <div class="section-lbl"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-clipboard"></use></svg> Save Data <button class="info-btn" onclick="openInfo('saveData')">ⓘ</button></div>
     <!-- fix180: the explanatory paragraph that sat here is now INFO_TEXTS.saveData,
          reached by the ⓘ on the header above. Placeholders shortened to labels;
          the full "tap to select, then copy" guidance moved there too. -->
@@ -2758,6 +2801,7 @@ body.home-open{overflow:hidden;}
     <div style="text-align:center;margin-top:.5rem">
       <button id="delete-btn" class="danger-btn" onclick="confirmReset()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-trash"></use></svg> Delete Save &amp; Start Over</button>
     </div>
+    </div><!-- /#rider-section-save -->
   </div>
   <div id="tab-gear" style="display:none">
     <!-- fix64: idle rider preview so jersey/bike/wheel changes are visible
@@ -10553,7 +10597,46 @@ function renderRaceHistory(){
 // ═══════════════════════════════════════════════════════════
 // RIDER TAB
 // ═══════════════════════════════════════════════════════════
-function renderRiderTab(){ renderRiderPortrait(); renderRiderStats(); renderFtpChart(); renderSpecialisation(); renderAttrCards(); renderPrestige(); renderRelicShelf(); renderStats(); }
+// fix181: the Rider tab is now five sections behind a pill nav, one visible at
+// a time — the exact shape renderGearTab()/setGearSection() already use, so
+// this is house pattern rather than a third navigation idea. Two consequences
+// worth knowing: (1) the tab fits a phone screen without scrolling, and (2) the
+// Chart.js FTP graph only rebuilds when the Power pill is actually showing,
+// instead of on every tick behind the scenes.
+// riderSection is transient UI state like gearSection — deliberately NOT saved,
+// so it needs no loadGame() ?? guard.
+let riderSection='form';
+const RIDER_SECTIONS=['form','power','path','career','save'];
+
+function renderRiderNav(){
+  const nav=document.getElementById('rider-nav'); if(!nav) return;
+  const labels={form:`${icn('muscle')} Form`,power:`${icn('chart-up')} Power`,
+    path:`${icn('mountain')} Path`,career:`${icn('trophy')} Career`,
+    save:`${icn('clipboard')} Save`};
+  nav.innerHTML=RIDER_SECTIONS.map(s=>`<button class="gear-nav-btn${riderSection===s?' active':''}" onclick="setRiderSection('${s}')">${labels[s]}</button>`).join('');
+}
+
+// Renders only the section being shown. Each branch calls the same renderers as
+// before — none of them changed, they just no longer all fire at once.
+function renderRiderSection(){
+  RIDER_SECTIONS.forEach(rs=>{
+    const el=document.getElementById('rider-section-'+rs);
+    if(el) el.style.display = rs===riderSection ? '' : 'none';
+  });
+  if(riderSection==='form'){ renderRiderStats(); renderAttrCards(); }
+  if(riderSection==='power'){ renderFtpChart(); }
+  if(riderSection==='path'){ renderSpecialisation(); renderPrestige(); }
+  if(riderSection==='career'){ renderStats(); renderRelicShelf(); }
+  // 'save' is static markup — nothing to render.
+}
+
+function setRiderSection(s){
+  riderSection=s;
+  renderRiderNav();
+  renderRiderSection();
+}
+
+function renderRiderTab(){ renderRiderPortrait(); renderRiderNav(); renderRiderSection(); }
 // fix80: static hero portrait for the Rider tab. Renders once (idempotent —
 // checks firstChild like renderRiderScene does) since the art itself never
 // changes shape, only its jersey colour via the shared --sheet-portrait var.
