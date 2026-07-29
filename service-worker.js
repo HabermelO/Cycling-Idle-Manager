@@ -39,7 +39,7 @@
 // fix179: same reason as fix172 — home-bg.jpg keeps its FILENAME but its
 // CONTENTS changed (new artwork, identical geometry). Without a bump every
 // installed PWA keeps repainting the old art out of the v3.8.08 cache.
-const CACHE_VERSION = 'cim-v3.8.11';   // fix179: home-bg.jpg artwork swapped
+const CACHE_VERSION = 'cim-v3.8.12';   // fix179: home-bg.jpg artwork swapped
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
