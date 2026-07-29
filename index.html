@@ -1621,10 +1621,26 @@ button{font-family:inherit;cursor:pointer;}
    To extend to another tab: add class="hub-skin" to that #tab-* wrapper.
    To revert: delete this block and the two class attributes. */
 #tab-rider.hub-skin{
-  /* painted surfaces — parchment plate on wood, per the hub signage */
-  --bg:#F8ECD2;--bg2:#F0DFBC;--bg3:#E3CDA2;--bg-rgb:248,236,210;
-  --txt:#33251A;--txt2:#6B523A;--txt3:#94785A;
-  --border:rgba(90,55,28,.30);--border2:rgba(90,55,28,.48);
+  /* painted surfaces — parchment plate on wood, per the hub signage.
+     fix183: retuned off the hub sky and onto the Rider scene's own palette.
+     The measured art is mid-to-dark desaturated mauve/grey (dominant #393640,
+     #C5BBB6, #AE928B, #24151F, #54353B), against which fix180's warm yellow
+     parchment read as a clashing accent rather than a match. Values below are
+     the same parchment idea with the yellow taken out. Tombstoned fix180
+     values, for revert: --bg:#F8ECD2 --bg2:#F0DFBC --bg3:#E3CDA2
+     --bg-rgb:248,236,210 --txt:#33251A --border2:rgba(90,55,28,.48) */
+  --bg:#F2E7DE;--bg2:#E7D9CE;--bg3:#D9C7BB;--bg-rgb:242,231,222;
+  --txt:#2B2028;--txt2:#6B523A;--txt3:#94785A;
+  --border:rgba(90,55,28,.30);--border2:rgba(84,53,59,.48);
+  /* fix183: the FTP figure is .rsc-ftp-num, which paints --amber-txt on the
+     opaque --amber-bg card — NOT --txt on a plate. At the stock #D97900 that
+     pair measures 2.86:1, so the headline number of the tab failed WCAG AA
+     before this fix and no amount of scrim tuning could change it (the card is
+     opaque; the art is not behind it). Darkened here to 5.14:1. SCOPED to this
+     subtree deliberately: the same token pair is used by amber cards on every
+     other tab, and changing it globally is a separate fix with its own audit.
+     The burnt tone also sits better against this art than the bright original. */
+  --amber-txt:#9E5400;--amber-bd:rgba(158,84,0,.30);
   --shadow-sm:0 2px 0 rgba(90,55,28,.22), 0 4px 12px rgba(30,50,70,.16);
   --shadow-md:0 3px 0 rgba(90,55,28,.26), 0 8px 20px rgba(30,50,70,.20);
   --radius:16px;--radius-lg:22px;
@@ -1661,6 +1677,19 @@ button{font-family:inherit;cursor:pointer;}
   background:var(--bg);border-radius:var(--radius-lg);
   padding:1rem;box-shadow:var(--shadow-sm);
 }
+/* fix183: a hint of scene reads through the parchment — the detail that makes
+   the plates feel painted-in rather than pasted-on. .94 is as far as this can
+   go and still clear WCAG AA: --txt on this plate over the darkest pixel in
+   the art, scrimmed, measures 11.4:1, so there is ample headroom.
+   These are the four surfaces that actually paint a background — note
+   .stats-grid is a transparent grid container and .stat-card is the real plate,
+   which is why the list here differs from the border rule above. */
+#tab-rider.hub-skin .hub-plate,
+#tab-rider.hub-skin .energy-card,
+#tab-rider.hub-skin .attr-card,
+#tab-rider.hub-skin .stat-card{
+  background:rgba(var(--bg-rgb),.94);
+}
 /* Buttons read as carved wood, not flat chips. */
 #tab-rider.hub-skin .gear-nav-btn,
 #tab-rider.hub-skin .danger-btn{
@@ -1678,14 +1707,68 @@ button{font-family:inherit;cursor:pointer;}
    a jpeg is dropped in it falls back to the fix180 sky gradient, so the tab is
    fully working art-or-no-art. To wire the art up later: add the tab to
    LAZY_ASSET_GROUPS and set --sheet-rider-scene to the url() — no CSS edit.
-   The scene is fixed-attachment so plates scroll over a still backdrop rather
-   than dragging it, which is what sells the hub feel. */
+   fix183: the two sentences that stood here claimed the scene is
+   fixed-attachment "so plates scroll over a still backdrop". That is no longer
+   true — see the tombstone immediately below for why it had to go. The still
+   backdrop it described is now achieved by #rider-art instead. */
+
+/* fix183 tombstone: the scene used to be a fixed-attachment background on the
+   panel itself —
+     #tab-rider.hub-skin{
+       background:var(--sheet-rider-scene,
+         linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
+         center/cover no-repeat fixed;
+       min-height:calc(100dvh - 1rem);
+     }
+   background-attachment:fixed is unreliable on iOS Safari — it either janks
+   badly on scroll or is dropped outright — and this is a mobile-first PWA. It
+   is also why the hub does not use it: see the #home-art comment, where the
+   layer "reproduces background-size:cover geometry as a real element". Same
+   precedent followed below. */
 #tab-rider.hub-skin{
+  position:relative;
+  overflow:hidden;
+  min-height:calc(100dvh - 1rem);
+  /* the sky gradient stays as the one-frame placeholder before the jpeg lands */
+  background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%);
+}
+/* The art layer. Sizing arithmetic is copied VERBATIM from #home-art, ratio
+   included: we deliberately re-cut this scene onto the same 768x1707 canvas so
+   the arithmetic is shared and provably correct rather than re-derived per tab.
+   max() in both axes plus centring is exactly what background-size:cover does —
+   no JS, no resize listener, no drift. First in DOM order, so paint order needs
+   no z-index (same convention as .rider-hero-bg / .race-hero-bg). */
+#rider-art{
+  position:absolute;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  width:max(100vw, calc(100vh * 768 / 1707));
+  height:max(100vh, calc(100vw * 1707 / 768));
+  width:max(100vw, calc(100dvh * 768 / 1707));
+  height:max(100dvh, calc(100vw * 1707 / 768));
   background:var(--sheet-rider-scene,
     linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
-    center/cover no-repeat fixed;
-  min-height:calc(100dvh - 1rem);
+    center/100% 100% no-repeat;
+  pointer-events:none;
 }
+/* fix183 scrim — the readability fix, not a mood effect. Measured per-decile,
+   this art's stddev never drops below 54 anywhere in the frame: there is no
+   quiet band for plates to sit on, so without this the tab is unreadable
+   rather than slightly worse. Weakest at top and bottom because the hero and
+   the bottom bar cover those, so the art shows through where nothing needs to
+   be read. The two .52 stops are the load-bearing ones — tune those on device. */
+#rider-scrim{
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg,
+    rgba(30,25,32,.34) 0%,
+    rgba(30,25,32,.52) 38%,
+    rgba(30,25,32,.52) 82%,
+    rgba(30,25,32,.30) 100%);
+  pointer-events:none;
+}
+/* Content sits above both layers without needing a z-index. */
+#rider-content{position:relative;}
 /* The 200px hero is the single biggest cost against the no-scroll budget —
    at 140px the Form section clears a 390x844 phone with room to spare. */
 #tab-rider.hub-skin .rider-portrait-wrap{
@@ -2785,6 +2868,15 @@ body.home-open{overflow:hidden;}
        same number). Class only — showTab() writes .style.display and never
        touches className, so nothing can strip it. -->
   <div id="tab-rider" class="hub-skin" style="display:none">
+    <!-- fix183: painted scene, as two layers plus a content wrapper. #rider-art
+         is the exact cover rect (see CSS) and #rider-scrim is the readability
+         gradient over it; both are first in DOM order so paint order needs no
+         z-index, and both are pointer-events:none so nothing below them loses a
+         tap. Art missing degrades to the fix180 sky gradient, never to a broken
+         tab — the var() fallback is in both the CSS layer and the placeholder. -->
+    <div id="rider-art"></div>
+    <div id="rider-scrim"></div>
+    <div id="rider-content">
     <!-- fix80: hero portrait with idle sway, jersey colour follows equipped kit
          fix84: wrapper class now lives on the static element itself (matching
          the race-hero-wrap / workshop-hero-wrap pattern) so the 200px sized,
@@ -2843,6 +2935,7 @@ body.home-open{overflow:hidden;}
       <button id="delete-btn" class="danger-btn" onclick="confirmReset()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-trash"></use></svg> Delete Save &amp; Start Over</button>
     </div>
     </div><!-- /#rider-section-save -->
+    </div><!-- /#rider-content (fix183) -->
   </div>
   <div id="tab-gear" style="display:none">
     <!-- fix64: idle rider preview so jersey/bike/wheel changes are visible
@@ -8005,6 +8098,19 @@ const LAZY_ASSET_GROUPS = {
   // so there is no second request behind it.
   home: {
     '--sheet-home-bg': 'assets/home-bg.jpg'
+  },
+  // fix183: the Rider tab scene. APPENDED, never inserted — this object is
+  // keyed so order is not load-bearing here, but TABS below is index-mapped and
+  // the habit is worth keeping uniform across both.
+  // Deliberately NOT in the cold-start budget with home: Rider is a primary tab
+  // but it is not the landing tab, so it pays for itself on first visit.
+  // Recut to the same 768x1707 canvas as home-bg so #rider-art can share
+  // #home-art's sizing arithmetic verbatim; downscaled to 640x1422, q50, 4:2:0
+  // progressive = 109.0 KB (source JPEG was 180 KB). q50 rather than home's q58
+  // because this art is busier — stddev >=54 edge to edge — and q58 came in at
+  // 120.0 KB against a 110 KB budget.
+  rider: {
+    '--sheet-rider-scene': 'assets/rider-bg.jpg'
   }
 };
 const _lazyGroupsLoaded = {};
@@ -8076,6 +8182,10 @@ function showTab(name){
   // fix170: same precedent — bind the hub art BEFORE the panel is revealed, so
   // the first paint already carries its background-image declaration.
   if(name==='home') lazyLoadAssetGroup('home');
+  // fix183: same precedent again — bind the Rider scene BEFORE the tab is made
+  // visible, so its first paint already carries the background-image
+  // declaration and the sky placeholder is never seen as a flash.
+  if(name==='rider') lazyLoadAssetGroup('rider');
   // fix88: leaving the workshop tab must never leave a mini-game rAF loop
   // running off-tab (spec guardrail). wsStopGame() is a no-op if nothing's
   // running, so this is safe on every tab switch, not just workshop->other.
