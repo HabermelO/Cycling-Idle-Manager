@@ -1622,16 +1622,18 @@ button{font-family:inherit;cursor:pointer;}
    To revert: delete this block and the two class attributes. */
 #tab-rider.hub-skin{
   /* painted surfaces — parchment plate on wood, per the hub signage.
-     fix183: retuned off the hub sky and onto the Rider scene's own palette.
-     The measured art is mid-to-dark desaturated mauve/grey (dominant #393640,
-     #C5BBB6, #AE928B, #24151F, #54353B), against which fix180's warm yellow
-     parchment read as a clashing accent rather than a match. Values below are
-     the same parchment idea with the yellow taken out. Tombstoned fix180
-     values, for revert: --bg:#F8ECD2 --bg2:#F0DFBC --bg3:#E3CDA2
-     --bg-rgb:248,236,210 --txt:#33251A --border2:rgba(90,55,28,.48) */
-  --bg:#F2E7DE;--bg2:#E7D9CE;--bg3:#D9C7BB;--bg-rgb:242,231,222;
-  --txt:#2B2028;--txt2:#6B523A;--txt3:#94785A;
-  --border:rgba(90,55,28,.30);--border2:rgba(84,53,59,.48);
+     fix184 tombstone: fix183 retuned this palette off the Rider scene's own
+     mid-dark mauve/grey, on the reading that the art was a BACKDROP the plates
+     had to sit against —
+       --bg:#F2E7DE;--bg2:#E7D9CE;--bg3:#D9C7BB;--bg-rgb:242,231,222;
+       --txt:#2B2028;--txt2:#6B523A;--txt3:#94785A;
+       --border:rgba(90,55,28,.30);--border2:rgba(84,53,59,.48);
+     That reading was wrong: the art is a complete painted UI screen, so there
+     are no plates left over it to tune against. Restored to the fix180 values
+     below. See the fix184 hub block for the correct reading. */
+  --bg:#F8ECD2;--bg2:#F0DFBC;--bg3:#E3CDA2;--bg-rgb:248,236,210;
+  --txt:#33251A;--txt2:#6B523A;--txt3:#94785A;
+  --border:rgba(90,55,28,.30);--border2:rgba(90,55,28,.48);
   /* fix183: the FTP figure is .rsc-ftp-num, which paints --amber-txt on the
      opaque --amber-bg card — NOT --txt on a plate. At the stock #D97900 that
      pair measures 2.86:1, so the headline number of the tab failed WCAG AA
@@ -1677,19 +1679,16 @@ button{font-family:inherit;cursor:pointer;}
   background:var(--bg);border-radius:var(--radius-lg);
   padding:1rem;box-shadow:var(--shadow-sm);
 }
-/* fix183: a hint of scene reads through the parchment — the detail that makes
-   the plates feel painted-in rather than pasted-on. .94 is as far as this can
-   go and still clear WCAG AA: --txt on this plate over the darkest pixel in
-   the art, scrimmed, measures 11.4:1, so there is ample headroom.
-   These are the four surfaces that actually paint a background — note
-   .stats-grid is a transparent grid container and .stat-card is the real plate,
-   which is why the list here differs from the border rule above. */
-#tab-rider.hub-skin .hub-plate,
-#tab-rider.hub-skin .energy-card,
-#tab-rider.hub-skin .attr-card,
-#tab-rider.hub-skin .stat-card{
-  background:rgba(var(--bg-rgb),.94);
-}
+/* fix184 tombstone: fix183 let a hint of scene read through the parchment at
+   .94, which only made sense while a scrim sat between the art and the plates —
+     #tab-rider.hub-skin .hub-plate,
+     #tab-rider.hub-skin .energy-card,
+     #tab-rider.hub-skin .attr-card,
+     #tab-rider.hub-skin .stat-card{ background:rgba(var(--bg-rgb),.94); }
+   With the scrim gone (see the fix184 block) .94 puts --txt over unscrimmed
+   painted UI, so the plates go back to fully opaque: each of those four
+   surfaces already paints var(--bg) from its own base rule, so reverting here
+   is a deletion and nothing needs re-declaring. */
 /* Buttons read as carved wood, not flat chips. */
 #tab-rider.hub-skin .gear-nav-btn,
 #tab-rider.hub-skin .danger-btn{
@@ -1725,19 +1724,94 @@ button{font-family:inherit;cursor:pointer;}
    is also why the hub does not use it: see the #home-art comment, where the
    layer "reproduces background-size:cover geometry as a real element". Same
    precedent followed below. */
-#tab-rider.hub-skin{
-  position:relative;
+/* ═══ fix184: RIDER HUB — geometry stage ══════════════════════════════════
+   fix183 read this artwork as a busy backdrop and answered it with a scrim plus
+   see-through plates. The measurement behind that (per-decile stddev never
+   below 54) was right; the interpretation was not. The art is not a backdrop,
+   it is a COMPLETE PAINTED UI SCREEN: it paints a BACK button, a RIDER DETAILS
+   banner, a CASH / FTP / ENERGY stat row, six labelled medallions, the rider on
+   a trainer, a PLAY button and a SETTINGS / SHOP / PROFILE bottom bar. The
+   stddev never drops because every band of the frame contains interface. So the
+   scrim was dimming the very medallions that are about to become the buttons,
+   and the plates were covering interface the art already draws.
+
+   This stage lands the art and the measured geometry ONLY. No hotspots are
+   welded to it yet (fix185) and the section sheet does not exist yet (fix186) —
+   the point of shipping the geometry alone is to prove the art lands where the
+   measurements say before anything depends on it.
+
+   Coordinate space, exactly as on the home hub: percentages of #rider-art,
+   which reproduces background-size:cover as a real element, never percentages
+   of the viewport.
+
+   THE LOAD-BEARING CONSTRAINT (do not lose this): the art's aspect is
+   640/1422 = 0.4501 and phone viewports run ~0.429 to ~0.657. Under cover the
+   visible window takes the VIEWPORT's aspect, so the top and bottom of the art
+   are cropped away on anything squarer than ~0.462:
+     0.4286 (21:9)      full height, 2.5% side crop
+     0.4503 (Pixel 8)   full height
+     0.4613 (iPhone 15) y 1.1%–98.9%
+     0.5622 (iPhone SE) y 9.9%–90.1%
+     0.6567 (iPad mini) y 15.7%–84.3%
+   All six medallions (y 25.5–77.0, x 13–87) survive every one of those. The
+   painted BACK (y8), stat row (y14.5) and bottom bar (y88) do NOT. Padding the
+   canvas cannot fix that — a 0.450 image can never be shown whole inside a
+   0.562 window under cover, at any padding. Therefore NO painted element within
+   ~10% of the top or bottom edge may ever be load-bearing, and return-to-home
+   must be a real DOM control pinned to the viewport rather than a hotspot over
+   the painted BACK. This is where a naive port of #home-stage would break:
+   home's own art was designed with its furniture inside the safe band. */
+
+/* fix184 tombstone: fix183 pinned the art inside the panel itself —
+     #tab-rider.hub-skin{
+       position:relative; overflow:hidden; min-height:calc(100dvh - 1rem);
+       background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%);
+     }
+   which is no longer needed: #rider-stage is pinned to the viewport instead, so
+   the panel does not have to become a clipping context. The sky placeholder
+   moves onto the stage with it. The fix180 base rule above still paints the sky
+   gradient on this panel, which is what the transitional content layer sits on
+   until fix186 re-parents it. */
+
+/* fix184 tombstone: the fix183 scrim, retired with the backdrop reading —
+     #rider-scrim{ position:absolute; inset:0;
+       background:linear-gradient(180deg, rgba(30,25,32,.34) 0%,
+         rgba(30,25,32,.52) 38%, rgba(30,25,32,.52) 82%,
+         rgba(30,25,32,.30) 100%);
+       pointer-events:none; }
+   and the fix183 content wrapper's bare positioning —
+     #rider-content{position:relative;}
+   #rider-content survives one more stage as the TRANSITIONAL layer (see the
+   z-index note below); it is #rider-sheet that finally replaces it in fix186. */
+
+/* z-index:80 keeps this hub strictly BELOW #home-stage's 90, so tapping Home
+   from the Rider hub can never leave the rider art painted over the home hub. */
+#rider-stage{
+  position:fixed;
+  inset:0;
+  z-index:80;
   overflow:hidden;
-  min-height:calc(100dvh - 1rem);
-  /* the sky gradient stays as the one-frame placeholder before the jpeg lands */
-  background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%);
+  /* same sky hex as #home-stage / <meta name="theme-color">, shown for the one
+     frame before the jpeg lands */
+  background:#7fb8d4;
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  /* fix185 tombstone: fix184 sealed the whole stage against taps —
+       pointer-events:none;
+     because it carried calibration markers and no controls. The six .rider-hot
+     buttons below are real controls, so the seal is lifted as promised. The
+     stage still has no background hit area of its own: everything on it except
+     the buttons is either pointer-events:none or non-interactive, so a tap on
+     the painted art between medallions still does nothing. */
 }
 /* The art layer. Sizing arithmetic is copied VERBATIM from #home-art, ratio
-   included: we deliberately re-cut this scene onto the same 768x1707 canvas so
-   the arithmetic is shared and provably correct rather than re-derived per tab.
+   included: this scene was deliberately re-cut onto the same 768x1707 canvas
+   (encoded 640x1422, the same raster as home-bg.jpg) so the arithmetic is
+   shared and provably correct rather than re-derived per tab. The 0.04%
+   mismatch between raster and declared ratio is one home already carries.
    max() in both axes plus centring is exactly what background-size:cover does —
-   no JS, no resize listener, no drift. First in DOM order, so paint order needs
-   no z-index (same convention as .rider-hero-bg / .race-hero-bg). */
+   no JS, no resize listener, no drift. */
 #rider-art{
   position:absolute;
   left:50%; top:50%;
@@ -1746,47 +1820,417 @@ button{font-family:inherit;cursor:pointer;}
   height:max(100vh, calc(100vw * 1707 / 768));
   width:max(100vw, calc(100dvh * 768 / 1707));
   height:max(100dvh, calc(100vw * 1707 / 768));
+  /* fallback kept from fix183 on purpose: a missing asset degrades to a flat
+     sky, never to a black screen */
   background:var(--sheet-rider-scene,
     linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
     center/100% 100% no-repeat;
-  pointer-events:none;
 }
-/* fix183 scrim — the readability fix, not a mood effect. Measured per-decile,
-   this art's stddev never drops below 54 anywhere in the frame: there is no
-   quiet band for plates to sit on, so without this the tab is unreadable
-   rather than slightly worse. Weakest at top and bottom because the hero and
-   the bottom bar cover those, so the art shows through where nothing needs to
-   be read. The two .52 stops are the load-bearing ones — tune those on device. */
-#rider-scrim{
+/* fix185 tombstone: fix184's calibration markers, which carried the six
+   measured medallion centres so the geometry could be checked on a real device
+   before anything was welded to it —
+     .rider-cal{
+       position:absolute;
+       left:var(--hx); top:var(--hy);
+       width:var(--hw,22%); height:var(--hh,9.90%);
+       transform:translate(-50%,-50%);
+       pointer-events:none;
+     }
+   They did their job. .rider-hot below inherits their EXACT --hx/--hy/--hw/--hh
+   numbers, so the geometry the debug overlay verified in fix184 is the geometry
+   the buttons ship with — no re-measurement, nothing to re-verify. */
+
+/* ═══ fix185: the six medallion hotspots ══════════════════════════════════
+   Cloned from .home-hot (see the block of the same name up in the home hub
+   CSS), deliberately verbatim in behaviour: centre-anchored via
+   translate(-50%,-50%) so the measured medallion centre IS the literal
+   --hx/--hy pair with no arithmetic at the call site, uniform hit size rather
+   than pixel-exact because thumbs beat precision, and the same :active scale /
+   reduced-motion guard / :focus-visible treatment.
+
+   Hit size is home's uniform --hw:22%; --hh:9.90%. At a 390px viewport that is
+   an ~86x74px target. The three rows sit at y 25.5 / 65.5 / 77.0 with a ±4.95%
+   vertical extent, so ATTRIBUTES spans y 60.55-70.45 and CAREER y 72.05-81.95:
+   1.6% clear. The columns span x 2-26 and x 74-98: 48% clear. Nothing collides
+   at any aspect, and because the boxes are percentages of #rider-art rather
+   than of the viewport, that stays true as the cover rect grows.
+
+   Not a separate class from .home-hot on purpose — see the plan's out-of-scope
+   note. Do NOT generalise these two into one shared hub class until a SECOND
+   tab has actually shipped a hub, because the first per-tab attempt (fix183)
+   was built on a wrong reading of its own art and one more sample is worth
+   having before abstracting. Duplicated CSS is the cheaper mistake here. */
+.rider-hot{
   position:absolute;
-  inset:0;
-  background:linear-gradient(180deg,
-    rgba(30,25,32,.34) 0%,
-    rgba(30,25,32,.52) 38%,
-    rgba(30,25,32,.52) 82%,
-    rgba(30,25,32,.30) 100%);
-  pointer-events:none;
+  left:var(--hx); top:var(--hy);
+  width:var(--hw,22%); height:var(--hh,9.90%);
+  transform:translate(-50%,-50%);
+  padding:0; margin:0; border:0; background:transparent;
+  border-radius:50%;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  appearance:none; -webkit-appearance:none;
 }
-/* Content sits above both layers without needing a z-index. */
-#rider-content{position:relative;}
+.rider-hot:active{transform:translate(-50%,-50%) scale(0.94);}
+@media (prefers-reduced-motion: no-preference){
+  .rider-hot{transition:transform .12s ease;}
+}
+.rider-hot:focus-visible{outline:3px solid #fff;outline-offset:-3px;}
+
+/* ═══ fix189: medallion badges ═══════════════════════════════════════════
+   Cloned from .home-hot::before rather than shared with it, for the same
+   reason .rider-hot is cloned from .home-hot: do NOT generalise the two hub
+   patterns until a SECOND tab has shipped one. Duplicated CSS is the cheaper
+   mistake here (see the .rider-hot comment above).
+   Geometry is identical to home's dot on purpose — upper-right of the painted
+   circle, outside the glyph artwork — so a player who has learned what a dot
+   on the home hub means reads this one the same way without being taught.
+   Only TWO states exist, and both are real:
+     .path-ready   — something in the Path section is waiting on a decision
+     .rider-locked — the medallion is hard-locked right now
+   The base rule is display:none, so a medallion with neither class paints no
+   dot at all and this whole block is inert on a fresh save. */
+.rider-hot::before{
+  content:'';position:absolute;top:8%;right:8%;width:13px;height:13px;
+  border-radius:50%;border:2px solid rgba(10,14,22,.55);
+  display:none;animation:pulse-dot 1s ease-in-out infinite alternate;}
+.rider-hot.path-ready::before,.rider-hot.rider-locked::before{display:block;}
+.rider-hot.path-ready::before{background:var(--amber-txt);}
+/* A lock is a STATE, not an invitation, so it does not pulse — the pulse is
+   this codebase's "act on me" signal and using it for a refusal would be a
+   lie told in animation. Overrides the shared animation above rather than
+   splitting the base rule in two. */
+.rider-hot.rider-locked::before{background:var(--red-txt);animation:none;}
+
+/* Informational pill. Same contract as #home-toast: a single pre-built node,
+   text patched in place, never created per tap. pointer-events:none so it can
+   never swallow the tap that follows it, and no state is written when it
+   shows — this is not a confirm(), not a modal and not a two-tap flow.
+   Positioned at 55% of #rider-art: below the PATH/FORM row (25.5%) and above
+   the ATTRIBUTES/POWER row (65.5%), i.e. over the painted rider on the
+   trainer, so it never covers the medallion that was just tapped. */
+#rider-toast{
+  position:absolute; left:50%; top:55%;
+  transform:translate(-50%,-50%) scale(.9);
+  padding:10px 18px; border-radius:999px;
+  background:rgba(14,20,32,.94);
+  border:1px solid rgba(255,255,255,.22);
+  color:#fff; font-weight:700; font-size:15px;
+  box-shadow:0 6px 20px rgba(0,0,0,.45);
+  pointer-events:none; opacity:0; visibility:hidden;
+  max-width:86%; text-align:center;
+}
+#rider-toast.on{opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1);}
+@media (prefers-reduced-motion: no-preference){
+  #rider-toast{transition:opacity .18s ease, transform .18s ease;}
+}
+
+/* Debug overlay (see riderDebugToggle). Off by default, never persisted.
+   Mirrors #home-stage.home-debug.
+   fix186: the second class is gone. It existed only because #rider-content was
+   lifted above the stage at z-index:81 and covered the hotspots, so a
+   calibration shot needed a way to punch through it. #rider-sheet is
+   display:none on the hub, so the bare art is now what the hub shows by
+   default and there is nothing left to hide.
+   fix186 tombstone:
+     #tab-rider.rider-debug-peek #rider-content{display:none;} */
+#rider-stage.rider-debug .rider-hot{background:rgba(255,0,255,.28);outline:2px solid #ff0;}
+#rider-stage.rider-debug .rider-hot::after{
+  content:attr(data-hot);position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);color:#ff0;font:700 13px/1 monospace;
+}
+
+/* ═══ fix187: live stat slots ════════════════════════════════════════════
+   Closes the cosmetic defect carried from fix184: the painted CASH / FTP /
+   ENERGY row was decorative, so the figures a player read on this hub were
+   whatever the art happened to show and never matched the save. .game-header
+   (lifted to z-index 83 by fix186) is the only other place a real figure
+   appears on this tab, which is exactly why fix188's header hide is gated on
+   this stage landing first.
+
+   NOT the home pattern's "recessed blank slots", and plan §8.1's art regen was
+   NOT needed. This art paints CASH / FTP / ENERGY as LABELS with flat, unlit-to
+   -lightly-lit wall to the right of each one, so the live value drops into the
+   gap AFTER its label and nothing painted is covered. Measured off the shipped
+   640x1422 raster at an ink threshold of L<110:
+
+     label    label ink x%     blank gap x%      slot used x%
+     CASH     20.16-28.44      28.59-47.66       29.38  w 17.66
+     FTP      47.81-53.28      53.44-64.84       54.06  w 10.47
+     ENERGY   71.56-83.75      83.91-96.72       84.53  w 11.88
+
+   Vertical band y194-220 of 1422 = top 13.64%, height 1.83%. That row is chosen
+   because it is the only one with ZERO sub-110 ink in all three gaps at once:
+   the icon shelf above ends at y193, and the RIDER DETAILS banner starts at
+   y222 beneath FTP and ENERGY. The CASH gap alone stays clear down to y233, but
+   a band shared by all three keeps this to one declaration.
+
+   The FTP gap stops at 64.84% and not at the ENERGY label, because a painted
+   mark sits at 65.00-67.19%; the slot ends clear of it.
+
+   Percentages are of the 640x1422 CONTENT box, NOT the 644x1428 source file.
+   The source carries a 4px white pad on the right and 6px on the bottom;
+   measuring against the file would have shifted every slot ~0.6% left.
+
+   TEXT IS DARK HERE, which INVERTS .home-banner-slot — the one place this stops
+   mirroring home. Home's slots sit on a dark plate and use #f2f7ff over a black
+   shadow. These sit on lit wall, median rgb(161,148,145), so the value is
+   painted in the same ink the art uses for the labels: rgb(47,22,21), sampled
+   as the median of 1116 label glyph pixels rather than picked by eye. Contrast
+   against the measured slot background is 5.75:1, clearing WCAG AA for normal
+   text — computed, in the same spirit as the --amber-txt fix kept from fix183.
+   The shadow inverts with it: a light halo, to lift the digits off the wall's
+   own gradient (min L 118 inside the boxes).
+
+   Worst-case string widths were checked against the narrowest box rather than
+   assumed: ENERGY is bounded by MAX_ENERGY_CAP at '150/150' (7 chars) and
+   fmtMoney() tops out at 8 ('£123.45M', '£999,999'). Both clear their slots at
+   the clamp's 9px floor, which is where phones land.
+
+   pointer-events:none, as on home: the row is read-only and a tap falls through
+   to the art, which does nothing between medallions. Nothing here can swallow a
+   medallion tap, so the fix185 hit-box geometry is untouched by this stage.
+
+   NO energy gauge fill. --rider-energy-pct and the ::before that consumes it
+   are fix188's line item, so nothing here writes a custom property and
+   renderRiderBanner() patches textContent only. The inner <span>s carry the ids
+   for that reason too: fix188 can add the gauge in CSS alone, with no markup
+   change and no re-measurement. */
+.rider-slot{
+  position:absolute;
+  top:13.64%; height:1.83%;
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+  pointer-events:none; /* the row is read-only; taps fall through to the art */
+  font-weight:800;
+  font-size:clamp(9px, 2.6cqw, 15px);
+  color:#2F1615;
+  text-shadow:0 1px 1px rgba(255,255,255,.75);
+  letter-spacing:.2px;
+  container-type:inline-size;
+}
+#rider-slot-money  {left:29.38%; width:17.66%;}
+#rider-slot-ftp    {left:54.06%; width:10.47%;}
+#rider-slot-energy {left:84.53%; width:11.88%;}
+
+/* ═══ fix188: ENERGY gauge fill ═══════════════════════════════════════════
+   Supersedes the "NO energy gauge fill" paragraph in the fix187 block above —
+   that was a statement of fix187's scope, and this is the line item it deferred.
+   Deliberately CSS-only plus one custom-property write: the markup, the slot
+   geometry and the three measured left/width values are all untouched, which is
+   exactly what fix187 put the ids on the inner <span>s for.
+
+   Mirrors #home-slot-energy::before: same absolute inset, same
+   calc(var(--…-pct) * 1%) width so the fill animates on a single property write
+   with no innerHTML churn, same reduced-motion guard on the transition.
+
+   TWO deliberate divergences from home, both for the same reason the text
+   colour inverts on this art (see fix187):
+
+   1. No border-radius. Home's slots are rounded 4px plates and the fill has to
+      follow them; .rider-slot has no radius because it sits on flat painted
+      wall, so a rounded fill would read as a floating pill rather than a gauge.
+   2. The green is lighter and weaker — rgba .30/.22 against home's .75/.55.
+      Home fills a DARK plate under light text; this fills LIT wall under the
+      art's own dark ink (#2F1615). Measured against the slot's median wall
+      rgb(161,148,145), the full-alpha fill lands at rgb(139,175,146) and the
+      ink's contrast there is 4.9:1 — still clear of WCAG AA for normal text, so
+      a full gauge can never make the figure it is behind harder to read than an
+      empty one. Home's alphas would have taken it under.
+
+   The <span> is lifted over the fill for the same reason home lifts .home-slot-
+   txt: ::before is a later sibling in paint order and would otherwise wash the
+   digits. Targeted by id rather than by class because these spans carry ids and
+   no class (the fix187 markup), so this needs no markup change either. */
+#rider-slot-energy::before{
+  content:'';position:absolute;inset:0;
+  width:calc(var(--rider-energy-pct,0) * 1%);
+  background:linear-gradient(90deg, rgba(90,200,120,.30), rgba(140,230,150,.22));
+}
+@media (prefers-reduced-motion: no-preference){
+  #rider-slot-energy::before{transition:width .35s ease;}
+}
+#rider-slot-energy #rider-energy{position:relative;}
+
+/* fix187: the slots join the existing calibration overlay, so riderDebugToggle()
+   also shows whether a value box has drifted onto a painted label. Purely
+   additive — the .rider-hot debug rules above are untouched. Cyan rather than
+   the hotspots' magenta so the two layers stay tellable apart in one shot. */
+#rider-stage.rider-debug .rider-slot{background:rgba(0,255,255,.30);outline:1px solid #0ff;}
+
+/* fix186 tombstone: the fix184–fix185 transitional CONTENT lift —
+     #rider-content{position:relative;z-index:81;}
+   Gone with the node it lifted. #rider-sheet carries its own z-index (82) and
+   does not need to be hoisted over the stage by a separate rule.
+
+   The HEADER lift stays, and is raised. It was NOT purely transitional the way
+   the plan's stage list implies: until fix187 puts live CASH / FTP / ENERGY
+   slots on the painted stat row, .game-header is the only place a real figure
+   appears on this tab, and fix188 is explicitly gated on that ("Only safe once
+   fix187 has made the stat row live, or the player loses their live figures").
+   Dropping the lift here would have covered the header with the sheet and lost
+   those figures a stage early, so 81 -> 83 instead: above #rider-sheet's 82 as
+   well as #rider-stage's 80, still below #home-stage's 90 so the home hub keeps
+   covering the header exactly as it always has. fix188 removes this rule when it
+   hides the header on this tab outright. */
+
+/* fix188 tombstone: the fix184–fix187 HEADER lift —
+     .game-header{position:relative;z-index:83;}
+   Retired exactly on the schedule the comment above set out. showTab() now
+   hides .game-header on the Rider tab as well as the hub, so on this tab there
+   is no header left to stack against #rider-stage (80) or #rider-sheet (82),
+   and on every OTHER tab the header is an in-flow strip that nothing overlaps —
+   the lift was only ever there for rider. Removing it rather than leaving it
+   inert matters because it was a GLOBAL rule: a stacking context on the header
+   on nine tabs that do not want one is a latent z-index trap for whatever ships
+   next. Nothing consumes 83, so no other rule needs re-tuning.
+
+   The one live consumer of the header's height, riderSheetSet(), was written in
+   fix186 to detect a hidden header via offsetParent===null and fall back to the
+   safe-area inset. That branch now takes the fallback path on every open, which
+   is why this stage needs no edit there. */
+
+/* ═══ fix186: the section sheet ══════════════════════════════════════════
+   The five #rider-section-* divs are re-parented into this overlay. Their IDS
+   AND THEIR BODIES ARE UNTOUCHED — every renderer looks them up by id and none
+   of them may be edited, which is the whole id contract this stage has to
+   preserve (plan §9, verification item 11).
+
+   z-index 82: above #rider-stage's 80 so the sheet covers the hub and its
+   medallions, below #home-stage's 90 so tapping Home can never leave rider
+   furniture painted over the home hub. Same ordering discipline as fix184.
+
+   display:none rather than an opacity/visibility fade on purpose. It is a HARD
+   lockout: while the sheet is closed it cannot be scrolled, focused or tapped
+   through, and while it is open the stage below is display:none (see the
+   .rider-sheet-open rules) so no medallion can be hit through the overlay.
+   Nothing here is translucent, so there is no state in which both layers are
+   live at once. */
+#rider-sheet{
+  display:none;
+  position:fixed;
+  /* NOT inset:0 — the top edge is its own declaration because .game-header is
+     lifted over this sheet until fix188 and the sheet has to start beneath it,
+     or the back bar sits behind the header and cannot be tapped. The value here
+     is the fallback for when no header is showing (fix188, or the header hidden
+     for any other reason); riderSheetSet() overwrites it with the header's
+     measured height whenever the header is actually on screen. Measured rather
+     than hardcoded to ~52px: updateHeader() rewrites the stat row's contents on
+     every tick and a wrapped value would silently break a magic number. */
+  top:env(safe-area-inset-top, 0px);
+  left:0; right:0; bottom:0;
+  z-index:82;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  /* keeps a rubber-band at the end of the sheet from scrolling the page behind */
+  overscroll-behavior:contain;
+  background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%);
+  padding:0 .75rem calc(env(safe-area-inset-bottom, 0px) + 1.25rem);
+}
+/* One class on #tab-rider drives both layers, so open/closed is a single DOM
+   write and the two can never disagree about which is showing. */
+#tab-rider.rider-sheet-open #rider-sheet{display:block;}
+#tab-rider.rider-sheet-open #rider-stage{display:none;}
+
+/* Sticky back bar. Sticky rather than fixed so it participates in the sheet's
+   own scroll container and needs no height reservation. Opaque --hub-sky (a flat
+   hex, not the gradient) so section content scrolling under it is fully covered. */
+.rider-sheet-bar{
+  position:sticky;
+  top:0;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  /* bleeds to the sheet's edges past its .75rem side padding */
+  margin:0 -.75rem .6rem;
+  /* no safe-area inset here on purpose — #rider-sheet's own top edge already
+     clears the notch (or the header), so adding it again would double-count */
+  padding:.45rem .75rem;
+  background:var(--hub-sky);
+  box-shadow:0 2px 8px rgba(30,25,32,.18);
+}
+.rider-sheet-title{
+  font-size:13px;font-weight:700;color:#123;
+  letter-spacing:.02em;
+}
+
+/* Both controls are styled off .home-back rather than re-inventing a pill: same
+   44px+ tap target, same :active scale, same reduced-motion guard. Declared
+   here rather than by adding .home-back to their class lists, because
+   .game-header .home-back retunes that class for the header strip (fix182) and
+   these two are not in the header. */
+.rider-sheet-back,
+.rider-home{
+  display:flex; align-items:center; gap:6px;
+  min-height:44px; padding:0 14px 0 10px;
+  border:1px solid var(--border); border-radius:999px;
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:700;
+  box-shadow:var(--shadow-md);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.rider-sheet-back:active,
+.rider-home:active{transform:scale(.96);}
+@media (prefers-reduced-motion: no-preference){
+  .rider-sheet-back,
+  .rider-home{transition:transform .12s ease;}
+}
+.rider-sheet-back:focus-visible,
+.rider-home:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
+/* THE §1c CONTROL. Pinned to the VIEWPORT's safe area, deliberately not a
+   hotspot over the painted BACK at (10,8) of the art: that paint is inside the
+   ~10% top band that gets cropped away on anything squarer than ~0.462 aspect,
+   so anything welded to it would exist on some phones and not others. This is
+   the single most important constraint in the plan and this rule is where it is
+   honoured.
+
+   Pinned BOTTOM-left, not top-left, for two reasons. First, .game-header is
+   still lifted over this stage until fix188 (see the z-index note above), and a
+   top-left control would land underneath it — two overlapping pills, one of them
+   unreachable. Second, bottom-left is the better thumb target on a phone. §1c
+   requires the control to be pinned to the VIEWPORT rather than welded to the
+   painted BACK; it does not require any particular corner, and the bottom band
+   crops just as unpredictably as the top, so pinning there is equally compliant.
+
+   Note the deliberate, temporary duplication: the header's shared .home-back is
+   also on screen and also calls showTab('home'). Two routes to the same place is
+   not a defect, and it is what makes fix188 a safe deletion rather than a swap
+   that could strand the player mid-change.
+   z-index 2 lifts it over #rider-art inside the stage's own stacking context. */
+.rider-home{
+  position:fixed;
+  z-index:2;
+  left:calc(env(safe-area-inset-left, 0px) + 12px);
+  bottom:calc(env(safe-area-inset-bottom, 0px) + 14px);
+}
 /* The 200px hero is the single biggest cost against the no-scroll budget —
    at 140px the Form section clears a 390x844 phone with room to spare. */
 #tab-rider.hub-skin .rider-portrait-wrap{
   height:140px;margin-bottom:.5rem;
   border:1.5px solid var(--border2);
 }
-/* Pill nav becomes painted signage: parchment on wood, active pill lit. */
-#tab-rider.hub-skin .gear-nav{
-  gap:6px;margin-bottom:.6rem;
-}
-#tab-rider.hub-skin .gear-nav-btn{
-  background:rgba(248,236,210,.82);border-color:var(--border2);color:var(--txt2);
-  box-shadow:0 2px 0 rgba(90,55,28,.28);
-}
-#tab-rider.hub-skin .gear-nav-btn.active{
-  background:var(--bg);border-color:#8A5A34;color:var(--txt);
-  box-shadow:0 2px 0 #8A5A34;
-}
+/* fix186 tombstone: the pill nav is retired on this tab — the six painted
+   medallions are the navigation now — so the two rules that dressed it as
+   painted signage have nothing left to style. Kept for the audit trail because
+   they are the reference for how a pill is skinned to this palette, should a
+   later stage want one back.
+     #tab-rider.hub-skin .gear-nav{
+       gap:6px;margin-bottom:.6rem;
+     }
+     #tab-rider.hub-skin .gear-nav-btn{
+       background:rgba(248,236,210,.82);border-color:var(--border2);color:var(--txt2);
+       box-shadow:0 2px 0 rgba(90,55,28,.28);
+     }
+     #tab-rider.hub-skin .gear-nav-btn.active{
+       background:var(--bg);border-color:#8A5A34;color:var(--txt);
+       box-shadow:0 2px 0 #8A5A34;
+     }
+   NOTE: .gear-nav-btn itself is NOT tombstoned and must not be — the Save
+   section uses it for Back Up Save / Replay Tutorial, and the Gear tab's own
+   nav still relies on it. Only the #tab-rider-qualified overrides are gone. */
 
 /* ═══ fix54: rider sprite scene (Train tab) ═══ */
 .rider-sprite{width:279px;height:308px;background:var(--sheet-pedal, url(assets/pedal.png)) no-repeat;
@@ -2868,15 +3312,97 @@ body.home-open{overflow:hidden;}
        same number). Class only — showTab() writes .style.display and never
        touches className, so nothing can strip it. -->
   <div id="tab-rider" class="hub-skin" style="display:none">
-    <!-- fix183: painted scene, as two layers plus a content wrapper. #rider-art
-         is the exact cover rect (see CSS) and #rider-scrim is the readability
-         gradient over it; both are first in DOM order so paint order needs no
-         z-index, and both are pointer-events:none so nothing below them loses a
-         tap. Art missing degrades to the fix180 sky gradient, never to a broken
-         tab — the var() fallback is in both the CSS layer and the placeholder. -->
-    <div id="rider-art"></div>
-    <div id="rider-scrim"></div>
-    <div id="rider-content">
+    <!-- fix184: the painted hub stage. #rider-stage is pinned to the viewport and
+         #rider-art inside it is the exact cover rect (see CSS) — every
+         percentage below is a percentage OF #rider-art, i.e. of the 768x1707
+         canvas, never of the viewport, which is what keeps the geometry welded
+         to the painted medallions at any phone aspect.
+
+         fix184 tombstone: fix183's two-layer backdrop read —
+           <div id="rider-art"></div>
+           <div id="rider-scrim"></div>
+         The scrim is gone with the backdrop reading; see the fix184 CSS block.
+
+         fix185 tombstone: the six calibration markers this stage replaces —
+           <div class="rider-cal" data-hot="1" style="--hx:13.0%;--hy:25.5%;…
+           …through data-hot="6" at --hx:85.0%;--hy:77.0%
+         Every coordinate below is byte-identical to the marker it replaces, so
+         the geometry verified with riderDebugToggle() in fix184 is the geometry
+         these buttons ship with.
+
+         Painted but deliberately NOT given a hotspot, because they fall outside
+         the aspect-safe band and would exist on some phones and not others:
+         BACK (10,8), the banner (y8), the stat row (y14.5), PLAY (40,87) and the
+         bottom bar (y88). The SPECIALISATION label at (50, 72.5) is also left
+         un-tapped — it sits between two live rows and is a label, not a
+         medallion.
+
+         Six medallions, five sections: FORM and ATTRIBUTES are separate painted
+         icons but both open 'form', because the Form section already stacks a
+         Performance block AND an Attributes block. That is the deliberate
+         collapse, not an oversight — splitting 'form' into two sections would
+         change RIDER_SECTIONS, which drives renderRiderNav(), renderRiderSection()
+         and the #rider-section-* id contract, and that belongs in its own fix
+         after the hub is proven. -->
+    <div id="rider-stage">
+      <div id="rider-art">
+        <button class="rider-hot" data-hot="1" style="--hx:13.0%;--hy:25.5%;--hw:22%;--hh:9.90%" aria-label="Form" onclick="riderHubGo('form')"></button>
+        <button class="rider-hot" data-hot="2" style="--hx:87.0%;--hy:25.5%;--hw:22%;--hh:9.90%" aria-label="Path" onclick="riderHubGo('path')"></button>
+        <button class="rider-hot" data-hot="3" style="--hx:15.0%;--hy:65.5%;--hw:22%;--hh:9.90%" aria-label="Attributes" onclick="riderHubGo('form')"></button>
+        <button class="rider-hot" data-hot="4" style="--hx:85.0%;--hy:65.5%;--hw:22%;--hh:9.90%" aria-label="Power" onclick="riderHubGo('power')"></button>
+        <button class="rider-hot" data-hot="5" style="--hx:15.0%;--hy:77.0%;--hw:22%;--hh:9.90%" aria-label="Career" onclick="riderHubGo('career')"></button>
+        <button class="rider-hot" data-hot="6" style="--hx:85.0%;--hy:77.0%;--hw:22%;--hh:9.90%" aria-label="Rider build and save" onclick="riderHubGo('save')"></button>
+        <!-- fix187: the painted CASH / FTP / ENERGY row goes live. Each value sits
+             in the blank wall AFTER its painted label, not over a recessed
+             plate — see the .rider-slot CSS for the measurements and for why
+             plan §8.1's art regeneration turned out not to be needed.
+             Ordered after the six hotspots to match the plan's architecture
+             diagram; being pointer-events:none they could sit anywhere without
+             affecting hit testing. Em-dash placeholders exactly as the home
+             banner uses, so no slot ever renders empty in the frame before the
+             first renderRiderBanner(). Ids live on the inner spans so fix188 can
+             add the ENERGY gauge in CSS alone. -->
+        <div class="rider-slot" id="rider-slot-money"><span id="rider-money">&#8212;</span></div>
+        <div class="rider-slot" id="rider-slot-ftp"><span id="rider-ftp">&#8212;</span></div>
+        <div class="rider-slot" id="rider-slot-energy"><span id="rider-energy">&#8212;</span></div>
+        <!-- fix189: the informational pill, mirroring #home-toast. A child of
+             #rider-art rather than of #rider-stage so it is positioned against
+             the cover rect and lands in the same place relative to the painted
+             rider at every aspect, exactly like the hotspots and slots above.
+             Last in the subtree so it paints over them; pointer-events:none in
+             the CSS means that costs nothing in hit testing. Built empty and
+             hidden — riderComingSoon() patches textContent, and no code path
+             ever creates or destroys this node. -->
+        <div id="rider-toast"></div>
+      </div>
+      <!-- fix186, plan §1c: return-to-home as a REAL DOM control pinned to the
+           viewport's safe area — NOT a .rider-hot over the painted BACK at
+           (10,8). That paint sits in the top ~10% band, which cover-crops away
+           on anything squarer than ~0.462 aspect, so a hotspot there would work
+           on a 21:9 phone and silently not exist on an iPhone SE. This button is
+           a sibling of #rider-art, not a child, precisely so it is positioned
+           against the viewport rather than against the cover rect.
+           Reuses showTab('home') — the same one call the shared header's
+           .home-back makes — so there is still exactly one route to the hub and
+           no second history mechanism. -->
+      <button class="rider-home" aria-label="Back to home" onclick="showTab('home')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-home"></use></svg> Home</button>
+    </div>
+    <!-- fix186: #rider-sheet, the section overlay, replacing the transitional
+         #rider-content of fix184–fix185 (its z-index:81 lift is tombstoned in
+         the CSS block). Closed by default: the hub IS the Rider tab now, and a
+         section is something you open on top of it.
+         Every #rider-section-* id below is UNCHANGED and every section body is
+         byte-identical to fix185 — this stage re-parents that markup and edits
+         none of it. -->
+    <div id="rider-sheet">
+      <!-- Back to the medallions. A real control inside the sheet rather than a
+           third history level: opening a section pushes nothing, so the platform
+           back gesture from anywhere in this tab still lands on the home hub,
+           exactly as the fix172 comment promises. See plan §3. -->
+      <div class="rider-sheet-bar">
+        <button class="rider-sheet-back" aria-label="Back to rider hub" onclick="riderHubBack()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Rider</button>
+        <div class="rider-sheet-title" id="rider-sheet-title"></div>
+      </div>
     <!-- fix80: hero portrait with idle sway, jersey colour follows equipped kit
          fix84: wrapper class now lives on the static element itself (matching
          the race-hero-wrap / workshop-hero-wrap pattern) so the 200px sized,
@@ -2890,7 +3416,16 @@ body.home-open{overflow:hidden;}
          the fix162 Race hero, so renderRiderPortrait() has nothing left to
          inject and its body is tombstoned. -->
     <div id="rider-portrait-wrap" class="rider-portrait-wrap"><div class="rider-hero-bg"></div><div class="rider-hero-rider"></div></div>
-    <div class="gear-nav" id="rider-nav"></div>
+    <!-- fix186 tombstone: the fix181 pill nav container —
+           <div class="gear-nav" id="rider-nav"></div>
+         Retired because the six painted medallions on the hub are the navigation
+         now, and shipping both would give the tab two controls that have to be
+         kept in agreement about which section is showing.
+         renderRiderNav() is NOT deleted — its body is tombstoned in the fix163
+         renderRiderPortrait() style so the name still resolves for the handler
+         audit and its two call sites need no edit. It also already began with
+         `if(!nav) return;`, so removing this node would have been safe even
+         without that change. -->
     <!-- fix181: the eight stacked sections below are unchanged in content and
          keep every id their renderers look up — they are simply grouped into
          five wrappers, one shown at a time by renderRiderSection(). -->
@@ -2935,7 +3470,7 @@ body.home-open{overflow:hidden;}
       <button id="delete-btn" class="danger-btn" onclick="confirmReset()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-trash"></use></svg> Delete Save &amp; Start Over</button>
     </div>
     </div><!-- /#rider-section-save -->
-    </div><!-- /#rider-content (fix183) -->
+    </div><!-- /#rider-sheet (fix186; was #rider-content, fix183–fix185) -->
   </div>
   <div id="tab-gear" style="display:none">
     <!-- fix64: idle rider preview so jersey/bike/wheel changes are visible
@@ -5270,6 +5805,13 @@ function updateActivityDots(){
   const t=homeBadgeEl('train'), r=homeBadgeEl('race');
   if(t) t.classList.toggle('session-active',!!state.session.active);
   if(r) r.classList.toggle('race-active',!!state.raceActive);
+  // fix189: APPENDED, not inserted, so the two existing lines above are
+  // byte-unchanged. Hung off this function rather than given its own call sites
+  // because updateActivityDots() is ALREADY invoked at every point where an
+  // attention state can change — race start and finish, session start and
+  // finish, prestige, reset and boot — which is exactly the set the rider dots
+  // need too. One funnel, no second list of call sites to keep in sync.
+  updateRiderBadges();
 }
 
 // How much energy you'll wake up with tomorrow based on today's training load
@@ -8104,11 +8646,50 @@ const LAZY_ASSET_GROUPS = {
   // the habit is worth keeping uniform across both.
   // Deliberately NOT in the cold-start budget with home: Rider is a primary tab
   // but it is not the landing tab, so it pays for itself on first visit.
-  // Recut to the same 768x1707 canvas as home-bg so #rider-art can share
-  // #home-art's sizing arithmetic verbatim; downscaled to 640x1422, q50, 4:2:0
-  // progressive = 109.0 KB (source JPEG was 180 KB). q50 rather than home's q58
-  // because this art is busier — stddev >=54 edge to edge — and q58 came in at
-  // 120.0 KB against a 110 KB budget.
+  // Encoded on the same 640x1422 raster as home-bg.jpg so #rider-art can share
+  // #home-art's 768/1707 arithmetic verbatim: q50, 4:2:0, progressive, EXIF
+  // stripped = 108.5 KB against a 110 KB budget (source JPEG was 154.4 KB at
+  // 644x1428). q50 rather than home's q58 because this art is busier — stddev
+  // >=54 edge to edge — and q58 came in at 119.6 KB.
+  // fix184: the FILENAME is unchanged but the CONTENTS are not — the fix183
+  // mirror-padded recut is superseded by a straight downscale of the source, so
+  // the service worker CACHE_VERSION bump (cim-v3.8.11) is mandatory, not
+  // optional. The padded version duplicated the stat row and the PLAY bar into
+  // its top and bottom bands, which was harmless for a blurred backdrop and is
+  // obviously wrong now that those bands are painted UI.
+  // The q50 encode was checked against q66 at 2x on the ATTRIBUTES /
+  // SPECIALISATION / POWER label band specifically — a risk that does not exist
+  // for a backdrop — and the painted labels are equally legible, so the budget
+  // stands.
+  // fix185b: the CONTENTS change again, filename unchanged, so the SW
+  // CACHE_VERSION bump (cim-v3.8.12) is once more mandatory. fix184's straight
+  // downscale carried the recut's MIRRORED pad bands: the source art is 784x1400
+  // (aspect 0.560) and the 644x1428 (0.451) recut reached that aspect by
+  // reflecting the art outward, giving a 139px band above the content and a
+  // 151px band below. Reflection axes measured at rows 139 and 1276 of the
+  // recut; both bands are now filled FLAT with the room's own wall colour,
+  // rgb(210,199,195) — sampled as the median of ~71k light, low-saturation
+  // pixels in the room region, so it is the painted wall rather than a guess.
+  // Why this matters beyond taste: the mirrored bands duplicated the BACK
+  // button, the banner and the PLAY bar upside-down into the exact top and
+  // bottom zones that §1c says get cropped at squarer aspects. So the one part
+  // of the frame a player might actually see a sliver of was a mirror-image
+  // ghost of the UI. Flat wall colour reads as the room simply continuing.
+  // The geometry is UNTOUCHED: still 640x1422, still aspect 0.4501, the bands
+  // were repainted in place and not resized, so every .rider-hot coordinate
+  // from fix185 is still valid and needs no re-measurement.
+  // RENUMBERED (see the same note in the service worker): this stage first
+  // shipped labelled 'fix186'. It was an unplanned art repair found between
+  // stages, not the rider-hub plan's fix186 — which is the section sheet — and
+  // it took that number by accident. Relabelled fix185b so the file series and
+  // the plan's stage list stay in step. Nothing about the asset changed with
+  // the relabel; only this comment and the service worker's did.
+  // Bonus, and the reason the quality figure below went UP: flat bands compress
+  // far better than reflected detail, so the same 110 KB budget now buys q62
+  // (103.3 KB) where the mirrored version needed q50 to fit. The painted
+  // ATTRIBUTES / SPECIALISATION / POWER labels are strictly sharper than the
+  // encode the q50-vs-q66 legibility check was run against, so that check
+  // stands and does not need repeating.
   rider: {
     '--sheet-rider-scene': 'assets/rider-bg.jpg'
   }
@@ -8186,6 +8767,14 @@ function showTab(name){
   // visible, so its first paint already carries the background-image
   // declaration and the sky placeholder is never seen as a flash.
   if(name==='rider') lazyLoadAssetGroup('rider');
+  // fix186: entering the Rider tab always lands on the HUB, never on whatever
+  // section was open last time. riderSection itself is left alone — it is
+  // transient pill state that renderRiderSection() still needs a value for —
+  // only the sheet's visibility is reset. Sited here beside the lazy-load for
+  // the same reason: before the panel is revealed, so the first paint is already
+  // the hub and no section is flashed. Extends the existing name==='rider'
+  // branch rather than adding a second one.
+  if(name==='rider') riderSheetSet(false);
   // fix88: leaving the workshop tab must never leave a mini-game rAF loop
   // running off-tab (spec guardrail). wsStopGame() is a no-op if nothing's
   // running, so this is safe on every tab switch, not just workshop->other.
@@ -8202,8 +8791,26 @@ function showTab(name){
   // bar, so the HTML header would be a duplicate of furniture already painted.
   // Hidden here rather than inside the panel so there is exactly one place that
   // decides what chrome the hub shows.
+  // fix188: the Rider tab joins the hub in hiding it. Same reasoning, same
+  // single decision point — the rider art paints its own BACK button, its own
+  // RIDER DETAILS banner and its own CASH / FTP / ENERGY row, so the header was
+  // a second copy of furniture already on screen. EXTENDED here rather than
+  // given a second mechanism, per the plan: one expression still decides what
+  // chrome every tab shows.
+  //
+  // Gated on fix187, which is why this is fix188 and not fix184: until the
+  // painted stat row went live, .game-header was the only place on this tab a
+  // real figure appeared, and hiding it earlier would have left the player
+  // reading the art's decorative numbers.
+  //
+  // Covers the section sheet as well as the medallions, not just the hub. The
+  // sheet has its own back bar (fix186) and the sections render their own
+  // figures, so there is nothing the header is still needed for once inside it —
+  // and riderSheetSet() already measures the header's height at open time and
+  // falls back to the safe-area inset when it finds none, so the sheet's top
+  // edge follows this with no edit there.
   const hdrEl=document.querySelector('.game-header');
-  if(hdrEl) hdrEl.style.display = name==='home' ? 'none' : '';
+  if(hdrEl) hdrEl.style.display = (name==='home' || name==='rider') ? 'none' : '';
   document.body.classList.toggle('home-open', name==='home');
   document.querySelectorAll('.main-tab').forEach((btn,i)=>btn.classList.toggle('active',TABS[i]===name));
   // fix173: the collect ritual belongs to the hub. Raised on every hub entry
@@ -8335,6 +8942,250 @@ function renderHomeTab(){
 function homeDebugToggle(){
   const st=document.getElementById('home-stage');
   if(st) st.classList.toggle('home-debug');
+}
+
+// fix184: the same calibration aid for the Rider hub. Outlines the six measured
+// medallion boxes with their indices so they can be checked against the painted
+// medallions on a real device, at several viewport aspects — which is the one
+// guarantee in this feature that has to be MEASURED rather than reasoned about
+// (see the aspect table in the fix184 CSS block).
+// Off by default, no persisted flag, console-reachable: riderDebugToggle().
+// Left dormant rather than deleted once alignment is signed off.
+// fix186: down to one class. The second existed only to punch through the
+// transitional #rider-content, which was lifted above the stage at z-index:81;
+// the hub now shows the bare art by default because #rider-sheet is closed, so
+// there is nothing to peek past. Tombstoned rather than left inert, because a
+// class toggle with no rule behind it is the kind of thing a later reader
+// reasonably assumes still does something.
+// Tombstoned (fix136 form):
+//   const tab=document.getElementById('tab-rider');
+//   if(tab) tab.classList.toggle('rider-debug-peek');
+function riderDebugToggle(){
+  const st=document.getElementById('rider-stage');
+  if(st) st.classList.toggle('rider-debug');
+}
+
+// fix185: what a painted medallion does. Mirrors homeGo()'s shape — one small
+// funnel, every hotspot goes through it, no per-button logic in the markup.
+//
+// Deliberately thin this stage. It routes into the EXISTING stacked section
+// markup via setRiderSection(), which already does everything needed: sets the
+// transient riderSection, re-renders the pill nav so the two navigation routes
+// can never disagree about which section is showing, and calls
+// renderRiderSection(). Nothing here re-implements any of that.
+//
+// Guarded against an unknown section rather than trusting the six call sites:
+// a typo'd name would otherwise hide all five sections at once and leave the
+// player on a blank panel, since renderRiderSection() shows only the branch
+// whose id matches. Hard reject, no fallback to 'form' — silently landing
+// somewhere other than where the player tapped is worse than not moving.
+//
+// fix186: the reveal of #rider-sheet lands here, as promised. Note the ORDER —
+// setRiderSection() first, then open. The section's renderers run while the
+// sheet is still display:none, so the player never sees a frame of the previous
+// section's content before the new one paints.
+function riderHubGo(section){
+  if(RIDER_SECTIONS.indexOf(section) === -1){
+    console.warn('riderHubGo: unknown section', section);
+    return;
+  }
+  // fix189: the hard lockout. Save Data holds Restore From Code and Delete Save
+  // — both of which overwrite state wholesale — and a race in flight keeps live
+  // data in state.raceData that a restore would replace out from under the
+  // running race, leaving the player mid-event in a save that never entered it.
+  // So the section does not open at all while a race is live. Refused HERE, in
+  // the one funnel every medallion goes through, rather than in the markup:
+  // the button stays a plain hotspot, and any future route to 'save' inherits
+  // the same guard without being edited.
+  //
+  // A refusal, not a confirm() and not a two-tap arm — there is no "yes anyway"
+  // path, which is the point. The player is told why and loses nothing: the
+  // race finishes on its own and the medallion unlocks itself.
+  if(section === 'save' && riderSaveLocked()){
+    riderComingSoon('Save Data is locked during a race');
+    return;
+  }
+  setRiderSection(section);
+  riderSheetSet(true);
+}
+
+// fix186: back from a section to the medallions. Deliberately NOT history.back()
+// — opening a section pushed nothing (plan §3), so there is no entry to unwind
+// and calling back() here would exit the tab entirely.
+function riderHubBack(){
+  riderSheetSet(false);
+}
+
+// ═══ fix189: the informational pill ══════════════════════════════════════
+// Shaped exactly like homeComingSoon()/homeHideToast() so there is one pill
+// pattern in this codebase and not two. Deliberately NOT calling the home pair:
+// they resolve '#home-toast', which lives inside #home-art and is not on screen
+// while the rider hub is, so a shared call would show the message on a hidden
+// node. Two nodes, two timers, identical shapes.
+//
+// The text is passed in whole rather than having ' — coming soon' appended the
+// way homeComingSoon() does, because the only caller today is a lockout, not an
+// unbuilt feature, and a locked medallion is emphatically not "coming soon" —
+// it is coming back the moment the race ends. The name is kept for the plan's
+// audit contract (§6).
+//
+// Informational only: no confirm(), no modal, no two-tap flow, no state written.
+let _riderToastTimer=null;
+function riderComingSoon(msg){
+  const el=document.getElementById('rider-toast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('on');
+  if(_riderToastTimer) clearTimeout(_riderToastTimer);
+  _riderToastTimer=setTimeout(riderHideToast, 1800);
+}
+function riderHideToast(){
+  if(_riderToastTimer){ clearTimeout(_riderToastTimer); _riderToastTimer=null; }
+  const el=document.getElementById('rider-toast');
+  if(el) el.classList.remove('on');
+}
+
+// ═══ fix189: medallion badges ════════════════════════════════════════════
+// Generalises the fix171 HOME_BADGE_HOT pattern: a map from meaning to the
+// data-hot index that carries it, one resolver, one toggler. It ports cleanly,
+// so per the plan it ships; the parts of home's version that did NOT port —
+// five colours, five call sites — simply have no rider equivalent yet and are
+// not invented here.
+//
+// Only medallions with a REAL signal appear in this map. FORM, ATTRIBUTES,
+// POWER and CAREER have no state that is waiting on the player, so they carry
+// no entry and paint no dot. A dot that is always on teaches players to ignore
+// dots.
+const RIDER_BADGE_HOT = { path:2, save:6 };
+function riderBadgeEl(key){
+  return document.querySelector('#rider-art .rider-hot[data-hot="' + RIDER_BADGE_HOT[key] + '"]');
+}
+
+// Single source of truth for the lockout, read by BOTH the guard in
+// riderHubGo() and the dot below, so the badge can never claim locked while the
+// funnel lets you in, or the reverse.
+function riderSaveLocked(){ return !!state.raceActive; }
+
+// Is anything in the Path section waiting on a decision? Two conditions, and
+// both are things the player must actively choose — not things that merely
+// changed:
+//   1. a season is bankable (prestige threshold met), or
+//   2. a specialisation is affordable and none has been picked yet.
+// Read-only. Mirrors renderPrestige()'s and renderSpecialisation()'s own tests
+// rather than calling them, for the renderHomeBanner()/updateHeader() reason:
+// those two write DOM, and this runs from updateActivityDots() on paths where
+// the Rider tab is not showing at all.
+function riderPathReady(){
+  if(state.seasonMoney >= prestigeThreshold()) return true;
+  if(state.specialisation) return false;
+  return SPECIALISATIONS.some(s =>
+    Object.entries(s.requirements).every(([a,l]) => (state.attributes[a]?.level||0) >= l));
+}
+
+// Guarded on every lookup, exactly as updateActivityDots() had to be after
+// fix171 retired the tab bar: this runs at boot and from tick paths, and an
+// unguarded .classList on a null node takes the whole app down. Cheap enough to
+// run unconditionally — two querySelectors and two toggle()s with explicit
+// second arguments, so repeated calls are idempotent no-ops.
+function updateRiderBadges(){
+  const p=riderBadgeEl('path'), s=riderBadgeEl('save');
+  if(p) p.classList.toggle('path-ready', riderPathReady());
+  if(s) s.classList.toggle('rider-locked', riderSaveLocked());
+}
+
+// fix186: THE single funnel for whether the sheet is showing. Every open and
+// every close goes through here, so the stage and the sheet can never both be
+// live: one class on #tab-rider drives `#rider-sheet{display:block}` and
+// `#rider-stage{display:none}` together, in one DOM write.
+//
+// That mutual exclusion is the hard lockout. With the stage display:none there
+// is no medallion to hit through the overlay and no 108 KB cover rect being
+// composited under a scrolling sheet; with the sheet display:none it cannot be
+// scrolled or focus-trapped from the hub. There is no partial state.
+//
+// Idempotent, and safe to call when the Rider tab is not showing — toggle() with
+// an explicit second argument sets rather than flips, so repeated calls with the
+// same value are no-ops and a stray call can never invert the sheet.
+function riderSheetSet(open){
+  const tab=document.getElementById('tab-rider');
+  if(tab) tab.classList.toggle('rider-sheet-open', !!open);
+  // .game-header is lifted above this sheet until fix188, so the sheet's top
+  // edge has to clear it or the back bar is unreachable behind it. Measured, not
+  // hardcoded: updateHeader() rewrites the stat row every tick and a wrapped
+  // value would break a magic number silently.
+  // Cleared to '' on close so the CSS fallback (safe-area inset) takes over
+  // again, which means the day fix188 hides the header this whole branch simply
+  // stops finding one and the fallback is already correct — no edit needed here.
+  const sheet=document.getElementById('rider-sheet');
+  if(!sheet) return;
+  if(!open){ sheet.style.top=''; return; }
+  const hdr=document.querySelector('.game-header');
+  // offsetParent is null for a display:none element, which is how a hidden
+  // header is detected without reading computed styles.
+  const h = (hdr && hdr.offsetParent!==null) ? Math.round(hdr.getBoundingClientRect().height) : 0;
+  sheet.style.top = h>0 ? h+'px' : '';
+}
+
+// fix187: the painted stat row goes live. MIRRORS updateHeader() — it does not
+// call it, and updateHeader() is NOT modified, so the two read the same four
+// sources (fmtMoney(state.money), getRiderStats().ftp, Math.floor(state.energy),
+// and Math.max(state.maxEnergy, e)) and cannot disagree. Shaped exactly like
+// renderHomeBanner() so there is one banner pattern in this codebase and not
+// two: node refs cached once, a value signature in front of every write so a
+// tick that changes nothing touches no DOM at all, and textContent only —
+// never innerHTML.
+//
+// Render-only, per the house rule for this section: nothing here writes to
+// state, and saveGame()'s payload is unchanged by this fix.
+//
+// Early-returns on currentTab and deliberately NOT on whether the sheet is
+// open. riderHubBack() closes the sheet without re-rendering, so a sheet-open
+// guard would leave stale figures on the hub for up to a tick after returning
+// to it. The cost of not guarding is three textContent writes behind the
+// signature while the stage is display:none, which is nothing.
+//
+// The ref block resolves all three nodes before caching and bails if any is
+// missing, rather than caching a partial set — otherwise a single absent span
+// would be latched forever and the other two would silently stop updating.
+//
+// No custom property is written here. The ENERGY gauge fill is fix188's line
+// item (--rider-energy-pct), so this stage cannot regress it.
+let _riderBannerNodes=null, _riderBannerSig='';
+function renderRiderBanner(){
+  if(currentTab!=='rider') return;
+  if(!_riderBannerNodes){
+    // fix188: the slot DIV joins the three value spans in the ref block. It is
+    // resolved and checked with them, not lazily later, for the reason the
+    // paragraph above gives — caching a partial set latches a missing node
+    // forever. Four required now instead of three.
+    const m=document.getElementById('rider-money'),
+          f=document.getElementById('rider-ftp'),
+          e=document.getElementById('rider-energy'),
+          slot=document.getElementById('rider-slot-energy');
+    if(!m||!f||!e||!slot) return;
+    _riderBannerNodes={money:m, ftp:f, energy:e, slot:slot};
+  }
+  const n=_riderBannerNodes;
+  const rs=getRiderStats();
+  const en=Math.floor(state.energy);
+  const max=Math.max(state.maxEnergy, en);
+  const money=fmtMoney(state.money);
+  const sig=money+'|'+rs.ftp+'|'+en+'/'+max;
+  if(sig===_riderBannerSig) return;
+  _riderBannerSig=sig;
+  n.money.textContent  = money;
+  n.ftp.textContent    = rs.ftp;
+  n.energy.textContent = en + '/' + max;
+  // fix188: bare number 0-100, consumed by calc(var(--rider-energy-pct) * 1%)
+  // in the CSS, so the gauge moves on a custom-property write and its width
+  // transition is never restarted by a DOM swap. Identical in shape and in
+  // guard to renderHomeBanner()'s line, including the max>0 divide guard — one
+  // banner pattern in this codebase, not two.
+  //
+  // Sits INSIDE the signature guard on purpose: the percentage is derived from
+  // en and max, both of which are already in the signature, so a tick that
+  // clears the guard cannot have changed the fill either.
+  n.slot.style.setProperty('--rider-energy-pct', max>0 ? (en/max*100).toFixed(1) : '0');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -10759,12 +11610,28 @@ function renderRaceHistory(){
 let riderSection='form';
 const RIDER_SECTIONS=['form','power','path','career','save'];
 
+// fix186: section display names, promoted out of renderRiderNav()'s local
+// `labels` before that body was tombstoned. Plain text, no icn() calls: the only
+// consumer is the sheet bar's title, which is written with textContent and would
+// show markup as literal characters. The medallions carry the iconography now —
+// they are painted into the art itself.
+const RIDER_SECTION_LABELS={form:'Form & Attributes',power:'Power',
+  path:'Path',career:'Career',save:'Save Data'};
+
+// fix186: body tombstoned, signature kept — exactly the fix163
+// renderRiderPortrait() treatment. The pill nav container it wrote into is
+// tombstoned in the markup, the six painted medallions are the navigation now,
+// and keeping the name means renderRiderTab() and setRiderSection() need no edit
+// and the handler audit still resolves. It already began with `if(!nav) return;`
+// so it was a no-op the moment the node went, but an empty body says so out loud
+// instead of leaving a reader to discover it.
+// Tombstoned (fix136 form):
+//   const nav=document.getElementById('rider-nav'); if(!nav) return;
+//   const labels={form:`${icn('muscle')} Form`,power:`${icn('chart-up')} Power`,
+//     path:`${icn('mountain')} Path`,career:`${icn('trophy')} Career`,
+//     save:`${icn('clipboard')} Save`};
+//   nav.innerHTML=RIDER_SECTIONS.map(s=>`<button class="gear-nav-btn${riderSection===s?' active':''}" onclick="setRiderSection('${s}')">${labels[s]}</button>`).join('');
 function renderRiderNav(){
-  const nav=document.getElementById('rider-nav'); if(!nav) return;
-  const labels={form:`${icn('muscle')} Form`,power:`${icn('chart-up')} Power`,
-    path:`${icn('mountain')} Path`,career:`${icn('trophy')} Career`,
-    save:`${icn('clipboard')} Save`};
-  nav.innerHTML=RIDER_SECTIONS.map(s=>`<button class="gear-nav-btn${riderSection===s?' active':''}" onclick="setRiderSection('${s}')">${labels[s]}</button>`).join('');
 }
 
 // Renders only the section being shown. Each branch calls the same renderers as
@@ -10785,9 +11652,25 @@ function setRiderSection(s){
   riderSection=s;
   renderRiderNav();
   renderRiderSection();
+  // fix186: with the pill nav retired, nothing on screen named the open section
+  // any more — the medallion that got you here is behind the sheet. The bar
+  // title replaces that orientation cue. textContent only, never innerHTML, and
+  // guarded on the node so this is safe before first paint.
+  const ttl=document.getElementById('rider-sheet-title');
+  if(ttl) ttl.textContent = RIDER_SECTION_LABELS[s] || '';
 }
 
-function renderRiderTab(){ renderRiderPortrait(); renderRiderNav(); renderRiderSection(); }
+// fix187: renderRiderBanner() APPENDED, not inserted, so the existing three
+// calls keep their order — renderRiderSection() is the one that paints into the
+// #rider-section-* ids and must still run last relative to the nav.
+// Safe to call unconditionally: it early-returns off-tab and behind its own
+// value signature, so adding it here costs nothing on a no-change re-render.
+// fix189: updateRiderBadges() APPENDED for the same reason renderRiderBanner()
+// was in fix187 — the three original calls keep their order and their bodies.
+// Needed here as well as in updateActivityDots() because riderPathReady()'s
+// money and attribute inputs drift on the tick, which does not touch the dot
+// funnel; opening or re-rendering the tab is the moment that has to be right.
+function renderRiderTab(){ renderRiderPortrait(); renderRiderNav(); renderRiderSection(); renderRiderBanner(); updateRiderBadges(); }
 // fix80: static hero portrait for the Rider tab. Renders once (idempotent —
 // checks firstChild like renderRiderScene does) since the art itself never
 // changes shape, only its jersey colour via the shared --sheet-portrait var.
@@ -15003,7 +15886,14 @@ function gameTick(){
     // fix170: the hub banner mirrors updateHeader(), so it refreshes wherever
     // updateHeader() does. renderHomeBanner() early-returns off-hub, so this
     // costs one comparison per regen tick on every other tab.
-    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); }
+    // fix187: the Rider hub's stat row mirrors updateHeader() too, and energy is
+    // the one figure that moves with no player action at all — without this the
+    // slots would sit frozen for as long as a player rests on the hub, which is
+    // the exact defect this stage exists to close. renderRiderBanner()
+    // early-returns off-tab on the same pattern, so the added cost off-Rider is
+    // one more comparison. Appended after renderHomeBanner(); the two are
+    // independent and each guards its own tab, so order is not load-bearing.
+    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); renderRiderBanner(); }
   }
   if(state.session.active){
     const t=TRAINING.find(t=>t.id===state.session.typeId);
