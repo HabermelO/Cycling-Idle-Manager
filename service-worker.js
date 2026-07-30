@@ -96,7 +96,15 @@
 // changes between fixes. Skip it and installed PWAs keep the fix188 shell,
 // which means the Save Data section stays reachable mid-race — the one thing
 // this stage exists to prevent — while the file series says it was fixed.
-const CACHE_VERSION = 'cim-v3.8.16';   // fix189: rider hub polish (badges, pill, save lockout)
+// const CACHE_VERSION = 'cim-v3.8.16';   // fix189: rider hub polish (badges, pill, save lockout)
+// fix197 — Lifetime Goals expansion. No asset byte changed, and the bump is
+// mandatory all the same, for the reason fix186 spells out above: './index.html'
+// is in STATIC_ASSETS and the deployed HTML filename never changes between
+// fixes. Skip it and every installed PWA keeps serving the fix189 shell, which
+// on this stage means ten new goal tracks that exist in the file and never
+// appear on the Growth tab, plus save files still being written without the new
+// counters — so the counters read zero even after the shell finally updates.
+const CACHE_VERSION = 'cim-v3.8.17';   // fix197: lifetime goals expansion + perfect season capstone
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
