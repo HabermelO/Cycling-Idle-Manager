@@ -408,6 +408,10 @@ button{font-family:inherit;cursor:pointer;}
    retired they move onto the matching hub icon — same five states, same pulse,
    same colours, just parented to a transparent hotspot instead of a button.
    Sat at the upper-right of the painted circle, outside the glyph artwork. */
+/* tombstone (fix194): the flat opacity pulse below is replaced by the shine
+   treatment that follows. Retired, not deleted, per house style. The five
+   state classes and their colours are UNCHANGED — fix194 is CSS-only and no
+   JS touches these class names.
 .home-hot::before{
   content:'';position:absolute;top:8%;right:8%;width:13px;height:13px;
   border-radius:50%;border:2px solid rgba(10,14,22,.55);
@@ -420,6 +424,74 @@ button{font-family:inherit;cursor:pointer;}
 .home-hot.growth-ready::before{background:var(--amber-txt);}
 .home-hot.sponsor-ready::before{background:var(--green-txt);}
 .home-hot.calendar-ready::before{background:var(--purple-txt);}
+*/
+/* fix194 — shine/sparkle attention indicator.
+   The five state classes now set ONE custom property, --hot-c, and both
+   pseudo-elements read it. That keeps the colour list identical to the
+   retired rule above while letting the glow and the sparkle tint themselves
+   without five more rules each.
+   Cost discipline: this animates permanently on up to five hotspots on a
+   phone, so both keyframe tracks touch transform and opacity ONLY. The
+   box-shadow glow is declared once, statically, and is never animated —
+   animating a shadow's blur/spread repaints on every frame and is the exact
+   thing that would cook a mid-range battery here. */
+.home-hot::before{
+  content:'';position:absolute;top:8%;right:8%;width:13px;height:13px;
+  border-radius:50%;border:2px solid rgba(10,14,22,.55);
+  display:none;
+  background:radial-gradient(circle at 32% 30%,
+    rgba(255,255,255,.92) 0%, rgba(255,255,255,.35) 26%,
+    var(--hot-c,var(--blue-txt)) 58%, var(--hot-c,var(--blue-txt)) 100%);
+  box-shadow:0 0 7px 1px var(--hot-c,var(--blue-txt));
+  will-change:transform;}
+/* The sweeping sparkle. Sized off the dot, clipped to it, and slid across by
+   translate alone. Scoped to the state classes rather than the bare .home-hot
+   so an unlit hotspot generates no pseudo-element and no compositor layer.
+   Note: under the #home-stage.home-debug overlay further down, that rule's ID
+   specificity re-centres this pseudo behind the yellow hotspot number. Dev
+   toggle only, never persisted, so it is left alone rather than special-cased
+   from here. */
+.home-hot.session-active::before,.home-hot.race-active::before,
+.home-hot.growth-ready::before,.home-hot.sponsor-ready::before,
+.home-hot.calendar-ready::before{display:block;}
+.home-hot.session-active::after,.home-hot.race-active::after,
+.home-hot.growth-ready::after,.home-hot.sponsor-ready::after,
+.home-hot.calendar-ready::after{
+  content:'';position:absolute;top:8%;right:8%;width:13px;height:13px;
+  border-radius:50%;overflow:hidden;pointer-events:none;
+  background:linear-gradient(105deg,
+    rgba(255,255,255,0) 38%, rgba(255,255,255,.85) 50%,
+    rgba(255,255,255,0) 62%);
+  opacity:0;will-change:transform,opacity;}
+.home-hot.session-active{--hot-c:var(--blue-txt);}
+.home-hot.race-active{--hot-c:var(--red-txt);}
+.home-hot.growth-ready{--hot-c:var(--amber-txt);}
+.home-hot.sponsor-ready{--hot-c:var(--green-txt);}
+.home-hot.calendar-ready{--hot-c:var(--purple-txt);}
+@keyframes hot-breathe{
+  0%,100%{transform:scale(.86);opacity:.72;}
+  50%{transform:scale(1.06);opacity:1;}
+}
+@keyframes hot-sparkle{
+  0%{transform:translateX(-140%);opacity:0;}
+  8%{opacity:1;}
+  34%{transform:translateX(140%);opacity:0;}
+  100%{transform:translateX(140%);opacity:0;}
+}
+@media (prefers-reduced-motion: no-preference){
+  .home-hot::before{animation:hot-breathe 1.8s ease-in-out infinite;}
+  .home-hot.session-active::after,.home-hot.race-active::after,
+  .home-hot.growth-ready::after,.home-hot.sponsor-ready::after,
+  .home-hot.calendar-ready::after{animation:hot-sparkle 3.4s ease-in-out infinite;}
+}
+/* Reduced-motion fallback: the static dot, exactly as the retired rule left
+   it — full opacity, no scale, and no sparkle element drawn at all. */
+@media (prefers-reduced-motion: reduce){
+  .home-hot::before{animation:none;transform:none;opacity:1;}
+  .home-hot.session-active::after,.home-hot.race-active::after,
+  .home-hot.growth-ready::after,.home-hot.sponsor-ready::after,
+  .home-hot.calendar-ready::after{display:none;}
+}
 .section-lbl{font-size:11px;font-weight:600;color:var(--txt3);
   text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem;padding:0 2px;}
 .energy-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);
@@ -1600,9 +1672,12 @@ button{font-family:inherit;cursor:pointer;}
   border:none;border-radius:50%;background:var(--bg3,rgba(120,120,120,.15));color:var(--txt2);
   font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .info-close:active{opacity:.8;}
-#info-card-title{font-size:15px;font-weight:800;color:var(--txt);margin:0 1.75rem 8px 0;letter-spacing:-.01em;}
-#info-card-body{font-size:13px;color:var(--txt2);line-height:1.55;}
-#info-card-body b,#info-card-body strong{color:var(--txt);}
+/* fix192: #ws-cap-title / #ws-cap-body join these selectors rather than reusing
+   the info sheet's ids, which would have been a duplicate-id document and would
+   have let openInfo overwrite the cap modal's ticking countdown node. */
+#info-card-title,#ws-cap-title{font-size:15px;font-weight:800;color:var(--txt);margin:0 1.75rem 8px 0;letter-spacing:-.01em;}
+#info-card-body,#ws-cap-body{font-size:13px;color:var(--txt2);line-height:1.55;}
+#info-card-body b,#info-card-body strong,#ws-cap-body b,#ws-cap-body strong{color:var(--txt);}
 .info-btn{display:inline-flex;align-items:center;justify-content:center;
   width:28px;height:28px;min-width:28px;min-height:28px;margin:-4px -4px -4px 0;
   border:none;background:transparent;color:var(--txt3);font-size:13px;font-weight:700;
@@ -5067,6 +5142,222 @@ const GC_BONUS_BY_TOUR = {
   vuelta_espana: [65000, 25000, 9000,3200],
 };
 
+// ═══ fix198: Grand Tour GC leaderboard — MODEL ONLY ═══════════════════════
+// A Grand Tour has always been scored in a vacuum: you accumulated gcPoints and
+// only found out at the end which GC_TIERS band that landed in. This gives the
+// tour a visible field to be racing AGAINST, stage by stage. This fix is the
+// model; the standings card and modal are fix199's line item and NOTHING here
+// renders, so shipping this alone is invisible but save-compatible.
+//
+// PERSISTED ON tp (state.calendar.tourProgress[tourId].gcField), not derived:
+// a rival's running total has to survive a reload, and recomputing it from a
+// seed on every read would put a roll inside a render path. Written in exactly
+// two places — signUpForCalendarEvent (creation) and completeRace (scoring) —
+// both already mutation paths that saveGame() immediately after.
+const GC_FIELD_SIZE = 15;
+
+// gcFieldNames(n) — n distinct rider names, never state.rival.name.
+// RIVAL_NAMES only holds 10, so nine survive the rival exclusion and we are
+// six short of the field. Rather than introduce a second name list to keep in
+// sync, the shortfall is filled by recombining the existing first names with
+// the existing surnames — same cultural mix, no new data, and any recombination
+// that happens to reproduce a canonical name (or the rival) is dropped rather
+// than shown twice on the board.
+function gcFieldNames(n){
+  const rivalName = (state.rival && state.rival.name) || '';
+  const canon = RIVAL_NAMES.filter(x=>x!==rivalName);
+  const firsts = RIVAL_NAMES.map(x=>x.split(' ')[0]);
+  const lasts  = RIVAL_NAMES.map(x=>x.split(' ').slice(1).join(' '));
+  const extras = [];
+  for(let i=0;i<firsts.length;i++){
+    for(let j=0;j<lasts.length;j++){
+      if(i===j) continue;                       // that IS the canonical name
+      const nm = firsts[i]+' '+lasts[j];
+      if(nm===rivalName || RIVAL_NAMES.includes(nm)) continue;
+      extras.push(nm);
+    }
+  }
+  // Surname reuse cap. The recombination is free to hand out five riders called
+  // Voss, which reads as a generator bug on a board the player stares at for
+  // five stages. Each surname already appears once among the canonical names,
+  // so extras allow it at most once more.
+  const used = {};
+  canon.forEach(nm=>{ const s=nm.split(' ').slice(1).join(' '); used[s]=(used[s]||0)+1; });
+  const picked = [];
+  extras.sort(()=>Math.random()-0.5).forEach(nm=>{
+    const s = nm.split(' ').slice(1).join(' ');
+    if((used[s]||0) >= 2) return;
+    used[s] = (used[s]||0)+1;
+    picked.push(nm);
+  });
+  const pool = [...canon, ...picked];
+  return pool.slice(0, n);
+}
+
+// makeGcField() — the field as it exists at signup. strength is hidden from the
+// player and never shown; it only biases the per-stage roll below. Spread 0.15
+// to 0.95 so the board has a clear favourite and a clear tail rather than
+// fifteen riders indistinguishable from each other.
+function makeGcField(){
+  return gcFieldNames(GC_FIELD_SIZE).map(name=>({
+    name, strength: 0.15 + Math.random()*0.80, gcPoints: 0,
+  }));
+}
+
+// gcNormaliseField(raw) — tolerant per-entry normaliser, THE tourProgress
+// LESSON applied one level deeper: a save can carry a tp that predates gcField
+// entirely, or (from a future edit) entries missing a sub-key. Guarding gcField
+// at the top level alone would leave a half-formed entry to crash the sort in
+// gcStandings, so every sub-key gets its own default.
+function gcNormaliseField(raw){
+  if(!Array.isArray(raw)) return [];
+  return raw.filter(r=>r && typeof r==='object').map(r=>({
+    name: typeof r.name==='string' ? r.name : 'Unknown Rider',
+    strength: (typeof r.strength==='number' && isFinite(r.strength)) ? r.strength : 0.5,
+    gcPoints: (typeof r.gcPoints==='number' && isFinite(r.gcPoints)) ? r.gcPoints : 0,
+  }));
+}
+
+// gcEnsureField(tp) — lazy generation for a tour that was already underway when
+// this build landed. MUTATES, so it is only ever called from the two mutation
+// paths; a render path must call gcStandings(), which tolerates an empty field
+// and never generates one. Returns the field for convenience.
+function gcEnsureField(tp){
+  if(!tp) return [];
+  tp.gcField = gcNormaliseField(tp.gcField);
+  if(tp.gcField.length===0) tp.gcField = makeGcField();
+  return tp.gcField;
+}
+
+// gcScoreStageForField(tp, stage) — one stage's GC points for every rival.
+// Ranked, not rolled independently: each rival gets a score of strength plus
+// noise, the field is sorted, and the stage's own gcPoints table is handed down
+// the order. That keeps the points scarce in the way the table intends (six
+// scoring places, the rest zero) instead of letting all fifteen podium at once,
+// and it means a strong rival still has bad days.
+//
+// The player is NOT in this sort — their gcPoints come from their real result
+// and are merged only at read time in gcStandings, so a rival can never take
+// points off the player or vice versa.
+function gcScoreStageForField(tp, stage){
+  const field = gcEnsureField(tp);
+  const table = (stage && Array.isArray(stage.gcPoints)) ? stage.gcPoints : [];
+  if(field.length===0 || table.length===0) return;
+  const order = field
+    .map(r=>({ r, roll: r.strength*0.75 + Math.random()*0.55 }))
+    .sort((a,b)=>b.roll-a.roll);
+  order.forEach((entry, i)=>{
+    entry.r.gcPoints += (i<table.length ? table[i] : 0);
+  });
+}
+
+// gcStandings(tourId) — PURE READ. Builds the merged board (field + you) sorted
+// on GC points, with the leader's total attached for the gap column fix199
+// wants. Never writes, never generates: a tour whose field has not been created
+// yet simply returns a one-row board with the player on it.
+function gcStandings(tourId){
+  const tp = state.calendar && state.calendar.tourProgress && state.calendar.tourProgress[tourId];
+  if(!tp) return { rows: [], leaderPoints: 0 };
+  const yours = (typeof tp.gcPoints==='number' && isFinite(tp.gcPoints)) ? tp.gcPoints : 0;
+  const rows = gcNormaliseField(tp.gcField)
+    .map(r=>({ name:r.name, gcPoints:r.gcPoints, isYou:false }))
+    .concat([{ name:'You', gcPoints:yours, isYou:true }])
+    // Ties break in the player's favour — the board is a progress signal, and
+    // being shown 8th on equal points reads as a bug to the person playing.
+    .sort((a,b)=> (b.gcPoints-a.gcPoints) || (b.isYou-a.isYou));
+  rows.forEach((r,i)=>{ r.pos = i+1; });
+  return { rows, leaderPoints: rows.length ? rows[0].gcPoints : 0 };
+}
+
+// ═══ fix199: Grand Tour GC leaderboard — UI ═══════════════════════════════
+// Everything below is READ-ONLY. gcStandings() is already pure and, unlike
+// gcEnsureField(), never generates a field — so opening this modal on a tour
+// that predates fix198 shows a one-row board with you on it rather than
+// silently writing fifteen rivals into the save from a render path. The field
+// appears on that tour's next stage, which is the only place allowed to make it.
+//
+// Separate overlay from #info-overlay for the same reason fix192's cap modal is
+// separate: this body is rebuilt from live tour state on open, and openInfo
+// re-renders #info-card-body wholesale from a body() thunk. Sharing the element
+// would let an info tap blank the board underneath the player. No confirm();
+// dismiss is backdrop tap or ✕, matching the info sheet.
+
+// gcTierProgress(points) — the band you are in and what the next one costs.
+// GC_TIERS is ordered best-first, so the next band up is the PREVIOUS index.
+// At the top band there is nothing above, and next comes back null.
+function gcTierProgress(points){
+  const pts = (typeof points==='number' && isFinite(points)) ? points : 0;
+  let idx = GC_TIERS.findIndex(t=>pts>=t.minPoints);
+  if(idx < 0) idx = GC_TIERS.length-1;              // guard: below every floor
+  const current = GC_TIERS[idx];
+  const next = idx > 0 ? GC_TIERS[idx-1] : null;
+  return { current, next, toNext: next ? Math.max(0, next.minPoints-pts) : 0 };
+}
+
+function gcStandingsBodyHtml(tourId){
+  const ev = CALENDAR_EVENTS.find(e=>e.id===tourId);
+  const stages = GRAND_TOUR_STAGES[tourId] || [];
+  const tp = state.calendar && state.calendar.tourProgress && state.calendar.tourProgress[tourId];
+  if(!ev || !tp) return `<div style="color:var(--txt2)">No tour in progress.</div>`;
+
+  const { rows, leaderPoints } = gcStandings(tourId);
+  const yours = (typeof tp.gcPoints==='number' && isFinite(tp.gcPoints)) ? tp.gcPoints : 0;
+  const band = gcTierProgress(yours);
+
+  const boardHtml = rows.map(r=>{
+    const gap = leaderPoints - r.gcPoints;
+    const gapTxt = gap<=0 ? '—' : `-${gap}`;
+    return `<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .45rem;border-radius:6px;${r.isYou?'background:var(--amber-bg);color:var(--amber-txt);font-weight:800':''}">
+      <span style="min-width:1.6em;text-align:right;opacity:.75">${r.pos}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</span>
+      <span style="min-width:3.2em;text-align:right">${r.gcPoints}</span>
+      <span style="min-width:2.8em;text-align:right;opacity:.7;font-size:11px">${gapTxt}</span>
+    </div>`;
+  }).join('');
+
+  const results = Array.isArray(tp.stageResults) ? tp.stageResults : [];
+  const stagesHtml = results.length===0
+    ? `<div style="color:var(--txt2);font-size:12px">No stages raced yet.</div>`
+    : results.map(r=>{
+        const st = stages[r.stageIndex];
+        const nm = st ? `${st.place}` : `Stage ${(r.stageIndex||0)+1}`;
+        return `<div style="display:flex;gap:.5rem;padding:.2rem 0;font-size:12px">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">S${(r.stageIndex||0)+1} · ${nm}</span>
+          <span style="min-width:3.5em;text-align:right;opacity:.8">P${r.position}</span>
+          <span style="min-width:4em;text-align:right">+${r.gcPoints||0} pts</span>
+        </div>`;
+      }).join('');
+
+  const bandHtml = band.next
+    ? `You are <strong>${band.current.label}</strong> — <strong>${band.toNext}</strong> more GC point${band.toNext===1?'':'s'} for ${band.next.label}.`
+    : `You are <strong>${band.current.label}</strong> — the top band. Hold it to the finish.`;
+
+  return `<div style="font-size:12px;color:var(--txt2);margin-bottom:.35rem">${ev.name} · ${results.length}/${stages.length} stages</div>
+    <div style="display:flex;gap:.5rem;padding:0 .45rem .2rem;font-size:11px;color:var(--txt2)">
+      <span style="min-width:1.6em;text-align:right">#</span>
+      <span style="flex:1">Rider</span>
+      <span style="min-width:3.2em;text-align:right">Pts</span>
+      <span style="min-width:2.8em;text-align:right">Gap</span>
+    </div>
+    <div style="max-height:38vh;overflow-y:auto">${boardHtml}</div>
+    <div style="margin-top:.6rem;padding:.45rem .5rem;border-radius:8px;background:var(--amber-bg);color:var(--amber-txt);font-size:12px">${icn('trophy')} ${bandHtml}</div>
+    <div style="margin-top:.6rem;font-weight:700">Your stages</div>
+    ${stagesHtml}`;
+}
+
+function gcOpenStandings(tourId){
+  const el = document.getElementById('gc-standings-body');
+  if(!el) return;
+  el.innerHTML = gcStandingsBodyHtml(tourId);
+  document.getElementById('gc-standings-overlay').style.display = 'flex';
+}
+
+function gcCloseStandings(ev){
+  if(ev) ev.stopPropagation();
+  const ov = document.getElementById('gc-standings-overlay');
+  if(ov) ov.style.display = 'none';
+}
+
 const CALENDAR_EVENTS = [
   // SEMI-PRO TIER — unlocks the moment the Calendar tab itself unlocks (Cat 1)
   {id:'nat_hillclimb', tier:'semipro', name:'National Hill Climb Championship', icon:'peak',
@@ -5366,7 +5657,130 @@ const LIFETIME_GOALS = [
       {threshold:7,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
       {threshold:15, reward:{type:'title',  titleId:'career_legend', titleText:'Career Legend', label:'Unlock the title "Career Legend"'}},
     ]},
+  // ─── fix197: expansion tracks ──────────────────────────────────────────
+  // Appended, never inserted — the six tracks above are byte-unchanged, so
+  // every existing 'trackId:tierIndex' key in claimedGoalTiers /
+  // uncollectedGoalTiers still resolves to exactly the tier it did before.
+  // Same rule as the TABS array index-map coupling.
+  //
+  // Every statFn below reads a counter that only ever goes up. That is the
+  // load-bearing property of this whole system: renderGoalTracks computes
+  // progress as (val - prevThreshold) / (nextThreshold - prevThreshold), and
+  // checkLifetimeGoals never un-awards a tier, so a stat that can DECREASE
+  // would strand the player on a bar that walks backwards while the pip stays
+  // lit. This is why the two "derivable, no new state" rows in the plan
+  // (Grand Tours completed, GC podiums) are backed by real lifetime counters
+  // here instead: state.calendar.completed is wiped every 30 days by
+  // checkCalendarSeasonReset(), so deriving from it would have produced a
+  // track that resets to zero four times a year. See gtCompleted / gcPodiums
+  // in the state block.
+  //
+  // The plan's "Kit/gear prestige unlocks — existing relic set size" row is
+  // DELIBERATELY NOT IMPLEMENTED. RELICS has exactly three entries, so a
+  // four-tier track against state.relics.size has an unreachable top tier
+  // (and therefore an uncollectable title). If RELICS ever grows past four,
+  // add the track then — thresholds 1/2/3/4, icon 'gem'.
+  { id:'gtstages', name:'Stage Hunter', icon:'flag', statFn:s=>s.gtStageWins||0,
+    tiers:[
+      {threshold:1,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:5,  reward:{type:'color',  colorId:'crimson', label:'Unlock Stage Crimson kit colour'}},
+      {threshold:15, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:40, reward:{type:'title',  titleId:'stage_hunter', titleText:'Stage Hunter', label:'Unlock the title "Stage Hunter"'}},
+    ]},
+  { id:'gtfinished', name:'Three Weeks', icon:'calendar', statFn:s=>s.gtCompleted||0,
+    tiers:[
+      {threshold:1,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:3,  reward:{type:'color',  colorId:'sapphire', label:'Unlock Grand Tour Sapphire kit colour'}},
+      {threshold:10, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:25, reward:{type:'title',  titleId:'tour_veteran', titleText:'Tour Veteran', label:'Unlock the title "Tour Veteran"'}},
+    ]},
+  { id:'gcpodiums', name:'General Classification', icon:'ribbon', statFn:s=>s.gcPodiums||0,
+    tiers:[
+      {threshold:1,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:3,  reward:{type:'color',  colorId:'maillot', label:'Unlock Maillot Jaune kit colour'}},
+      {threshold:8,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:20, reward:{type:'title',  titleId:'gc_contender', titleText:'GC Contender', label:'Unlock the title "GC Contender"'}},
+    ]},
+  { id:'calwins', name:'Championship Material', icon:'medal-gold', statFn:s=>s.calendarWins||0,
+    tiers:[
+      {threshold:1,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:5,  reward:{type:'color',  colorId:'tricolore', label:'Unlock Champion Tricolore kit colour'}},
+      {threshold:15, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:40, reward:{type:'title',  titleId:'national_hero', titleText:'National Hero', label:'Unlock the title "National Hero"'}},
+    ]},
+  // raceWinsByType is lifetime and never reset (winsSincePrestige is the
+  // season-scoped one) — no new counter needed here.
+  { id:'ttwins', name:'The Race of Truth', icon:'stopwatch', statFn:s=>(s.raceWinsByType&&s.raceWinsByType.tt)||0,
+    tiers:[
+      {threshold:5,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:25,  reward:{type:'color',  colorId:'chrono', label:'Unlock Chrono Silver kit colour'}},
+      {threshold:100, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:300, reward:{type:'title',  titleId:'the_chrono', titleText:'The Chrono', label:'Unlock the title "The Chrono"'}},
+    ]},
+  { id:'mgbanked', name:'Marginal Gains', icon:'wrench', statFn:s=>s.lifetimeMG||0,
+    tiers:[
+      {threshold:100,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:1000,  reward:{type:'color',  colorId:'grease', label:'Unlock Workshop Grease kit colour'}},
+      {threshold:10000, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:50000, reward:{type:'title',  titleId:'chief_mechanic', titleText:'Chief Mechanic', label:'Unlock the title "Chief Mechanic"'}},
+    ]},
+  { id:'tuninglevels', name:'Fine Tuning', icon:'gear', statFn:s=>s.tuningLevelsBought||0,
+    tiers:[
+      {threshold:5,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:25,  reward:{type:'color',  colorId:'titanium', label:'Unlock Titanium Grey kit colour'}},
+      {threshold:75,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:200, reward:{type:'title',  titleId:'the_tinkerer', titleText:'The Tinkerer', label:'Unlock the title "The Tinkerer"'}},
+    ]},
+  { id:'buffs', name:'Sharpened Skills', icon:'muscle', statFn:s=>s.buffsUsed||0,
+    tiers:[
+      {threshold:10,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:50,  reward:{type:'color',  colorId:'voltage', label:'Unlock Voltage Yellow kit colour'}},
+      {threshold:200, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:750, reward:{type:'title',  titleId:'the_specialist', titleText:'The Specialist', label:'Unlock the title "The Specialist"'}},
+    ]},
+  { id:'sessions', name:'Hours in the Saddle', icon:'rider', statFn:s=>s.trainingSessions||0,
+    tiers:[
+      {threshold:25,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:150,  reward:{type:'color',  colorId:'graphite', label:'Unlock Training Graphite kit colour'}},
+      {threshold:600,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:2000, reward:{type:'title',  titleId:'the_engine', titleText:'The Engine', label:'Unlock the title "The Engine"'}},
+    ]},
+  // ─── fix197 capstone ───────────────────────────────────────────────────
+  // THE ultimate goal, and the only single-tier track in the list. It sits
+  // outside the cash -> colour -> perk -> title ladder on purpose: there is
+  // nothing to grind toward here, you either did it in one Calendar season or
+  // you didn't. statFn is a 0/1 flag rather than a count, which the generic
+  // renderer handles fine (threshold 1, so the progress bar reads 0% or 100%).
+  //
+  // "Won" for a Grand Tour means GC Champion — the top GC_TIERS entry, the
+  // same tierIdx===0 test that awards the relic — not merely finishing.
+  // "National championship" means winning any one of the four nat_* events.
+  // Both are written into state.seasonAchievements from completeRace(), and
+  // that object is cleared by BOTH handlePrestige() and
+  // checkCalendarSeasonReset(); see the comment on the state field.
+  { id:'perfectseason', name:'The Perfect Season', icon:'crown',
+    statFn:s=>{
+      const sa=s.seasonAchievements;
+      if(!sa||!sa.gtWon) return 0;
+      const all=PERFECT_SEASON_TOURS.every(id=>sa.gtWon.has(id));
+      return (all && sa.nationalsWon) ? 1 : 0;
+    },
+    tiers:[
+      {threshold:1, reward:{type:'title', titleId:'the_perfect_season', titleText:'The Perfect Season', label:'Unlock the title "The Perfect Season"'}},
+    ]},
 ];
+
+// fix197: the three Grand Tours the capstone requires, as ids rather than a
+// filter over CALENDAR_EVENTS — completeRace() and the capstone statFn must
+// agree exactly, and a single literal list is the cheaper thing to keep true.
+// If a fourth Grand Tour is ever added to CALENDAR_EVENTS, decide deliberately
+// whether the capstone should demand it too, and edit this line.
+const PERFECT_SEASON_TOURS = ['tour_de_france','giro_d_italia','vuelta_espana'];
+// The four national championship events. Winning ANY one of them satisfies the
+// nationals half of the capstone — they are mutually exclusive in practice for
+// a specialist rider, so requiring all four on top of three Grand Tours would
+// push the track from "brutal" to "not actually achievable in 30 days".
+const PERFECT_SEASON_NATIONALS = ['nat_hillclimb','nat_roadrace','nat_tt','nat_crit'];
 
 // ─── SPECIALISATIONS ────────────────────────────────────────
 const SPECIALISATIONS = [
@@ -5415,6 +5829,19 @@ const KIT_COLORS = [
   {id:'bronze',  hex:'#8b5a2b', label:'Iron Bronze'},
   {id:'emerald', hex:'#0f9960', label:'Fortune Emerald'},
   {id:'royal',   hex:'#6a1b9a', label:'Legacy Royal'},
+  // fix197 — one colour per new Lifetime Goal track's tier-2 reward. Ids must
+  // match the colorId on those tiers exactly; a typo here would let
+  // collectGoalTierReward() add an id to unlockedKitColors that no swatch
+  // renders, which fails silently rather than loudly.
+  {id:'crimson',  hex:'#b81237', label:'Stage Crimson'},
+  {id:'sapphire', hex:'#0b3d91', label:'Grand Tour Sapphire'},
+  {id:'maillot',  hex:'#ffd400', label:'Maillot Jaune'},
+  {id:'tricolore',hex:'#1e4fa3', label:'Champion Tricolore'},
+  {id:'chrono',   hex:'#9aa5b1', label:'Chrono Silver'},
+  {id:'grease',   hex:'#3d3227', label:'Workshop Grease'},
+  {id:'titanium', hex:'#6f7478', label:'Titanium Grey'},
+  {id:'voltage',  hex:'#d4e600', label:'Voltage Yellow'},
+  {id:'graphite', hex:'#2f3437', label:'Training Graphite'},
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -5475,6 +5902,32 @@ const state = {
   equippedTitle: null,              // currently displayed title id, or null
   totalRaces: 0, totalPodiums: 0,
   raceWinsByType: {crit:0, road:0, tt:0, hill:0},
+  // fix197 — lifetime counters backing the expansion Lifetime Goal tracks.
+  // All monotonic: nothing in the codebase may ever decrement these, and
+  // handlePrestige() deliberately does not reset them (same rule as
+  // raceWinsByType / totalRaces above). Two of them exist only because the
+  // plan's "derivable" sources are not actually lifetime data —
+  // state.calendar.completed is wiped every 30 days by
+  // checkCalendarSeasonReset(), so gtCompleted and gcPodiums have to be
+  // banked at the moment they happen or they are gone by the next season.
+  gtStageWins: 0,        // individual Grand Tour STAGE wins (position 1)
+  gtCompleted: 0,        // Grand Tours ridden to the final stage (not forfeited)
+  gcPodiums: 0,          // GC Podium or better on final GC classification
+  calendarWins: 0,       // wins in one-day calendar events (nationals, Suisse)
+  lifetimeMG: 0,         // marginal gains ever BANKED (not spent) — see wsAwardMG
+  tuningLevelsBought: 0, // workshop tuning levels ever purchased
+  buffsUsed: 0,          // rider-skill buffs ever granted — see grantBuff
+  trainingSessions: 0,   // training sessions ever finished (both collect paths)
+  // fix197 — SEASON-scoped, unlike everything above, and the only piece of
+  // Lifetime Goal state that is ever cleared. Backs the Perfect Season
+  // capstone. gtWon is a Set of Grand Tour ids won as GC Champion this
+  // season; nationalsWon is true once any nat_* event has been won this
+  // season. Cleared in BOTH handlePrestige() (alongside seasonMoney, per the
+  // plan) AND checkCalendarSeasonReset() — the latter is not optional: the
+  // Calendar season is what actually gates re-entering these events, so
+  // without that reset the "single season" requirement decays into "at some
+  // point across your whole career", which is not the goal.
+  seasonAchievements: { gtWon: new Set(), nationalsWon: false },
   winsSincePrestige: 0, // season-scoped win count — gates sponsor tiers; resets on prestige. raceWinsByType above stays lifetime, untouched, for Lifetime Goals.
   // Specialisation
   specialisation: null,
@@ -5608,7 +6061,11 @@ function getWeightFactorForRace(raceTypeId){
   // the single effective-weight read every scoring AND preview call site
   // shares, so a shaved bike's advantage shows up identically everywhere.
   // fix164: combined read — equipped bike + equipped wheels, clamped once.
-  const workshopWeightDelta=getCombinedWorkshopBonuses().weightDeltaKg;
+  // fix195: pass the race type through so a TT reads the equipped TT frame's
+  // weight-shave levels, not the road bike's. Every weight-factor call site
+  // (scoring, calendar events, the race preview) already has raceTypeId in hand,
+  // so all three move together and the preview cannot lie about the score.
+  const workshopWeightDelta=getCombinedWorkshopBonuses(raceTypeId).weightDeltaKg;
   const effectiveWeight=Math.max(1,state.riderWeight+workshopWeightDelta);
   const rawFactor=DEFAULT_RIDER_WEIGHT/effectiveWeight;
   return 1+(rawFactor-1)*sensitivity;
@@ -5739,8 +6196,13 @@ function recalc(){
   D.sessionMult   = (1 + state.attributes.threshold.level * 0.08) * (1 + trainPct + workshopTrainingPct) * (1 + slXpPct/100);
   // Lifetime Goal perks — each track's tier-3 grants a small permanent boost to
   // race prize money, stacking across tracks. Read from claimedGoalTiers so it
-  // survives prestige and reload with no separate state needed. Max +12% if
-  // every track's perk tier has been claimed (6 tracks × 2%).
+  // survives prestige and reload with no separate state needed.
+  // fix197: the ceiling moved. Nine expansion tracks each carry a tier-3 perk
+  // on the same 2% step, so a fully-completed board is now 15 perk tracks =
+  // +30%, not the +12% this comment used to claim. Nothing below changed —
+  // the loop already reads whatever is in LIFETIME_GOALS — but the number was
+  // load-bearing documentation for anyone balancing prize payouts, so it is
+  // corrected rather than left to rot. The capstone track carries no perk.
   let legacyPct=0;
   LIFETIME_GOALS.forEach(track=>{
     track.tiers.forEach((tier,idx)=>{
@@ -6049,6 +6511,7 @@ function completeSession(){
   state.session={active:false};
   markTaskProgress('train_session');
   incrementSponsorProgress('sessions',1);
+  state.trainingSessions=(state.trainingSessions||0)+1; // fix197
   // Fat-burning sessions (currently only Z1) nudge bodyweight down, clamped to the floor
   let weightMsg='';
   if(t.weightEffect){
@@ -6056,7 +6519,7 @@ function completeSession(){
     state.riderWeight=Math.max(MIN_RIDER_WEIGHT,Math.min(MAX_RIDER_WEIGHT,state.riderWeight+t.weightEffect));
     if(state.riderWeight!==before){ weightMsg=` · ${icn('scale')} ${state.riderWeight.toFixed(1)}kg`; recordFtpSnapshot(); }
   }
-  updateActivityDots(); recalc(); saveGame(); showToast(`${icn('check-circle')} ${t.name} complete!${weightMsg}`);
+  updateActivityDots(); recalc(); checkLifetimeGoals(); saveGame(); showToast(`${icn('check-circle')} ${t.name} complete!${weightMsg}`);
 }
 
 function collectSessionReward(){
@@ -6068,6 +6531,11 @@ function collectSessionReward(){
   if(t&&t.cooldown>0) state.trainCooldowns[t.id]=Date.now()+t.cooldown*1000;
   markTaskProgress('train_session');
   incrementSponsorProgress('sessions',1);
+  // fix197: a session finishes down EITHER this path or completeSession()'s,
+  // never both — collectSessionReward() is the awaitingCollection variant.
+  // The counter therefore lives at both sites, mirroring the two
+  // incrementSponsorProgress('sessions',1) calls directly above it.
+  state.trainingSessions=(state.trainingSessions||0)+1;
   // Weight effect (e.g. Z1 fat-burn)
   let weightMsg='';
   if(t&&t.weightEffect){
@@ -6076,7 +6544,7 @@ function collectSessionReward(){
     if(state.riderWeight!==before){ weightMsg=` · ${icn('scale')} ${state.riderWeight.toFixed(1)}kg`; recordFtpSnapshot(); }
   }
   state.session={active:false};
-  updateActivityDots(); recalc(); saveGame();
+  updateActivityDots(); recalc(); checkLifetimeGoals(); saveGame();
   showToast(wasCritical
     ? `${icn('star')} CRITICAL! ${t?t.name:'Session'} banked at 2× XP!${weightMsg}`
     : `${icn('check-circle')} ${t?t.name:'Session'} banked!${weightMsg}`);
@@ -6313,7 +6781,9 @@ function simulateRaceResult(raceTypeId, opts={}){
   // fix164: combined read — equipped bike + equipped wheels, summed then
   // clamped once, so bike+wheels reaches the same ceiling faster, not a
   // higher one.
-  const wb=getCombinedWorkshopBonuses();
+  // fix195: TT-aware. The aero line below already switches on raceTypeId; now
+  // the LEVELS it reads come from the frame actually being raced.
+  const wb=getCombinedWorkshopBonuses(raceTypeId);
   const workshopAeroPct=(raceTypeId==='crit'||raceTypeId==='tt') ? wb.raceAeroPct : 0;
   const workshopMult=1+(wb.raceFlatPct+workshopAeroPct)/100;
   playerScore*=workshopMult;
@@ -6602,18 +7072,41 @@ function completeRace(){
   state.lastRaceResult=histEntry;
 
   if(gtStage){
+    // fix197: a Grand Tour STAGE win is its own lifetime counter, separate
+    // from raceWinsByType (which the generic position===1 branch above has
+    // already incremented for this race). Deliberately counted here rather
+    // than up there, so the 'gtstages' track means stage wins specifically
+    // and not "wins that happened to be in a stage race".
+    if(rd.result.position===1) state.gtStageWins=(state.gtStageWins||0)+1;
     // Record this stage's result and GC points into the tour's running progress.
     const tp=state.calendar.tourProgress[rd.calendarEventId];
     tp.stageResults.push({stageIndex:rd.stageIndex, position:rd.result.position, fieldSize:rd.result.fieldSize, prize:rd.result.prize, gcPoints:rd.result.gcPoints, ts:Date.now()});
     tp.gcPoints += rd.result.gcPoints;
     tp.lastStageCompletedDate = new Date().toDateString();
     const stages=GRAND_TOUR_STAGES[rd.calendarEventId];
+    // fix198: the rest of the GC field rides the same stage. Placed AFTER the
+    // player's own gcPoints are banked and BEFORE the final-stage branch below,
+    // so the board is current at the moment the tour is settled. gcEnsureField
+    // inside here covers a tour that was already in progress on an older save.
+    gcScoreStageForField(tp, stages[rd.stageIndex]);
     if(tp.stageResults.length>=stages.length){
       // Final stage done — compute the overall GC result and award the big bonus.
       const tier=GC_TIERS.find(t=>tp.gcPoints>=t.minPoints) || GC_TIERS[GC_TIERS.length-1];
       const tierIdx=GC_TIERS.indexOf(tier);
       const gcBonus=(GC_BONUS_BY_TOUR[rd.calendarEventId]||[0,0,0,0])[tierIdx]||0;
       if(gcBonus>0) earnMoney(gcBonus);
+      // fix197: reaching this line at all means the final stage was ridden,
+      // i.e. the Tour was completed rather than forfeited — a forfeit never
+      // gets here (the deadline check kills the tour before the stage runs).
+      state.gtCompleted=(state.gtCompleted||0)+1;
+      // GC Podium or better. GC_TIERS is ordered best-first, so tierIdx 0 is
+      // Champion and 1 is Podium; anything looser would make the track say
+      // "podiums" while counting finishes.
+      if(tierIdx<=1) state.gcPodiums=(state.gcPodiums||0)+1;
+      // Capstone half 1 — Grand Tour "won" means GC Champion, the same
+      // tierIdx===0 test the relic award below uses. Set semantics, so
+      // winning the same Tour twice in a season is correctly still one entry.
+      if(tierIdx===0) state.seasonAchievements.gtWon.add(rd.calendarEventId);
       state.calendar.completed[rd.calendarEventId]={
         finished:true, gcPoints:tp.gcPoints, gcTier:tier.label, gcIcon:tier.icon, gcBonus,
         stageResults:tp.stageResults, ts:Date.now(),
@@ -6637,6 +7130,14 @@ function completeRace(){
     state.calendar.completed[rd.calendarEventId]={
       position:rd.result.position, fieldSize:rd.result.fieldSize, prize:rd.result.prize, ts:Date.now(),
     };
+    // fix197: one-day calendar events only — Grand Tours take the branch
+    // above and are counted by gtStageWins / gtCompleted instead, so a stage
+    // race can never double-count into calendarWins.
+    if(rd.result.position===1){
+      state.calendarWins=(state.calendarWins||0)+1;
+      // Capstone half 2 — any one of the four national championships.
+      if(PERFECT_SEASON_NATIONALS.includes(rd.calendarEventId)) state.seasonAchievements.nationalsWon=true;
+    }
   }
 
   state.raceActive=false; state.raceData=null;
@@ -7128,6 +7629,12 @@ function checkCalendarSeasonReset(){
   state.calendar.signups=[];
   state.calendar.completed={};
   state.calendar.seasonStartDate=Date.now();
+  // fix197: the Perfect Season capstone means one CALENDAR season, and this
+  // is where a Calendar season actually ends — every event above just became
+  // re-enterable. Clearing only in handlePrestige (which a player may not
+  // trigger for many Calendar seasons) would let three Grand Tour wins from
+  // different years count together and turn the capstone into a formality.
+  state.seasonAchievements = { gtWon:new Set(), nationalsWon:false };
   saveGame();
 
   const msg = forfeitedIds.length>0
@@ -7200,6 +7707,10 @@ function signUpForCalendarEvent(eventId){
   if(ev.isGrandTour){
     state.calendar.tourProgress[eventId]={
       stageResults:[], gcPoints:0, lastStageCompletedDate:null, forfeited:false,
+      // fix198: the GC field is drawn once, here, and then only ever has points
+      // added to it. Drawn at signup rather than at first stage so the board is
+      // already populated (all on zero) before Stage 1 is ridden.
+      gcField: makeGcField(),
     };
   }
   saveGame();
@@ -7856,6 +8367,12 @@ function handlePrestige(){
   prestigeConfirmPending=false;
   const next=state.prestigeMult*2, newMax=state.maxEnergy+10;
   state.season++; state.seasonsCompleted++; state.money=0; state.seasonMoney=0;
+  // fix197: the Perfect Season capstone is season-scoped, so it dies with the
+  // season, right here alongside seasonMoney. The eight LIFETIME counters
+  // added in the same fix (gtStageWins, lifetimeMG, trainingSessions, ...) are
+  // DELIBERATELY absent from this reset list — they are career totals, same
+  // as raceWinsByType and totalRaces. Do not "tidy" them in.
+  state.seasonAchievements = { gtWon:new Set(), nationalsWon:false };
   state.prestigeMult=next; state.maxEnergy=newMax; state.energy=newMax;
   state.todayEnergyAllocation=newMax; // fresh season starts at full allocation, no fatigue carried over
   // FTP reset: zero every attribute back to its starting level/xp. Bikes, wheels,
@@ -8442,20 +8959,35 @@ function renderWelcomeBackCeremony({money, energy, awaySeconds}){
   const card=document.getElementById('ceremony-card');
   const hrs=Math.floor(awaySeconds/3600), mins=Math.floor((awaySeconds%3600)/60);
   const awayText = hrs>0 ? `${hrs}h ${mins}m` : `${mins}m`;
-  const energyHtml = energy>=1
-    ? `<div class="ceremony-subtitle">${icn('bolt')} +${Math.floor(energy)} energy regenerated</div>`
-    : '';
+  // fix193: the ceremony can now fire on energy alone (no sponsors signed yet, or
+  // none earning), so the cash block is no longer guaranteed to have anything in
+  // it. Rather than show a "£0 Sponsorship Earned" headline to a player who has
+  // never had a sponsor, promote energy to the hero figure in that case. Exactly
+  // one count-up target exists in either branch, so animateCountUp still has a
+  // single unambiguous element id to write into.
+  // tombstone (pre-fix193): the money block and the energy subtitle were both
+  // unconditional, i.e.
+  //   <div class="ceremony-money" id="ceremony-money-val">${fmtMoney(0)}</div>
+  //   <div class="ceremony-money-label">Sponsorship Earned</div>
+  //   const energyHtml = energy>=1 ? `<div class="ceremony-subtitle">…</div>` : '';
+  const hasMoney = money>=1;
+  const hasEnergy = energy>=1;
+  const bodyHtml = hasMoney
+    ? `<div class="ceremony-money" id="ceremony-money-val">${fmtMoney(0)}</div>
+       <div class="ceremony-money-label">Sponsorship Earned</div>
+       ${hasEnergy ? `<div class="ceremony-subtitle">${icn('bolt')} +${Math.floor(energy)} energy regenerated</div>` : ''}`
+    : `<div class="ceremony-money" id="ceremony-energy-val">0</div>
+       <div class="ceremony-money-label">${icn('bolt')} Energy Recovered</div>`;
   card.innerHTML=`
     <div class="ceremony-eyebrow">${icn('sleep')} Welcome Back</div>
     <div class="ceremony-icon">${icn('rider')}</div>
     <div class="ceremony-title">While You Were Away</div>
     <div class="ceremony-subtitle">Away for ${awayText}</div>
-    <div class="ceremony-money" id="ceremony-money-val">${fmtMoney(0)}</div>
-    <div class="ceremony-money-label">Sponsorship Earned</div>
-    ${energyHtml}
+    ${bodyHtml}
     <button class="ceremony-btn" onclick="dismissCeremony(event)">Nice! ${icn('rider')}</button>
   `;
-  animateCountUp('ceremony-money-val', Math.round(money), 1100, fmtMoney);
+  if(hasMoney) animateCountUp('ceremony-money-val', Math.round(money), 1100, fmtMoney);
+  else animateCountUp('ceremony-energy-val', Math.floor(energy), 1100, v=>`+${v}`);
 }
 
 function renderPromotionCeremony({oldCat, newCat, sponsorTierUnlocked}){
@@ -8509,7 +9041,9 @@ function renderLifetimeGoalCeremony({trackId, tierIndex}){
     <div class="ceremony-eyebrow">${icn('trophy')} Career Milestone</div>
     <div class="ceremony-icon">${icn(track.icon)}</div>
     <div class="ceremony-title">${track.name}</div>
-    <div class="ceremony-subtitle">Tier ${tierIndex+1} of 4 — ${fmt(tier.threshold)} reached</div>
+    <div class="ceremony-subtitle">${track.tiers.length>1
+      ? `Tier ${tierIndex+1} of ${track.tiers.length} — ${fmt(tier.threshold)} reached`
+      : 'The ultimate goal — achieved'}</div>
     <div style="background:var(--purple-bg);border:.5px solid var(--purple-bd);border-radius:var(--radius);padding:12px 14px;margin-bottom:18px">
       <div style="font-size:16px;font-weight:800;color:var(--purple-txt)">${icn(rewardIcon)} ${r.label}</div>
     </div>
@@ -8779,6 +9313,11 @@ function showTab(name){
   // running off-tab (spec guardrail). wsStopGame() is a no-op if nothing's
   // running, so this is safe on every tab switch, not just workshop->other.
   if(currentTab==='workshop' && name!=='workshop' && typeof wsStopGame==='function') wsStopGame();
+  // fix192: same guardrail, same site, for the cap modal's 1s countdown —
+  // leaving the tab must never leave a setInterval ticking against a modal the
+  // player can no longer see. Also dismisses it, so returning re-opens it fresh
+  // via renderWorkshopSection's forced call.
+  if(currentTab==='workshop' && name!=='workshop' && typeof wsCapModalClose==='function') wsCapModalClose();
   currentTab=name;
   TABS.forEach(t=>{ document.getElementById('tab-'+t).style.display=t===name?'':'none'; });
   // fix170: home is deliberately NOT in TABS (see the panel comment — the
@@ -12177,6 +12716,12 @@ function renderWorkshopSection(){
   list.appendChild(card);
   renderWsGameSelector();
   renderWsGamePanel();
+  // fix192: hard lockout, explained. renderWsGameSelector above has already
+  // drawn all three benches dead; forcing the modal here (past the
+  // once-per-window guard) means re-entering the tab re-states the reason
+  // rather than presenting three greyed buttons with no explanation. No-op
+  // when the window is open, so the ordinary path is untouched.
+  if(typeof wsCapModalOpen==='function') wsCapModalOpen(true);
 
   // fix77/Fix 3 — Tuning tracks + spend.
   // fix165 (UI layer): the four track cards now follow the SELECTED tuning
@@ -12249,7 +12794,18 @@ function renderWorkshopSection(){
 // ── fix165: Workshop tuning targets, UI layer ───────────────────────────────
 // Presentation only. Every key produced here is a fix164 namespaced key
 // (tuningKey('bike'|'wheel', id)), so the model layer needs no knowledge of the
-// selector existing. TT bikes remain out of scope (fix164's stated deferral).
+// selector existing.
+//
+// TOMBSTONE (fix196) — the fix165 line here read "TT bikes remain out of scope
+// (fix164's stated deferral)". That deferral is now closed: fix195 taught
+// getCombinedWorkshopBonuses() to read the RACE-RELEVANT bike, so a TT tune
+// bought in this picker actually scores in a time trial. Shipping the picker
+// before fix195 would have sold the player levels that bought nothing.
+//
+// fix196: TT bikes are a third group. They deliberately share the 'bike'
+// tuningKey namespace — TT_BIKES ids are all tt_-prefixed and cannot collide
+// with a road BIKES id — so no save migration is needed and any tuning bought
+// under an earlier build keys identically.
 //
 // OWNERSHIP IS THE LIST: a player cannot tune what is not in the shed, so the
 // list is derived from state.ownedBikes / state.ownedWheels on every render
@@ -12259,6 +12815,13 @@ function wsTuningTargetList(){
   BIKES.forEach(b=>{ if(state.ownedBikes.has(b.id)) out.push({
     key:tuningKey('bike',b.id), kind:'bike',
     label:(b.brand?b.brand+' ':'')+b.model, equipped:state.equippedBike===b.id}); });
+  // fix196: TT frames. Same 'bike' namespace (see the header note), own kind so
+  // wsTuningTargetHtml can head them separately. state.ownedTTBikes is a Set and
+  // is empty for most players — the group then renders as '' in the html layer,
+  // not as an empty heading.
+  TT_BIKES.forEach(b=>{ if(state.ownedTTBikes.has(b.id)) out.push({
+    key:tuningKey('bike',b.id), kind:'ttbike',
+    label:(b.brand?b.brand+' ':'')+b.model, equipped:state.equippedTTBike===b.id}); });
   WHEELS.forEach(w=>{ if(state.ownedWheels.has(w.id)) out.push({
     key:tuningKey('wheel',w.id), kind:'wheel',
     label:w.name, equipped:state.equippedWheels===w.id}); });
@@ -12280,7 +12843,11 @@ function wsCurrentTuningTarget(){
 
 function wsTuningTargetHtml(){
   const cur=wsCurrentTuningTarget().key;
-  const groups=[['bike','Bikes'],['wheel','Wheels']];
+  // fix196: third group. Order is deliberate — road bikes, then TT frames, then
+  // wheels, so the shed reads the same way the Gear tab lists it. The existing
+  // `if(!items.length) return ''` below is what keeps this group invisible for a
+  // player who owns no TT bike, rather than printing a bare heading.
+  const groups=[['bike','Bikes'],['ttbike','TT Bikes'],['wheel','Wheels']];
   return groups.map(([kind,heading])=>{
     const items=wsTuningTargetList().filter(t=>t.kind===kind);
     if(!items.length) return '';
@@ -12394,8 +12961,27 @@ function workshopBonusesFromLevels(t){
 // reason getWorkshopBonuses() exists.
 // Only the EQUIPPED bike and EQUIPPED wheels contribute — tuning a bike you are
 // not riding does nothing until you equip it (existing fix77 contract).
-function getCombinedWorkshopBonuses(){
-  const b=readTuning(tuningKey('bike', state.equippedBike));
+//
+// fix195 — RACE-RELEVANT BIKE. A time trial is not ridden on the road bike, so
+// reading state.equippedBike in a TT was charging the player's road tuning to a
+// frame they were not on. workshopRaceBikeId() is the single place that decides
+// which frame a given race type reads, so scoring, the weight factor and any
+// future call site can never disagree about it.
+// TT bike tuning lives under tuningKey('bike', <tt id>) — TT ids (tt_alloy,
+// tt_pro, …) do not collide with road BIKES ids, so no save migration is needed
+// and untuned TT frames simply read the all-zero default from readTuning().
+// Falls back to the road bike when no TT bike is equipped; that case already
+// takes the separate ×0.6 noTTBike penalty in simulateRaceResult() and is
+// deliberately left alone here.
+function workshopRaceBikeId(raceTypeId){
+  if(raceTypeId==='tt' && state.equippedTTBike) return state.equippedTTBike;
+  return state.equippedBike;
+}
+
+// raceTypeId is OPTIONAL. Omitting it (training XP, any non-race read) keeps the
+// pre-fix195 behaviour exactly: the equipped road bike.
+function getCombinedWorkshopBonuses(raceTypeId){
+  const b=readTuning(tuningKey('bike', workshopRaceBikeId(raceTypeId)));
   const w=readTuning(tuningKey('wheel', state.equippedWheels));
   return workshopBonusesFromLevels({
     drivetrain:(b.drivetrain||0)+(w.drivetrain||0),
@@ -12467,6 +13053,11 @@ function getBuff(id){
 // it (overwrites expiresAt) rather than extending or stacking.
 function grantBuff(id, magnitude, durationMs){
   const s=rsStore();
+  // fix197: counts buffs GRANTED, which is the honest reading of "skills
+  // buffs used" — a re-grant of an already-active buff refreshes it (see the
+  // comment above this function) and is a real, earned minigame result, so it
+  // counts. Placed before the assignment so the refresh case is included.
+  state.buffsUsed=(state.buffsUsed||0)+1;
   s.buffs[id]=(durationMs==null)
     ? {expiresAt:null, magnitude, consumeOnRace:true}
     : {expiresAt:Date.now()+durationMs, magnitude, consumeOnRace:false};
@@ -12474,6 +13065,7 @@ function grantBuff(id, magnitude, durationMs){
   // Without this the buff would not apply until some unrelated event happened
   // to trigger a recalc. Called before saveGame() so the save reflects it.
   recalc();
+  checkLifetimeGoals(); // fix197 — 'buffs' track
   saveGame();
   const copy=RS_BUFF_COPY[id];
   if(copy) showToast(`${icn(copy.icon)} ${copy.label}`);
@@ -13786,12 +14378,14 @@ function handleWorkshopSpend(trackKey){
 
   state.workshop.mg-=cost;
   tuning[trackKey]=level+1;
+  state.tuningLevelsBought=(state.tuningLevelsBought||0)+1; // fix197
 
   // fix79/Fix 5 — achievement hook: "First Tune-up" fires on the first ever
   // spend (see achUnlocked's workshop_first_tune check). checkAchievements()
   // itself saves+queues the ceremony, so no extra saveGame() call is needed
   // beyond the one it performs when a new achievement is earned.
   checkAchievements();
+  checkLifetimeGoals(); // fix197 — 'tuninglevels' track
   saveGame();
 
   const div=document.getElementById(`workshop-track-${trackKey}`);
@@ -13846,7 +14440,7 @@ function renderWsGameSelector(){
     wrap.style.flexDirection = 'column';
     wrap.innerHTML = `<div style="display:flex;gap:8px">${btns}</div>
       <div style="font-size:11px;color:var(--txt2);text-align:center">
-        Bench is full — the boss wants the bikes back on the road. Back in ${wsMgWindowLabel(shutMs)}.
+        Bench is full — the boss wants the bikes back on the road. Back in ${wsMgWindowLabelCoarse(shutMs)}.
       </div>`;
   }else{
     wrap.style.flexDirection = '';
@@ -14077,13 +14671,34 @@ const WS_BR_RING_INNER = 40, WS_BR_RING_OUTER = 110; // valid radial band, scale
 // other two benches on MG/minute. MIN_SWEEP is a hard lockout (reject + reset,
 // no partial credit — scaled payouts just teach mashing); COOLDOWN stops a
 // completed lap rolling straight into the next one.
-const WS_BR_MIN_SWEEP_MS = 1800;  // fastest lap that still counts
+// const WS_BR_MIN_SWEEP_MS = 1800;  // fix178 — retired by fix191 (tombstone)
+// fix191: with the payout cut from 3 MG/lap to 0.2 MG/lap (a 15x nerf), the
+// 1.8s pacing floor is no longer doing balance work — it only rejects laps the
+// player has already traced, which reads as a broken bench. Dropped to 600ms;
+// WS_BR_COOLDOWN_MS now does the anti-mash work on its own.
+const WS_BR_MIN_SWEEP_MS = 600;   // fastest lap that still counts
 const WS_BR_COOLDOWN_MS  = 600;   // dead time after a packed bearing
+// fix191: a completed lap = one packed bearing. Only every WS_BR_PER_AWARD-th
+// bearing pays, and it pays WS_BR_AWARD_MG. Every other lap gives feedback and
+// advances the counter but banks nothing.
+const WS_BR_PER_AWARD = 10;
+const WS_BR_AWARD_MG  = 2;
+// fix190: fraction of a full sweep past which a release is treated as the end
+// of a lap rather than an abandon — resets progress, but silently.
+const WS_BR_RELEASE_KEEP = 0.9;
 let wsBrStartedAt = 0;       // ms, first accepted move of the current sweep (0 = not started)
 let wsBrCooldownUntil = 0;   // ms, moves before this timestamp earn no credit
 let wsBrPrevAngle = null;    // radians, previous pointer angle (null = not tracing)
 let wsBrAccumAngle = 0;      // radians, accumulated clockwise sweep (0..2π)
 let wsBrPanelEl = null;      // cached panel root, for getBoundingClientRect() per move
+// fix190: ms timestamp of the last successful award. A pointerup landing inside
+// WS_BR_COOLDOWN_MS of an award is the natural end of a *winning* lap, not an
+// abandoned one, so its reset must not write over "Perfectly packed.".
+let wsBrLastAwardAt = 0;
+// fix191: bearings packed toward the next payout, 0..WS_BR_PER_AWARD.
+// Session-scoped and deliberately NOT persisted — it resets on every entry to
+// the bench via renderWsBearingsGame(), same as every other wsBr* field here.
+let wsBrPackedCount = 0;
 
 // renderWsBearingsGame(panel) — full (re)entry point: resets all session
 // state, draws the static SVG shell (track ring, grease arc, 9 ball
@@ -14095,6 +14710,8 @@ function renderWsBearingsGame(panel){
   wsBrAccumAngle = 0;
   wsBrStartedAt = 0;        // fix178
   wsBrCooldownUntil = 0;    // fix178
+  wsBrLastAwardAt = 0;      // fix190
+  wsBrPackedCount = 0;      // fix191
   wsBrPanelEl = panel;
 
   const maxDashOffset = 2 * Math.PI * WS_BR_RADIUS;
@@ -14126,6 +14743,8 @@ function renderWsBearingsGame(panel){
           pointer-events:none"></div>
       </div>
       <div style="font-size:11px;color:var(--txt2);margin-top:8px">Trace the ring clockwise to pack grease.</div>
+      <div id="ws-br-count" style="font-size:12px;font-weight:700;color:var(--txt);margin-top:4px">
+        Bearings packed 0/${WS_BR_PER_AWARD}</div>
     </div>`;
 
   const hub = document.getElementById('ws-br-hub');
@@ -14139,9 +14758,21 @@ function renderWsBearingsGame(panel){
     hub.addEventListener('pointermove', (e)=>{
       if(e.buttons===1 || e.pointerType==='touch') wsBrHandleMove(e);
     });
-    hub.addEventListener('pointerup', ()=> wsBrReset('Trace continuous. Start over.'));
-    hub.addEventListener('pointerleave', ()=> wsBrReset('You let go! Start over.'));
-    hub.addEventListener('pointercancel', ()=> wsBrReset('You let go! Start over.'));
+    // fix190: release handling moved behind wsBrHandleRelease(), which decides
+    // whether the reset is loud (early abandon) or silent (near-complete lap /
+    // just-awarded lap). Three separate listeners writing the same scolding
+    // message was the reported "bearings yields nothing" shape: the award
+    // message was being overwritten within a frame of being written.
+    //
+    // TOMBSTONE (fix190) — the pointerleave listener is retired, not deleted:
+    //   hub.addEventListener('pointerleave', ()=> wsBrReset('You let go! Start over.'));
+    // With setPointerCapture active it should never fire mid-trace; the capture
+    // call is inside a try/catch that swallows failures, so on any device where
+    // capture silently fails this listener was killing legitimate laps. The
+    // radial-band check in wsBrHandleMove already covers "finger wandered off",
+    // so nothing is lost by dropping it.
+    hub.addEventListener('pointerup', ()=> wsBrHandleRelease());
+    hub.addEventListener('pointercancel', ()=> wsBrHandleRelease());
   }
 }
 
@@ -14212,10 +14843,49 @@ function wsBrHandleMove(e){
       wsBrReset("Too fast — you'll fling the grease out. Steady laps.");
       return;
     }
-    wsAwardMG(3, null, 'Perfectly packed.');
+    // fix191: one lap = one packed bearing. Only the WS_BR_PER_AWARD-th one
+    // reaches wsAwardMG, and it asks for WS_BR_AWARD_MG.
+    if(wsBrPackedCount < WS_BR_PER_AWARD) wsBrPackedCount++;
+    if(wsBrPackedCount >= WS_BR_PER_AWARD){
+      const banked = wsAwardMG(WS_BR_AWARD_MG, null,
+        'Ten bearings packed. +' + WS_BR_AWARD_MG + ' MG.');
+      // fix191: wsAwardMG is the single mutation funnel and returns 0 when the
+      // rolling window cap is shut. A shut bench must not also eat the ten laps
+      // the player already traced, so the counter is held at full and re-tried
+      // on the next lap instead of being reset.
+      if(banked > 0) wsBrPackedCount = 0;
+    } else {
+      const cntMsgEl = document.getElementById('workshop-game-msg');
+      if(cntMsgEl) cntMsgEl.textContent = 'Bearing packed.';
+    }
+    wsBrUpdateCount();
+    wsBrLastAwardAt = nowMs; // fix190: protects the award message from a release
     wsBrCooldownUntil = nowMs + WS_BR_COOLDOWN_MS;
     wsBrReset(null, true); // true = skip overwriting the award message
   }
+}
+
+// wsBrHandleRelease() — fix190. Single entry point for pointerup/pointercancel.
+// Three cases, in order:
+//   1. The release lands inside the post-award cooldown ⇒ this is the tail of a
+//      lap that just paid out. Reset silently; the award message stands.
+//   2. The lap is past WS_BR_RELEASE_KEEP of a full sweep ⇒ the player got to
+//      the end and lifted. Still resets (progress is not banked mid-lap), but
+//      silently, so a near-miss doesn't read as a telling-off.
+//   3. Anything earlier ⇒ the old loud reset, which is the message that
+//      actually belongs there.
+function wsBrHandleRelease(){
+  const nowMs = Date.now();
+  if(nowMs < wsBrCooldownUntil || (wsBrLastAwardAt && nowMs - wsBrLastAwardAt < WS_BR_COOLDOWN_MS)){
+    wsBrReset(null, true);
+    return;
+  }
+  const progressPct = wsBrAccumAngle / (2 * Math.PI);
+  if(progressPct >= WS_BR_RELEASE_KEEP){
+    wsBrReset(null, true);
+    return;
+  }
+  wsBrReset('Trace continuous. Start over.');
 }
 
 // wsBrUpdateBalls(progressPct) — as the grease arc sweeps past each ball's
@@ -14229,6 +14899,15 @@ function wsBrUpdateBalls(progressPct){
     const greased = progressPct >= ballFrac;
     ball.setAttribute('fill', greased ? 'var(--teal-txt)' : 'var(--bg3)');
   });
+}
+
+// wsBrUpdateCount() — fix191. Repaints the "Bearings packed N/10" line from
+// wsBrPackedCount. Render-only: reads module state, writes DOM, mutates
+// nothing. Safe to call when the bench is not on screen (the node is absent).
+function wsBrUpdateCount(){
+  const el = document.getElementById('ws-br-count');
+  if(!el) return;
+  el.textContent = 'Bearings packed ' + wsBrPackedCount + '/' + WS_BR_PER_AWARD;
 }
 
 // wsBrReset(msg, keepAwardMsg) — resets trace progress (angle accumulator +
@@ -14482,8 +15161,77 @@ function wsMgWindowRemaining(){
 
 // wsMgWindowLabel(ms) — immersive copy helper. Always at least "1m" so the
 // countdown never reads "0m" while the bench is still shut.
-function wsMgWindowLabel(ms){
+// fix192 TOMBSTONE — retired, not deleted. This coarse form is still exactly
+// right for the static surfaces (selector strapline, the inline award message)
+// which are painted once and never tick, so it survives verbatim as
+// wsMgWindowLabelCoarse below. wsMgWindowLabel itself is repurposed to the
+// MM:SS form the fix192 modal countdown needs.
+// function wsMgWindowLabel(ms){
+//   return Math.max(1, Math.ceil(ms / 60000)) + 'm';
+// }
+function wsMgWindowLabelCoarse(ms){
   return Math.max(1, Math.ceil(ms / 60000)) + 'm';
+}
+
+// wsMgWindowLabel(ms) — fix192: MM:SS, for the modal's live countdown. Ceils to
+// the second so the last visible value is "00:01" and never a stalled "00:00"
+// while the bench is still shut; the modal's own tick closes it at zero.
+function wsMgWindowLabel(ms){
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(total / 60), s = total % 60;
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
+// ── fix192: workshop cap modal ────────────────────────────────────────────
+// The inline #workshop-game-msg line was too quiet for a hard lockout — the
+// player kept tapping a dead bench without ever reading why. This promotes it
+// to a modal with a live countdown, opened from two places only:
+//   1. wsAwardMG's capped early-return, ONCE per window (wsCapShownFor guard),
+//      so a mashed bench doesn't reopen it on every attempt; and
+//   2. renderWorkshopSection, FORCED, so re-entering the tab always explains
+//      the shut bench rather than presenting three disabled buttons cold.
+// Session-scoped, never persisted: a reload legitimately re-explains the state.
+let wsCapModalTimer = 0;   // setInterval handle for the countdown
+let wsCapShownFor  = null; // mgWindowStart value the modal has already been shown for
+
+function wsCapModalOpen(force){
+  const ms = wsMgWindowRemaining();
+  if(ms <= 0) return;                       // bench is open; nothing to say
+  const startedAt = state.workshop.mgWindowStart;
+  if(!force && wsCapShownFor === startedAt) return;   // show-once-per-window
+  wsCapShownFor = startedAt;
+  const ov = document.getElementById('ws-cap-overlay');
+  if(!ov) return;
+  const cd = document.getElementById('ws-cap-countdown');
+  if(cd) cd.textContent = wsMgWindowLabel(ms);
+  ov.style.display = 'flex';
+  if(wsCapModalTimer) clearInterval(wsCapModalTimer);
+  wsCapModalTimer = setInterval(wsCapModalTick, 1000);
+}
+
+// wsCapModalTick() — render-only apart from the reopen housekeeping at zero,
+// which repaints the selector out of its dead state.
+function wsCapModalTick(){
+  const ov = document.getElementById('ws-cap-overlay');
+  if(!ov || ov.style.display === 'none'){ wsCapModalClose(); return; }
+  const left = wsMgWindowRemaining();
+  if(left <= 0){
+    wsCapModalClose();
+    renderWsGameSelector();   // bench has reopened — bring the buttons back
+    return;
+  }
+  const cd = document.getElementById('ws-cap-countdown');
+  if(cd) cd.textContent = wsMgWindowLabel(left);
+}
+
+// wsCapModalClose(ev) — dismiss. Clearing the interval here is the whole of the
+// teardown contract; showTab calls this too, so leaving the workshop can never
+// leave a 1s timer running off-tab (same guardrail as wsStopGame's rAF).
+function wsCapModalClose(ev){
+  if(ev) ev.stopPropagation();
+  if(wsCapModalTimer){ clearInterval(wsCapModalTimer); wsCapModalTimer = 0; }
+  const ov = document.getElementById('ws-cap-overlay');
+  if(ov) ov.style.display = 'none';
 }
 
 function wsAwardMG(gained, msgEl, msg){
@@ -14494,11 +15242,15 @@ function wsAwardMG(gained, msgEl, msg){
   if(gained > 0){
     const room = WS_MG_WINDOW_CAP - state.workshop.mgWindowEarned;
     if(room <= 0){
+      // fix192: the inline line stays as the quiet residue behind the modal (a
+      // dismissed modal must still leave the reason on screen), but it now uses
+      // the coarse label — it is painted once and never ticks.
       const shutEl = msgEl || document.getElementById('workshop-game-msg');
       if(shutEl) shutEl.textContent =
         'Bench is full — the boss wants the bikes back on the road. Back in '
-        + wsMgWindowLabel(wsMgWindowRemaining()) + '.';
+        + wsMgWindowLabelCoarse(wsMgWindowRemaining()) + '.';
       renderWsGameSelector(); // repaint the buttons into their shut state
+      wsCapModalOpen(false);  // fix192: once per window, not once per tap
       return 0;
     }
     gained = Math.min(gained, room);
@@ -14518,6 +15270,14 @@ function wsAwardMG(gained, msgEl, msg){
       : (msg || '');
   }
 
+  // fix197: lifetime MG BANKED, not held. state.workshop.mg is a balance that
+  // goes down when the player buys a tuning level, so it can never back a
+  // Lifetime Goal — this counter is the monotonic version of it. Uses
+  // `actual` for the same reason the window booking below does: the 9999
+  // balance clamp can shave what was actually credited, and the lifetime
+  // total must not claim MG the player never received.
+  if(actual > 0) state.lifetimeMG=(state.lifetimeMG||0)+actual;
+
   // fix178: book what was actually banked against the window. `actual` (not
   // `gained`) is the right number — the 9999 clamp above can shave it.
   if(actual > 0){
@@ -14533,6 +15293,12 @@ function wsAwardMG(gained, msgEl, msg){
   }
 
   if(actual!==0) wsRefreshTuningCardsAfford();
+
+  // fix197: gated on actual>0 rather than called unconditionally — wsAwardMG
+  // is the hottest mutation path in the game (every valid minigame move) and
+  // a capped or zero award has not moved the counter, so there is nothing to
+  // check. checkLifetimeGoals() only writes when a tier is newly crossed.
+  if(actual > 0) checkLifetimeGoals();
 
   if(wsSaveDebounce) clearTimeout(wsSaveDebounce);
   wsSaveDebounce = setTimeout(()=>{ wsSaveDebounce=null; saveGame(); }, 2000);
@@ -15407,6 +16173,16 @@ function grandTourCardHtml(ev, mode){
         GC so far: <strong>${tp?tp.gcPoints:0} pts</strong>${doneCount>0?` · ${doneCount} stage${doneCount!==1?'s':''} done`:''}
       </div>`;
     }
+    // fix199 — the standings row. Appended to bodyHtml for every scheduled
+    // state (in progress, forfeited, complete) because the board is exactly as
+    // interesting on the day you lost it as on the day you're leading it. Only
+    // rendered when tp exists; gcOpenStandings reads and never writes, so no
+    // field is created by tapping this.
+    if(tp){
+      const board = gcStandings(ev.id);
+      const yourPos = board.rows.findIndex(r=>r.isYou) + 1;
+      bodyHtml += `<div class="cal-event-desc" style="margin-top:.35rem;cursor:pointer;text-decoration:underline" onclick="gcOpenStandings('${ev.id}')">${icn('clipboard')} GC Standings — you're ${yourPos ? 'P'+yourPos : '—'} of ${board.rows.length}</div>`;
+    }
   }
 
   return `<div class="cal-event-card">
@@ -15528,6 +16304,18 @@ function saveGame(){
       equippedTitle:state.equippedTitle,
       totalRaces:state.totalRaces, totalPodiums:state.totalPodiums,
       raceWinsByType:state.raceWinsByType,
+      // fix197 — new lifetime counters. seasonAchievements.gtWon is a Set and
+      // so must be spread to an array here; JSON.stringify turns a bare Set
+      // into {} and the capstone would silently never fire again after a
+      // reload. loadGame rebuilds the Set on the way back in.
+      gtStageWins:state.gtStageWins, gtCompleted:state.gtCompleted,
+      gcPodiums:state.gcPodiums, calendarWins:state.calendarWins,
+      lifetimeMG:state.lifetimeMG, tuningLevelsBought:state.tuningLevelsBought,
+      buffsUsed:state.buffsUsed, trainingSessions:state.trainingSessions,
+      seasonAchievements:{
+        gtWon:[...state.seasonAchievements.gtWon],
+        nationalsWon:!!state.seasonAchievements.nationalsWon,
+      },
       winsSincePrestige:state.winsSincePrestige,
       specialisation:state.specialisation,
       energyInventory:state.energyInventory,
@@ -15634,6 +16422,31 @@ function loadGame(){
     state.totalRaces    = d.totalRaces    || 0;
     state.totalPodiums  = d.totalPodiums  || 0;
     state.raceWinsByType= d.raceWinsByType|| {crit:0,road:0,tt:0,hill:0};
+    // fix197 — every counter gets its own ?? guard. A save written by fix196
+    // or earlier carries none of them, and a save written by an interrupted
+    // fix197 session could carry some but not others.
+    state.gtStageWins        = d.gtStageWins        ?? 0;
+    state.gtCompleted        = d.gtCompleted        ?? 0;
+    state.gcPodiums          = d.gcPodiums          ?? 0;
+    state.calendarWins       = d.calendarWins       ?? 0;
+    state.lifetimeMG         = d.lifetimeMG         ?? 0;
+    state.tuningLevelsBought = d.tuningLevelsBought ?? 0;
+    state.buffsUsed          = d.buffsUsed          ?? 0;
+    state.trainingSessions   = d.trainingSessions   ?? 0;
+    // THE tourProgress LESSON, applied verbatim: guard each SUB-KEY, not the
+    // object. `state.seasonAchievements = d.seasonAchievements || {...}` would
+    // look correct and would work for a fix196 save, but the moment a future
+    // fix adds a third sub-key, every save written before that fix would
+    // arrive here with a truthy object missing the new field, the top-level
+    // ?? would decline to fire, and the missing key would read undefined
+    // forever. Rebuild the object field by field instead.
+    {
+      const _sa = d.seasonAchievements || {};
+      state.seasonAchievements = {
+        gtWon: new Set(Array.isArray(_sa.gtWon) ? _sa.gtWon : []),
+        nationalsWon: _sa.nationalsWon ?? false,
+      };
+    }
     // Fallback for saves predating this field: default to the player's lifetime
     // win count so an existing player with an active sponsor doesn't suddenly
     // find themselves locked out just from loading an old save.
@@ -15708,6 +16521,16 @@ function loadGame(){
       history:          d.calendar?.history   || [],
       tourProgress:     d.calendar?.tourProgress || {},
     };
+    // fix198: gcField needs its OWN guard inside each tourProgress entry — the
+    // top-level `|| {}` above restores the tours but says nothing about their
+    // contents, and a save written before fix198 has no gcField at all. This
+    // heals it to [] rather than generating one: generation belongs to the
+    // mutation paths (signup / stage completion), so a mid-tour save picks its
+    // field up at the next stage instead of at load.
+    Object.keys(state.calendar.tourProgress).forEach(tid=>{
+      const tp = state.calendar.tourProgress[tid];
+      if(tp && typeof tp==='object') tp.gcField = gcNormaliseField(tp.gcField);
+    });
     state.ftpHistory = Array.isArray(d.ftpHistory) ? d.ftpHistory : [];
     state.loginStreak          = d.loginStreak          || 0;
     state.lastLoginDate        = d.lastLoginDate        || null;
@@ -15823,7 +16646,13 @@ function applyOfflineProgress(){
     if(regenGained>=1){
       state.energy=Math.min(state.todayEnergyAllocation, state.energy+regenGained);
       summary.energy+=regenGained;
-      if(awayMs>60000) setTimeout(()=>showToast(`${icn('bolt')} +${Math.floor(regenGained)} energy regenerated while away`),800);
+      // fix193: the ceremony now fires on energy alone, so past the 600s away
+      // threshold this toast would duplicate the modal's own energy line. Below
+      // 600s no ceremony is queued and the toast is still the right weight, so
+      // the ceiling here mirrors the boot gate exactly — keep the two in step if
+      // either threshold ever moves.
+      // tombstone (pre-fix193): if(awayMs>60000) setTimeout(...)
+      if(awayMs>60000 && awaySec<=600) setTimeout(()=>showToast(`${icn('bolt')} +${Math.floor(regenGained)} energy regenerated while away`),800);
     }
   }
   return summary;
@@ -16228,7 +17057,12 @@ updateCalendarBadge();
 // gap was meaningful (>10 min away AND something was actually earned). Enqueued
 // via the existing ceremony queue so it never collides with an achievement/promo
 // ceremony also queued at boot; it simply waits its turn.
-if(_hadPriorSave && _offlineSummary.awaySeconds>600 && _offlineSummary.money>0){
+// fix193: a player with no sponsors (or none earning) came back to nothing but a
+// toast, which is precisely the returning-player moment the ceremony exists for.
+// Energy joins money in the gate. The >=1 floor matches the modal's own display
+// threshold — a fractional point of regen is not a ceremony.
+// tombstone (pre-fix193): if(_hadPriorSave && _offlineSummary.awaySeconds>600 && _offlineSummary.money>0){
+if(_hadPriorSave && _offlineSummary.awaySeconds>600 && (_offlineSummary.money>0 || _offlineSummary.energy>=1)){
   enqueueCeremony({type:'welcomeback', money:_offlineSummary.money, energy:_offlineSummary.energy, awaySeconds:_offlineSummary.awaySeconds});
 }
 // Onboarding tour — only ever fires for a genuinely brand-new player (see the
@@ -16469,6 +17303,40 @@ function closeInfo(ev){
     <button class="info-close" onclick="closeInfo()">✕</button>
     <div id="info-card-title"></div>
     <div id="info-card-body"></div>
+  </div>
+</div>
+
+<!-- ── fix192: Workshop cap modal — the hard-lockout explainer ──────────────
+     Deliberately a SEPARATE overlay from #info-overlay rather than an
+     INFO_TEXTS entry: this one carries a live ticking node (#ws-cap-countdown)
+     that wsCapModalTick patches every second, and openInfo re-renders its body
+     wholesale from a body() thunk on every open. Sharing the element would mean
+     an info tap silently killing the countdown mid-tick. Same .info-overlay /
+     .info-card classes, so no new CSS. Dismiss is the two-tap-free pattern used
+     by the info sheet — backdrop tap or the ✕; there is no confirm(). -->
+<div id="ws-cap-overlay" class="info-overlay" style="display:none" onclick="wsCapModalClose(event)">
+  <div class="info-card" onclick="event.stopPropagation()">
+    <button class="info-close" onclick="wsCapModalClose()">✕</button>
+    <div id="ws-cap-title">Bench closed</div>
+    <div id="ws-cap-body">
+      Your workshop has run out of grease and brake fluid — just nipping out for
+      supplies. Back in <strong id="ws-cap-countdown">00:00</strong>.
+    </div>
+  </div>
+</div>
+
+<!-- ── fix199: Grand Tour GC standings modal ───────────────────────────────
+     Own overlay, not an INFO_TEXTS entry, for the same reason the cap modal
+     above is separate: #gc-standings-body is rebuilt from live tour state by
+     gcOpenStandings, and openInfo overwrites #info-card-body wholesale from a
+     body() thunk. Reuses .info-overlay / .info-card so there is no new CSS.
+     Dismiss is backdrop tap or ✕ — read-only view, so no two-tap confirm and
+     no confirm(). -->
+<div id="gc-standings-overlay" class="info-overlay" style="display:none" onclick="gcCloseStandings(event)">
+  <div class="info-card" onclick="event.stopPropagation()">
+    <button class="info-close" onclick="gcCloseStandings()">✕</button>
+    <div id="gc-standings-title">General Classification</div>
+    <div id="gc-standings-body"></div>
   </div>
 </div>
 
