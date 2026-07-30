@@ -40,7 +40,63 @@
 // CONTENTS changed (new artwork, identical geometry). Without a bump every
 // installed PWA keeps repainting the old art out of the v3.8.08 cache.
 // const CACHE_VERSION = 'cim-v3.8.09';   // fix179: home-bg.jpg artwork swapped
-const CACHE_VERSION = 'cim-v3.8.10';   // fix183: assets/rider-bg.jpg added
+// fix184: same reason as fix172/fix179, this time for the Rider art —
+// rider-bg.jpg keeps its FILENAME but its CONTENTS changed (the fix183
+// mirror-padded recut is replaced by a straight 640x1422 q50 downscale of the
+// source, because the art turned out to be a painted UI screen rather than a
+// backdrop). Without a bump every installed PWA keeps painting the padded
+// version out of the v3.8.10 cache, and its duplicated top/bottom bands sit
+// exactly where the medallion geometry is being calibrated. The STATIC_ASSETS
+// entry below is unchanged and was NOT duplicated — fix183 already listed it.
+// const CACHE_VERSION = 'cim-v3.8.10';   // fix183: assets/rider-bg.jpg added
+// const CACHE_VERSION = 'cim-v3.8.11';   // fix184: rider-bg.jpg re-encoded (hub geometry)
+// fix185b: rider-bg.jpg keeps its FILENAME again but its CONTENTS changed — the
+// mirrored pad bands (139px top / 151px bottom, reflection axes at rows 139 and
+// 1276 of the 644x1428 recut) are repainted flat in the room's wall colour
+// rgb(210,199,195). Same 640x1422 raster, same 0.4501 aspect, so no geometry
+// moved; but a stale cache would keep serving the mirrored bands indefinitely,
+// which is exactly the failure this version line exists to prevent.
+// RENUMBERED: this stage originally shipped as 'fix186'. It was an unplanned
+// art repair discovered between stages, not the rider-hub plan's fix186 (the
+// section sheet), and it took that number by accident. Relabelled fix185b so
+// the file series stays aligned with the plan's stage list; the CACHE_VERSION
+// string itself is left at 3.8.12 because that value is already live in
+// installed PWAs and rewriting a shipped version line would strand them.
+// const CACHE_VERSION = 'cim-v3.8.12';   // fix185b: rider-bg.jpg pad bands -> flat room colour
+// fix186: no asset changed — this stage is CSS, markup and JS only. The bump is
+// still mandatory, because './index.html' is in STATIC_ASSETS below and the
+// deployed HTML filename does not change between fixes. Without it every
+// installed PWA keeps serving the fix185b shell out of the v3.8.12 cache and
+// the section sheet simply never appears, which is the single most common
+// deployment failure in this project.
+// const CACHE_VERSION = 'cim-v3.8.13';   // fix186: rider hub section sheet (#rider-sheet)
+// fix187: no asset changed either — this stage is CSS, markup and JS only, and
+// assets/rider-bg.jpg is BYTE-UNTOUCHED (the live stat values go into blank wall
+// the art already paints, so plan §8.1's regeneration was not needed). The bump
+// is mandatory all the same, for exactly the reason fix186 spells out above:
+// './index.html' is in STATIC_ASSETS and the deployed HTML filename does not
+// change between fixes. Skip it and every installed PWA keeps serving the fix186
+// shell, the painted CASH / FTP / ENERGY row stays decorative, and the defect
+// this stage exists to close is still on screen — while the file series says it
+// was fixed. That is the trap this project hits most often.
+// const CACHE_VERSION = 'cim-v3.8.14';   // fix187: rider hub live stat slots (.rider-slot)
+
+// fix188 — chrome reconciliation: .game-header hidden on the Rider tab, and the
+// ENERGY slot gains its gauge fill. No asset byte changed AGAIN, and the bump is
+// mandatory AGAIN, for the same reason as fix186 and fix187: './index.html' is in
+// STATIC_ASSETS and the deployed HTML filename never changes between fixes. Skip
+// it and installed PWAs keep the fix187 shell — which on this stage means a
+// duplicate header strip sitting over art that already paints one.
+// const CACHE_VERSION = 'cim-v3.8.15';   // fix188: rider hub chrome reconciliation
+
+// fix189 — polish: medallion badges, the #rider-toast pill and the Save Data
+// race lockout. No asset byte changed for the SIXTH stage running, and the bump
+// is mandatory for the sixth time, for the reason fix186 spells out above:
+// './index.html' is in STATIC_ASSETS and the deployed HTML filename never
+// changes between fixes. Skip it and installed PWAs keep the fix188 shell,
+// which means the Save Data section stays reachable mid-race — the one thing
+// this stage exists to prevent — while the file series says it was fixed.
+const CACHE_VERSION = 'cim-v3.8.16';   // fix189: rider hub polish (badges, pill, save lockout)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
