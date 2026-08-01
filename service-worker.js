@@ -160,7 +160,70 @@
 // deployed jpeg does not match that, it is fix201's encode that needs redoing,
 // and that will be its own stage with its own bump.
 // const CACHE_VERSION = 'cim-v3.8.20';   // fix203: generic hub class set + hubGo/renderHubBanner
-const CACHE_VERSION = 'cim-v3.8.21';   // fix204: training hub geometry stage + calibration overlay
+// fix205: NO asset byte changed again — this stage is CSS, markup and JS only
+// (the eight .train-hot medallions, the painted BACK hotspot, the three
+// .train-slot figures and the trainHubGo()/trainComingSoon() pair). Bumped for
+// the same './index.html' reason as fix204 above, and the stale-cache failure
+// mode is the SAME ONE, one stage on: skip this and an installed PWA keeps the
+// fix204 shell, in which trainDebugToggle() exists and works but paints a stage
+// carrying nothing but the calibration grid. That reads as "fix205 did not
+// land" rather than as "the cache is stale", and the natural response to it is
+// to go and re-type coordinates that were already correct.
+//
+// assets/training-bg.jpg is BYTE-UNTOUCHED and its STATIC_ASSETS entry (added
+// in fix201) is unchanged and was NOT duplicated. The fix204 caveat above still
+// stands and is now load-bearing rather than advisory: every --hx/--hy pair
+// this stage adds was measured against the 728x1568 source. If the deployed
+// jpeg is still fix201's 768x1707 flat-band encode, the 102.825% crop is wrong
+// and the whole hotspot set is offset by a constant. That is fix201's encode to
+// redo, in its own stage with its own bump — do NOT nudge these coordinates.
+// const CACHE_VERSION = 'cim-v3.8.21';   // fix204: training hub geometry stage + calibration overlay
+// fix207: NO asset byte changed — this stage is CSS, markup and JS only (the
+// gated #gear-stage / #gear-art / #gear-cal geometry stage and
+// gearDebugToggle()). assets/gear-bg.jpg is BYTE-UNTOUCHED and its
+// STATIC_ASSETS entry (added in fix201) is unchanged and was NOT duplicated.
+// The bump is mandatory all the same, for the reason fix186 spells out above:
+// './index.html' is in STATIC_ASSETS and the deployed HTML filename never
+// changes between fixes.
+//
+// TWO STAGES ARE FOLDED INTO THIS ONE BUMP. The file series shipped fix206 —
+// the Training section sheet, which is also the stage that UNGATED
+// #train-stage — without a bump of its own; v3.8.22 is still labelled fix205
+// above. So an installed PWA on v3.8.22 is serving a shell in which the eight
+// training medallions are live and have nowhere to go. This bump carries both
+// that shell and this one. Recorded rather than quietly corrected, because the
+// gap is the evidence for why the rule exists.
+//
+// The stale-cache failure mode for THIS stage is mild by comparison and worth
+// stating anyway: skip it and gearDebugToggle() is simply undefined in the
+// console, which reads as "fix207 did not land" rather than as "the cache is
+// stale" — and the natural response to that is to go and re-write a function
+// that is already correct.
+//
+// The gear geometry itself is gated off (display:none until
+// .gear-hub-preview), so nothing a player can reach changes on this stage.
+// That is deliberate: the calibration pass has to be run on device against the
+// deployed raster BEFORE fix208 welds hotspots to it, and it cannot be run
+// against a cache still painting fix201's 768x1707 encode. Verify the crop
+// with gearDebugToggle() on this shell first.
+// const CACHE_VERSION = 'cim-v3.8.22';   // fix205: training hub hotspots, painted BACK, live stat slots
+// const CACHE_VERSION = 'cim-v3.8.23';   // fix206+fix207: training section sheet; gear hub geometry stage
+// fix209: NO asset byte changed — this stage is CSS, markup and JS only (the
+// #gear-sheet section sheet, the gearSheetSet/gearHubBack/renderGearSheet
+// funnels, and the display gate lifting off #gear-stage). The bump is mandatory
+// all the same, for the reason fix186 spells out above: './index.html' is in
+// STATIC_ASSETS and the deployed HTML filename never changes between fixes.
+//
+// It matters MORE than usual on this stage, in the same way fix203's did. The
+// five #gear-section-* divs, #gear-nav and #gear-rider-scene-wrap are
+// RE-PARENTED into #gear-sheet by this stage's markup. An installed PWA serving
+// the fix208 shell out of the v3.8.24 cache would therefore get the new
+// stylesheet with the old markup: those sections would sit outside any
+// .gear-sheet-open subtree, so the Gear tab would paint its shop lists with no
+// sheet chrome and no back bar while the stage stayed gated — the shop reachable
+// but the hub not, which is the inverse of what shipped.
+// const CACHE_VERSION = 'cim-v3.8.24';   // fix208: gear hub hotspots, painted BACK, banner slots (HTML only, no asset content change)
+const CACHE_VERSION = 'cim-v3.8.25';   // fix209: gear section sheet + stage ungated (HTML only, no asset content change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
