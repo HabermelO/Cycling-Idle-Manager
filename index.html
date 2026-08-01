@@ -3198,17 +3198,54 @@ button{font-family:inherit;cursor:pointer;}
    Same ordering discipline as fix184/fix203; 78 is otherwise unused. */
 #train-stage{
   /* Not display:none inside .hub-stage — that class is shared with two live
-     hubs. The gate is here, on this tab's own id, and it is the single line
-     fix205 deletes when the hotspots make the stage safe to show by default. */
-  display:none;
+     hubs. The gate is here, on this tab's own id.
+
+     fix205: the gate STAYS, and the fix204 sentence that said "the single line
+     fix205 deletes" is re-dated to fix206. fix204 wrote that on the assumption
+     that hotspots alone make the stage safe to show. They do not: plan v1 §3
+     puts the section sheet in fix206, so between the two stages the eight
+     painted medallions have measured geometry and no destination. Ungating here
+     would ship the Training tab as a screen whose every control raises an
+     informational pill — strictly worse than the fix203 tab it replaces, and
+     the kind of thing a player reports as broken rather than as unfinished.
+
+     So the gate moves one stage right and the SCOPE of fix205 is unchanged:
+     hotspots, painted BACK and the three banner slots all land, all of them
+     live, and all of them tappable and measurable through trainDebugToggle().
+     fix206 deletes this one line at the same moment it gives the medallions
+     somewhere to go.
+
+     fix206: THE GATE IS LIFTED, exactly as promised above and not one stage
+     earlier. Tombstoned rather than deleted:
+       display:none;
+     Every medallion now has a destination — six open that session's existing
+     card in #train-sheet, GUT opens the existing gut card, and TRAINING LOG is
+     a hard coming-soon lockout (no "yes anyway" path; it has no backing state,
+     plan v1 §1). The painted BACK at data-hot="9" is the exit.
+
+     'train' is still NOT in HUB_TABS. The fix205 note further down this block
+     is explicit that adding it reopens the >0.60-aspect exit question and would
+     require a min-aspect-ratio fallback button; that is a fix202-shaped piece of
+     work, not a side effect of wiring the sheet. So .game-header stays on this
+     tab and remains the guaranteed exit on any device that crops the painted
+     BACK away. */
+  display:block;
   z-index:78;
-  /* fix205 will lift this. Until there are real controls on the stage, every
-     layer on it is inert, so a tap anywhere passes straight through to nothing
-     and the preview cannot swallow a control it does not have. */
-  pointer-events:none;
+  /* fix205: LIFTED. The tombstoned fix204 declaration —
+       pointer-events:none;
+     — was correct while every layer on the stage was inert. There are now nine
+     real <button>s on it, and an inert stage would swallow nothing but would
+     also let none of them be tapped, which is exactly what the calibration
+     pass has to test. The stage is still display:none by default (above), so
+     lifting this changes nothing a player can reach this stage. */
 }
 /* One class on #tab-train drives the preview, matching the .rider-sheet-open
    pattern: open/closed is a single DOM write and the layers cannot disagree. */
+/* fix206: now redundant — the stage is display:block unconditionally above — but
+   KEPT rather than retired. trainDebugToggle() still sets this class alongside
+   .train-debug, and a class toggle with no rule behind it is precisely the thing
+   a later reader assumes still does something (the fix136 lesson). It is a
+   harmless no-op re-assertion of the shipped value, never a second gate. */
 #tab-train.train-hub-preview #train-stage{display:block;}
 #train-art{
   /* Cover-rect arithmetic comes from .hub-art (fix203). Only the background
@@ -3268,6 +3305,923 @@ button{font-family:inherit;cursor:pointer;}
 }
 .train-cal-edge.top{top:0;}
 .train-cal-edge.bot{bottom:0;}
+
+/* ═══ fix205: Training hub hotspots, painted BACK and live stat slots ══════
+   Everything below is a percentage OF #train-art — the 708.2-wide effective
+   content box the 102.825% left-pinned crop renders from the 728x1568 source —
+   exactly as the fix204 markup comment promised. Never a percentage of the
+   viewport.
+
+   HOW THE NUMBERS WERE OBTAINED. Same method as fix202, and for the same
+   reason: an OpenCV Hough circle transform over a median-blurred greyscale
+   (dp 1, minDist 110, param1 110, param2 70, radii 55-110), so the centres are
+   the painted rims' own centres rather than a reading of them. Ten peaks came
+   back. Each was then confirmed by OCR of the caption strip directly beneath
+   it — NOT by eye, because two of the ten are the trainer's wheels and an
+   eyeballed pass is exactly how a wheel acquires a hotspot:
+
+     px x,y      r    -> art %          OCR of the strip below   verdict
+     138, 456    76      19.49 / 29.08  "AEROBIC BASE"           medallion
+     574, 456    81      81.05 / 29.08  "SPRINT"                 medallion
+     216, 792    94      30.50 / 50.51  (no text)                WHEEL, rejected
+     490, 792    90      69.19 / 50.51  (no text)                WHEEL, rejected
+     100, 908    64      14.12 / 57.91  "THRESHOLD"              medallion
+     606, 902    72      85.57 / 57.53  "VO2 MAX INTERVALS"      medallion
+     354,1038    71      49.99 / 66.20  "TEMPO"                  medallion
+     134,1166    88      18.92 / 74.36  "TRAINING LOG"           medallion
+     578,1164    88      81.62 / 74.23  "GUT TRAINING"           medallion
+     352,1228    68      49.70 / 78.32  "RECOVERY SPIN"          medallion
+
+   Eight medallions, matching plan v1 §1's Training table exactly — six zone
+   sessions plus GUT TRAINING plus TRAINING LOG. The two rejected peaks sit at
+   50.51% between the rows and carry no caption; a hotspot on either would be a
+   dead 22%-wide target in the middle of the painting.
+
+   THIS IS NOT THE RIDER HUB'S 3x2 GRID, and nothing about the rider geometry
+   ports. Training paints a DIAMOND: TEMPO and RECOVERY SPIN occupy the centre
+   column, with TRAINING LOG and GUT TRAINING outboard of and between them. A
+   later reader porting fix202's "two columns, three rows" mental model onto
+   this tab will put two hotspots on empty grass.
+
+   --hw / --hh stay at the rider hub's uniform 22% / 9.90%. Checked rather than
+   assumed: the largest detected radius is 88px = 12.43% of the content width
+   and 5.61% of its height, the smallest 64px = 9.04% / 4.08%. The box therefore
+   UNDERSHOOTS the two largest medallions slightly and overshoots the smallest,
+   which is the right way round — fix185's thumbs-beat-precision argument wants
+   a box that is never smaller than a thumb, and at a 390px viewport the cover
+   rect is 390 x 867, so 22% x 9.90% is an 86 x 86px target. Well clear of 44.
+
+   COLLISION AUDIT, same method as fix185/fix202. Boxes extend +/-11% in x and
+   +/-4.95% in y. The diamond makes three pairs share a y band, so x separation
+   is doing the work in every one of them and had to be checked explicitly:
+
+     TEMPO      y 61.25-71.15  x 38.99-60.99
+     THRESHOLD  y 52.96-62.86  x  3.12-25.12   y OVERLAPS, x clear by 13.87%
+     VO2 MAX    y 52.58-62.48  x 74.57-96.57   y OVERLAPS, x clear by 13.58%
+     TRAIN LOG  y 69.41-79.31  x  7.92-29.92   y OVERLAPS, x clear by  9.07%
+     GUT TRAIN  y 69.28-79.18  x 70.62-92.62   y OVERLAPS, x clear by  9.63%
+     RECOVERY   y 73.37-83.27  x 38.70-60.70   vs LOG/GUT x clear by 8.78/9.92%
+                                               vs TEMPO   y clear by  2.22%
+   No two boxes intersect. The tightest margin in the set is TEMPO/RECOVERY at
+   2.22% of the art's height — 19px at a 390px viewport. Tight but real, and it
+   is the pair a player's thumb is least likely to straddle because both are
+   centre-column and vertically stacked.
+
+   TOP-CROP SURVIVAL. .hub-art reproduces cover on the 768x1707 canvas, so at a
+   viewport aspect a > 0.4499 the visible vertical band is 50% +/- 0.4499/(2a):
+
+     aspect   visible band      painted BACK (14.88-20.38)   stat bar (10.85-12.85)
+     0.4286   0-100%            fully visible                fully visible
+     0.4613   1.24-98.76%       fully visible                fully visible
+     0.5622   9.99-90.01%       fully visible                visible, 0.86% clear
+     0.6000   12.50-87.50%      fully visible                CROPPED
+     0.6570   15.76-84.24%      partially cropped            CROPPED
+
+   fix202 proved the painted BACK survives on the RIDER raster. Per plan §0.1
+   that proof transfers nothing — this is a different painting — so it is
+   re-derived here: measured at cy 17.63%, it clears the 0.5622 band by 4.89%
+   and stays whole to 0.5952. The stat bar is the tighter of the two and is the
+   number to watch on device.
+
+   Both are therefore sound across the 0.4286-0.5622 phone range plan §0.1
+   names, and neither is load-bearing above ~0.60. That is survivable WITHOUT a
+   .rider-home-style real-DOM fallback button, because 'train' is deliberately
+   NOT in HUB_TABS (see the JS): .game-header stays on this tab, so a device
+   squarer than 0.60 that crops the painted BACK away still has the header's
+   own exit. Adding 'train' to HUB_TABS in fix206 REOPENS this, and must ship
+   the min-aspect-ratio guard fix202 wrote for rider. Stated here rather than
+   there so the constraint is next to the measurement it comes from. */
+.train-hot-rect{border-radius:12px;}
+/* Live stat slots. The art paints a dark rounded bar at y 165-202px
+   (10.52-12.88%) carrying five glyphs, with the CASH / FTP / ENERGY captions
+   BELOW it rather than beside it — a different arrangement from both home
+   (recessed plates) and rider (labels with blank wall to their right), so
+   neither set of measurements ports and both were re-derived.
+
+   Blank runs inside the bar, found at a combined saturation+luminance-variance
+   threshold over rows 165-202, i.e. the columns where the bar is flat plate and
+   nothing is painted:
+
+     after the cash glyph      19.63% - 34.31%   (14.69% wide)
+     after the gauge glyph     50.97% - 61.14%   (10.17% wide)
+     after the bolt glyph      73.71% - 89.24%   (bar's right end at 89.24%)
+
+   The slots below are inset inside each run so a long value (a seven-figure
+   cash total, a three-digit FTP) grows into flat plate and never touches a
+   glyph. Light ink on a dark plate, which is home's polarity and the inverse of
+   rider's — the plate here is painted rgb(85,90,100)-ish, and #F4F7FA on it
+   measures 6.27:1. */
+.train-slot{
+  top:10.85%; height:2.00%;
+  color:#F4F7FA;
+  text-shadow:0 1px 2px rgba(0,0,0,.70);
+}
+#train-slot-money  {left:20.50%; width:13.00%;}
+#train-slot-ftp    {left:51.50%; width:9.00%;}
+#train-slot-energy {left:74.20%; width:13.50%;}
+/* ENERGY gauge fill. Mirrors #rider-slot-energy::before: same absolute inset,
+   same calc(var(--…-pct) * 1%) width so the gauge animates on a single custom
+   property write with no innerHTML churn, same reduced-motion guard.
+
+   The green is DARKER than either home's or rider's, and that is the whole
+   point rather than a taste call. This slot carries LIGHT ink on a DARK plate,
+   so a fill that lightens the plate can only reduce contrast — the direction
+   both other hubs' fills push, because both sit under dark ink. Measured
+   against the plate's rgb(85,90,100):
+
+     empty plate                          6.27:1
+     under the .60 stop rgba(46,132,82)   7.60:1
+     under the .45 stop rgba(56,150,92)   5.24:1
+
+   So a full gauge is never harder to read than an empty one anywhere along its
+   length, which is the same guarantee fix188 made for rider by the opposite
+   means. No border-radius, for rider's reason: this is an interior region of a
+   painted bar, not a plate of its own, and a rounded fill would read as a
+   floating pill. */
+#train-slot-energy::before{
+  content:'';position:absolute;inset:0;
+  width:calc(var(--train-energy-pct,0) * 1%);
+  background:linear-gradient(90deg, rgba(46,132,82,.60), rgba(56,150,92,.45));
+}
+@media (prefers-reduced-motion: no-preference){
+  #train-slot-energy::before{transition:width .35s ease;}
+}
+#train-slot-energy #train-energy{position:relative;}
+/* Informational pill. Same contract as #home-toast and #rider-toast: a single
+   pre-built node, text patched in place, never created per tap.
+   pointer-events:none so it cannot swallow the tap that follows it, and no
+   state is written when it shows — not a confirm(), not a modal, not a two-tap
+   flow. Positioned at 43% of #train-art, over the painted rider: below the
+   AEROBIC BASE / SPRINT row (29.08%) and above THRESHOLD / VO2 MAX (57.53%), so
+   it can never cover the medallion that was just tapped. */
+#train-toast{
+  position:absolute; left:50%; top:43%;
+  transform:translate(-50%,-50%) scale(.9);
+  padding:10px 18px; border-radius:999px;
+  background:rgba(14,20,32,.94);
+  border:1px solid rgba(255,255,255,.22);
+  color:#fff; font-weight:700; font-size:15px;
+  box-shadow:0 6px 20px rgba(0,0,0,.45);
+  pointer-events:none; opacity:0; visibility:hidden;
+  max-width:86%; text-align:center;
+}
+#train-toast.on{opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1);}
+@media (prefers-reduced-motion: no-preference){
+  #train-toast{transition:opacity .18s ease, transform .18s ease;}
+}
+/* The hotspots and slots join the fix204 calibration overlay, so one
+   trainDebugToggle() shot shows the grid, the boxes and the value rects
+   together. Magenta boxes and cyan slots, matching rider so a screenshot from
+   either tab reads the same way. */
+#train-stage.train-debug .train-hot{background:rgba(255,0,255,.28);outline:2px solid #ff0;}
+#train-stage.train-debug .train-hot::after{
+  content:attr(data-hot);position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);color:#ff0;font:700 13px/1 monospace;
+}
+#train-stage.train-debug .train-slot{background:rgba(0,255,255,.30);outline:1px solid #0ff;}
+
+/* ═══ fix206: the Training section sheet ═════════════════════════════════
+   Shaped on #rider-sheet (fix186) deliberately: same hard-lockout mechanics,
+   same sticky back bar, same measured top edge. Two sheets, one pattern.
+
+   WHAT IS INSIDE IT IS RE-PARENTED, NOT REBUILT. #active-session-wrap and
+   #gut-train-card-wrap move here from the Train panel with their IDS AND THEIR
+   BODIES UNTOUCHED — renderActiveSession() and renderGutTrainCard() look them
+   up by id and neither renderer is edited. Same id contract fix186 preserved
+   for the five #rider-section-* divs.
+
+   z-index 79: strictly above #train-stage's 78 so the sheet covers the
+   medallions, and strictly below #rider-stage's 80 and #home-stage's 90 so
+   tapping through to either hub can never leave a training sheet painted over
+   it. Same ordering discipline as fix184/fix186/fix203; 79 is otherwise unused.
+
+   display:none rather than a fade, for fix186's reason: it is a HARD lockout.
+   Closed, it cannot be scrolled, focused or tapped through; open, the stage
+   below is display:none (see the .train-sheet-open pair) so no medallion can be
+   hit through it. Nothing is translucent, so there is no state in which both
+   layers are live at once. */
+#train-sheet{
+  display:none;
+  position:fixed;
+  /* NOT inset:0 — .game-header sits at z-index 83, above this sheet, because
+     'train' is not in HUB_TABS. The sheet has to start beneath the header or
+     the back bar is unreachable behind it. This value is the fallback for when
+     no header is showing; trainSheetSet() overwrites it with the header's
+     MEASURED height whenever one is. Measured rather than hardcoded to ~52px
+     for riderSheetSet()'s reason: updateHeader() rewrites the stat row every
+     tick and a wrapped value would break a magic number silently. */
+  top:env(safe-area-inset-top, 0px);
+  left:0; right:0; bottom:0;
+  z-index:79;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%);
+  /* bottom padding clears .main-tabs (z-index 100), which is still on this tab
+     and still overlays the sheet's lower edge — the bar is not retired until
+     the five unskinned tabs have art (plan v1 §2). */
+  padding:0 .75rem calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+}
+/* One class on #tab-train drives both layers, so open/closed is a single DOM
+   write and the two can never disagree about which is showing. */
+#tab-train.train-sheet-open #train-sheet{display:block;}
+#tab-train.train-sheet-open #train-stage{display:none;}
+
+/* Sticky rather than fixed so it participates in the sheet's own scroll
+   container and needs no height reservation. Opaque --hub-sky (flat hex, not
+   the gradient) so content scrolling under it is fully covered. */
+.train-sheet-bar{
+  position:sticky;
+  top:0;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 -.75rem .6rem;
+  padding:.45rem .75rem;
+  background:var(--hub-sky);
+  box-shadow:0 2px 8px rgba(30,25,32,.18);
+}
+.train-sheet-title{
+  font-size:13px;font-weight:700;color:#123;
+  letter-spacing:.02em;
+}
+/* Declared rather than reusing .rider-sheet-back by adding this class to that
+   selector list: the rider rule is shared with .rider-home, which fix188 is
+   scheduled to touch, and one tab's back button must not be able to break
+   another's. Same 44px+ target, same :active scale, same reduced-motion guard. */
+.train-sheet-back{
+  display:flex; align-items:center; gap:6px;
+  min-height:44px; padding:0 14px 0 10px;
+  border:1px solid var(--border); border-radius:999px;
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:700;
+  box-shadow:var(--shadow-md);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.train-sheet-back:active{transform:scale(.96);}
+@media (prefers-reduced-motion: no-preference){
+  .train-sheet-back{transition:transform .12s ease;}
+}
+.train-sheet-back:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
+/* ═══ fix207: GEAR HUB — geometry stage + calibration ═════════════════════
+   Plan v1 §3, stage fix207: "geometry + calibration". Hotspots, the painted
+   BACK and the banner slots are fix208; the section sheet wrapping the five
+   existing gear-section-* divs is fix209. NOTHING NAVIGATES OFF THIS STAGE
+   YET, which is exactly why it ships GATED OFF (see #gear-stage below) and is
+   raised only by gearDebugToggle(). A fixed, inset:0 stage with no controls on
+   it would otherwise seal the working Gear tab behind a picture — a hard
+   lockout with no exit, the one shape of lockout this project does not want.
+   This is fix204's shape verbatim, one tab across.
+
+   THE ART — MEASURED, NOT ASSUMED (plan v1 §0). assets/gear-bg.jpg was
+   re-measured from source rather than inherited from the fix201 note:
+
+     source            728 x 1568
+     content box       705 x 1568   (x 0-704 solid; the JPEG ramp reaches full
+                                     white by x 709)
+     margin            ~20px white, RIGHT EDGE ONLY — no bottom margin
+     content aspect    708/1568 = 0.4515
+
+   That is the SAME post-fix200 redraw fix202 found on the rider art and fix204
+   found on the training art, not the 768x1707 flat-band re-cut fix201's
+   LAZY_ASSET_GROUPS comment describes. Corroborated independently: the source's
+   own median edge strips are rgb(67,89,110) top and rgb(62,49,66) bottom,
+   within noise of the rgb(67,90,109) / rgb(59,50,65) the fix201 gear group
+   comment records, so the file being measured here is the file that group binds.
+
+   So this tab takes #rider-art's fix202 treatment VERBATIM, exactly as #train-art
+   does: the cover rect comes from .hub-art (768/1707, shared, not re-derived),
+   and the white right margin is cropped by painting the background at 102.825%
+   width pinned LEFT. 102.825% is 728/708 — training's published value, REUSED
+   rather than re-derived from this tab's 705, deliberately: the two sources are
+   framed identically and the difference between a 705- and a 708-wide content
+   box is 0.06% of the art's width, well under one device pixel at any phone
+   size, whereas two crop constants for one framing is a number that drifts.
+   Every percentage a hotspot uses in fix208 is therefore a percentage of the
+   CONTENT box, never of the file and never of the viewport.
+
+   If the DEPLOYED assets/gear-bg.jpg is still fix201's 768x1707 flat-band
+   encode, the 102.825% crop is wrong and the calibration pass below shows it as
+   a constant horizontal offset. That is fix201's encode to redo, in its own
+   stage with its own CACHE_VERSION bump — do NOT nudge coordinates to chase it.
+
+   WHAT THE CALIBRATION PASS IS FOR. Content aspect ~0.45 against phone
+   viewports of ~0.429 to ~0.657, so under cover the top and bottom of the art
+   crop away on anything squarer than ~0.462 (the aspect table in the fix184
+   block still applies unchanged — it is a property of the canvas, not of the
+   tab). fix208 needs to know, measured on glass rather than reasoned about:
+     1. that the five painted icons (BIKES / WHEELS / KIT / EXTRAS / ENERGY,
+        plan v1 §1) land where the grid says at 0.4286, 0.4613 and 0.5622,
+     2. whether the painted BACK at the top of THIS art survives the crop at
+        0.5622 — fix202 proved it on the rider raster and fix205 on the training
+        raster; this is a THIRD painting and inherits nothing from either,
+     3. the y band the painted stat row occupies, for fix208's slots.
+   Read the answers off the labelled ticks with gearDebugToggle().
+
+   z-index 77: strictly below #train-stage's 78, #train-sheet's 79,
+   #rider-stage's 80 and #home-stage's 90, so tapping through to any of them can
+   never leave gear art painted over the top. Same ordering discipline as
+   fix184/fix203/fix204; 77 is otherwise unused. */
+#gear-stage{
+  /* Not display:none inside .hub-stage — that class is shared with two LIVE
+     hubs (home, rider) and one shipped one (train). The gate is here, on this
+     tab's own id, and it is the single line fix209 deletes at the same moment
+     it gives the five painted icons somewhere to go.
+
+     NOT fix208. fix205's note on #train-stage is the precedent and it was
+     written the hard way: hotspots alone do not make a stage safe to show,
+     because between the hotspot stage and the sheet stage every painted control
+     has measured geometry and no destination. Ungating at fix208 would ship
+     Gear as a screen whose every icon raises an informational pill — strictly
+     worse than the tab it replaces, and reported as broken rather than as
+     unfinished. The gate lifts once, in fix209. */
+  /* fix209: THE PROMISED LIFT, and the second of the two separate gates fix208
+     was careful not to touch. Tombstoned (fix136 form) — the fix207 body:
+       display:none;
+     All five painted medallions now open #gear-sheet, and the painted BACK plus
+     .game-header both leave the tab, so the stage is no longer a screen of
+     controls with no destination. The condition fix207 set for this deletion is
+     met exactly and nothing else on this rule moved. */
+  display:block;
+  z-index:77;
+  /* fix208: THE PROMISED LIFT. Tombstoned (fix136 form) — the fix207 body:
+       /* Inert while every layer on the stage is inert. There is not one
+          <button> on this stage yet ... fix208 lifts this in the same edit that
+          adds the first real hotspot, exactly as fix205 lifted it on
+          #train-stage. * /
+       pointer-events:none;
+     Six hotspots now exist on this stage, so the overlay has something to
+     serve and is no longer an interactive-but-empty trap. The DISPLAY gate
+     above is untouched and stays until fix209 — the two gates are separate
+     and only one of them moves this stage. */
+}
+/* One class on #tab-gear drives the preview, matching .train-hub-preview and
+   .rider-sheet-open: raised/lowered is a single DOM write and the layers cannot
+   disagree. This is a REAL gate this stage (unlike train's, which fix206 turned
+   into a no-op re-assertion when it ungated the stage) — #gear-stage above is
+   display:none, so without this class there is no route to the art at all. */
+/* fix209: now redundant — the stage is display:block unconditionally above —
+   but KEPT rather than retired, exactly as fix206 kept .train-hub-preview.
+   gearDebugToggle() still sets this class alongside .gear-debug, and a class
+   toggle with no rule behind it is precisely the thing a later reader assumes
+   still does something (the fix136 lesson). It is a harmless no-op
+   re-assertion of the shipped value, never a second gate. */
+#tab-gear.gear-hub-preview #gear-stage{display:block;}
+#gear-art{
+  /* Cover-rect arithmetic comes from .hub-art (fix203). Only the background
+     shorthand is per-tab, exactly as with #rider-art and #train-art: a
+     different asset, plus the 102.825% left-pinned crop that removes the white
+     right margin. The fallback is the sky gradient, kept for the reason the
+     other hubs keep it — a missing asset degrades to flat sky, never to a
+     black screen. */
+  background:var(--sheet-gear-scene,
+    linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
+    left center/102.825% 100% no-repeat;
+}
+/* The calibration overlay. Pure CSS gradients rather than 30-odd marker divs:
+   minor rules every 2% of the art's height and 5% of its width, major rules
+   every 10% of both. Sits INSIDE #gear-art, so the rules rule the ART's own
+   coordinate space — the same space fix208's --hx/--hy will live in — and not
+   the viewport's. That is the whole point of the overlay; a viewport grid would
+   read correctly and mean nothing.
+
+   DELIBERATELY NOT SHARED WITH #train-cal. The obvious tidy-up is one
+   .hub-cal-* class set serving both tabs, and it is refused here on scope
+   grounds: generalising would edit the shipped fix204/fix205 training markup,
+   which is outside this stage's planned regions and carries regression risk on
+   a screen that currently works. If a THIRD hub needs a calibration overlay
+   (fix210, Tasks), that is the moment to generalise all three at once — the
+   same "do not generalise until a second consumer has actually shipped" rule
+   fix185 set and fix203 acted on.
+
+   Off by default and never persisted: the rules below only paint under the
+   .gear-debug class that gearDebugToggle() sets. */
+#gear-cal{
+  position:absolute; inset:0;
+  pointer-events:none;
+  display:none;
+}
+#gear-stage.gear-debug #gear-cal{display:block;}
+#gear-stage.gear-debug #gear-cal::before{
+  content:'';position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(to right, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to bottom, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to right, rgba(0,255,255,.30) 0 1px, transparent 1px 5%),
+    repeating-linear-gradient(to bottom, rgba(0,255,255,.30) 0 1px, transparent 1px 2%);
+}
+/* Labelled ticks. Static markup, one per major rule, so a screenshot can be
+   read off without counting lines — counting is exactly where a calibration
+   pass goes quietly wrong. Yellow on a dark plate so they survive both the
+   bright band and the dark floor band of this particular painting. */
+.gear-cal-tick{
+  position:absolute;
+  color:#ff0; background:rgba(0,0,0,.62);
+  font:700 10px/1.35 monospace;
+  padding:1px 3px; border-radius:3px;
+  pointer-events:none;
+}
+.gear-cal-y{left:2px; transform:translateY(-50%); top:var(--ty);}
+.gear-cal-x{top:2px; transform:translateX(-50%); left:var(--tx);}
+/* Viewport-anchored readout of what the device is actually doing, because the
+   two numbers a calibration pass most needs are the ones no screenshot of the
+   art can show: the live viewport aspect, and whether the top and bottom of the
+   canvas are on screen at all. The bars are pinned to the ART, so if either one
+   is not visible on device, that edge of the painting is cropped away and
+   nothing load-bearing may go there in fix208 — which is the question the
+   painted BACK's viability turns on. */
+.gear-cal-edge{
+  position:absolute; left:0; right:0; height:3px;
+  background:#0f0;
+  pointer-events:none;
+}
+.gear-cal-edge.top{top:0;}
+.gear-cal-edge.bot{bottom:0;}
+
+/* ═══ fix208: GEAR HUB — hotspots, painted BACK, banner slots ═════════════
+   Plan v1 §3, stage fix208. The section sheet wrapping the five existing
+   gear-section-* divs is fix209, and #gear-stage stays display:none until it —
+   see the gate's own comment above, which fix208 deliberately does NOT touch.
+   Every medallion therefore raises the informational pill this stage, exactly
+   as fix205's did on Training, and the only route in is gearDebugToggle().
+
+   THE FIVE MEDALLIONS. Hough rim detection over the 708-wide content box,
+   captions then read off crops of each rim:
+
+     px centre   r     --hx / --hy     caption    section    renderer
+     136,460     79    19.21 / 29.34   BIKES      bikes      renderBikeShop()
+     570,454     73    80.51 / 28.95   WHEELS     wheels     renderWheelShop()
+     102,910     75    14.41 / 58.04   KIT        kit        renderKitShop()
+     608,902     63    85.88 / 57.53   EXTRAS     accessories renderAccessoryShop()
+     354,1036    71    50.00 / 66.07   ENERGY     energy     renderEnergyItems()
+
+   Five detected, five captioned, five in plan v1 §1's Gear table. No rejected
+   peaks on this raster — unlike Training, where two uncaptioned peaks at 50.51%
+   had to be discarded.
+
+   THE LAYOUT IS TRAINING'S, AND THAT IS A MEASUREMENT NOT AN ASSUMPTION. The
+   first five gear centres land within 0.5% of Training's first five
+   (19.49/29.08, 81.05/28.95, 14.12/57.91, 85.57/57.53, 49.99/66.20). Two
+   paintings drawn to one template. The coordinates below are still THIS art's
+   own detected values rather than Training's copied across: the agreement is
+   corroboration that the detection is sound, and if a future art drop breaks the
+   template these numbers move with their own painting and Training's do not.
+
+   --hw / --hh stay at the 22% / 9.90% every other hub uses. Checked: largest
+   radius 79px = 11.16% of content width and 5.04% of its height, smallest 63px =
+   8.90% / 4.02%, so the box undershoots the largest and overshoots the smallest
+   — fix185's thumbs-beat-precision direction. At a 390px viewport the cover rect
+   is 390 x 867, so the box is 86 x 86px. Well clear of 44.
+
+   COLLISION AUDIT, same method as fix185/fix202/fix205. Boxes extend +/-11% in
+   x and +/-4.95% in y:
+
+     BIKES    y 24.39-34.29  x  8.21-30.21
+     WHEELS   y 24.00-33.90  x 69.51-91.51   y overlaps, x clear by 39.30%
+     KIT      y 53.09-62.99  x  3.41-25.41
+     EXTRAS   y 52.58-62.48  x 74.88-96.88   y overlaps, x clear by 49.47%
+     ENERGY   y 61.12-71.02  x 39.00-61.00   vs KIT   y clear by 0 / x by 13.59%
+                                             vs EXTRAS y overlaps, x by 13.88%
+   No two boxes intersect. This set is far roomier than Training's diamond —
+   the tightest margin here is 13.59% of the art's width against Training's
+   2.22% of its height, because Gear paints five icons where Training paints
+   eight and has no centre-column stack.
+
+   THE PAINTED BACK. Isolated from the warm wall by an R-B saturation test
+   rather than a luminance threshold: the pill is desaturated grey-blue on a lit
+   brown wall, and a plain dark test drags in the wall's own shadowed left edge.
+   Measured x 22-142, y 247-306, i.e. cx 11.58% / cy 17.63%, painted 16.95% x
+   3.76%.
+
+   --hw 19% and --hh 5.50% against those, for fix202's and fix205's reason:
+   3.76% of an 867px cover rect is a 33px target and misses the 44px floor,
+   5.50% is 48px and clears it. The box overhangs the paint into flat wall. Its
+   bottom edge at 20.38% is 4.01% clear of BIKES' top edge at 24.39%, and its
+   top edge at 14.88% is 2.33% clear of the stat slots' bottom at 12.55% — and
+   the slots are pointer-events:none besides, so that second margin is
+   presentational only.
+
+   Routes through showTab('home'), the same single call the rider hub's painted
+   BACK, .rider-home, the header's .home-back and Training's painted BACK all
+   make. Five painted or real routes to one function, still no second history
+   mechanism.
+
+   TOP-CROP SURVIVAL, re-derived for this painting per plan §0.1 — fix202 proved
+   it on the rider raster and fix205 on the training raster and NEITHER proof
+   transfers. .hub-art reproduces cover on the 768x1707 canvas, so at a viewport
+   aspect a > 0.4499 the visible vertical band is 50% +/- 0.4499/(2a):
+
+     aspect   visible band      painted BACK (14.88-20.38)   stat bar (10.55-12.55)
+     0.4286   0-100%            fully visible                fully visible
+     0.4613   1.24-98.76%       fully visible                fully visible
+     0.5622   9.99-90.01%       fully visible                visible, 0.56% clear
+     0.6000   12.50-87.50%      fully visible                CROPPED
+     0.6570   15.76-84.24%      partially cropped            CROPPED
+
+   The BACK sits at cy 17.63%, clears the 0.5622 band by 4.89% and stays whole
+   to 0.5952. The stat bar is again the tighter of the two and is the number to
+   watch on device — and it is TIGHTER HERE THAN ON TRAINING, 0.56% against
+   0.86%, because this art's bar sits marginally higher. That is 5px at a 390px
+   viewport. It is the one measurement on this stage a device pass could still
+   overturn.
+
+   Sound across the 0.4286-0.5622 phone range plan §0.1 names, and not
+   load-bearing above ~0.60. Survivable WITHOUT a .rider-home-style real-DOM
+   fallback because 'gear' is deliberately NOT in HUB_TABS: .game-header stays on
+   this tab and still goes home. ADDING 'gear' TO HUB_TABS IN fix209 REOPENS
+   THIS and must ship the min-aspect-ratio guard fix202 wrote for rider. Stated
+   here, next to the measurement it comes from, exactly as fix205 stated it. */
+.gear-hot-rect{border-radius:12px;}
+/* Live stat slots. The art paints a rounded plate spanning x 78-630, y 153-207
+   (11.02-88.98% x 9.76-13.20%), carrying five glyphs with the CASH / FTP /
+   ENERGY captions BELOW it — Training's arrangement, not home's recessed plates
+   and not rider's labels-with-wall-to-the-right. The measurements were still
+   re-derived rather than ported: this plate is a different width and carries
+   five glyphs where Training's carried five at different pitches.
+
+   THE ART PAINTS NO FIGURES AT ALL. Three genuinely blank runs, found by
+   differencing each column against a per-row background model sampled from the
+   plate's own empty right end (a flat-run test fails here — the plate carries a
+   vertical gradient, so column variance never goes flat):
+
+     glyph clusters   78-135, 232-356, 422-517, 620-631
+     after the cash glyph      136 - 231   (96px, 19.21-32.63%)
+     between dial and calendar 357 - 421   (65px, 50.42-59.46%)
+     after the bolt glyph      518 - 619   (102px, 73.16-87.43%)
+
+   Each run is confirmed by the caption underneath it: CASH's ink centres on
+   x 177, FTP's on 369, ENERGY's on 566 — one caption per blank, dead centre of
+   it. So no painted figure is ever covered and no plate chip is needed; the
+   values simply land in the space the artist left for them. The slots are inset
+   ~4px inside each run so a seven-figure cash total or a three-digit FTP grows
+   into flat plate and never touches a glyph.
+
+   Light ink on a dark plate, which is Training's polarity and home's, and the
+   inverse of rider's. The plate interior measures rgb(71,81,93) at its right
+   end and rgb(49,69,94) at its left; #F4F7FA on the lighter of the two is
+   7.2:1. */
+.gear-slot{
+  top:10.55%; height:2.00%;
+  color:#F4F7FA;
+  text-shadow:0 1px 2px rgba(0,0,0,.70);
+}
+#gear-slot-money  {left:19.80%; width:12.25%;}
+#gear-slot-ftp    {left:51.00%; width:7.90%;}
+#gear-slot-energy {left:73.75%; width:13.10%;}
+/* ENERGY gauge fill. Mirrors #train-slot-energy::before exactly — same absolute
+   inset, same calc(var(--…-pct) * 1%) width so the gauge animates on a single
+   custom-property write with no innerHTML churn, same reduced-motion guard, and
+   the same DARK green.
+
+   The green is Training's rather than home's or rider's for Training's reason,
+   re-checked against THIS plate's rgb(71,81,93): this slot carries light ink on
+   a dark plate, so a fill that lightens the plate can only reduce contrast.
+
+     empty plate                          7.20:1
+     under the .60 stop rgba(46,132,82)   5.30:1
+     under the .45 stop rgba(56,150,92)   5.20:1
+
+   A full gauge is never harder to read than an empty one anywhere along its
+   length, and the floor across the whole sweep stays above 4.5:1. No
+   border-radius, for rider's and Training's reason: this is an interior region
+   of a painted bar, not a plate of its own. */
+#gear-slot-energy::before{
+  content:'';position:absolute;inset:0;
+  width:calc(var(--gear-energy-pct,0) * 1%);
+  background:linear-gradient(90deg, rgba(46,132,82,.60), rgba(56,150,92,.45));
+}
+@media (prefers-reduced-motion: no-preference){
+  #gear-slot-energy::before{transition:width .35s ease;}
+}
+#gear-slot-energy #gear-energy{position:relative;}
+/* Informational pill. Same contract as #home-toast, #rider-toast and
+   #train-toast: a single pre-built node, text patched in place, never created
+   per tap. pointer-events:none so it cannot swallow the tap that follows it, and
+   no state is written when it shows — not a confirm(), not a modal, not a
+   two-tap flow. Positioned at 44% of #gear-art, over the painted mechanic: below
+   the BIKES / WHEELS row (29.34%) and above KIT / EXTRAS (58.04%), so it can
+   never cover the medallion that was just tapped. */
+#gear-toast{
+  position:absolute; left:50%; top:44%;
+  transform:translate(-50%,-50%) scale(.9);
+  padding:10px 18px; border-radius:999px;
+  background:rgba(14,20,32,.94);
+  border:1px solid rgba(255,255,255,.22);
+  color:#fff; font-weight:700; font-size:15px;
+  box-shadow:0 6px 20px rgba(0,0,0,.45);
+  pointer-events:none; opacity:0; visibility:hidden;
+  max-width:86%; text-align:center;
+}
+#gear-toast.on{opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1);}
+@media (prefers-reduced-motion: no-preference){
+  #gear-toast{transition:opacity .18s ease, transform .18s ease;}
+}
+/* The hotspots and slots join the fix207 calibration overlay, so one
+   gearDebugToggle() shot shows the grid, the boxes and the value rects
+   together. Magenta boxes and cyan slots, matching rider and train so a
+   screenshot from any hub reads the same way. */
+#gear-stage.gear-debug .gear-hot{background:rgba(255,0,255,.28);outline:2px solid #ff0;}
+#gear-stage.gear-debug .gear-hot::after{
+  content:attr(data-hot);position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);color:#ff0;font:700 13px/1 monospace;
+}
+#gear-stage.gear-debug .gear-slot{background:rgba(0,255,255,.30);outline:1px solid #0ff;}
+
+/* ═══ fix209: GEAR SECTION SHEET ══════════════════════════════════════════
+   Plan v1 §3, stage fix209: "section sheet wrapping the existing
+   gear-section-* divs. setGearSection() and all five renderers untouched."
+   This is #train-sheet's fix206 shape one tab across, and #rider-sheet's
+   fix186 shape two tabs across — same class names with one prefix changed,
+   deliberately not shared, for the reason fix206 gives: a rule shared between
+   two hubs lets one tab's polish break another's exit.
+
+   The five #gear-section-* divs are RE-PARENTED into this sheet, ids and
+   bodies untouched, so setGearSection() still finds each one by id and none
+   of renderEnergyItems / renderBikeShop / renderWheelShop / renderKitShop /
+   renderAccessoryShop is edited. .gear-nav and #gear-rider-scene-wrap move
+   with them: the nav is a second, non-painted route between sections and
+   stays live inside the sheet, and the rider preview is what makes a kit or
+   frame purchase legible at the moment it is made.
+
+   z-index 79: above #gear-stage's 77 so the sheet covers the medallions, and
+   strictly below #rider-stage's 80 and #home-stage's 90 so tapping through to
+   either hub can never leave a gear sheet painted over it. It shares the 79
+   tier with #train-sheet KNOWINGLY rather than taking a new number: the two
+   live in different tab panels and showTab() display:none's the one it is not
+   showing, so the pair can never be composited together, and each sits above
+   its own stage regardless. Same ordering discipline as fix184/186/203/206.
+
+   display:none rather than a fade, for fix186's and fix206's reason: it is a
+   HARD lockout. Closed, it cannot be scrolled, focused or tapped through;
+   open, the stage below is display:none (see the .gear-sheet-open pair) so no
+   medallion can be hit through it. Nothing is translucent, so there is no
+   state in which both layers are live at once. */
+#gear-sheet{
+  display:none;
+  position:fixed;
+  /* NOT inset:0 — .game-header sits at z-index 83, above this sheet, because
+     'gear' is NOT in HUB_TABS and fix209 deliberately does not add it (see the
+     fix208 note on the painted BACK: adding it reopens the >0.60-aspect exit
+     question and needs a min-aspect-ratio fallback, which is its own stage).
+     The sheet has to start beneath the header or the back bar is unreachable
+     behind it. This value is the fallback for when no header is showing;
+     gearSheetSet() overwrites it with the header's MEASURED height whenever one
+     is — measured rather than hardcoded to ~52px for riderSheetSet()'s reason:
+     updateHeader() rewrites the stat row every tick and a wrapped value would
+     break a magic number silently. */
+  top:env(safe-area-inset-top, 0px);
+  left:0; right:0; bottom:0;
+  z-index:79;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%);
+  /* bottom padding clears .main-tabs (z-index 100), which is still on this tab
+     and still overlays the sheet's lower edge — the bar is not retired until
+     the five unskinned tabs have art (plan v1 §2). */
+  padding:0 .75rem calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+}
+/* One class on #tab-gear drives both layers, so open/closed is a single DOM
+   write and the two can never disagree about which is showing. */
+#tab-gear.gear-sheet-open #gear-sheet{display:block;}
+#tab-gear.gear-sheet-open #gear-stage{display:none;}
+
+/* Sticky rather than fixed so it participates in the sheet's own scroll
+   container and needs no height reservation. Opaque --hub-sky (flat hex, not
+   the gradient) so content scrolling under it is fully covered. */
+.gear-sheet-bar{
+  position:sticky;
+  top:0;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 -.75rem .6rem;
+  padding:.45rem .75rem;
+  background:var(--hub-sky);
+  box-shadow:0 2px 8px rgba(30,25,32,.18);
+}
+.gear-sheet-title{
+  font-size:13px;font-weight:700;color:#123;
+  letter-spacing:.02em;
+}
+/* Declared rather than added to the .rider-sheet-back or .train-sheet-back
+   selector lists, for fix206's reason: one tab's back button must not be able
+   to break another's. Same 44px+ target, same :active scale, same
+   reduced-motion guard. */
+.gear-sheet-back{
+  display:flex; align-items:center; gap:6px;
+  min-height:44px; padding:0 14px 0 10px;
+  border:1px solid var(--border); border-radius:999px;
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:700;
+  box-shadow:var(--shadow-md);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.gear-sheet-back:active{transform:scale(.96);}
+@media (prefers-reduced-motion: no-preference){
+  .gear-sheet-back{transition:transform .12s ease;}
+}
+.gear-sheet-back:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
+/* ═══ fix210: TASKS HUB — geometry stage + calibration ════════════════════
+   Plan v1 §3, stage fix210: "geometry + calibration". fix211 renders the
+   daily/lifetime nav and the task list into the measured clipboard rect, and
+   per plan §1 Tasks gets NO SECTION SHEET — the art is a clipboard with a
+   blank page and no medallions, so this hub is two stages, not three.
+   NOTHING NAVIGATES OFF THIS STAGE YET, which is why it ships GATED OFF (see
+   #tasks-stage below) and is raised only by tasksDebugToggle(). A fixed,
+   inset:0 stage with no controls on it would otherwise seal the working Tasks
+   tab behind a picture — a hard lockout with no exit, the one shape of lockout
+   this project does not want. This is fix204's and fix207's shape verbatim,
+   one tab across.
+
+   THE TAB ID IS 'growth', NOT 'tasks' (plan §1). The internal id is not
+   renamed: renaming it would touch TABS, showTab(), #tab-growth,
+   #growth-section-* and the save payload for a cosmetic gain. The HUB's own
+   ids are 'tasks-*' because they belong to the painted layer and to the
+   LAZY_ASSET_GROUPS key ('tasks'), which fix201 already named that way. Both
+   spellings are therefore correct in their own layer, and the ONE place they
+   meet is showTab()'s existing `name==='growth' -> lazyLoadAssetGroup('tasks')`
+   branch (fix201), which this stage does not touch.
+
+   THE ART — MEASURED, NOT ASSUMED (plan §0). assets/tasks-bg.jpg was
+   re-measured from source rather than inherited from the fix201 note:
+
+     source            728 x 1568
+     content box       707 x 1568   (x 0-706 solid; the JPEG ramp reaches full
+                                     white by ~x 709)
+     margin            ~20px white, RIGHT EDGE ONLY — no bottom margin
+     content aspect    708/1568 = 0.4515
+     edge strips       top rgb(48,33,40), bottom rgb(57,53,68)
+
+   That is the SAME post-fix200 redraw fix202 found on the rider art, fix204 on
+   the training art and fix207 on the gear art — not the 768x1707 flat-band
+   re-cut fix201's LAZY_ASSET_GROUPS comment describes. Corroborated the same
+   way fix207 corroborated its own: the sampled edge strips are within noise of
+   the rgb(48,33,41) / rgb(58,53,69) that group's comment records, so the file
+   measured here is the file that group binds.
+
+   So this tab takes #rider-art's fix202 treatment VERBATIM, exactly as
+   #train-art and #gear-art do: the cover rect comes from .hub-art (768/1707,
+   shared, not re-derived), and the white right margin is cropped by painting
+   the background at 102.825% width pinned LEFT. 102.825% is 728/708 —
+   training's published value, REUSED rather than re-derived from this tab's
+   707, for fix207's stated reason: the sources are framed identically, the
+   difference between a 707- and a 708-wide content box is under one device
+   pixel at any phone size, and two crop constants for one framing is a number
+   that drifts. Every percentage fix211 types is therefore a percentage of the
+   CONTENT box, never of the file and never of the viewport.
+
+   If the DEPLOYED assets/tasks-bg.jpg is still fix201's 768x1707 flat-band
+   encode, the 102.825% crop is wrong and the calibration pass below shows it as
+   a constant horizontal offset. That is fix201's encode to redo, in its own
+   stage with its own CACHE_VERSION bump — do NOT nudge coordinates to chase it.
+   No asset content changed in fix210, so no CACHE_VERSION bump belongs to it.
+
+   WHAT THE CALIBRATION PASS IS FOR. Content aspect ~0.45 against phone
+   viewports of ~0.429 to ~0.657, so under cover the top and bottom of the art
+   crop away on anything squarer than ~0.462 (the aspect table in the fix184
+   block still applies unchanged — it is a property of the canvas, not of the
+   tab). What fix211 needs, measured on glass rather than reasoned about:
+
+     1. THE CLIPBOARD PAGE RECT, which is this tab's whole job — the daily and
+        lifetime lists render into it, so it is load-bearing in a way no
+        medallion is. Source estimate, to be confirmed and not trusted:
+          paper x  95-610 of 708  =  13.42% - 86.16%
+          paper y 510-1129 of 1568 = 32.53% - 71.98%
+        Read off the ticks at 0.4286, 0.4613 and 0.5622 and record the rect
+        that holds at ALL THREE, not the one the tester's own phone gives.
+     2. whether the painted BACK at the top-left of THIS art survives the crop
+        at 0.5622 — fix202 proved it on the rider raster, fix205 on the training
+        raster and fix208 on the gear raster; this is a FOURTH painting and
+        inherits nothing from any of them.
+     3. the y band of the painted nav pills and the PLAY bar below the
+        clipboard, both of which sit low enough to be crop candidates.
+   Read the answers off the labelled ticks with tasksDebugToggle().
+
+   z-index 76: strictly below #gear-stage's 77, #train-stage's 78,
+   #train-sheet's 79, #rider-stage's 80 and #home-stage's 90, so tapping through
+   to any of them can never leave tasks art painted over the top. Same ordering
+   discipline as fix184/fix203/fix204/fix207; 76 is otherwise unused. */
+#tasks-stage{
+  /* Not display:none inside .hub-stage — that class is shared with three LIVE
+     hubs (home, rider, train) and one shipped one (gear). The gate is here, on
+     this tab's own id, and it is the single line fix211 deletes at the same
+     moment it gives the painted page something to hold and the painted BACK
+     somewhere to go.
+
+     There is no intermediate hotspot stage to be tempted by here: Tasks has no
+     medallions, so fix211 is the first and only stage that puts a control on
+     this art, and the gate lifts exactly once, there. */
+  display:none;
+  z-index:76;
+  /* Inert while every layer on the stage is inert. There is not one <button>
+     on this stage yet — only the art and the calibration overlay — so an
+     interactive overlay would be an invisible tap-eater over a working tab.
+     fix211 lifts this in the same edit that adds the first real control, as
+     fix205 lifted it on #train-stage and fix208 on #gear-stage. */
+  pointer-events:none;
+}
+/* One class on #tab-growth drives the preview, matching .train-hub-preview,
+   .gear-hub-preview and .rider-sheet-open: raised/lowered is a single DOM write
+   and the layers cannot disagree. This is a REAL gate this stage — #tasks-stage
+   above is display:none, so without this class there is no route to the art at
+   all. It is KEPT rather than retired when fix211 ungates the stage, exactly as
+   fix206 kept .train-hub-preview and fix209 kept .gear-hub-preview: a class
+   toggle with no rule behind it is precisely the thing a later reader assumes
+   still does something (the fix136 lesson). */
+#tab-growth.tasks-hub-preview #tasks-stage{display:block;}
+#tasks-art{
+  /* Cover-rect arithmetic comes from .hub-art (fix203). Only the background
+     shorthand is per-tab, exactly as with #rider-art, #train-art and #gear-art:
+     a different asset, plus the 102.825% left-pinned crop that removes the
+     white right margin. The fallback is the sky gradient, kept for the reason
+     the other hubs keep it — a missing asset degrades to flat sky, never to a
+     black screen. */
+  background:var(--sheet-tasks-scene,
+    linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
+    left center/102.825% 100% no-repeat;
+}
+/* The calibration overlay, and the generic class set fix207 nominated this
+   stage to introduce. Same pure-CSS-gradient construction as #train-cal and
+   #gear-cal: minor rules every 2% of the art's height and 5% of its width,
+   major rules every 10% of both, sitting INSIDE #tasks-art so the rules rule
+   the ART's own coordinate space — the same space fix211's rect lives in — and
+   not the viewport's. A viewport grid would read correctly and mean nothing.
+
+   SCOPE OF THE GENERALISATION, stated because fix207's note reads wider than
+   what ships here. The generic .hub-cal-* set is defined once and NEW markup
+   uses it. The shipped #train-cal and #gear-cal blocks are deliberately NOT
+   migrated onto it in this stage: doing so would edit two working screens'
+   markup and CSS, which is outside this stage's planned regions and carries
+   regression risk for a tidy-up with no player-visible effect. They are left
+   as-is, and the migration — three overlays retired onto one class set, in one
+   edit, with all three re-verified on device — is its own numbered stage after
+   the Tasks hub ships. Adding a third private copy would have been the worse
+   answer; making the third one the shared one, and letting the other two come
+   to it later, is the cheap half of fix203's move.
+
+   Off by default and never persisted: the rules below only paint under the
+   .tasks-debug class that tasksDebugToggle() sets. */
+.hub-cal{
+  position:absolute; inset:0;
+  pointer-events:none;
+  display:none;
+}
+#tasks-stage.tasks-debug .hub-cal{display:block;}
+#tasks-stage.tasks-debug .hub-cal::before{
+  content:'';position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(to right, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to bottom, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to right, rgba(0,255,255,.30) 0 1px, transparent 1px 5%),
+    repeating-linear-gradient(to bottom, rgba(0,255,255,.30) 0 1px, transparent 1px 2%);
+}
+/* Labelled ticks. Static markup, one per major rule, so a screenshot can be
+   read off without counting lines — counting is exactly where a calibration
+   pass goes quietly wrong. Yellow on a dark plate: this painting is the darkest
+   of the four at both edges and the brightest in the middle (the paper), so the
+   plate matters more here than on any previous tab. */
+.hub-cal-tick{
+  position:absolute;
+  color:#ff0; background:rgba(0,0,0,.62);
+  font:700 10px/1.35 monospace;
+  padding:1px 3px; border-radius:3px;
+  pointer-events:none;
+}
+.hub-cal-y{left:2px; transform:translateY(-50%); top:var(--ty);}
+.hub-cal-x{top:2px; transform:translateX(-50%); left:var(--tx);}
+/* Viewport-anchored readout of what the device is actually doing, because the
+   two numbers a calibration pass most needs are the ones no screenshot of the
+   art can show: the live viewport aspect, and whether the top and bottom of the
+   canvas are on screen at all. The bars are pinned to the ART, so if either one
+   is not visible on device, that edge of the painting is cropped away and
+   nothing load-bearing may go there in fix211 — which is the question the
+   painted BACK's viability turns on. */
+.hub-cal-edge{
+  position:absolute; left:0; right:0; height:3px;
+  background:#0f0;
+  pointer-events:none;
+}
+.hub-cal-edge.top{top:0;}
+.hub-cal-edge.bot{bottom:0;}
+/* A second pair of bars, in a different colour, pinned to the measured paper
+   rect above. Tasks-specific and not part of the generic set: every other hub
+   calibrates icon CENTRES, which the grid alone answers, whereas this one
+   calibrates a RECT whose four edges must all survive the crop together. Two
+   bars and two rules are far easier to read against a bright page than four
+   tick labels lost in it. Estimates until fix211 confirms them. */
+.hub-cal-rect{
+  position:absolute;
+  left:13.42%; right:13.84%; top:32.53%; bottom:28.02%;
+  border:2px dashed rgba(255,64,0,.85);
+  pointer-events:none;
+}
 
 /* ═══════════ fix170: HOME HUB ═══════════
    The art is load-bearing. It carries the background, the nine icon circles,
@@ -3803,17 +4757,123 @@ body.home-open{overflow:hidden;}
           <div class="train-cal-tick train-cal-x" style="--tx:80%">80</div>
           <div class="train-cal-tick train-cal-x" style="--tx:90%">90</div>
         </div>
+        <!-- fix205: the eight painted medallions. Every --hx/--hy pair is a
+             Hough-detected rim centre whose caption was then OCR'd; the full
+             derivation, the two rejected wheel peaks, the collision audit and
+             the top-crop aspect table all live in the fix205 CSS block rather
+             than being restated here.
+
+             data-hot runs 1-8 in PAINTED READING ORDER (top row, then the
+             THRESHOLD/VO2 pair, then TEMPO, then the LOG/GUT pair, then
+             RECOVERY SPIN), with the painted BACK APPENDED as 9. Nothing in
+             this file addresses a train hotspot by index today — there is no
+             TRAIN_BADGE_HOT — but rider acquired one two stages after its
+             hotspots landed, so these indices are treated as fixed from now:
+             APPEND, never insert. That is the same rule the RIDER_BADGE_HOT
+             comment states, adopted here BEFORE a consumer exists rather than
+             after one is broken.
+
+             Every medallion routes through trainHubGo(), one funnel, no
+             per-button logic in the markup. A medallion must NOT call
+             startSession() directly (plan v1 §1): the session card carries the
+             energy cost, the unlock:{attr,level} gate and the two-tap arm, and
+             a bare hotspot would bypass all three and start a locked or
+             unaffordable session on one tap. fix206 gives trainHubGo() the
+             sheet; this stage gives it the pill. -->
+        <button class="hub-hot train-hot" data-hot="1" style="--hx:19.49%;--hy:29.08%;--hw:22%;--hh:9.90%" aria-label="Aerobic Base, zone 2" onclick="trainHubGo('z2')"></button>
+        <button class="hub-hot train-hot" data-hot="2" style="--hx:81.05%;--hy:29.08%;--hw:22%;--hh:9.90%" aria-label="Sprint, zone 6" onclick="trainHubGo('z6')"></button>
+        <button class="hub-hot train-hot" data-hot="3" style="--hx:14.12%;--hy:57.91%;--hw:22%;--hh:9.90%" aria-label="Threshold, zone 4" onclick="trainHubGo('z4')"></button>
+        <button class="hub-hot train-hot" data-hot="4" style="--hx:85.57%;--hy:57.53%;--hw:22%;--hh:9.90%" aria-label="VO2 max intervals, zone 5" onclick="trainHubGo('z5')"></button>
+        <button class="hub-hot train-hot" data-hot="5" style="--hx:49.99%;--hy:66.20%;--hw:22%;--hh:9.90%" aria-label="Tempo, zone 3" onclick="trainHubGo('z3')"></button>
+        <button class="hub-hot train-hot" data-hot="6" style="--hx:18.92%;--hy:74.36%;--hw:22%;--hh:9.90%" aria-label="Training log" onclick="trainHubGo('log')"></button>
+        <button class="hub-hot train-hot" data-hot="7" style="--hx:81.62%;--hy:74.23%;--hw:22%;--hh:9.90%" aria-label="Gut training" onclick="trainHubGo('gut')"></button>
+        <button class="hub-hot train-hot" data-hot="8" style="--hx:49.70%;--hy:78.32%;--hw:22%;--hh:9.90%" aria-label="Recovery spin, zone 1" onclick="trainHubGo('z1')"></button>
+        <!-- The painted BACK. Measured at cx 10.94% / cy 17.63%, painted
+             18.50% x 3.89%. --hw is 20% and --hh 5.50% against those, for
+             fix202's reason: 3.89% of an 867px cover rect is a 34px target and
+             misses the 44px floor, 5.50% is 48px and clears it. The box
+             overhangs the paint into blank sky, and the nearest live neighbour
+             (AEROBIC BASE, top edge 24.13%) is 3.75% clear of its bottom edge
+             at 20.38%.
+
+             Routes through showTab('home') — the same single call the rider
+             hub's painted BACK, .rider-home and the header's .home-back all
+             make. Four painted or real routes to one function, still no second
+             history mechanism.
+
+             NOT the only exit on this tab, and deliberately so: 'train' is not
+             in HUB_TABS, so .game-header is still on screen and still goes
+             home. That is what lets this hotspot ship without rider's
+             min-aspect-ratio guard — see the crop table in the CSS. -->
+        <button class="hub-hot hub-hot-rect train-hot train-hot-rect" data-hot="9" style="--hx:10.94%;--hy:17.63%;--hw:20%;--hh:5.50%" aria-label="Back to home" onclick="showTab('home')"></button>
+        <!-- The painted CASH / FTP / ENERGY bar goes live, closing the same
+             defect on this tab that fix187 closed on rider: until now the
+             figures a player read here were whatever the art happened to paint
+             and never matched the save. Each value sits in a measured blank run
+             INSIDE the painted bar, after its glyph — see the CSS for the runs.
+             Em-dash placeholders exactly as the other two hubs use, so no slot
+             ever renders empty in the frame before the first
+             renderHubBanner('train'). Ids live on the inner spans so the ENERGY
+             gauge is CSS alone, as fix188 was for rider.
+             pointer-events:none in .hub-slot, so ordering these after the
+             hotspots costs nothing in hit testing. -->
+        <div class="hub-slot train-slot" id="train-slot-money"><span id="train-money">&#8212;</span></div>
+        <div class="hub-slot train-slot" id="train-slot-ftp"><span id="train-ftp">&#8212;</span></div>
+        <div class="hub-slot train-slot" id="train-slot-energy"><span id="train-energy">&#8212;</span></div>
+        <!-- The informational pill, mirroring #home-toast and #rider-toast. A
+             child of #train-art rather than of #train-stage so it is positioned
+             against the cover rect and lands in the same place relative to the
+             painted rider at every aspect, exactly like the hotspots and slots.
+             Last in the subtree so it paints over them. Built empty and hidden;
+             trainComingSoon() patches textContent, and no code path ever
+             creates or destroys this node. -->
+        <div id="train-toast"></div>
       </div>
     </div>
+    <!-- fix206: the section sheet. Opened by trainHubGo() from any of the eight
+         medallions, closed by trainHubBack(). A real control inside the sheet
+         rather than a third history level: opening a section pushes nothing, so
+         the platform back gesture from anywhere in this tab still lands where
+         it did before. Same shape as #rider-sheet (fix186), plan v1 §3.
+
+         The two wraps below are RE-PARENTED from the Train panel, ids and
+         bodies untouched — see the tombstones at their old positions.
+         #train-sheet-session is the only new container: it holds exactly one
+         session card, built by the same buildSessionCard() that fills
+         #training-list, so the sheet and the legacy list can never disagree
+         about an energy cost, an unlock gate or a cooldown.
+
+         A MEDALLION NEVER CALLS startSession() DIRECTLY (plan v1 §1). It opens
+         this sheet; the card inside carries the cost, the gate and the arm. A
+         bare hotspot would bypass all three and fire a locked or unaffordable
+         session on one tap. -->
+    <div id="train-sheet">
+      <div class="train-sheet-bar">
+        <button class="train-sheet-back" aria-label="Back to training hub" onclick="trainHubBack()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Training</button>
+        <div class="train-sheet-title" id="train-sheet-title"></div>
+      </div>
+      <!-- fix57 (moved here fix206): active session card. Empty when no session
+           is active, so it costs nothing on the other sections. Kept ABOVE the
+           session card so a running session's progress bar is the first thing
+           in the sheet whichever medallion was tapped. -->
+      <div id="active-session-wrap"></div>
+      <div id="train-sheet-session"></div>
+      <div id="gut-train-card-wrap"></div>
+    </div>
     <div id="rider-scene-wrap"></div>
-    <!-- fix57: active session card sits directly under the rider scene so a
-         running session (and its progress bar) appears right beneath the
-         pedalling animation. Empty when no session is active. -->
+    <!-- fix206 tombstone: #active-session-wrap and #gut-train-card-wrap were
+         here and are now inside #train-sheet above. Moved, not duplicated —
+         two nodes with the same id would make renderActiveSession() and
+         renderGutTrainCard() write to whichever one the document happened to
+         resolve first.
     <div id="active-session-wrap"></div>
+    -->
     <div id="boost-pill-wrap"></div>
     <div id="energy-card-wrap"></div>
     <div id="weight-card-wrap"></div>
+    <!--
     <div id="gut-train-card-wrap"></div>
+    -->
     <!-- fix174 tombstone: the Rider Skills card no longer lives on Train — the
          hub hotspot goes straight to #tab-skills, so the card was one tap of
          indirection for nothing. The active-buff pills it used to carry moved
@@ -4105,8 +5165,173 @@ body.home-open{overflow:hidden;}
     </div><!-- /#rider-sheet (fix186; was #rider-content, fix183–fix185) -->
   </div>
   <div id="tab-gear" style="display:none">
-    <!-- fix64: idle rider preview so jersey/bike/wheel changes are visible
-         immediately in the gear tab without switching back to Train. -->
+    <!-- fix207: the painted GEAR hub stage. Geometry and art only — no hotspot,
+         no slot, no exit is welded to it yet (plan v1 §3: hotspots, the painted
+         BACK and the banner slots are fix208; the section sheet is fix209).
+         Because it has no controls, it is GATED OFF by default and raised only
+         by gearDebugToggle(), which adds .gear-hub-preview to this panel. The
+         Gear tab below it is byte-for-byte the fix206 tab in normal use: the
+         nav, the rider preview and all five gear-section-* divs are untouched,
+         and setGearSection() and the five renderers are not read by this stage
+         at all.
+
+         Coordinate space, stated here as well as in the CSS because this is
+         where the numbers get typed in fix208: every percentage is a percentage
+         OF #gear-art — the content box of the 728x1568 painting, after the white
+         right margin is cropped by the 102.825% left-pinned background — and
+         never a percentage of the viewport. That is what keeps an icon box
+         welded to a painted icon at any phone aspect.
+
+         The .main-tab bar and TABS are UNTOUCHED by this stage, deliberately.
+         'gear' keeps its bar button and its index in TABS; the index-map
+         coupling rule (plan v1 §2.1) stays live until the bar is actually
+         retired, and removing a "now-redundant" button here would silently
+         desynchronise every mapping after it.
+
+         'gear' is also NOT added to HUB_TABS this stage, for fix204's reason:
+         HUB_TABS hides .game-header, and until a painted BACK exists the header
+         strip is the only chrome on this tab that goes anywhere. -->
+    <div id="gear-stage" class="hub-stage">
+      <div id="gear-art" class="hub-art">
+        <!-- Calibration overlay. Inert (pointer-events:none, and the whole
+             stage is inert this stage) and display:none until .gear-debug is
+             set. Static markup rather than JS-generated ticks: render-only
+             discipline, nothing here is built at runtime. -->
+        <div id="gear-cal">
+          <div class="gear-cal-edge top"></div>
+          <div class="gear-cal-edge bot"></div>
+          <div class="gear-cal-tick gear-cal-y" style="--ty:0%">0</div>
+          <div class="gear-cal-tick gear-cal-y" style="--ty:10%">10</div>
+          <div class="gear-cal-tick gear-cal-y" style="--ty:20%">20</div>
+          <div class="gear-cal-tick gear-cal-y" style="--ty:30%">30</div>
+          <div class="gear-cal-tick gear-cal-y" style="--ty:40%">40</div>
+          <div class="gear-cal-tick gear-cal-y" style="--ty:50%">50</div>
+          <div class="gear-cal-tick gear-cal-y" style="--ty:60%">60</div>
+          <div class="gear-cal-tick gear-cal-y" style="--ty:70%">70</div>
+          <div class="gear-cal-tick gear-cal-y" style="--ty:80%">80</div>
+          <div class="gear-cal-tick gear-cal-y" style="--ty:90%">90</div>
+          <div class="gear-cal-tick gear-cal-y" style="--ty:100%">100</div>
+          <div class="gear-cal-tick gear-cal-x" style="--tx:10%">10</div>
+          <div class="gear-cal-tick gear-cal-x" style="--tx:20%">20</div>
+          <div class="gear-cal-tick gear-cal-x" style="--tx:30%">30</div>
+          <div class="gear-cal-tick gear-cal-x" style="--tx:40%">40</div>
+          <div class="gear-cal-tick gear-cal-x" style="--tx:50%">50</div>
+          <div class="gear-cal-tick gear-cal-x" style="--tx:60%">60</div>
+          <div class="gear-cal-tick gear-cal-x" style="--tx:70%">70</div>
+          <div class="gear-cal-tick gear-cal-x" style="--tx:80%">80</div>
+          <div class="gear-cal-tick gear-cal-x" style="--tx:90%">90</div>
+        </div>
+        <!-- fix208: the five painted medallions. Every --hx/--hy pair is a
+             Hough-detected rim centre whose caption was then read off a crop of
+             that rim; the full derivation, the collision audit, the --hw/--hh
+             justification and the top-crop aspect table all live in the fix208
+             CSS block rather than being restated here.
+
+             data-hot runs 1-5 in PAINTED READING ORDER (top row left to right,
+             then the KIT/EXTRAS pair, then ENERGY), with the painted BACK
+             APPENDED as 6. Nothing in this file addresses a gear hotspot by
+             index today — there is no GEAR_BADGE_HOT — but rider acquired one
+             two stages after its hotspots landed, so these indices are treated
+             as fixed from now: APPEND, never insert. Same rule fix205 adopted
+             for Training before a consumer existed rather than after one broke.
+
+             Every medallion routes through gearHubGo(), one funnel, no
+             per-button logic in the markup. The section ids passed are
+             GEAR_SECTIONS members verbatim (plan v1 §1), so setGearSection()
+             stays the single source of truth for what a section does and none
+             of the five renderers is edited. fix209 gives gearHubGo() the
+             sheet; this stage gives it the pill. -->
+        <button class="hub-hot gear-hot" data-hot="1" style="--hx:19.21%;--hy:29.34%;--hw:22%;--hh:9.90%" aria-label="Bikes" onclick="gearHubGo('bikes')"></button>
+        <button class="hub-hot gear-hot" data-hot="2" style="--hx:80.51%;--hy:28.95%;--hw:22%;--hh:9.90%" aria-label="Wheels" onclick="gearHubGo('wheels')"></button>
+        <button class="hub-hot gear-hot" data-hot="3" style="--hx:14.41%;--hy:58.04%;--hw:22%;--hh:9.90%" aria-label="Kit" onclick="gearHubGo('kit')"></button>
+        <button class="hub-hot gear-hot" data-hot="4" style="--hx:85.88%;--hy:57.53%;--hw:22%;--hh:9.90%" aria-label="Extras, accessories" onclick="gearHubGo('accessories')"></button>
+        <button class="hub-hot gear-hot" data-hot="5" style="--hx:50.00%;--hy:66.07%;--hw:22%;--hh:9.90%" aria-label="Energy" onclick="gearHubGo('energy')"></button>
+        <!-- The painted BACK. Measured at cx 11.58% / cy 17.63%, painted 16.95%
+             x 3.76%. --hw is 19% and --hh 5.50% against those, for fix202's and
+             fix205's reason: 3.76% of an 867px cover rect is a 33px target and
+             misses the 44px floor, 5.50% is 48px and clears it. The box
+             overhangs the paint into flat wall, and the nearest live neighbour
+             (BIKES, top edge 24.39%) is 4.01% clear of its bottom edge at
+             20.38%.
+
+             Routes through showTab('home') — the same single call the rider
+             hub's painted BACK, .rider-home, the header's .home-back and
+             Training's painted BACK all make. Five painted or real routes to one
+             function, still no second history mechanism.
+
+             NOT the only exit on this tab, and deliberately so: 'gear' is not in
+             HUB_TABS, so .game-header is still on screen and still goes home.
+             That is what lets this hotspot ship without rider's
+             min-aspect-ratio guard — see the crop table in the CSS, and see its
+             warning about what fix209 must do if it adds 'gear' to HUB_TABS. -->
+        <button class="hub-hot hub-hot-rect gear-hot gear-hot-rect" data-hot="6" style="--hx:11.58%;--hy:17.63%;--hw:19%;--hh:5.50%" aria-label="Back to home" onclick="showTab('home')"></button>
+        <!-- The painted CASH / FTP / ENERGY bar goes live, closing the same
+             defect on this tab that fix187 closed on rider and fix205 on train:
+             until now the figures a player read here were whatever the art
+             happened to paint and never matched the save.
+
+             On THIS art the artist left the three runs genuinely empty — there
+             are no painted figures to cover, which is why these slots need no
+             plate chip behind them. Each value sits in the blank run its own
+             caption is centred under; see the CSS for the measured runs.
+             Em-dash placeholders exactly as the other three hubs use, so no slot
+             ever renders empty in the frame before the first
+             renderHubBanner('gear'). Ids live on the inner spans so the ENERGY
+             gauge is CSS alone, as fix188 was for rider.
+             pointer-events:none in .hub-slot, so ordering these after the
+             hotspots costs nothing in hit testing. -->
+        <div class="hub-slot gear-slot" id="gear-slot-money"><span id="gear-money">&#8212;</span></div>
+        <div class="hub-slot gear-slot" id="gear-slot-ftp"><span id="gear-ftp">&#8212;</span></div>
+        <div class="hub-slot gear-slot" id="gear-slot-energy"><span id="gear-energy">&#8212;</span></div>
+        <!-- The informational pill, mirroring #home-toast, #rider-toast and
+             #train-toast. A child of #gear-art rather than of #gear-stage so it
+             is positioned against the cover rect and lands in the same place
+             relative to the painted workshop at every aspect, exactly like the
+             hotspots and slots. Last in the subtree so it paints over them.
+             Built empty and hidden; gearComingSoon() patches textContent, and no
+             code path ever creates or destroys this node. -->
+        <div id="gear-toast"></div>
+      </div>
+    </div>
+    <!-- fix209: the section sheet. Opened by gearHubGo() from any of the five
+         medallions, closed by gearHubBack(). A real control inside the sheet
+         rather than a third history level: opening a section pushes nothing, so
+         the platform back gesture from anywhere in this tab still lands where
+         it did before. Same shape as #train-sheet (fix206) and #rider-sheet
+         (fix186), plan v1 §3.
+
+         Everything below is RE-PARENTED from the Gear panel, ids, classes and
+         bodies untouched — see the tombstone at their old position. There is no
+         new container and no new renderer: setGearSection() resolves each
+         #gear-section-* by id exactly as before, and all five shop renderers
+         are byte-identical this stage.
+
+         .gear-nav moves WITH the sections rather than being retired. It is the
+         non-painted route between sections once the sheet is open, so a player
+         browsing Bikes can reach Wheels without going back out to the art, and
+         renderGearNav() needs no retarget. -->
+    <div id="gear-sheet">
+      <div class="gear-sheet-bar">
+        <button class="gear-sheet-back" aria-label="Back to gear hub" onclick="gearHubBack()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Gear</button>
+        <div class="gear-sheet-title" id="gear-sheet-title"></div>
+      </div>
+      <!-- fix64 (moved here fix209): idle rider preview so jersey/bike/wheel
+           changes are visible immediately without switching back to Train. Kept
+           ABOVE the nav so an equip is visible in the same scroll position it
+           was made in. -->
+      <div id="gear-rider-scene-wrap"></div>
+      <div class="gear-nav" id="gear-nav"></div>
+      <div id="gear-section-energy"></div>
+      <div id="gear-section-bikes" style="display:none"></div>
+      <div id="gear-section-wheels" style="display:none"></div>
+      <div id="gear-section-kit" style="display:none"></div>
+      <div id="gear-section-accessories" style="display:none"></div>
+    </div>
+    <!-- fix209 tombstone: #gear-rider-scene-wrap, #gear-nav and the five
+         #gear-section-* divs were here and are now inside #gear-sheet above.
+         Moved, not duplicated — two nodes with the same id would make
+         setGearSection() and every shop renderer write to whichever one the
+         document happened to resolve first.
     <div id="gear-rider-scene-wrap"></div>
     <div class="gear-nav" id="gear-nav"></div>
     <div id="gear-section-energy"></div>
@@ -4114,6 +5339,7 @@ body.home-open{overflow:hidden;}
     <div id="gear-section-wheels" style="display:none"></div>
     <div id="gear-section-kit" style="display:none"></div>
     <div id="gear-section-accessories" style="display:none"></div>
+    -->
   </div>
   <div id="tab-workshop" style="display:none">
     <!-- fix82: static hero scene, mirrors the fix80 rider-portrait hero markup
@@ -4122,6 +5348,68 @@ body.home-open{overflow:hidden;}
     <div id="gear-section-workshop"></div>
   </div>
   <div id="tab-growth" style="display:none">
+    <!-- fix210: the painted TASKS hub stage. Geometry and art only — no
+         hotspot, no slot, no exit is welded to it yet (plan v1 §3: the
+         daily/lifetime nav and the task list render into the measured clipboard
+         rect in fix211, and per §1 there is NO section sheet on this tab).
+         Because it has no controls, it is GATED OFF by default and raised only
+         by tasksDebugToggle(), which adds .tasks-hub-preview to this panel. The
+         Tasks tab below it is byte-for-byte the fix209 tab in normal use:
+         #growth-nav and both growth-section-* divs are untouched, and
+         setGrowthSection(), renderDailyTasks() and renderLifetimeTasks() are
+         not read by this stage at all.
+
+         Coordinate space, stated here as well as in the CSS because this is
+         where the numbers get typed in fix211: every percentage is a percentage
+         OF #tasks-art — the content box of the 728x1568 painting, after the
+         white right margin is cropped by the 102.825% left-pinned background —
+         and never a percentage of the viewport. That is what keeps the rendered
+         task list welded to the painted page at any phone aspect.
+
+         The .main-tab bar and TABS are UNTOUCHED by this stage, deliberately.
+         'growth' keeps its bar button and its index in TABS; the index-map
+         coupling rule (plan v1 §2.1) stays live until the bar is actually
+         retired, and removing a "now-redundant" button here would silently
+         desynchronise every mapping after it.
+
+         'growth' is also NOT added to HUB_TABS this stage, for fix204's and
+         fix207's reason: HUB_TABS hides .game-header, and until a painted BACK
+         exists the header strip is the only chrome on this tab that goes
+         anywhere. -->
+    <div id="tasks-stage" class="hub-stage">
+      <div id="tasks-art" class="hub-art">
+        <!-- Calibration overlay, on the generic .hub-cal-* set introduced in
+             the fix210 CSS block. Inert (pointer-events:none, and the whole
+             stage is inert this stage) and display:none until .tasks-debug is
+             set. Static markup rather than JS-generated ticks: render-only
+             discipline, nothing here is built at runtime. -->
+        <div id="tasks-cal" class="hub-cal">
+          <div class="hub-cal-edge top"></div>
+          <div class="hub-cal-edge bot"></div>
+          <div class="hub-cal-rect"></div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:0%">0</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:10%">10</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:20%">20</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:30%">30</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:40%">40</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:50%">50</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:60%">60</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:70%">70</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:80%">80</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:90%">90</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:100%">100</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:10%">10</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:20%">20</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:30%">30</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:40%">40</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:50%">50</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:60%">60</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:70%">70</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:80%">80</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:90%">90</div>
+        </div>
+      </div>
+    </div>
     <div class="gear-nav" id="growth-nav"></div>
     <div id="growth-section-daily"></div>
     <div id="growth-section-lifetime" style="display:none">
@@ -9823,6 +11111,14 @@ const LAZY_ASSET_GROUPS = {
   // #tab-growth, #growth-section-* and the save payload for a cosmetic gain.
   // fix204: --sheet-training-scene now HAS a consumer — #train-art (see the
   // fix204 CSS block). The other two remain unconsumed until fix207 / fix210.
+  // fix207: --sheet-gear-scene now HAS a consumer too — #gear-art (see the
+  // fix207 CSS block). Only --sheet-tasks-scene is still unconsumed, until
+  // fix210. And the 728x1568 re-measurement recorded below for training was
+  // re-run against the GEAR source and came back identical (705-708 x 1568
+  // content, white right margin only, no bottom margin), with edge colours
+  // matching the ones this group records — so #gear-art takes the same
+  // 102.825% left-pinned crop, and the same "re-cut, do not nudge" warning
+  // applies to it verbatim.
   // Also recorded there, because it contradicts the fix201 note above: the
   // training source re-measures at 728x1568 with a 708x1568 content box and a
   // 20px white RIGHT margin — the same post-fix200 redraw fix202 found on the
@@ -10049,9 +11345,15 @@ const HUB_TABS = new Set(['home','rider']);
 // unconditionally is two no-ops in the common case.
 //
 // Render-only, like everything else in this section: no state is written here.
+// fix205: trainHideToast() APPENDED for exactly the reason the fix203 comment
+// above gives for calling both of the others unconditionally — a hub-to-hub tap
+// would otherwise leave the departed hub's pill mounted and mid-timer behind
+// the tab you just opened. Null-safe and clears its own timer, so this is a
+// third no-op in the common case.
 function hubGo(tab){
   homeHideToast();
   riderHideToast();
+  trainHideToast();
   showTab(tab);
 }
 
@@ -10141,7 +11443,26 @@ const HUB_BANNERS = {
   home:  {money:'home-money',  ftp:'home-ftp',  energy:'home-energy',
           slot:'home-slot-energy',  pct:'--home-energy-pct'},
   rider: {money:'rider-money', ftp:'rider-ftp', energy:'rider-energy',
-          slot:'rider-slot-energy', pct:'--rider-energy-pct'}
+          slot:'rider-slot-energy', pct:'--rider-energy-pct'},
+  // fix205: the third hub. This is the whole of the banner work for Training —
+  // five ids and one custom-property name, no new logic and no alias function,
+  // which is precisely what fix203 built this table to make true. Callers use
+  // renderHubBanner('train') directly per the fix203 note above.
+  train: {money:'train-money', ftp:'train-ftp', energy:'train-energy',
+          slot:'train-slot-energy', pct:'--train-energy-pct'},
+  // fix208: the fourth hub. Five ids and one custom-property name, no new logic
+  // and no alias function — fix203 built this table so a new hub would cost
+  // exactly this, and Gear is the second consecutive stage to confirm it does.
+  // Callers use renderHubBanner('gear') directly per the fix203 note above.
+  //
+  // The Gear art paints all THREE readouts, so this entry is a straight
+  // four-node peer of the other three. Worth stating because the ref block in
+  // renderHubBanner() is all-or-nothing: it caches only once every one of
+  // money/ftp/energy/slot resolves, so a hub whose art omitted one of them could
+  // not use this table as-is and would silently render no figures at all rather
+  // than the two it had. Not the case here — all four exist in the markup.
+  gear:  {money:'gear-money',  ftp:'gear-ftp',  energy:'gear-energy',
+          slot:'gear-slot-energy',  pct:'--gear-energy-pct'}
 };
 const _hubBannerCache = {};
 function renderHubBanner(tab){
@@ -10262,6 +11583,429 @@ function trainDebugToggle(){
   if(tab) tab.classList.toggle('train-hub-preview');
   const st=document.getElementById('train-stage');
   if(st) st.classList.toggle('train-debug');
+}
+
+// fix207: the Gear hub's calibration aid, and — until fix209 lifts the gate —
+// the ONLY way to see the Gear hub at all. Same two-class shape trainDebugToggle
+// had at fix204, and for the same reason: at this stage the stage itself is
+// gated off, so one class raises it and one paints the grid over it.
+//   .gear-hub-preview on #tab-gear   raises #gear-stage (art + cover rect)
+//   .gear-debug       on #gear-stage paints the labelled grid over it
+// Both are toggled together so the preview can never be left raised with the
+// grid off — that state looks like a shipped hub with no way out of it, which
+// is exactly the impression this stage must not give. It is doubly important
+// here because #gear-stage is pointer-events:none this stage: raised without
+// the grid, it is an invisible-intent picture sitting over a working shop.
+//
+// Off by default, no persisted flag, console-reachable: gearDebugToggle().
+// Nothing calls it, and nothing should until fix208; there is deliberately no
+// hotspot, gesture or key binding behind it, so a player cannot reach the
+// preview by accident.
+//
+// NOTE ON THE ART BINDING. --sheet-gear-scene is bound lazily by showTab()'s
+// 'gear' branch (fix201), so the toggle only paints once the Gear tab has been
+// opened at least once in this session. Calling it from the console while
+// sitting on another tab shows the sky-gradient fallback and nothing else —
+// that is the fallback working, not a missing asset. Open Gear first.
+//
+// What to read off it on device (plan v1 §0.1's measure-do-not-assume rule):
+// hold the phone at 0.4286, 0.4613 and 0.5622 and check (a) that the five
+// painted icons sit where the ticks say, (b) whether the green top and bottom
+// edge bars are on screen — if an edge bar is off screen, that band of the
+// painting is cropped and nothing load-bearing may be placed in it in fix208,
+// which is the question the painted BACK turns on — and (c) the y band of the
+// painted stat row, for fix208's slots.
+//
+// Render-only, like everything else in the hub sections: no state is written
+// here and nothing is persisted, so a preview left raised is cleared by a
+// reload, and by any tab switch that re-renders.
+function gearDebugToggle(){
+  const tab=document.getElementById('tab-gear');
+  if(tab) tab.classList.toggle('gear-hub-preview');
+  const st=document.getElementById('gear-stage');
+  if(st) st.classList.toggle('gear-debug');
+}
+
+// fix210: the Tasks hub's calibration aid, and — until fix211 lifts the gate —
+// the ONLY way to see the Tasks hub at all. Same two-class shape
+// trainDebugToggle had at fix204 and gearDebugToggle at fix207, for the same
+// reason: at this stage the stage itself is gated off, so one class raises it
+// and one paints the grid over it.
+//   .tasks-hub-preview on #tab-growth  raises #tasks-stage (art + cover rect)
+//   .tasks-debug       on #tasks-stage paints the labelled grid over it
+// Both are toggled together so the preview can never be left raised with the
+// grid off — that state looks like a shipped hub with no way out of it, which
+// is exactly the impression this stage must not give. It is doubly important
+// here because #tasks-stage is pointer-events:none this stage: raised without
+// the grid, it is an invisible-intent picture sitting over a working task list.
+//
+// THE ELEMENT IDS SPLIT ACROSS THE TWO SPELLINGS ON PURPOSE, and this function
+// is the one place both appear: the PANEL is #tab-growth (the internal tab id,
+// not renamed — plan §1) and the STAGE is #tasks-stage (the painted layer and
+// the LAZY_ASSET_GROUPS key). Getting these two the wrong way round is the
+// single most likely typo in this stage, so they are named together here.
+//
+// Off by default, no persisted flag, console-reachable: tasksDebugToggle().
+// Nothing calls it, and nothing should until fix211; there is deliberately no
+// hotspot, gesture or key binding behind it, so a player cannot reach the
+// preview by accident.
+//
+// NOTE ON THE ART BINDING. --sheet-tasks-scene is bound lazily by showTab()'s
+// 'growth' branch (fix201), so the toggle only paints once the Tasks tab has
+// been opened at least once in this session. Calling it from the console while
+// sitting on another tab shows the sky-gradient fallback and nothing else —
+// that is the fallback working, not a missing asset. Open Tasks first.
+//
+// What to read off it on device (plan v1 §0.1's measure-do-not-assume rule):
+// hold the phone at 0.4286, 0.4613 and 0.5622 and check (a) that the dashed
+// orange rect still sits on the painted clipboard page at all three — that rect
+// is what fix211 renders the task list into and it is the only load-bearing
+// measurement on this tab, (b) whether the green top and bottom edge bars are
+// on screen — if an edge bar is off screen, that band of the painting is
+// cropped and nothing load-bearing may be placed in it in fix211, which is the
+// question the painted BACK turns on — and (c) the y band of the painted nav
+// pills and PLAY bar below the clipboard.
+//
+// Render-only, like everything else in the hub sections: no state is written
+// here and nothing is persisted, so a preview left raised is cleared by a
+// reload, and by any tab switch that re-renders.
+function tasksDebugToggle(){
+  const tab=document.getElementById('tab-growth');
+  if(tab) tab.classList.toggle('tasks-hub-preview');
+  const st=document.getElementById('tasks-stage');
+  if(st) st.classList.toggle('tasks-debug');
+}
+
+// ═══ fix208: what a painted Gear medallion does ═════════════════════════
+// Mirrors riderHubGo()'s and trainHubGo()'s shape — one small funnel, all five
+// hotspots go through it, no per-button logic in the markup.
+//
+// THE SECTION IDS ARE NOT DUPLICATED HERE. gearHubLabel() validates a key
+// against GEAR_SECTIONS itself, so that array stays the single source of truth
+// for which sections exist. A hardcoded list would be a second registry that
+// drifts the first time a section is added or renamed — the same failure the
+// _rcSheetNamesFor four-registry rule exists to prevent.
+//
+// Only the CAPTIONS are new data, and they are the painted captions rather than
+// the internal ids: the art says EXTRAS where the code says 'accessories', and
+// the pill must name what the player tapped, not what the array calls it. Five
+// entries, keyed BY the GEAR_SECTIONS id so the two cannot drift apart
+// unnoticed — a missing entry fails the guard loudly instead of rendering
+// 'undefined' into the pill.
+const GEAR_HUB_LABELS = {
+  energy:'Energy', bikes:'Bikes', wheels:'Wheels',
+  kit:'Kit', accessories:'Extras'
+};
+function gearHubLabel(key){
+  if(GEAR_SECTIONS.indexOf(key) === -1) return null;
+  return GEAR_HUB_LABELS[key] || null;
+}
+
+// Guarded against an unknown key rather than trusting the five call sites, for
+// riderHubGo()'s and trainHubGo()'s reason: hard reject, no fallback. Silently
+// opening a section other than the one the player tapped is worse than not
+// moving at all.
+//
+// WHAT THIS DOES THIS STAGE, AND WHY IT IS NOT THE FINAL BODY. plan v1 §3 puts
+// the section sheet in fix209, so the destination does not exist yet. The whole
+// of fix209's edit to this function is replacing the one line below the guard
+// with the sheet open — the funnel, the guard, the label resolver and all five
+// onclick strings are already final and fix209 touches none of them. That is
+// the same promise fix205 made to fix206 on Training, and fix206 kept it.
+//
+// Unlike Training, EVERY Gear medallion has a real destination already built:
+// all five sections exist, setGearSection() routes to all five renderers, and
+// plan v1 §1 maps them 1:1 with no new state. So there is no coming-soon
+// lockout anywhere in this hub and none should be added — when fix209 lands,
+// all five pills become sheet opens together.
+//
+// The player cannot reach any of this in fix208: #gear-stage is still gated off
+// (see its CSS), so the only route in is gearDebugToggle() from the console. The
+// pill is what a calibration tap should produce — it names the medallion, which
+// is how a tap confirms the box is welded to the right paint and not merely to
+// SOME paint. An off-by-one row would otherwise look correct.
+//
+// Informational only: no confirm(), no modal, no two-tap flow, no state
+// written. Render-only, like everything else in the hub sections.
+// fix209: THE PROMISED EDIT, and the only one. The funnel, the guard, the label
+// resolver, GEAR_HUB_LABELS and all five onclick strings are byte-identical to
+// fix208 — the one line that raised a pill is replaced by the sheet open, which
+// is exactly what the fix208 comment above promised this stage would cost.
+//
+// setGearSection() is CALLED, not reimplemented. It is the existing single
+// source of truth for which section is showing and which renderer runs, so the
+// painted medallion and the .gear-nav button below it take the identical path
+// and can never disagree about state. No renderer is edited this stage.
+//
+// ORDER MATTERS, exactly as in riderHubGo() and trainHubGo(): render first,
+// then open. The section paints while the sheet is still display:none, so the
+// player never sees a frame of the previous medallion's content before the new
+// one lands.
+//
+// Unlike Training there is no coming-soon branch anywhere in this hub and none
+// should be added: plan v1 §1 maps all five medallions 1:1 onto sections that
+// already exist, with no new state.
+function gearHubGo(key){
+  const label = gearHubLabel(key);
+  if(!label){ console.warn('gearHubGo: unknown medallion', key); return; }
+  _gearSheetKey = key;
+  setGearSection(key);
+  renderGearSheet();
+  gearSheetSet(true);
+}
+
+// fix209: back from a section to the medallions. Deliberately NOT
+// history.back() — opening a section pushed nothing, so there is no entry to
+// unwind and calling back() here would exit the tab entirely. Same reasoning as
+// riderHubBack() and trainHubBack().
+//
+// gearSection itself is NOT reset. It is pre-existing state that renderGearTab()
+// reads on every open, and clearing it here would be a state write from a hub
+// path — the one thing the render-only rule forbids. Only the sheet's own key is
+// cleared, so a later render cannot repaint a closed sheet's title and reopening
+// always goes through gearHubGo() and its guard.
+function gearHubBack(){
+  gearSheetSet(false);
+  _gearSheetKey = null;
+}
+
+// fix209: THE single funnel for whether the sheet is showing, mirroring
+// trainSheetSet() and riderSheetSet(). Every open and every close goes through
+// here, so the stage and the sheet can never both be live: one class on
+// #tab-gear drives `#gear-sheet{display:block}` and `#gear-stage{display:none}`
+// together, in one DOM write. That mutual exclusion IS the hard lockout — with
+// the stage display:none there is no medallion to hit through the overlay, and
+// with the sheet display:none it cannot be scrolled or focus-trapped from the
+// hub.
+//
+// Idempotent and safe to call when the Gear tab is not showing: toggle() with an
+// explicit second argument sets rather than flips, so a stray call can never
+// invert the sheet.
+let _gearSheetKey = null;
+function gearSheetSet(open){
+  const tab=document.getElementById('tab-gear');
+  if(tab) tab.classList.toggle('gear-sheet-open', !!open);
+  const sheet=document.getElementById('gear-sheet');
+  if(!sheet) return;
+  if(!open){ sheet.style.top=''; return; }
+  // .game-header is above this sheet (z-index 83 vs 79) because 'gear' is not in
+  // HUB_TABS, so the sheet's top edge has to clear it or the back bar is
+  // unreachable behind it. Measured, not hardcoded — updateHeader() rewrites the
+  // stat row every tick and a wrapped value would break a magic number silently.
+  // Cleared to '' on close so the CSS fallback takes over again, which means the
+  // day 'gear' does join HUB_TABS this branch simply stops finding a header and
+  // the fallback is already correct.
+  const hdr=document.querySelector('.game-header');
+  // offsetParent is null for a display:none element — a hidden header detected
+  // without reading computed styles.
+  const h = (hdr && hdr.offsetParent!==null) ? Math.round(hdr.getBoundingClientRect().height) : 0;
+  sheet.style.top = h>0 ? h+'px' : '';
+}
+
+// fix209: paint the open section's title. Render-only, per the house rule for
+// the hub sections: no state is written here and saveGame()'s payload is
+// unchanged by this fix. The section BODIES are not touched — setGearSection()
+// already owns which of the five is displayed and which renderer filled it, and
+// this function owns none of their contents.
+//
+// Early-returns when nothing is open, so it costs one property read while the
+// player is on the medallions.
+function renderGearSheet(){
+  const key=_gearSheetKey;
+  if(!key) return;
+  const ttl=document.getElementById('gear-sheet-title');
+  if(ttl) ttl.textContent = gearHubLabel(key) || '';
+}
+
+// The pill itself. Byte-for-byte the shape of trainComingSoon()/trainHideToast()
+// with one id changed, and its own timer variable rather than a shared one: two
+// hubs sharing a timer would let a tap on one cancel the other's pill, and the
+// tabs are only mutually exclusive today by accident of showTab().
+let _gearToastTimer=null;
+function gearComingSoon(msg){
+  const el=document.getElementById('gear-toast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('on');
+  if(_gearToastTimer) clearTimeout(_gearToastTimer);
+  _gearToastTimer=setTimeout(gearHideToast, 1800);
+}
+function gearHideToast(){
+  if(_gearToastTimer){ clearTimeout(_gearToastTimer); _gearToastTimer=null; }
+  const el=document.getElementById('gear-toast');
+  if(el) el.classList.remove('on');
+}
+
+// ═══ fix205: what a painted Training medallion does ══════════════════════
+// Mirrors riderHubGo()'s shape — one small funnel, all eight hotspots go
+// through it, no per-button logic in the markup.
+//
+// THE SESSION IDS ARE NOT DUPLICATED HERE. trainHubLabel() resolves a zone key
+// against the TRAINING array itself, so TRAINING stays the single source of
+// truth for which sessions exist and what they are called. A hardcoded list
+// would be a second registry that drifts the first time a session is renamed —
+// the same failure the _rcSheetNamesFor four-registry rule exists to prevent.
+// Only the two NON-session medallions need naming, and they are named once.
+const TRAIN_HUB_SPECIAL = { gut:'Gut Training', log:'Training Log' };
+function trainHubLabel(key){
+  if(TRAIN_HUB_SPECIAL[key]) return TRAIN_HUB_SPECIAL[key];
+  const s = TRAINING.find(t => t.id === key);
+  return s ? s.name : null;
+}
+
+// Guarded against an unknown key rather than trusting the eight call sites, for
+// riderHubGo()'s reason: hard reject, no fallback. Silently opening a session
+// other than the one the player tapped is worse than not moving.
+//
+// WHAT THIS DOES THIS STAGE, AND WHY IT IS NOT THE FINAL BODY. plan v1 §3 puts
+// the section sheet in fix206, so the destination does not exist yet. The whole
+// of fix206's edit to this file is replacing the two lines below the guard with
+// the sheet open — the funnel, the guard, the label resolver and all eight
+// onclick strings are already final and fix206 touches none of them.
+//
+// The player cannot reach any of this in fix205: #train-stage is still gated
+// off (see its CSS), so the only route in is trainDebugToggle() from the
+// console. The pill is what a calibration tap should produce — it names the
+// medallion, which is how a tap confirms the box is welded to the right paint
+// and not merely to SOME paint. An off-by-one row would otherwise look correct.
+//
+// TRAINING LOG is called out separately because it is not an unbuilt route to a
+// built thing, it is an unbuilt FEATURE: plan §1 grepped sessionHistory,
+// trainHistory, sessionsDone and totalSessions and found all four absent, so
+// completed sessions are recorded nowhere. It needs a new state key, a
+// save/load migration with the per-sub-key `?? default` guard (the tourProgress
+// lesson) and a renderer, and none of that may be smuggled into a visual fix.
+// It ships as a coming-soon lockout in fix206 and stays one until it is built
+// as its own numbered feature.
+//
+// Informational only: no confirm(), no modal, no two-tap flow, no state
+// written. Render-only, like everything else in the hub sections.
+// fix206: THE PROMISED EDIT, and the only one. The funnel, the guard, the label
+// resolver and all eight onclick strings are byte-identical to fix205 — the two
+// lines that raised a pill for a built destination are replaced by the sheet
+// open. TRAINING LOG keeps its pill because it is still not a destination.
+//
+// THE LOG IS A HARD LOCKOUT, not a two-tap arm and not a confirm(). There is no
+// "yes anyway" path because there is nothing on the other side of it: plan v1 §1
+// grepped sessionHistory, trainHistory, sessionsDone and totalSessions and found
+// all four absent, so completed sessions are recorded nowhere. Building it means
+// a new state key, a save/load migration with the per-sub-key `?? default` guard
+// (the tourProgress lesson) and a renderer — its own numbered feature, never
+// smuggled into a visual fix.
+//
+// ORDER MATTERS, exactly as in riderHubGo(): render first, then open. The card
+// paints while the sheet is still display:none, so the player never sees a frame
+// of the previous medallion's content before the new one lands.
+function trainHubGo(key){
+  const label = trainHubLabel(key);
+  if(!label){ console.warn('trainHubGo: unknown medallion', key); return; }
+  if(key === 'log'){ trainComingSoon('Training Log — coming soon'); return; }
+  _trainSheetKey = key;
+  renderTrainSheet();
+  trainSheetSet(true);
+}
+
+// fix206: back from a section to the medallions. Deliberately NOT
+// history.back() — opening a section pushed nothing, so there is no entry to
+// unwind and calling back() here would exit the tab entirely. Same reasoning as
+// riderHubBack().
+//
+// The key is cleared so a later render cannot repaint a closed sheet's contents,
+// and so reopening always goes through trainHubGo() and its guard.
+function trainHubBack(){
+  trainSheetSet(false);
+  _trainSheetKey = null;
+}
+
+// fix206: THE single funnel for whether the sheet is showing, mirroring
+// riderSheetSet(). Every open and every close goes through here, so the stage
+// and the sheet can never both be live: one class on #tab-train drives
+// `#train-sheet{display:block}` and `#train-stage{display:none}` together, in
+// one DOM write. That mutual exclusion IS the hard lockout — with the stage
+// display:none there is no medallion to hit through the overlay, and with the
+// sheet display:none it cannot be scrolled or focus-trapped from the hub.
+//
+// Idempotent and safe to call when the Train tab is not showing: toggle() with
+// an explicit second argument sets rather than flips, so a stray call can never
+// invert the sheet.
+let _trainSheetKey = null;
+function trainSheetSet(open){
+  const tab=document.getElementById('tab-train');
+  if(tab) tab.classList.toggle('train-sheet-open', !!open);
+  const sheet=document.getElementById('train-sheet');
+  if(!sheet) return;
+  if(!open){ sheet.style.top=''; return; }
+  // .game-header is above this sheet (z-index 83 vs 79) because 'train' is not
+  // in HUB_TABS, so the sheet's top edge has to clear it or the back bar is
+  // unreachable behind it. Measured, not hardcoded — updateHeader() rewrites the
+  // stat row every tick and a wrapped value would break a magic number silently.
+  // Cleared to '' on close so the CSS fallback takes over again, which means the
+  // day 'train' does join HUB_TABS this branch simply stops finding a header and
+  // the fallback is already correct.
+  const hdr=document.querySelector('.game-header');
+  // offsetParent is null for a display:none element — a hidden header detected
+  // without reading computed styles.
+  const h = (hdr && hdr.offsetParent!==null) ? Math.round(hdr.getBoundingClientRect().height) : 0;
+  sheet.style.top = h>0 ? h+'px' : '';
+}
+
+// fix206: paint whichever medallion is open. Render-only, per the house rule for
+// the hub sections: no state is written here, and saveGame()'s payload is
+// unchanged by this fix.
+//
+// Early-returns when nothing is open, so the per-second tick that calls this
+// costs one property read while the player is on the medallions. It does NOT
+// early-return on currentTab: renderTrainTab() already guards that, and the
+// cooldown tick path needs the open card to keep counting down.
+//
+// The gut card's visibility is toggled here rather than by rebuilding it,
+// because renderGutTrainCard() owns that node's contents and this function owns
+// none of them.
+function renderTrainSheet(){
+  const key=_trainSheetKey;
+  if(!key) return;
+  const ttl=document.getElementById('train-sheet-title');
+  if(ttl) ttl.textContent = trainHubLabel(key) || '';
+  const gut=document.getElementById('gut-train-card-wrap');
+  if(gut) gut.style.display = (key==='gut') ? '' : 'none';
+  const box=document.getElementById('train-sheet-session');
+  if(!box) return;
+  box.innerHTML='';
+  const t=TRAINING.find(s=>s.id===key);
+  if(!t){ box.style.display='none'; return; }
+  box.style.display='';
+  // null when this session is the one running — #active-session-wrap above is
+  // already showing it, and a second copy would offer a start button for a
+  // session in flight.
+  const card=buildSessionCard(t, Date.now());
+  if(card) box.appendChild(card);
+}
+
+// The pill. Shaped exactly like the homeComingSoon()/homeHideToast() and
+// riderComingSoon()/riderHideToast() pairs so there is one pill pattern in this
+// codebase and not three. Deliberately NOT calling either of the others: they
+// resolve '#home-toast' and '#rider-toast', which live inside their own hubs'
+// art and are not on screen while the Training hub is, so a shared call would
+// show the message on a hidden node. Three nodes, three timers, identical
+// shapes.
+//
+// The text is passed in whole rather than having ' — coming soon' appended the
+// way homeComingSoon() does, for riderComingSoon()'s reason: only one of the
+// eight callers is an unbuilt feature, and appending it to the other seven
+// would tell the player that Threshold and Sprint do not exist yet.
+let _trainToastTimer=null;
+function trainComingSoon(msg){
+  const el=document.getElementById('train-toast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('on');
+  if(_trainToastTimer) clearTimeout(_trainToastTimer);
+  _trainToastTimer=setTimeout(trainHideToast, 1800);
+}
+function trainHideToast(){
+  if(_trainToastTimer){ clearTimeout(_trainToastTimer); _trainToastTimer=null; }
+  const el=document.getElementById('train-toast');
+  if(el) el.classList.remove('on');
 }
 
 // fix185: what a painted medallion does. Mirrors homeGo()'s shape — one small
@@ -10498,7 +12242,16 @@ function renderRiderBanner(){ renderHubBanner('rider'); }
 // ═══════════════════════════════════════════════════════════
 // fix174: renderRiderSkillsCard() dropped — the card moved to the Skills panel
 // and its wrap is tombstoned in the Train markup, so the call was a no-op.
-function renderTrainTab(){ renderRiderScene(); renderActiveBoostsPill(); renderEnergyCard(); renderWeightCard(); renderGutTrainCard(); renderAttrRow(); renderActiveSession(); renderSessionList(); }
+// fix205: renderHubBanner('train') APPENDED, not inserted, so the eight
+// existing renderers keep their order and their diff stays empty. Called
+// directly rather than through an alias, per the fix203 note on HUB_BANNERS.
+// It early-returns unless currentTab==='train', so it is free off-tab.
+// fix206: renderTrainSheet() APPENDED, never inserted, for the fix205 reason —
+// the eight calls before it keep their order and their meaning, and the sheet
+// paints last so it reads the state the others have just settled. It
+// early-returns when no medallion is open, so the medallion screen pays one
+// property read for it.
+function renderTrainTab(){ renderRiderScene(); renderActiveBoostsPill(); renderEnergyCard(); renderWeightCard(); renderGutTrainCard(); renderAttrRow(); renderActiveSession(); renderSessionList(); renderHubBanner('train'); renderTrainSheet(); }
 
 // fix54: rider sprite scene. Reads existing session/energy state only —
 // no state of its own beyond a DOM cache + last-rendered signature.
@@ -11294,11 +13047,21 @@ function renderActiveSession(){
   </div>`;
 }
 
-function renderSessionList(){
-  const list=document.getElementById('training-list'); list.innerHTML='';
-  const now=Date.now();
-  TRAINING.forEach(t=>{
-    if(state.session.active&&state.session.typeId===t.id) return;
+// fix206: EXTRACTED from renderSessionList(), body byte-identical below the
+// early-return, so the list renders exactly what it rendered in fix205. It is
+// pulled out because the Training hub's section sheet needs ONE session's card
+// and must not re-implement it: an energy cost, an unlock gate or a cooldown
+// bar reproduced in a second place is a second registry, and it drifts the
+// first time a session is rebalanced. One builder, two call sites.
+//
+// Returns the element, or null when the session is the one currently running —
+// the caller shows #active-session-wrap for that case, which is what
+// renderSessionList()'s original `return` did by omission.
+//
+// Pure builder: reads state, writes none. `now` is passed in rather than read
+// here so every card in one list pass shares a single timestamp.
+function buildSessionCard(t, now){
+    if(state.session.active&&state.session.typeId===t.id) return null;
     const cdEnd=state.trainCooldowns[t.id]||0, onCd=cdEnd>now;
     const locked=t.unlock&&state.attributes[t.unlock.attr].level<t.unlock.level;
     const noEnergy=!locked&&!onCd&&state.energy<t.energyCost;
@@ -11322,7 +13085,16 @@ function renderSessionList(){
       </div>
       <div class="session-gains">${eBadge}${xpBadges}</div>${cdBarHtml}`;
     if(available) div.addEventListener('click',()=>startSession(t.id));
-    list.appendChild(div);
+    return div;
+}
+
+function renderSessionList(){
+  const list=document.getElementById('training-list'); if(!list) return;
+  list.innerHTML='';
+  const now=Date.now();
+  TRAINING.forEach(t=>{
+    const card=buildSessionCard(t, now);
+    if(card) list.appendChild(card);
   });
 }
 
@@ -13429,6 +15201,12 @@ function renderGearTab(){
   if(gearSection==='accessories') renderAccessoryShop();
   // fix64: idle rider preview at the top of the Gear tab.
   renderRiderScene();
+  // fix208: renderHubBanner('gear') APPENDED, not inserted, for fix205's
+  // reason — the five section renderers above must keep running in the order
+  // they always have, and the banner reads no state any of them writes.
+  // Cheap when nothing changed: the signature guard inside renderHubBanner()
+  // means a tick that moves no figure touches no DOM.
+  renderHubBanner('gear');
 }
 
 // fix88 — Workshop (Marginal Gains): mini-game selector + MG display.
@@ -17488,7 +19266,14 @@ function gameTick(){
     // early-returns off-tab on the same pattern, so the added cost off-Rider is
     // one more comparison. Appended after renderHomeBanner(); the two are
     // independent and each guards its own tab, so order is not load-bearing.
-    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); renderRiderBanner(); }
+    // fix205: renderHubBanner('train') APPENDED for the same reason
+    // renderRiderBanner() was — each early-returns off its own tab, so this is
+    // one more comparison in the common case and the ENERGY gauge on whichever
+    // hub is open stays live between full renders.
+    // fix208: renderHubBanner('gear') APPENDED for the same reason fix205
+    // appended 'train'. Each call early-returns on currentTab, so at most one of
+    // the four does any work on any given tick.
+    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); renderRiderBanner(); renderHubBanner('train'); renderHubBanner('gear'); }
   }
   if(state.session.active){
     const t=TRAINING.find(t=>t.id===state.session.typeId);
@@ -17674,7 +19459,10 @@ function gameTick(){
   }
   updateHeader();
   if(now-_lastListRender>=1000){
-    if(currentTab==='train'&&!state.session.active){ renderSessionList(); renderEnergyCard(); renderRiderScene(); }
+    // fix206: renderTrainSheet() APPENDED so an open session card's cooldown
+    // bar and affordability state tick down in the sheet exactly as they do in
+    // the legacy list — both are the same buildSessionCard() output.
+    if(currentTab==='train'&&!state.session.active){ renderSessionList(); renderEnergyCard(); renderRiderScene(); renderTrainSheet(); }
     if(currentTab==='race'&&!state.raceActive){ renderRaceTypes(); renderCategoryCard(); }
     _lastListRender=now;
   }
