@@ -258,7 +258,14 @@
 // fix214 removes a live Skills button and a paragraph of tombstone prose from
 // the top of every tab. Same reasoning: leftover furniture on a stale shell
 // reads as "the fix did not work" rather than as a caching artefact.
-const CACHE_VERSION = 'cim-v3.8.27';   // fix213+fix214: rider scene var restored; tombstone comment terminator repaired (HTML only, no asset content change)
+// const CACHE_VERSION = 'cim-v3.8.27';   // fix213+fix214: rider scene var restored; tombstone comment terminator repaired (HTML only, no asset content change)
+// fix215: Training Log built out — the log medallion is a real sheet section now
+// instead of a coming-soon pill. HTML ONLY: no file is added to or removed from
+// STATIC_ASSETS and no asset byte changed. The bump is mandatory all the same,
+// for the reason fix186 spells out above — './index.html' is in STATIC_ASSETS and
+// the deployed HTML filename never changes between fixes, so without a new cache
+// key every returning player keeps being served fix214 and the log stays a pill.
+const CACHE_VERSION = 'cim-v3.8.28';   // fix215: Training Log section (HTML only, no asset content change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
