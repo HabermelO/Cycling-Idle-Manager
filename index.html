@@ -5139,6 +5139,22 @@ body.home-open{overflow:hidden;}
       <div id="active-session-wrap"></div>
       <div id="train-sheet-session"></div>
       <div id="gut-train-card-wrap"></div>
+      <!-- fix215: TRAINING LOG. The third and last thing this sheet can show,
+           sibling to the session box and the gut wrap rather than a fourth
+           sheet: one sheet, one back bar, one lockout, three bodies. Shown and
+           hidden by renderTrainSheet() exactly like #gut-train-card-wrap — it
+           owns visibility, renderTrainLog() owns the contents, and neither
+           reaches into the other.
+
+           EMPTY IN THE MARKUP AND NEVER PRE-FILLED. Everything in it is derived
+           on the fly from state that already exists (state.energy,
+           state.riderWeight, state.carbsToday, state.attributes), so the log
+           adds NO state key, no save payload field and no load migration. That
+           is deliberate: the fix206 comment reserved a numbered feature for a
+           per-session HISTORY, which would need all three. This is not that. It
+           is a read-only dashboard over live values, and the day a real history
+           lands it drops in here without moving any of this. -->
+      <div id="train-log-wrap"></div>
     </div>
     <div id="rider-scene-wrap"></div>
     <!-- fix206 tombstone: #active-session-wrap and #gut-train-card-wrap were
@@ -12360,7 +12376,12 @@ function trainHubLabel(key){
 function trainHubGo(key){
   const label = trainHubLabel(key);
   if(!label){ console.warn('trainHubGo: unknown medallion', key); return; }
-  if(key === 'log'){ trainComingSoon('Training Log — coming soon'); return; }
+  // fix215 tombstone: the log's hard lockout is retired — it is now a real
+  // destination and goes through the same two lines as the other seven.
+  //   if(key === 'log'){ trainComingSoon('Training Log — coming soon'); return; }
+  // trainComingSoon() itself is NOT retired with it. It is still the pill for
+  // any future unbuilt medallion, and deleting a working helper because its
+  // only caller went away is how the next one gets rewritten from scratch.
   _trainSheetKey = key;
   renderTrainSheet();
   trainSheetSet(true);
@@ -12429,6 +12450,17 @@ function renderTrainSheet(){
   if(ttl) ttl.textContent = trainHubLabel(key) || '';
   const gut=document.getElementById('gut-train-card-wrap');
   if(gut) gut.style.display = (key==='gut') ? '' : 'none';
+  // fix215: the log body, toggled by the same one-liner as the gut card and for
+  // the same reason — visibility here, contents in renderTrainLog(). It is
+  // REBUILT ONLY WHILE IT IS SHOWING: renderTrainSheet() runs on the per-second
+  // tick, and painting a display:none panel sixty times a minute is sixty
+  // pointless innerHTML writes. On the other sections the branch below costs one
+  // property write.
+  const log=document.getElementById('train-log-wrap');
+  if(log){
+    log.style.display = (key==='log') ? '' : 'none';
+    if(key==='log') renderTrainLog(); else log.innerHTML='';
+  }
   const box=document.getElementById('train-sheet-session');
   if(!box) return;
   box.innerHTML='';
@@ -12440,6 +12472,125 @@ function renderTrainSheet(){
   // session in flight.
   const card=buildSessionCard(t, Date.now());
   if(card) box.appendChild(card);
+}
+
+// ═══ fix215: the Training Log ════════════════════════════════════════════
+// The one place a player can read today's numbers in full: the day's energy and
+// what tomorrow's recovery looks like, rider weight and power-to-weight, the
+// carb intake against today's limit, and the level and progress of all five
+// training attributes with what each is currently worth.
+//
+// EVERY VALUE IS DERIVED, NOTHING IS STORED. It reads state.energy,
+// state.riderWeight, state.carbsToday and state.attributes and computes the rest
+// through the existing single sources of truth — getCarbLimit() for the carb
+// ceiling (never CARB_DAILY_LIMIT, which is the legacy constant and ignores both
+// prestige scaling and gut training), getTomorrowEnergy() for recovery,
+// getPowerToWeight() for W/kg, xpForLevel() for the bar. Not one of those
+// formulas is re-implemented here. A second copy of the carb ceiling would read
+// correctly on the day it shipped and drift the first time carbBase() changed —
+// the exact failure the wsAwardMG()/carbBase()/workshopMaxLevel() funnel rule
+// exists to prevent.
+//
+// RENDER-ONLY, per the house rule for everything in the hub sheets. No state is
+// written, no save is triggered, saveGame()'s payload is byte-identical to
+// fix214, and no cooldown or timer is started. It is safe to call on every tick
+// because calling it changes nothing.
+//
+// THE ATTRIBUTE ROWS ARE DRIVEN BY ATTR_ORDER AND ATTR_DEFS, not by a list
+// written out here. Endurance, Power, VO₂, Sprint and Threshold are named in
+// exactly one place in this codebase and this is not that place — a sixth
+// attribute appears in this log the moment it appears in ATTR_ORDER, with no
+// edit to this function. Same discipline as trainHubLabel() resolving session
+// names against TRAINING rather than hardcoding eight ids.
+//
+// Prose lives behind the existing ⓘ keys ('energy', 'recovery', 'nutrition')
+// rather than being written inline, per the INFO_TEXTS pattern. No new info key
+// is minted: these three already say exactly what the log's three panels mean.
+// event.stopPropagation() on each, matching every other info button in the file.
+function renderTrainLog(){
+  const wrap=document.getElementById('train-log-wrap');
+  if(!wrap) return;
+
+  // ── today's energy ──
+  const e=state.energy;
+  // Math.max guards the same case renderEnergyCard() guards: a boost can put
+  // energy ABOVE maxEnergy, and an unguarded denominator paints a >100% bar.
+  const eMax=Math.max(state.maxEnergy, e);
+  const ePct=state.maxEnergy>0?Math.min(100,Math.round(e/state.maxEnergy*100)):0;
+  const eCol = ePct>=60 ? 'var(--green-txt)' : ePct>=30 ? 'var(--amber-txt)' : 'var(--red-txt)';
+  const spent=state.energySpentToday||0;
+  const tmr=getTomorrowEnergy();
+  const tmrCol = tmr>=state.maxEnergy*0.85 ? 'var(--green-txt)' : tmr>=state.maxEnergy*0.6 ? 'var(--amber-txt)' : 'var(--red-txt)';
+
+  // ── weight and carbs ──
+  const pw=getPowerToWeight();
+  const wDelta=state.riderWeight-DEFAULT_RIDER_WEIGHT;
+  const wDeltaHtml = wDelta>0.05
+    ? `<span style="color:var(--red-txt)">+${wDelta.toFixed(1)}kg vs default</span>`
+    : wDelta<-0.05
+      ? `<span style="color:var(--green-txt)">${wDelta.toFixed(1)}kg vs default</span>`
+      : `<span style="color:var(--txt3)">at default</span>`;
+  const carbs=state.carbsToday||0;
+  const carbLimit=getCarbLimit();
+  const carbPct=carbLimit>0?Math.min(100,Math.round(carbs/carbLimit*100)):0;
+  const carbBarCls=carbs>=carbLimit?'critical':carbPct>=80?'low':'';
+  const carbHint = carbs>=carbLimit
+    ? `<div class="energy-hint" style="color:var(--red-txt)">${icn('warning')} Over today's limit — excess converts to weight tonight</div>`
+    : carbPct>=80
+      ? `<div class="energy-hint">${icn('warning')} Approaching today's carb limit</div>`
+      : '';
+
+  // ── the five attributes ──
+  const attrRows=ATTR_ORDER.map(id=>{
+    const def=ATTR_DEFS[id];
+    // ?? rather than || on the level so a legitimate level 0 is not replaced by
+    // a default, and the whole attribute is guarded because a save written
+    // before an attribute existed has no entry for it — the per-sub-key form of
+    // the tourProgress lesson, applied at the read site.
+    const a=state.attributes[id] || {level:0,xp:0};
+    const lv=a.level ?? 0, xp=a.xp ?? 0;
+    const needed=xpForLevel(lv);
+    const pct=needed>0?Math.min(100,Math.round(xp/needed*100)):100;
+    const cv=def.colorVar;
+    return `<div style="padding:.5rem 0;border-top:.5px solid var(--border)">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px">
+        <span style="font-size:12px;font-weight:700;color:var(--${cv}-txt)">${icn(def.icon)} ${def.name}</span>
+        <span style="font-size:13px;font-weight:800;color:var(--${cv}-txt);font-variant-numeric:tabular-nums">L${lv}</span>
+      </div>
+      <div class="energy-bar-outer" style="height:5px;margin:.3rem 0"><div class="energy-bar-inner" style="width:${pct}%;background:var(--${cv}-txt)"></div></div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;font-size:10px;color:var(--txt3);font-variant-numeric:tabular-nums">
+        <span style="color:var(--txt2);font-weight:600">${def.bonusDesc(lv)}</span>
+        <span>${needed>0?xp+' / '+needed+' xp':'max'}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML=`<div class="energy-card">
+    <div class="energy-head"><span class="energy-label">${icn('bolt')} Daily Training Energy <button class="info-btn" onclick="event.stopPropagation();openInfo('energy')">ⓘ</button></span><span class="energy-amount" style="color:${eCol}">${e} / ${eMax}</span></div>
+    <div class="energy-bar-outer"><div class="energy-bar-inner" style="width:${ePct}%;background:${eCol}"></div></div>
+    <div class="energy-meta"><span>Spent today: <strong>${spent}</strong></span><span>~${timeToReset()} to reset</span></div>
+    <div style="margin-top:.6rem;padding-top:.6rem;border-top:.5px solid var(--border)">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px">
+        <span style="font-size:12px;font-weight:600;color:var(--txt2)">${icn('sleep')} Tomorrow you'll wake with <button class="info-btn" onclick="event.stopPropagation();openInfo('recovery')">ⓘ</button></span>
+        <span style="font-size:14px;font-weight:700;color:${tmrCol};font-variant-numeric:tabular-nums">${tmr} / ${state.maxEnergy}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="energy-card">
+    <div class="energy-head"><span class="energy-label">${icn('scale')} Rider Weight <button class="info-btn" onclick="event.stopPropagation();openInfo('nutrition')">ⓘ</button></span><span class="energy-amount">${state.riderWeight.toFixed(1)}kg</span></div>
+    <div class="energy-meta"><span>Power-to-weight: <strong>${pw.toFixed(2)} W/kg</strong></span><span>${wDeltaHtml}</span></div>
+    <div style="margin-top:.6rem;padding-top:.6rem;border-top:.5px solid var(--border)">
+      <div class="energy-head" style="margin-bottom:.4rem"><span class="energy-label">${icn('bread')} Today's Carb Intake</span><span class="energy-amount" style="font-size:16px">${carbs} / ${carbLimit}</span></div>
+      <div class="energy-bar-outer"><div class="energy-bar-inner ${carbBarCls}" style="width:${carbPct}%"></div></div>
+      ${carbHint}
+    </div>
+  </div>
+
+  <div class="energy-card">
+    <div class="energy-head" style="margin-bottom:.2rem"><span class="energy-label">${icn('chart-up')} Training Levels</span></div>
+    ${attrRows}
+  </div>`;
 }
 
 // The pill. Shaped exactly like the homeComingSoon()/homeHideToast() and
