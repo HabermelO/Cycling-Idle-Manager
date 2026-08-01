@@ -104,7 +104,63 @@
 // on this stage means ten new goal tracks that exist in the file and never
 // appear on the Growth tab, plus save files still being written without the new
 // counters — so the counters read zero even after the shell finally updates.
-const CACHE_VERSION = 'cim-v3.8.17';   // fix197: lifetime goals expansion + perfect season capstone
+// fix201: rider-bg.jpg keeps its FILENAME and its CONTENTS change again — the
+// 640x1422 flat-band recut is superseded by the shared 768x1707 canvas that
+// plan v1 sec.0 measured across all four painted arts. Three new files are
+// added below in the same stage. Both reasons make this bump MANDATORY: without
+// it every installed PWA keeps painting the fix185b rider raster out of the
+// v3.8.17 cache, and fix202 would then be calibrating hotspots against a
+// canvas the device is not actually showing.
+// const CACHE_VERSION = 'cim-v3.8.17';   // fix197: lifetime goals expansion + perfect season capstone
+// fix202: rider-bg.jpg keeps its FILENAME for the FOURTH time and its CONTENTS
+// changed again — the art was redrawn at higher resolution after fix200 and the
+// live file is 728x1568 (708x1568 content, 20px white margin on the right),
+// superseding the 768x1707 re-cut fix201 describes. Every medallion coordinate,
+// the three stat-slot boxes and the new painted-BACK hotspot are all measured
+// against THIS raster, so an installed PWA still painting the v3.8.18 art would
+// show seven hotspots welded to a picture that is no longer underneath them.
+// That is the worst form this project's most common deployment failure can
+// take, so the bump is mandatory, not optional.
+// The STATIC_ASSETS entry is unchanged and was NOT duplicated — fix183 already
+// lists assets/rider-bg.jpg.
+// const CACHE_VERSION = 'cim-v3.8.18';   // fix201: 768x1707 re-cut + training/gear/tasks art
+// fix203: NO asset byte changed — this stage is CSS, markup and JS only (the
+// generic .hub-stage/.hub-art/.hub-hot/.hub-slot class set, one hubGo() funnel,
+// one renderHubBanner(tab), and HUB_TABS). The bump is mandatory all the same,
+// for the reason fix186 spells out above: './index.html' is in STATIC_ASSETS
+// and the deployed HTML filename never changes between fixes.
+//
+// It matters MORE than usual on this stage, not less. fix203 moves shared
+// declarations OUT of #home-stage / #rider-stage / .home-hot / .rider-hot and
+// into classes that only the NEW markup carries. An installed PWA serving the
+// fix202 shell out of the v3.8.19 cache would therefore get the new stylesheet
+// with the old markup — no .hub-hot on any button — and every hotspot on both
+// hubs would lose its position, size and centre anchor at once. That is a
+// harder failure than a stale picture: the two painted hubs become untappable.
+// const CACHE_VERSION = 'cim-v3.8.19';   // fix202: rider-bg.jpg redrawn 728x1568
+// fix204: NO asset byte changed — this stage is CSS, markup and JS only (the
+// #train-stage / #train-art geometry stage, the #train-cal calibration overlay
+// and trainDebugToggle()). The bump is mandatory all the same, for the reason
+// fix186 spells out above: './index.html' is in STATIC_ASSETS and the deployed
+// HTML filename never changes between fixes.
+//
+// The failure it prevents here is a quiet one rather than a loud one, which is
+// why it is worth naming. Skip the bump and an installed PWA keeps the fix203
+// shell, so trainDebugToggle() is simply not defined — the calibration pass
+// returns "undefined" in the console and looks like a broken build, when in
+// fact the build is fine and the cache is stale. Worse, if the pass is instead
+// run against a device that DID update while the art file did not, fix205 would
+// be measuring hotspot coordinates against a picture no other device is
+// showing. Calibration stages are the ones where a stale cache does the most
+// damage, because their whole output is a set of numbers taken on trust.
+//
+// assets/training-bg.jpg is BYTE-UNTOUCHED by this stage and its STATIC_ASSETS
+// entry (added in fix201) is unchanged and was NOT duplicated. Note that fix204
+// re-measured the SOURCE art at 728x1568 rather than fix201's 768x1707; if the
+// deployed jpeg does not match that, it is fix201's encode that needs redoing,
+// and that will be its own stage with its own bump.
+// const CACHE_VERSION = 'cim-v3.8.20';   // fix203: generic hub class set + hubGo/renderHubBanner
+const CACHE_VERSION = 'cim-v3.8.21';   // fix204: training hub geometry stage + calibration overlay
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
@@ -126,6 +182,13 @@ const STATIC_ASSETS = [
   // in showTab(), which means a runtime-only cache would miss on exactly the
   // first open, the one time the placeholder sky would be visible.
   './assets/rider-bg.jpg',
+  // fix201: the three new painted tab scenes. Precached on the same reasoning
+  // as rider-bg.jpg — they are bound lazily in showTab(), so a runtime-only
+  // cache would miss on exactly the first open of each tab, the one time the
+  // placeholder would be visible. Appended, never inserted.
+  './assets/training-bg.jpg',
+  './assets/gear-bg.jpg',
+  './assets/tasks-bg.jpg',
   './assets/workshop-hero.jpg',
   // fix169: assets/race-hero.jpg retired — 'raceHero' is out of
   // RC_SHEET_NAMES / RC_VAR_NAMES / _rcSheetSources, so nothing fetches it
