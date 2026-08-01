@@ -1859,19 +1859,114 @@ button{font-family:inherit;cursor:pointer;}
    #rider-content survives one more stage as the TRANSITIONAL layer (see the
    z-index note below); it is #rider-sheet that finally replaces it in fix186. */
 
-/* z-index:80 keeps this hub strictly BELOW #home-stage's 90, so tapping Home
-   from the Rider hub can never leave the rider art painted over the home hub. */
-#rider-stage{
+/* ═══════════ fix203: THE GENERIC HUB CLASS SET ═══════════
+   fix185 wrote, in the .rider-hot block below: "Do NOT generalise these two
+   into one shared hub class until a SECOND tab has actually shipped a hub."
+   Rider shipped one (fix185-fix189, recalibrated fix202) and Training, Gear
+   and Tasks are next, so the condition that comment set is met and this block
+   is the promised generalisation.
+
+   WHAT LIVES HERE: only declarations that were already BYTE-IDENTICAL in the
+   home and rider blocks. Anything the two hubs genuinely differ on stays with
+   the tab that owns it:
+     #home-stage / #rider-stage  keep their z-index (90 vs 80 — the ordering
+                                 that stops rider art painting over home)
+     #home-art   / #rider-art    keep their background shorthand (different
+                                 assets, and rider's 102.825% left-pinned
+                                 margin crop from fix202)
+     .home-hot-rect / .rider-hot-rect  keep their radii (8px vs 14px)
+     .home-banner-slot / .rider-slot   keep top/height/colour/text-shadow
+
+   CASCADE, stated because the whole block depends on it: this sits ABOVE the
+   rider block (~line 1860) and the home block (~line 3030) in the same <style>.
+   Every rule here is a single class, specificity 0-1-0, so any per-tab rule of
+   equal specificity that appears later WINS by source order. That is why
+   .rider-hot-rect's 14px is not clobbered by .hub-hot-rect's 10px default, and
+   why moving this block downwards would be a visual regression rather than a
+   tidy-up.
+
+   The four per-tab base rules this replaces are TOMBSTONED in place rather
+   than deleted (house rule), each with a pointer back here. */
+.hub-stage{
   position:fixed;
   inset:0;
-  z-index:80;
   overflow:hidden;
-  /* same sky hex as #home-stage / <meta name="theme-color">, shown for the one
-     frame before the jpeg lands */
+  /* sky, shown for the one frame before the jpeg lands. Single source of truth
+     shared with <meta name="theme-color"> (~line 265) and manifest.json. */
   background:#7fb8d4;
   user-select:none;
   -webkit-user-select:none;
   -webkit-tap-highlight-color:transparent;
+}
+/* Reproduces background-size:cover geometry as a real element, so hotspots stay
+   percentages OF THE ART rather than of the viewport. max() in both axes plus
+   centring is exactly what cover does — no JS, no resize listener, no drift.
+   The 768x1707 ratio is the shared canvas plan v1 sec.0 measured across all
+   four painted arts; a future hub whose art is NOT on that canvas must not use
+   this class without re-deriving the ratio. */
+.hub-art{
+  position:absolute;
+  left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  width:max(100vw, calc(100vh * 768 / 1707));
+  height:max(100vh, calc(100vw * 1707 / 768));
+  width:max(100vw, calc(100dvh * 768 / 1707));
+  height:max(100dvh, calc(100vw * 1707 / 768));
+}
+/* Hotspots. Transparent <button>s, centre-anchored via translate(-50%,-50%) so
+   the measured circle centre is the literal --hx/--hy pair with no arithmetic
+   at the call site. The --hw/--hh fallbacks are inert in practice: every one of
+   the 21 hotspots in this file sets both inline. They are kept only so a
+   half-written new hotspot is visible rather than zero-sized. */
+.hub-hot{
+  position:absolute;
+  left:var(--hx); top:var(--hy);
+  width:var(--hw,22%); height:var(--hh,22%);
+  transform:translate(-50%,-50%);
+  padding:0; margin:0; border:0; background:transparent;
+  border-radius:50%;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  appearance:none; -webkit-appearance:none;
+}
+/* Default for a painted PILL rather than a medallion. Home (8px) and Rider
+   (14px) both override this later in the file; it exists so fix204-211 can add
+   pill hotspots without inventing a third convention. */
+.hub-hot-rect{border-radius:10px;}
+.hub-hot:active{transform:translate(-50%,-50%) scale(0.94);}
+@media (prefers-reduced-motion: no-preference){
+  .hub-hot{transition:transform .12s ease;}
+}
+.hub-hot:focus-visible{outline:3px solid #fff;outline-offset:-3px;}
+/* Live banner slot. Read-only by construction: pointer-events:none, so a tap on
+   a painted plate falls through to the art and can never be swallowed by a
+   figure sitting on it. container-type:inline-size is what makes the cqw font
+   clamp resolve against the slot rather than the viewport. */
+.hub-slot{
+  position:absolute;
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+  pointer-events:none;
+  font-weight:800;
+  font-size:clamp(9px, 2.6cqw, 15px);
+  letter-spacing:.2px;
+  container-type:inline-size;
+}
+
+/* z-index:80 keeps this hub strictly BELOW #home-stage's 90, so tapping Home
+   from the Rider hub can never leave the rider art painted over the home hub. */
+#rider-stage{
+  /* fix203: the six shared declarations moved to .hub-stage, which the element
+     now also carries. Only z-index is left, because it is the one thing the two
+     hubs genuinely differ on. Tombstoned (fix136 form):
+       position:fixed;
+       inset:0;
+       overflow:hidden;
+       background:#7fb8d4;
+       user-select:none;
+       -webkit-user-select:none;
+       -webkit-tap-highlight-color:transparent; */
+  z-index:80;
   /* fix185 tombstone: fix184 sealed the whole stage against taps —
        pointer-events:none;
      because it carried calibration markers and no controls. The six .rider-hot
@@ -1888,19 +1983,70 @@ button{font-family:inherit;cursor:pointer;}
    max() in both axes plus centring is exactly what background-size:cover does —
    no JS, no resize listener, no drift. */
 #rider-art{
-  position:absolute;
-  left:50%; top:50%;
-  transform:translate(-50%,-50%);
-  width:max(100vw, calc(100vh * 768 / 1707));
-  height:max(100vh, calc(100vw * 1707 / 768));
-  width:max(100vw, calc(100dvh * 768 / 1707));
-  height:max(100dvh, calc(100vw * 1707 / 768));
+  /* fix203: the cover-rect arithmetic moved to .hub-art, which the element now
+     also carries. It was already byte-identical to #home-art's (this block's
+     own comment above says "copied VERBATIM"), so the move cannot change a
+     pixel. Only the background shorthand stays, because it is per-tab: a
+     different asset AND fix202's 102.825% left-pinned margin crop.
+     Tombstoned (fix136 form):
+       position:absolute;
+       left:50%; top:50%;
+       transform:translate(-50%,-50%);
+       width:max(100vw, calc(100vh * 768 / 1707));
+       height:max(100vh, calc(100vw * 1707 / 768));
+       width:max(100vw, calc(100dvh * 768 / 1707));
+       height:max(100dvh, calc(100vw * 1707 / 768)); */
   /* fallback kept from fix183 on purpose: a missing asset degrades to a flat
      sky, never to a black screen */
   background:var(--sheet-rider-scene,
     linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
-    center/100% 100% no-repeat;
+    left center/102.825% 100% no-repeat;
 }
+/* ═══ fix202: the margin crop, and why every percentage below is a percentage
+   of the CONTENT box ══════════════════════════════════════════════════════
+   The rider art was replaced after fix200 with a higher-resolution redraw. The
+   new file is 728x1568 and carries a 20px column of PURE WHITE down its right
+   edge (cols 708-727, mean rgb(254,255,254)); the painting itself is the
+   708x1568 box to the left of it. There is no bottom margin this time.
+
+   fix201's comment block describes a 784x1400 source cropped to 768x1376 and
+   padded 166/165. That framing is superseded — MEASURE, DO NOT ASSUME, exactly
+   as the plan's sec.0 instructs. The measured facts for the live file are:
+
+     file            728 x 1568
+     content box     708 x 1568   (white margin on the RIGHT only, 20px)
+     content aspect  0.4515
+     element aspect  768/1707 = 0.44991 (unchanged, see the ratio above)
+
+   Left alone, that white column paints as a ~11px white bar down the right of
+   a 390px phone, because #rider-art's width is max(100vw, ...) and resolves to
+   100vw at every phone aspect — so the margin is never cropped away by cover.
+
+   Fixed HERE rather than by re-cutting the jpeg, for two reasons. First, the
+   asset is live and re-cutting it would invalidate every measurement in this
+   fix at the same moment they are being taken. Second, and the reason this is
+   the better fix anyway: background-size is 728/708 = 102.825% with
+   background-position:left, so image x=0 pins to element x=0 and the content's
+   right edge (px 707) lands exactly on element x=100%. The margin is pushed
+   outside the box and clipped.
+
+   THE CONSEQUENCE, stated because everything below depends on it: because the
+   size is 100% 100% in the vertical and 102.825% pinned left in the horizontal,
+   a percentage of #rider-art is now a percentage of the 708x1568 CONTENT box,
+   not of the file. So if the margin is ever cropped out of the asset properly,
+   this rule reverts to `center/100% 100%` and NOT ONE COORDINATE BELOW MOVES.
+   That is the whole point of doing it this way round.
+
+   The residual distortion is the 0.4515 content squashed into the 0.44991
+   element: 0.36% vertical, which is below the threshold at which a painted
+   circle reads as an ellipse and is not worth an asset rebuild.
+
+   fix202 tombstone: the fix184-fix201 declaration this replaces —
+     background:var(--sheet-rider-scene,
+       linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
+       center/100% 100% no-repeat;
+   correct for every raster up to fix201, wrong the moment the art gained a
+   margin it does not share with home-bg.jpg. */
 /* fix185 tombstone: fix184's calibration markers, which carried the six
    measured medallion centres so the geometry could be checked on a real device
    before anything was welded to it —
@@ -1935,22 +2081,40 @@ button{font-family:inherit;cursor:pointer;}
    tab has actually shipped a hub, because the first per-tab attempt (fix183)
    was built on a wrong reading of its own art and one more sample is worth
    having before abstracting. Duplicated CSS is the cheaper mistake here. */
-.rider-hot{
-  position:absolute;
-  left:var(--hx); top:var(--hy);
-  width:var(--hw,22%); height:var(--hh,9.90%);
-  transform:translate(-50%,-50%);
-  padding:0; margin:0; border:0; background:transparent;
-  border-radius:50%;
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-  appearance:none; -webkit-appearance:none;
-}
-.rider-hot:active{transform:translate(-50%,-50%) scale(0.94);}
-@media (prefers-reduced-motion: no-preference){
-  .rider-hot{transition:transform .12s ease;}
-}
-.rider-hot:focus-visible{outline:3px solid #fff;outline-offset:-3px;}
+/* fix203: .rider-hot is now an ALIAS, not a base rule. Every declaration below
+   moved to .hub-hot, which each button now also carries; .rider-hot survives
+   purely as the hook the badge (::before) and debug rules still select on, and
+   as the name every comment in this file already uses.
+   The --hh:9.90% fallback is NOT carried across, and that is safe rather than
+   sloppy: all seven rider hotspots set --hh inline, so the fallback has never
+   once resolved. Verified by the audit harness on this fix.
+   Tombstoned (fix136 form):
+     .rider-hot{
+       position:absolute;
+       left:var(--hx); top:var(--hy);
+       width:var(--hw,22%); height:var(--hh,9.90%);
+       transform:translate(-50%,-50%);
+       padding:0; margin:0; border:0; background:transparent;
+       border-radius:50%;
+       cursor:pointer;
+       -webkit-tap-highlight-color:transparent;
+       appearance:none; -webkit-appearance:none;
+     } */
+/* fix202: the painted BACK is a PILL, not a medallion, so the base 50% radius
+   would draw a focus ring and a debug outline shaped like nothing on screen.
+   Mirrors .home-hot-rect exactly (see the home hub CSS) rather than inventing a
+   second convention — the two hubs are still deliberately un-generalised until
+   fix203, but where they do the same thing they do it the same way. */
+.rider-hot-rect{border-radius:14px;}
+/* fix203: the three interaction rules moved to .hub-hot. .rider-hot-rect stays
+   because 14px is a real per-tab value — it overrides .hub-hot-rect's 10px
+   default by source order, which is why the generic block is sited above this
+   one. Tombstoned (fix136 form):
+     .rider-hot:active{transform:translate(-50%,-50%) scale(0.94);}
+     @media (prefers-reduced-motion: no-preference){
+       .rider-hot{transition:transform .12s ease;}
+     }
+     .rider-hot:focus-visible{outline:3px solid #fff;outline-offset:-3px;} */
 
 /* ═══ fix189: medallion badges ═══════════════════════════════════════════
    Cloned from .home-hot::before rather than shared with it, for the same
@@ -2071,22 +2235,81 @@ button{font-family:inherit;cursor:pointer;}
    renderRiderBanner() patches textContent only. The inner <span>s carry the ids
    for that reason too: fix188 can add the gauge in CSS alone, with no markup
    change and no re-measurement. */
+/* ═══ fix202: the slots are re-measured, because they were welded too ══════
+   fix187's numbers were measured off the retired 640x1422 raster. The plan's
+   fix202 line item names the six --hx/--hy pairs, and on a strict reading these
+   three left/width pairs are out of scope. They are re-measured anyway, and the
+   reason is not tidiness: they are geometry welded to the SAME raster the six
+   pairs are welded to, so if the pairs are untrustworthy these are untrustworthy
+   by exactly the same argument. Left alone, the old band (top 13.64%, height
+   1.83% -> y 13.64-15.47%) lands ON the new art's painted CASH / FTP / ENERGY
+   labels, which occupy y 14.16-15.31%. Shipping that would print the player's
+   live cash figure across the word CASH. A hub that is correct in the six places
+   the plan enumerated and visibly broken in three it did not is not a narrower
+   change, it is a worse one.
+
+   Re-measured with fix187's own method — ink threshold L<110, percentages of the
+   CONTENT box — against the 708x1568 live art:
+
+     element             px band        percent band
+     stat plate          y154-212       9.82% - 13.52%
+     CLEAR BAND          y213-240       13.58% - 15.31%   <- the slots
+     painted labels      y222-240       14.16% - 15.31%
+     BACK / banner       y246+          15.69%+
+
+     label     label ink x%      clear gap x%       slot used x%
+     CASH      20.34-30.51       29.38-49.15        29.38  w 19.52
+     FTP       48.59-55.37       54.94-73.45        55.10  w 18.10
+     ENERGY    73.45-87.01       86.30-99.86        86.40  w 12.20
+
+   Each of the three boxes above was re-scanned at full resolution over rows
+   213-240 and returns ZERO sub-110 pixels, so no live value can land on paint.
+   The slots deliberately start INSIDE the tail of their own label's clear gap
+   rather than at the gap's first pixel, so a one-pixel measurement error cannot
+   push a digit onto a glyph.
+
+   Height is 1.79% (rows 213-240) rather than fix187's 1.83%: row 241 carries the
+   top of the RIDER DETAILS banner's outline under the FTP gap, and a band that
+   included it would have forced the FTP slot to stop at 66.67% instead of
+   73.45%. Trading 0.04% of box height for 6.8% of box width is the right way
+   round for a figure like '150/150'.
+
+   The ink colour, the light text-shadow and the energy gauge alphas are all
+   UNCHANGED and did not need re-deriving: the wall behind the new boxes medians
+   rgb(188,168,157) to rgb(210,196,189), lighter than the rgb(161,148,145) fix187
+   computed against, so #2F1615 lands at 7.11:1 where fix187 measured 5.75:1.
+   Contrast moved in the safe direction, so fix187's WCAG AA conclusion holds a
+   fortiori and this stage does not reopen it.
+
+   fix202 tombstone: the fix187 geometry, correct for the 640x1422 raster —
+     .rider-slot{ top:13.64%; height:1.83%; }
+     #rider-slot-money  {left:29.38%; width:17.66%;}
+     #rider-slot-ftp    {left:54.06%; width:10.47%;}
+     #rider-slot-energy {left:84.53%; width:11.88%;}
+   Note that CASH's left is 29.38% in both. That is a coincidence of the redraw
+   preserving the label's right edge, not evidence that nothing moved — the
+   other four values all changed. */
 .rider-slot{
-  position:absolute;
-  top:13.64%; height:1.83%;
-  display:flex; align-items:center; justify-content:center;
-  overflow:hidden;
-  pointer-events:none; /* the row is read-only; taps fall through to the art */
-  font-weight:800;
-  font-size:clamp(9px, 2.6cqw, 15px);
+  /* fix203: the eight shared declarations moved to .hub-slot, which each slot
+     now also carries. What is left is everything that is genuinely per-tab:
+     the measured row geometry from fix202, and the dark-on-wall colour pair —
+     rider's figures sit on painted wall, home's sit on a recessed plate, so
+     they can never share a colour. Tombstoned (fix136 form):
+       position:absolute;
+       display:flex; align-items:center; justify-content:center;
+       overflow:hidden;
+       pointer-events:none;
+       font-weight:800;
+       font-size:clamp(9px, 2.6cqw, 15px);
+       letter-spacing:.2px;
+       container-type:inline-size; */
+  top:13.58%; height:1.79%;
   color:#2F1615;
   text-shadow:0 1px 1px rgba(255,255,255,.75);
-  letter-spacing:.2px;
-  container-type:inline-size;
 }
-#rider-slot-money  {left:29.38%; width:17.66%;}
-#rider-slot-ftp    {left:54.06%; width:10.47%;}
-#rider-slot-energy {left:84.53%; width:11.88%;}
+#rider-slot-money  {left:29.38%; width:19.52%;}
+#rider-slot-ftp    {left:55.10%; width:18.10%;}
+#rider-slot-energy {left:86.40%; width:12.20%;}
 
 /* ═══ fix188: ENERGY gauge fill ═══════════════════════════════════════════
    Supersedes the "NO energy gauge fill" paragraph in the fix187 block above —
@@ -2280,6 +2503,58 @@ button{font-family:inherit;cursor:pointer;}
   z-index:2;
   left:calc(env(safe-area-inset-left, 0px) + 12px);
   bottom:calc(env(safe-area-inset-bottom, 0px) + 14px);
+}
+/* ═══ fix202: the painted BACK goes live, and this is its safety net ═══════
+   The paragraph above is fix186's, written about the RETIRED raster, and it is
+   left standing because its reasoning was correct for the art it described. It
+   is not correct for this one, and the difference is measured, not assumed.
+
+   On the old 640x1422 raster the painted BACK sat at content y8 — inside the
+   ~10% top band that cover-crops away on anything squarer than 0.462 aspect. On
+   the live 708x1568 redraw the room carries its own wall band above the
+   furniture, and the BACK pill is measured (dark-outline bbox, px x10-143,
+   y246-303) at:
+
+     centre    10.81%, 17.51%
+     size      18.93% x 3.70%
+
+   Under cover, the visible slice of #rider-art at viewport aspect A is
+   0.44991/A of its height, centred, so the first visible row is
+   (1 - 0.44991/A)/2. The hotspot's TOP edge is at 14.76% (centre 17.51% minus
+   half of --hh 5.50%), so the whole hit box survives while
+
+     (1 - 0.44991/A)/2 < 0.1476   =>   A < 0.6384
+
+   Checked against the plan's sec.0.1 verification aspects and the fix184 table:
+
+     0.4286 (21:9)      first visible row 0.0%    BACK fully visible
+     0.4503 (Pixel 8)   first visible row 0.1%    BACK fully visible
+     0.4613 (iPhone 15) first visible row 1.2%    BACK fully visible
+     0.5622 (iPhone SE) first visible row 10.0%   BACK fully visible
+     0.6384             first visible row 14.8%   BACK top edge grazes
+     0.6567 (iPad mini) first visible row 15.7%   BACK CLIPPED
+
+   So the painted BACK is real on every phone and fails only above 0.638, which
+   is tablet territory. That is what makes the hotspot buildable and it is a
+   consequence of the redraw, NOT a free win — if the art is ever replaced again
+   this block is the first thing to re-measure.
+
+   THE GUARD IS DELIBERATELY INVERTED FROM THE PLAN'S PHRASING. Plan sec.fix202
+   says to keep .rider-home "alive behind a @media (min-aspect-ratio: 0.60/1)
+   guard". Same visual result, opposite default: this hides .rider-home only
+   where the painted BACK is PROVEN visible, rather than showing it only where
+   the query matches. The two differ in exactly one case, and it is the one that
+   matters — a browser that fails to parse the query. Written the plan's way,
+   a parse failure hides the DOM control everywhere and the player's only exit is
+   a hotspot that may be cropped off screen. Written this way, a parse failure
+   leaves the DOM control on everywhere and the worst case is two routes home,
+   which fix186 already shipped on purpose and called "not a defect".
+
+   0.60 rather than the measured 0.6384 for the crossover: 0.038 of margin
+   against a threshold derived from a hand-measured bbox. Between 0.60 and 0.638
+   both controls are live, which is the harmless direction to be wrong in. */
+@media (max-aspect-ratio: 0.60/1){
+  .rider-home{display:none;}
 }
 /* The 200px hero is the single biggest cost against the no-scroll budget —
    at 140px the Form section clears a 390x844 phone with room to spare. */
@@ -2873,6 +3148,127 @@ button{font-family:inherit;cursor:pointer;}
    handles the forward-and-back motion, this rule only nudges the target. */
 .pel-rider.pel-attack{left:calc(var(--pel-base-left,50%) + 6%) !important;}
 
+/* ═══ fix204: TRAINING HUB — geometry stage + calibration ═════════════════
+   Plan v1 §3, stage fix204: "geometry + art + calibration markers, verified on
+   device". Hotspots, the painted BACK and the three banner slots are fix205;
+   the section sheet is fix206. NOTHING NAVIGATES OFF THIS STAGE YET, which is
+   precisely why it ships behind a preview gate (see #tab-train.train-hub-preview
+   below) rather than live: a fixed, inset:0 stage with no controls on it would
+   otherwise seal the working Train tab behind a picture. That is a hard lockout
+   with no exit, which is the one shape of lockout this project does not want.
+
+   THE ART. Plan v1 §0 measured all four painted arts at 784x1400 with a
+   768x1376 content box, and fix201 re-cut them onto a shared 768x1707 canvas.
+   fix202 then found the rider art had been REDRAWN after fix200 and the live
+   file was 728x1568 (708x1568 content, 20px pure-white column down the right
+   edge, no bottom margin). Re-measured here for training-bg.jpg's source, and
+   it is the same redraw:
+
+     source            728 x 1568
+     content box       708 x 1568   (x 0-707)
+     margin            20px white, RIGHT EDGE ONLY, no bottom margin
+     content aspect    708/1568 = 0.4515
+
+   So this tab takes #rider-art's fix202 treatment VERBATIM rather than
+   #home-art's: the cover rect comes from .hub-art (768/1707, shared), and the
+   20px margin is cropped by painting the background at 102.825% width pinned
+   LEFT (728/708 = 1.02825). Every percentage a hotspot uses in fix205 is
+   therefore a percentage of the 708-wide CONTENT box, not of the file.
+
+   MEASURE, DO NOT ASSUME (plan v1 §0): if the deployed assets/training-bg.jpg
+   is still fix201's 768x1707 flat-band encode rather than this 728x1568 redraw,
+   the 102.825% crop is wrong and the calibration pass below will show it as a
+   constant horizontal offset. Stop and re-cut rather than nudging coordinates.
+
+   WHAT THE CALIBRATION PASS IS FOR. The art's aspect is ~0.45 and phone
+   viewports run ~0.429 to ~0.657, so under cover the top and bottom of the art
+   crop away on anything squarer than ~0.462 (the aspect table in the fix184
+   block still applies unchanged — it is a property of the canvas, not of the
+   tab). fix205 needs to know, measured on glass rather than reasoned about:
+     1. that the medallion grid lands where the grid says at 0.4286, 0.4613
+        and 0.5622,
+     2. whether the painted BACK at the top of this art survives the crop at
+        0.5622 — fix202 proved it does on the rider raster; this is a DIFFERENT
+        painting and inherits nothing,
+     3. the y band the painted stat row occupies, for the fix205 slots.
+   Read the answers off the labelled ticks with trainDebugToggle().
+
+   z-index 78: strictly below #rider-stage's 80 and #home-stage's 90, so
+   tapping through to either hub can never leave training art painted over it.
+   Same ordering discipline as fix184/fix203; 78 is otherwise unused. */
+#train-stage{
+  /* Not display:none inside .hub-stage — that class is shared with two live
+     hubs. The gate is here, on this tab's own id, and it is the single line
+     fix205 deletes when the hotspots make the stage safe to show by default. */
+  display:none;
+  z-index:78;
+  /* fix205 will lift this. Until there are real controls on the stage, every
+     layer on it is inert, so a tap anywhere passes straight through to nothing
+     and the preview cannot swallow a control it does not have. */
+  pointer-events:none;
+}
+/* One class on #tab-train drives the preview, matching the .rider-sheet-open
+   pattern: open/closed is a single DOM write and the layers cannot disagree. */
+#tab-train.train-hub-preview #train-stage{display:block;}
+#train-art{
+  /* Cover-rect arithmetic comes from .hub-art (fix203). Only the background
+     shorthand is per-tab, exactly as with #rider-art: a different asset, plus
+     the 102.825% left-pinned crop that removes the 20px white right margin.
+     The fallback is the sky gradient, kept for the same reason it is on rider —
+     a missing asset degrades to flat sky, never to a black screen. */
+  background:var(--sheet-training-scene,
+    linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
+    left center/102.825% 100% no-repeat;
+}
+/* The calibration overlay itself. Pure CSS gradients rather than 30-odd marker
+   divs: minor rules every 2% of the art's height and 5% of its width, major
+   rules every 10% of both. Sits INSIDE #train-art, so the rules are ruling the
+   art's own coordinate space — the same space fix205's --hx/--hy live in — and
+   not the viewport's. That is the whole point of the overlay; a viewport grid
+   would read correctly and mean nothing.
+   Off by default and never persisted: the rules below only paint under the
+   .train-debug class that trainDebugToggle() sets. */
+#train-cal{
+  position:absolute; inset:0;
+  pointer-events:none;
+  display:none;
+}
+#train-stage.train-debug #train-cal{display:block;}
+#train-stage.train-debug #train-cal::before{
+  content:'';position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(to right, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to bottom, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to right, rgba(0,255,255,.30) 0 1px, transparent 1px 5%),
+    repeating-linear-gradient(to bottom, rgba(0,255,255,.30) 0 1px, transparent 1px 2%);
+}
+/* Labelled ticks. Static markup, one per major rule, so a screenshot can be
+   read off without counting lines — counting is exactly where a calibration
+   pass goes quietly wrong. Yellow on a dark plate so they survive both the
+   bright sky band and the dark floor band of this particular painting. */
+.train-cal-tick{
+  position:absolute;
+  color:#ff0; background:rgba(0,0,0,.62);
+  font:700 10px/1.35 monospace;
+  padding:1px 3px; border-radius:3px;
+  pointer-events:none;
+}
+.train-cal-y{left:2px; transform:translateY(-50%); top:var(--ty);}
+.train-cal-x{top:2px; transform:translateX(-50%); left:var(--tx);}
+/* Viewport-anchored readout of what the device is actually doing, because the
+   two numbers a calibration pass most needs are the ones no screenshot of the
+   art can show: the live viewport aspect, and whether the top and bottom of the
+   canvas are on screen at all. The bars are pinned to the ART, so if either one
+   is not visible on device, that edge of the painting is cropped away and
+   nothing load-bearing may go there in fix205. */
+.train-cal-edge{
+  position:absolute; left:0; right:0; height:3px;
+  background:#0f0;
+  pointer-events:none;
+}
+.train-cal-edge.top{top:0;}
+.train-cal-edge.bot{bottom:0;}
+
 /* ═══════════ fix170: HOME HUB ═══════════
    The art is load-bearing. It carries the background, the nine icon circles,
    their captions, the top banner plate and the bottom bar chrome. Nothing is
@@ -2908,17 +3304,20 @@ button{font-family:inherit;cursor:pointer;}
    That letterboxed on tall phones, which is exactly what going fullscreen
    replaces. */
 #home-stage{
-  position:fixed;
-  inset:0;
+  /* fix203: the six shared declarations moved to .hub-stage, which the element
+     now also carries — including the #7fb8d4 sky, whose "single source of
+     truth" note from fix177 moves with it and is restated there. Only z-index
+     is left: 90 keeps the home hub strictly ABOVE #rider-stage's 80, so tapping
+     Home from the rider hub can never leave rider art painted over home.
+     Tombstoned (fix136 form):
+       position:fixed;
+       inset:0;
+       overflow:hidden;
+       background:#7fb8d4;
+       user-select:none;
+       -webkit-user-select:none;
+       -webkit-tap-highlight-color:transparent; */
   z-index:90;
-  overflow:hidden;
-  /* fix177: this hex is the single source of truth for the launch colour —
-     kept in sync with <meta name="theme-color"> (~line 265) and with
-     manifest.json background_color + theme_color. */
-  background:#7fb8d4; /* sky, shown for the one frame before the jpeg lands */
-  user-select:none;
-  -webkit-user-select:none;
-  -webkit-tap-highlight-color:transparent;
 }
 
 /* The art layer reproduces `background-size:cover` geometry as a real element,
@@ -2933,13 +3332,19 @@ button{font-family:inherit;cursor:pointer;}
    crop removes precisely those bands and nothing else. No icon can ever be
    clipped, at any phone aspect. */
 #home-art{
-  position:absolute;
-  left:50%; top:50%;
-  transform:translate(-50%,-50%);
-  width:max(100vw, calc(100vh * 768 / 1707));
-  height:max(100vh, calc(100vw * 1707 / 768));
-  width:max(100vw, calc(100dvh * 768 / 1707));
-  height:max(100dvh, calc(100vw * 1707 / 768));
+  /* fix203: the cover-rect arithmetic moved to .hub-art, which the element now
+     also carries. The paragraph above explaining WHY it is safe (0.450 art,
+     ~0.45-0.56 phone viewports, cover always scales to width) still applies
+     verbatim and is the justification for the generic class, not just for this
+     element. Only the background shorthand stays, because it is per-tab.
+     Tombstoned (fix136 form):
+       position:absolute;
+       left:50%; top:50%;
+       transform:translate(-50%,-50%);
+       width:max(100vw, calc(100vh * 768 / 1707));
+       height:max(100vh, calc(100vw * 1707 / 768));
+       width:max(100vw, calc(100dvh * 768 / 1707));
+       height:max(100dvh, calc(100vw * 1707 / 768)); */
   background:var(--sheet-home-bg) center/100% 100% no-repeat;
 }
 
@@ -2951,23 +3356,30 @@ body.home-open{overflow:hidden;}
    at the call site. Hit size is deliberately UNIFORM rather than pixel-exact:
    11% of stage width for icons 1-5 and 7-9, 15% for the larger offset Race
    icon. At a 390px viewport that is a 43-59px target. */
-.home-hot{
-  position:absolute;
-  left:var(--hx); top:var(--hy);
-  width:var(--hw,22%); height:var(--hh,22%);
-  transform:translate(-50%,-50%);
-  padding:0; margin:0; border:0; background:transparent;
-  border-radius:50%;
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-  appearance:none; -webkit-appearance:none;
-}
+/* fix203: .home-hot is now an ALIAS, not a base rule — same treatment as
+   .rider-hot above, and for the same reason. Every declaration moved to
+   .hub-hot, which each button now also carries; .home-hot survives as the hook
+   the activity-dot (::before/::after) and debug rules still select on.
+   .home-hot.home-hot-rect stays: 8px is a real per-tab value, and at
+   specificity 0-2-0 it beats .hub-hot-rect's 10px default regardless of order.
+   Tombstoned (fix136 form):
+     .home-hot{
+       position:absolute;
+       left:var(--hx); top:var(--hy);
+       width:var(--hw,22%); height:var(--hh,22%);
+       transform:translate(-50%,-50%);
+       padding:0; margin:0; border:0; background:transparent;
+       border-radius:50%;
+       cursor:pointer;
+       -webkit-tap-highlight-color:transparent;
+       appearance:none; -webkit-appearance:none;
+     }
+     .home-hot:active{transform:translate(-50%,-50%) scale(0.94);}
+     @media (prefers-reduced-motion: no-preference){
+       .home-hot{transition:transform .12s ease;}
+     }
+     .home-hot:focus-visible{outline:3px solid #fff;outline-offset:-3px;} */
 .home-hot.home-hot-rect{border-radius:8px;}
-.home-hot:active{transform:translate(-50%,-50%) scale(0.94);}
-@media (prefers-reduced-motion: no-preference){
-  .home-hot{transition:transform .12s ease;}
-}
-.home-hot:focus-visible{outline:3px solid #fff;outline-offset:-3px;}
 
 /* Debug overlay (see homeDebugToggle). Off by default, never persisted. */
 #home-stage.home-debug .home-hot{background:rgba(255,0,255,.28);outline:2px solid #ff0;}
@@ -2983,18 +3395,23 @@ body.home-open{overflow:hidden;}
    top:1.02%; height:2.83%. fix172 re-measures them onto the 768x1707 re-cut —
    same slots, now sitting 167px lower in a taller canvas. */
 .home-banner-slot{
-  position:absolute;
+  /* fix203: the eight shared declarations moved to .hub-slot, which each slot
+     now also carries. What is left is per-tab: the measured row geometry, the
+     4px radius (home's figures sit in a recessed plate; rider's sit on flat
+     painted wall and have no radius), and the light-on-dark colour pair.
+     Tombstoned (fix136 form):
+       position:absolute;
+       display:flex; align-items:center; justify-content:center;
+       overflow:hidden;
+       pointer-events:none;
+       font-weight:800;
+       font-size:clamp(9px, 2.6cqw, 15px);
+       letter-spacing:.2px;
+       container-type:inline-size; */
   top:10.54%; height:2.28%;
-  display:flex; align-items:center; justify-content:center;
-  overflow:hidden;
   border-radius:4px;
-  pointer-events:none; /* the banner is read-only; taps fall through to the art */
-  font-weight:800;
-  font-size:clamp(9px, 2.6cqw, 15px);
   color:#f2f7ff;
   text-shadow:0 1px 2px rgba(0,0,0,.85);
-  letter-spacing:.2px;
-  container-type:inline-size;
 }
 #home-slot-money  {left:19.40%; width:15.10%;}
 #home-slot-ftp    {left:50.78%; width:10.68%;}
@@ -3251,13 +3668,21 @@ body.home-open{overflow:hidden;}
     <button class="main-tab" id="tab-btn-growth" onclick="showTab('growth')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-clipboard"></use></svg></span><span class="main-tab-label">Tasks</span></button>
     <button class="main-tab" id="tab-btn-sponsors" onclick="showTab('sponsors')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-handshake"></use></svg></span><span class="main-tab-label">Sponsors</span></button>
     <button class="main-tab" id="tab-btn-calendar" onclick="showTab('calendar')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-calendar"></use></svg></span><span class="main-tab-label">Calendar</span></button>
-    <!-- fix174: ninth button, added at the same time as the ninth TABS entry.
+    fix200: this note was a NESTED HTML-comment pair inside the fix171 tombstone.
+         HTML comments do not nest: the inner closing delimiter terminated the
+         outer comment early, so the Skills button below and the outer block's
+         own trailing delimiter rendered live at the top of EVERY tab (a muscle
+         glyph, the word Skills, and a stray ----> arrow). The delimiters are
+         stripped here; the prose is preserved verbatim as plain text inside the
+         one remaining comment. Do not reintroduce comment delimiters inside a
+         tombstone; write the note as bare prose like this.
+         fix174: ninth button, added at the same time as the ninth TABS entry.
          showTab() maps TABS onto .main-tab BY INDEX, so the two lists must stay
          the same length and the same order. The sweep is a no-op today (this
          block is commented out, so the NodeList is empty), but leaving the
          button out would silently desynchronise every highlight the moment
          anyone un-tombstones the bar. Must remain LAST — 'skills' is appended
-         to the end of TABS, not inserted. -->
+         to the end of TABS, not inserted.
     <button class="main-tab" id="tab-btn-skills" onclick="showTab('skills')"><span class="main-tab-icon"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-muscle"></use></svg></span><span class="main-tab-label">Skills</span></button>
   </div>
   -->
@@ -3273,42 +3698,42 @@ body.home-open{overflow:hidden;}
        bottom-bar targets and the three banner slots from glyph-blob detection.
        Hit sizes are uniform, not pixel-exact — thumbs beat precision. -->
   <div id="tab-home" style="display:none">
-    <div id="home-stage">
+    <div id="home-stage" class="hub-stage">
       <!-- #home-art is the exact cover rect (see CSS). Every percentage below is
            a percentage OF THIS ELEMENT, i.e. of the 768x1707 re-cut art, never of
            the viewport — which is what keeps the hotspots welded to the painted
            circles at any phone aspect. -->
-      <div id="home-art">
+      <div id="home-art" class="hub-art">
         <!-- Live banner. Read-only, pointer-events:none, mirrors updateHeader(). -->
-        <div class="home-banner-slot" id="home-slot-money"><span class="home-slot-txt" id="home-money">&#8212;</span></div>
-        <div class="home-banner-slot" id="home-slot-ftp"><span class="home-slot-txt" id="home-ftp">&#8212;</span></div>
-        <div class="home-banner-slot" id="home-slot-energy"><span class="home-slot-txt" id="home-energy">&#8212;</span></div>
+        <div class="hub-slot home-banner-slot" id="home-slot-money"><span class="home-slot-txt" id="home-money">&#8212;</span></div>
+        <div class="hub-slot home-banner-slot" id="home-slot-ftp"><span class="home-slot-txt" id="home-ftp">&#8212;</span></div>
+        <div class="hub-slot home-banner-slot" id="home-slot-energy"><span class="home-slot-txt" id="home-energy">&#8212;</span></div>
 
         <!-- Icons 1-9, reading order left-to-right, top-to-bottom. Tapping one is
              exactly equivalent to the old tab-bar button for that panel. -->
-        <button class="home-hot" data-hot="1" style="--hx:19.01%;--hy:28.71%;--hw:22%;--hh:9.90%" aria-label="Tasks" onclick="homeGo('growth')"></button>
-        <button class="home-hot" data-hot="2" style="--hx:80.73%;--hy:28.47%;--hw:22%;--hh:9.90%" aria-label="Gear" onclick="homeGo('gear')"></button>
+        <button class="hub-hot home-hot" data-hot="1" style="--hx:19.01%;--hy:28.71%;--hw:22%;--hh:9.90%" aria-label="Tasks" onclick="homeGo('growth')"></button>
+        <button class="hub-hot home-hot" data-hot="2" style="--hx:80.73%;--hy:28.47%;--hw:22%;--hh:9.90%" aria-label="Gear" onclick="homeGo('gear')"></button>
         <!-- Icon 3 (Skills): fix174 promoted Skills to its own panel, so this
              now lands on #tab-skills instead of dropping the player on Train to
              hunt for a card. TABS gained a ninth entry in the same fix; see the
              tab-bar tombstone above for the index-map coupling. -->
-        <button class="home-hot" data-hot="3" style="--hx:18.75%;--hy:40.66%;--hw:22%;--hh:9.90%" aria-label="Skills" onclick="homeGo('skills')"></button>
-        <button class="home-hot" data-hot="4" style="--hx:80.99%;--hy:40.66%;--hw:22%;--hh:9.90%" aria-label="Train" onclick="homeGo('train')"></button>
-        <button class="home-hot" data-hot="5" style="--hx:19.79%;--hy:66.20%;--hw:22%;--hh:9.90%" aria-label="Warehouse" onclick="homeGo('workshop')"></button>
+        <button class="hub-hot home-hot" data-hot="3" style="--hx:18.75%;--hy:40.66%;--hw:22%;--hh:9.90%" aria-label="Skills" onclick="homeGo('skills')"></button>
+        <button class="hub-hot home-hot" data-hot="4" style="--hx:80.99%;--hy:40.66%;--hw:22%;--hh:9.90%" aria-label="Train" onclick="homeGo('train')"></button>
+        <button class="hub-hot home-hot" data-hot="5" style="--hx:19.79%;--hy:66.20%;--hw:22%;--hh:9.90%" aria-label="Warehouse" onclick="homeGo('workshop')"></button>
         <!-- Icon 6 is both larger and lower than its row siblings. It is NOT on
              the 66.20% line and must not be normalised into the row. -->
-        <button class="home-hot" data-hot="6" style="--hx:49.74%;--hy:70.53%;--hw:30%;--hh:13.50%" aria-label="Race" onclick="homeGo('race')"></button>
-        <button class="home-hot" data-hot="7" style="--hx:80.21%;--hy:66.20%;--hw:22%;--hh:9.90%" aria-label="Sponsors" onclick="homeGo('sponsors')"></button>
-        <button class="home-hot" data-hot="8" style="--hx:19.79%;--hy:78.03%;--hw:22%;--hh:9.90%" aria-label="Calendar" onclick="homeGo('calendar')"></button>
-        <button class="home-hot" data-hot="9" style="--hx:79.95%;--hy:77.80%;--hw:22%;--hh:9.90%" aria-label="Rider attributes" onclick="homeGo('rider')"></button>
+        <button class="hub-hot home-hot" data-hot="6" style="--hx:49.74%;--hy:70.53%;--hw:30%;--hh:13.50%" aria-label="Race" onclick="homeGo('race')"></button>
+        <button class="hub-hot home-hot" data-hot="7" style="--hx:80.21%;--hy:66.20%;--hw:22%;--hh:9.90%" aria-label="Sponsors" onclick="homeGo('sponsors')"></button>
+        <button class="hub-hot home-hot" data-hot="8" style="--hx:19.79%;--hy:78.03%;--hw:22%;--hh:9.90%" aria-label="Calendar" onclick="homeGo('calendar')"></button>
+        <button class="hub-hot home-hot" data-hot="9" style="--hx:79.95%;--hy:77.80%;--hw:22%;--hh:9.90%" aria-label="Rider attributes" onclick="homeGo('rider')"></button>
 
         <!-- Painted bottom bar. Two settings cogs, one either side of PLAY —
              confirmed by measurement, both route to the same lockout. -->
-        <button class="home-hot home-hot-rect" data-hot="10" style="--hx:5.98%;--hy:87.59%;--hw:12%;--hh:5.24%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
-        <button class="home-hot home-hot-rect" data-hot="11" style="--hx:50.07%;--hy:87.59%;--hw:30%;--hh:5.24%" aria-label="Play" onclick="homeGo('train')"></button>
-        <button class="home-hot home-hot-rect" data-hot="12" style="--hx:72.82%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
-        <button class="home-hot home-hot-rect" data-hot="13" style="--hx:83.55%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Shop, coming soon" onclick="homeComingSoon('Shop')"></button>
-        <button class="home-hot home-hot-rect" data-hot="14" style="--hx:93.95%;--hy:87.59%;--hw:10.5%;--hh:5.24%" aria-label="Profile" onclick="homeGo('rider')"></button>
+        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="10" style="--hx:5.98%;--hy:87.59%;--hw:12%;--hh:5.24%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
+        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="11" style="--hx:50.07%;--hy:87.59%;--hw:30%;--hh:5.24%" aria-label="Play" onclick="homeGo('train')"></button>
+        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="12" style="--hx:72.82%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
+        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="13" style="--hx:83.55%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Shop, coming soon" onclick="homeComingSoon('Shop')"></button>
+        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="14" style="--hx:93.95%;--hy:87.59%;--hw:10.5%;--hh:5.24%" aria-label="Profile" onclick="homeGo('rider')"></button>
 
         <div id="home-toast"></div>
       </div>
@@ -3326,6 +3751,60 @@ body.home-open{overflow:hidden;}
     </div>
   </div>
   <div id="tab-train">
+    <!-- fix204: the painted TRAINING hub stage. Geometry and art only — no
+         hotspot, no slot, no exit is welded to it yet (plan v1 §3: hotspots and
+         the painted BACK are fix205, the section sheet fix206). Because it has
+         no controls, it is GATED OFF by default and raised only by
+         trainDebugToggle(), which adds .train-hub-preview to this panel. The
+         Train tab below it is byte-for-byte the fix203 tab in normal use.
+
+         Coordinate space, stated here as well as in the CSS because this is
+         where the numbers get typed in fix205: every percentage is a percentage
+         OF #train-art — the 708x1568 content box of the painting, after the
+         20px white right margin is cropped by the 102.825% left-pinned
+         background — and never a percentage of the viewport. That is what keeps
+         a medallion box welded to a painted medallion at any phone aspect.
+
+         The .main-tab bar and TABS are UNTOUCHED by this stage, deliberately.
+         'train' keeps its bar button and its index in TABS; the index-map
+         coupling rule (plan v1 §2.1) stays live until the bar is actually
+         retired, and removing a "now-redundant" button here would silently
+         desynchronise every mapping after it.
+
+         'train' is also NOT added to HUB_TABS this stage. HUB_TABS hides
+         .game-header, and until fix205 paints a BACK hotspot the header strip
+         is the only chrome on this tab that goes anywhere. -->
+    <div id="train-stage" class="hub-stage">
+      <div id="train-art" class="hub-art">
+        <!-- Calibration overlay. Inert (pointer-events:none) and display:none
+             until .train-debug is set. Static markup rather than JS-generated
+             ticks: render-only discipline, nothing here is built at runtime. -->
+        <div id="train-cal">
+          <div class="train-cal-edge top"></div>
+          <div class="train-cal-edge bot"></div>
+          <div class="train-cal-tick train-cal-y" style="--ty:0%">0</div>
+          <div class="train-cal-tick train-cal-y" style="--ty:10%">10</div>
+          <div class="train-cal-tick train-cal-y" style="--ty:20%">20</div>
+          <div class="train-cal-tick train-cal-y" style="--ty:30%">30</div>
+          <div class="train-cal-tick train-cal-y" style="--ty:40%">40</div>
+          <div class="train-cal-tick train-cal-y" style="--ty:50%">50</div>
+          <div class="train-cal-tick train-cal-y" style="--ty:60%">60</div>
+          <div class="train-cal-tick train-cal-y" style="--ty:70%">70</div>
+          <div class="train-cal-tick train-cal-y" style="--ty:80%">80</div>
+          <div class="train-cal-tick train-cal-y" style="--ty:90%">90</div>
+          <div class="train-cal-tick train-cal-y" style="--ty:100%">100</div>
+          <div class="train-cal-tick train-cal-x" style="--tx:10%">10</div>
+          <div class="train-cal-tick train-cal-x" style="--tx:20%">20</div>
+          <div class="train-cal-tick train-cal-x" style="--tx:30%">30</div>
+          <div class="train-cal-tick train-cal-x" style="--tx:40%">40</div>
+          <div class="train-cal-tick train-cal-x" style="--tx:50%">50</div>
+          <div class="train-cal-tick train-cal-x" style="--tx:60%">60</div>
+          <div class="train-cal-tick train-cal-x" style="--tx:70%">70</div>
+          <div class="train-cal-tick train-cal-x" style="--tx:80%">80</div>
+          <div class="train-cal-tick train-cal-x" style="--tx:90%">90</div>
+        </div>
+      </div>
+    </div>
     <div id="rider-scene-wrap"></div>
     <!-- fix57: active session card sits directly under the rider scene so a
          running session (and its progress bar) appears right beneath the
@@ -3405,12 +3884,27 @@ body.home-open{overflow:hidden;}
          the geometry verified with riderDebugToggle() in fix184 is the geometry
          these buttons ship with.
 
-         Painted but deliberately NOT given a hotspot, because they fall outside
-         the aspect-safe band and would exist on some phones and not others:
-         BACK (10,8), the banner (y8), the stat row (y14.5), PLAY (40,87) and the
-         bottom bar (y88). The SPECIALISATION label at (50, 72.5) is also left
-         un-tapped — it sits between two live rows and is a label, not a
+         fix185: painted but deliberately NOT given a hotspot, because they fall
+         outside the aspect-safe band and would exist on some phones and not
+         others: BACK (10,8), the banner (y8), the stat row (y14.5), PLAY (40,87)
+         and the bottom bar (y88). The SPECIALISATION label at (50, 72.5) is also
+         left un-tapped — it sits between two live rows and is a label, not a
          medallion.
+
+         fix202 SUPERSEDES the BACK entry in that list, and ONLY that entry. The
+         live redraw moved BACK from y8 to y17.51, which puts it inside the band
+         that survives cover-cropping up to 0.638 aspect, so it is now
+         data-hot="7" below. The banner, PLAY and the bottom bar are all still
+         out of bounds on this art and remain untapped. PLAY is measured at
+         centre 56.36, 87.60 with a 13.70 x 3.57 extent, so its BOTTOM edge sits
+         at 89.39% and survives only to 0.571 aspect — iPhone SE (0.5622) keeps
+         it by 0.009 and everything squarer loses it. That margin is far too thin
+         to weld a control to, so fix212 must route PLAY through something other
+         than a hotspot over the paint. Flagging it here because fix212's line in
+         the plan reads as though it were a one-line change, and on this art it
+         is not. The stat row is not a control at all; it is
+         three read-only .rider-slot boxes, re-measured this stage.
+
 
          Six medallions, five sections: FORM and ATTRIBUTES are separate painted
          icons but both open 'form', because the Form section already stacks a
@@ -3419,14 +3913,77 @@ body.home-open{overflow:hidden;}
          change RIDER_SECTIONS, which drives renderRiderNav(), renderRiderSection()
          and the #rider-section-* id contract, and that belongs in its own fix
          after the hub is proven. -->
-    <div id="rider-stage">
-      <div id="rider-art">
-        <button class="rider-hot" data-hot="1" style="--hx:13.0%;--hy:25.5%;--hw:22%;--hh:9.90%" aria-label="Form" onclick="riderHubGo('form')"></button>
-        <button class="rider-hot" data-hot="2" style="--hx:87.0%;--hy:25.5%;--hw:22%;--hh:9.90%" aria-label="Path" onclick="riderHubGo('path')"></button>
-        <button class="rider-hot" data-hot="3" style="--hx:15.0%;--hy:65.5%;--hw:22%;--hh:9.90%" aria-label="Attributes" onclick="riderHubGo('form')"></button>
-        <button class="rider-hot" data-hot="4" style="--hx:85.0%;--hy:65.5%;--hw:22%;--hh:9.90%" aria-label="Power" onclick="riderHubGo('power')"></button>
-        <button class="rider-hot" data-hot="5" style="--hx:15.0%;--hy:77.0%;--hw:22%;--hh:9.90%" aria-label="Career" onclick="riderHubGo('career')"></button>
-        <button class="rider-hot" data-hot="6" style="--hx:85.0%;--hy:77.0%;--hw:22%;--hh:9.90%" aria-label="Rider build and save" onclick="riderHubGo('save')"></button>
+    <div id="rider-stage" class="hub-stage">
+      <div id="rider-art" class="hub-art">
+        <!-- fix202: RE-MEASURED against the live 708x1568 art. Detected with a
+             Hough circle transform over a Canny edge map (sigma 2.5, radii
+             58-104) rather than by eye, so the centres are the painted rims'
+             own centres and not a reading of them. Accumulator scores 0.36-0.58,
+             the six strongest peaks in the image, one per expected slot:
+
+               #  label        was            now            r(px)
+               1  FORM         13.0 / 25.5    19.07 / 29.02   74
+               2  PATH         87.0 / 25.5    80.37 / 29.02   80
+               3  ATTRIBUTES   15.0 / 65.5    19.63 / 66.20   68
+               4  POWER        85.0 / 65.5    79.94 / 66.26   68
+               5  CAREER       15.0 / 77.0    19.63 / 77.93   68
+               6  SAVE         85.0 / 77.0    80.08 / 77.61   62
+
+             ALL SIX MOVED, so all six are updated — the plan's "update only
+             those that moved" is satisfied vacuously here. The two lower rows
+             barely shifted (0.6-0.9%), which is why the hub did not look broken
+             on the redraw; the columns pulled 4.6-6.6% toward centre and the top
+             row dropped 3.5%, which is where the misses were coming from.
+
+             --hw / --hh are UNCHANGED at 22% / 9.90%. Checked, not assumed: the
+             largest detected radius is 80px = 22.6% of the content width and
+             10.2% of its height, the smallest 62px = 17.5% / 7.9%, so the
+             uniform box still brackets every medallion and fix185's
+             thumbs-beat-precision argument is untouched.
+
+             Collision re-checked at the new numbers, same method as fix185:
+             rows sit at 29.02 / 66.20-66.26 / 77.61-77.93 with a +/-4.95%
+             extent, so ATTRIBUTES/POWER span 61.25-71.21 and CAREER/SAVE
+             72.66-82.88 — 1.45% clear, down from fix185's 1.6% but still clear.
+             Columns span 8.07-30.63 and 68.94-91.37: 38.3% clear.
+
+             fix202 tombstone: the fix185 coordinates these replace, correct for
+             the retired 640x1422 raster —
+               1 --hx:13.0%;--hy:25.5%    2 --hx:87.0%;--hy:25.5%
+               3 --hx:15.0%;--hy:65.5%    4 --hx:85.0%;--hy:65.5%
+               5 --hx:15.0%;--hy:77.0%    6 --hx:85.0%;--hy:77.0%
+             data-hot indices are UNCHANGED and must stay so: RIDER_BADGE_HOT
+             addresses hotspots 2 and 6 by index, so renumbering here would move
+             the PATH and SAVE dots onto the wrong medallions. -->
+        <button class="hub-hot rider-hot" data-hot="1" style="--hx:19.07%;--hy:29.02%;--hw:22%;--hh:9.90%" aria-label="Form" onclick="riderHubGo('form')"></button>
+        <button class="hub-hot rider-hot" data-hot="2" style="--hx:80.37%;--hy:29.02%;--hw:22%;--hh:9.90%" aria-label="Path" onclick="riderHubGo('path')"></button>
+        <button class="hub-hot rider-hot" data-hot="3" style="--hx:19.63%;--hy:66.20%;--hw:22%;--hh:9.90%" aria-label="Attributes" onclick="riderHubGo('form')"></button>
+        <button class="hub-hot rider-hot" data-hot="4" style="--hx:79.94%;--hy:66.26%;--hw:22%;--hh:9.90%" aria-label="Power" onclick="riderHubGo('power')"></button>
+        <button class="hub-hot rider-hot" data-hot="5" style="--hx:19.63%;--hy:77.93%;--hw:22%;--hh:9.90%" aria-label="Career" onclick="riderHubGo('career')"></button>
+        <button class="hub-hot rider-hot" data-hot="6" style="--hx:80.08%;--hy:77.61%;--hw:22%;--hh:9.90%" aria-label="Rider build and save" onclick="riderHubGo('save')"></button>
+        <!-- fix202: the painted BACK goes live. APPENDED as data-hot="7", never
+             inserted, for the RIDER_BADGE_HOT reason given above.
+
+             Why this is now allowed, when fix184-fix186 all said it was not: the
+             constraint was never "no hotspot on the painted BACK", it was "no
+             hotspot within ~10% of the canvas edge". On the retired raster the
+             BACK was at y8 and violated it; on the live redraw it is measured at
+             y17.51 and does not. The full derivation, the aspect table and the
+             0.638 crossover live in the .rider-home CSS block, next to the guard
+             that depends on them — deliberately in one place rather than two.
+
+             --hh is 5.50%, not the painted pill's measured 3.70%. At a 390px
+             viewport the cover rect is 867px tall, so 3.70% is a 32px target and
+             misses the 44px floor; 5.50% is 48px and clears it. --hw is 20%
+             against a painted 18.93% for the same reason. The box therefore
+             overhangs the paint slightly, which is fine: it grows into blank
+             wall, and the nearest live neighbour (FORM, top edge 24.07%) is
+             3.81% clear of this box's bottom edge at 20.26%.
+
+             Routes through showTab('home') — the same single call .rider-home
+             and the header's .home-back both make. Three painted or real routes
+             to one function, still no second history mechanism. -->
+        <button class="hub-hot hub-hot-rect rider-hot rider-hot-rect" data-hot="7" style="--hx:10.81%;--hy:17.51%;--hw:20%;--hh:5.50%" aria-label="Back to home" onclick="showTab('home')"></button>
         <!-- fix187: the painted CASH / FTP / ENERGY row goes live. Each value sits
              in the blank wall AFTER its painted label, not over a recessed
              plate — see the .rider-slot CSS for the measurements and for why
@@ -3437,9 +3994,9 @@ body.home-open{overflow:hidden;}
              banner uses, so no slot ever renders empty in the frame before the
              first renderRiderBanner(). Ids live on the inner spans so fix188 can
              add the ENERGY gauge in CSS alone. -->
-        <div class="rider-slot" id="rider-slot-money"><span id="rider-money">&#8212;</span></div>
-        <div class="rider-slot" id="rider-slot-ftp"><span id="rider-ftp">&#8212;</span></div>
-        <div class="rider-slot" id="rider-slot-energy"><span id="rider-energy">&#8212;</span></div>
+        <div class="hub-slot rider-slot" id="rider-slot-money"><span id="rider-money">&#8212;</span></div>
+        <div class="hub-slot rider-slot" id="rider-slot-ftp"><span id="rider-ftp">&#8212;</span></div>
+        <div class="hub-slot rider-slot" id="rider-slot-energy"><span id="rider-energy">&#8212;</span></div>
         <!-- fix189: the informational pill, mirroring #home-toast. A child of
              #rider-art rather than of #rider-stage so it is positioned against
              the cover rect and lands in the same place relative to the painted
@@ -9224,8 +9781,67 @@ const LAZY_ASSET_GROUPS = {
   // ATTRIBUTES / SPECIALISATION / POWER labels are strictly sharper than the
   // encode the q50-vs-q66 legibility check was run against, so that check
   // stands and does not need repeating.
-  rider: {
-    '--sheet-rider-scene': 'assets/rider-bg.jpg'
+  // fix201: rider-bg.jpg keeps its FILENAME for the third time and its CONTENTS
+  // change for the third time, so the service worker CACHE_VERSION bump
+  // (cim-v3.8.18) is MANDATORY, not optional — stale cache is the most common
+  // deployment failure in this project.
+  // What changed: the raster moved from 640x1422 (aspect 0.4501) to the shared
+  // 768x1707 canvas (aspect 0.4499) that plan v1 sec.0 measured across all four
+  // painted arts — source 784x1400, content box 768x1376 with white margin on
+  // the right and bottom only, cropped to 768x1376 then padded 166 top /
+  // 165 bottom. That is byte-identical framing to the home source, so
+  // #rider-art keeps sharing #home-art's cover arithmetic verbatim.
+  // CONSEQUENCE, stated here because it is easy to miss: the canvas moved, so
+  // the six existing --hx/--hy pairs are NO LONGER TRUSTED. fix201 is assets
+  // only and changes no markup or behaviour, so nothing yet depends on them;
+  // fix202 re-measures against this raster before the painted BACK goes live.
+  // Bands are flat, not mirrored — fix185b's lesson holds and is now applied to
+  // all four arts (plan sec.0.2). Sampled per art as the median of its own 10px
+  // edge strip rather than one shared colour: top rgb(121,110,106),
+  // bottom rgb(57,53,71). Encode: progressive, 4:2:0, EXIF stripped, q40 =
+  // 118.4 KB against a 120 KB budget. q40 rather than fix185b's q62 because the
+  // raster carries 1.44x the pixels for 8% more bytes; the ATTRIBUTES /
+  // SPECIALISATION / POWER label band was re-checked at 2x against the source
+  // crop, which is the one legibility risk fix184 flagged, and the painted
+  // labels read cleanly.
+  //
+  // fix201: the three new painted tabs. APPENDED, never inserted — see the
+  // fix183 note above. All three are lazily bound in showTab() on the same
+  // precedent as workshop/home/rider: bound BEFORE the panel is revealed so the
+  // first paint already carries the background-image declaration and the
+  // placeholder is never seen as a flash.
+  // None of them is in the cold-start budget: home is the landing tab and pays
+  // on every start, these three pay for themselves on first visit.
+  // Same 768x1707 re-cut and same flat-band rule as rider above; each carries
+  // its own sampled edge colours, listed per group.
+  // NOTHING CONSUMES THESE VARS YET. fix201 is deliberately assets-only, so the
+  // three tabs are byte-identical on screen and the re-skin can be eyeballed on
+  // device before fix204-211 build geometry on top of it.
+  // Group keys are 'training' / 'gear' / 'tasks' but the TAB ids they are bound
+  // against in showTab() are 'train' / 'gear' / 'growth' — the growth id is NOT
+  // renamed to tasks (plan sec.1): renaming it would touch TABS, showTab(),
+  // #tab-growth, #growth-section-* and the save payload for a cosmetic gain.
+  // fix204: --sheet-training-scene now HAS a consumer — #train-art (see the
+  // fix204 CSS block). The other two remain unconsumed until fix207 / fix210.
+  // Also recorded there, because it contradicts the fix201 note above: the
+  // training source re-measures at 728x1568 with a 708x1568 content box and a
+  // 20px white RIGHT margin — the same post-fix200 redraw fix202 found on the
+  // rider art, not the 768x1707 flat-band re-cut described here. #train-art
+  // therefore takes #rider-art's 102.825% left-pinned crop. If the DEPLOYED
+  // jpeg is still the 768x1707 encode, that crop is wrong; fix204's calibration
+  // pass shows it as a constant horizontal offset. Re-cut, do not nudge.
+  training: {
+    // top rgb(79,96,119), bottom rgb(57,54,73); q42 = 118.8 KB
+    '--sheet-training-scene': 'assets/training-bg.jpg'
+  },
+  gear: {
+    // top rgb(67,90,109), bottom rgb(59,50,65); q54 = 119.3 KB
+    '--sheet-gear-scene': 'assets/gear-bg.jpg'
+  },
+  tasks: {
+    // top rgb(48,33,41), bottom rgb(58,53,69); q79 = 118.5 KB. The clipboard art
+    // is the flattest of the four, so the same budget buys far more quality.
+    '--sheet-tasks-scene': 'assets/tasks-bg.jpg'
   }
 };
 const _lazyGroupsLoaded = {};
@@ -9301,6 +9917,13 @@ function showTab(name){
   // visible, so its first paint already carries the background-image
   // declaration and the sky placeholder is never seen as a flash.
   if(name==='rider') lazyLoadAssetGroup('rider');
+  // fix201: same precedent once more for the three new painted tabs. Bound
+  // before the panel is revealed, for the same reason. Note the id mismatch is
+  // deliberate: the Tasks tab's internal id is still 'growth' (plan sec.1), so
+  // the branch tests 'growth' and loads the group named 'tasks'.
+  if(name==='train') lazyLoadAssetGroup('training');
+  if(name==='gear') lazyLoadAssetGroup('gear');
+  if(name==='growth') lazyLoadAssetGroup('tasks');
   // fix186: entering the Rider tab always lands on the HUB, never on whatever
   // section was open last time. riderSection itself is left alone — it is
   // transient pill state that renderRiderSection() still needs a value for —
@@ -9348,8 +9971,18 @@ function showTab(name){
   // and riderSheetSet() already measures the header's height at open time and
   // falls back to the safe-area inset when it finds none, so the sheet's top
   // edge follows this with no edit there.
+  // fix203: the growing `name==='home' || name==='rider'` expression is
+  // replaced by HUB_TABS (declared just above homeGo()). Behaviourally
+  // IDENTICAL today — the set holds exactly those two names — but fix204-211
+  // each add a hub, and an OR chain that grows by one term per stage is five
+  // more chances to edit the wrong line. Adding a tab to the set is now the
+  // single edit that hides the header for it.
+  //
+  // This is also what lets the .main-tab bar be retired LATER rather than in
+  // this series (plan sec.2): the bar and header keep working untouched on the
+  // five tabs with no painted art, because they are simply not in the set.
   const hdrEl=document.querySelector('.game-header');
-  if(hdrEl) hdrEl.style.display = (name==='home' || name==='rider') ? 'none' : '';
+  if(hdrEl) hdrEl.style.display = HUB_TABS.has(name) ? 'none' : '';
   document.body.classList.toggle('home-open', name==='home');
   document.querySelectorAll('.main-tab').forEach((btn,i)=>btn.classList.toggle('active',TABS[i]===name));
   // fix173: the collect ritual belongs to the hub. Raised on every hub entry
@@ -9390,9 +10023,42 @@ function updateHeader(){
 // Hotspot navigation. A thin wrapper rather than onclick="showTab('x')" purely
 // so a tap on the hub always dismisses a pending coming-soon pill first; the
 // pill is informational and must not linger behind the tab you just opened.
-function homeGo(tab){
+// fix203: the set of tabs that paint their own chrome and therefore hide
+// .game-header. Read by showTab() below. A Set rather than an array so the
+// membership test is a call and not an indexOf, and declared here beside the
+// navigation funnel it belongs with rather than up beside TABS — it is
+// deliberately NOT a subset of TABS: 'home' has never been in TABS, because
+// TABS is index-mapped onto the nine .main-tab buttons (see the tab-bar
+// tombstone in the markup) and home has no button.
+//
+// THE INDEX-MAP COUPLING RULE STILL APPLIES, and fix204-211 must not read this
+// set as permission to touch TABS. Adding a hub means adding a name HERE. It
+// does not mean removing that tab's now-redundant bar button, which would
+// silently desynchronise every TABS mapping after it.
+const HUB_TABS = new Set(['home','rider']);
+
+// fix203: THE hub navigation funnel. Was homeGo(), which is now a thin alias
+// (below) so all 14 painted home hotspots keep their exact onclick text and
+// this stage's diff stays inside the planned regions.
+//
+// Both pills are dismissed, not just the calling hub's. A hub-to-hub tap
+// (home's Profile hotspot -> rider, rider's painted BACK -> home) would
+// otherwise leave the departed hub's pill mounted and mid-timer behind the tab
+// you just opened, and it would then fade on a screen that never raised it.
+// Each hide function is null-safe and clears its own timer, so calling both
+// unconditionally is two no-ops in the common case.
+//
+// Render-only, like everything else in this section: no state is written here.
+function hubGo(tab){
   homeHideToast();
+  riderHideToast();
   showTab(tab);
+}
+
+// fix203 alias. Kept so the painted markup is untouched by this stage; new
+// hotspots in fix204-211 should call hubGo() directly.
+function homeGo(tab){
+  hubGo(tab);
 }
 
 // fix173: morning collect popup. Render-only — neither of these writes to
@@ -9438,33 +10104,96 @@ function homeHideToast(){
 // not modified, so the two read the same sources and can never disagree.
 // Node refs cached once; updates patch textContent only, behind a value
 // signature, so a tick that changes nothing touches no DOM at all.
-let _homeBannerNodes=null, _homeBannerSig='';
-function renderHomeBanner(){
-  if(currentTab!=='home') return;
-  if(!_homeBannerNodes){
-    const m=document.getElementById('home-money'),
-          f=document.getElementById('home-ftp'),
-          e=document.getElementById('home-energy'),
-          slot=document.getElementById('home-slot-energy');
+// ═══ fix203: ONE banner renderer for every hub ═══════════════════════════
+// renderHomeBanner() (fix170) and renderRiderBanner() (fix187/fix188) had
+// diverged only in four element ids and one custom-property name; every line of
+// logic was identical, and fix187's own comment says it was "shaped exactly
+// like renderHomeBanner() so there is one banner pattern in this codebase and
+// not two". This is that promise kept in code rather than in a comment: the
+// difference is now DATA, in HUB_BANNERS, and the logic exists once.
+//
+// Everything the two versions guaranteed is preserved exactly:
+//   - MIRRORS updateHeader(); it does not call it, and updateHeader() is NOT
+//     modified, so the two read the same four sources and cannot disagree
+//   - the ref block resolves all four nodes before caching and bails if any is
+//     missing, rather than caching a partial set — a single absent span would
+//     otherwise be latched forever and the other three would silently stop
+//     updating
+//   - a value signature in front of every write, so a tick that changes nothing
+//     touches no DOM at all
+//   - textContent only, never innerHTML
+//   - the gauge is a bare 0-100 number on a custom property, so the fill's
+//     width transition is never restarted by a DOM swap
+//   - the pct write sits INSIDE the signature guard on purpose: it is derived
+//     from en and max, both already in the signature
+//   - the early return is on currentTab and deliberately NOT on whether a
+//     section sheet is open (see fix187's note: riderHubBack() closes the sheet
+//     without re-rendering, so a sheet-open guard would leave stale figures on
+//     the hub for up to a tick)
+//
+// Render-only. Nothing here writes to state and saveGame()'s payload is
+// unchanged by this fix.
+//
+// The cache is keyed BY TAB. One shared _bannerNodes would be latched to
+// whichever hub was opened first and would then patch that hub's hidden spans
+// forever — the exact failure mode the per-tab cache exists to prevent.
+const HUB_BANNERS = {
+  home:  {money:'home-money',  ftp:'home-ftp',  energy:'home-energy',
+          slot:'home-slot-energy',  pct:'--home-energy-pct'},
+  rider: {money:'rider-money', ftp:'rider-ftp', energy:'rider-energy',
+          slot:'rider-slot-energy', pct:'--rider-energy-pct'}
+};
+const _hubBannerCache = {};
+function renderHubBanner(tab){
+  if(currentTab!==tab) return;
+  const cfg=HUB_BANNERS[tab];
+  // Hard reject rather than a fallback to 'home': a typo'd tab name silently
+  // patching the wrong hub's figures is worse than painting nothing.
+  if(!cfg){ console.warn('renderHubBanner: unknown hub', tab); return; }
+  let c=_hubBannerCache[tab];
+  if(!c){
+    const m=document.getElementById(cfg.money),
+          f=document.getElementById(cfg.ftp),
+          e=document.getElementById(cfg.energy),
+          slot=document.getElementById(cfg.slot);
     if(!m||!f||!e||!slot) return;
-    _homeBannerNodes={money:m, ftp:f, energy:e, slot:slot};
+    c=_hubBannerCache[tab]={money:m, ftp:f, energy:e, slot:slot, sig:''};
   }
-  const n=_homeBannerNodes;
   const rs=getRiderStats();
   const en=Math.floor(state.energy);
   const max=Math.max(state.maxEnergy, en);
   const money=fmtMoney(state.money);
   const sig=money+'|'+rs.ftp+'|'+en+'/'+max;
-  if(sig===_homeBannerSig) return;
-  _homeBannerSig=sig;
-  n.money.textContent  = money;
-  n.ftp.textContent    = rs.ftp;
-  n.energy.textContent = en + '/' + max;
-  // Bare number, consumed by calc(var(--home-energy-pct) * 1%) in the CSS, so
-  // the gauge animates on a custom-property write rather than an innerHTML
-  // rebuild — the fill's transition is never restarted by a DOM swap.
-  n.slot.style.setProperty('--home-energy-pct', max>0 ? (en/max*100).toFixed(1) : '0');
+  if(sig===c.sig) return;
+  c.sig=sig;
+  c.money.textContent  = money;
+  c.ftp.textContent    = rs.ftp;
+  c.energy.textContent = en + '/' + max;
+  c.slot.style.setProperty(cfg.pct, max>0 ? (en/max*100).toFixed(1) : '0');
 }
+
+// fix203 aliases. Kept rather than rewriting the four existing call sites
+// (renderHomeTab, renderRiderTab, and the two in the energy tick), so the diff
+// for this stage stays inside its planned regions. New hubs in fix204-211
+// should call renderHubBanner('<tab>') directly and add no alias of their own.
+//
+// Tombstoned (fix136 form) — the fix170 body, whose module-level
+// `let _homeBannerNodes=null, _homeBannerSig='';` pair is retired with it:
+//   function renderHomeBanner(){
+//     if(currentTab!=='home') return;
+//     if(!_homeBannerNodes){
+//       const m=document.getElementById('home-money'),
+//             f=document.getElementById('home-ftp'),
+//             e=document.getElementById('home-energy'),
+//             slot=document.getElementById('home-slot-energy');
+//       if(!m||!f||!e||!slot) return;
+//       _homeBannerNodes={money:m, ftp:f, energy:e, slot:slot};
+//     }
+//     const n=_homeBannerNodes;
+//     ... signature guard, three textContent writes ...
+//     n.slot.style.setProperty('--home-energy-pct', max>0 ? (en/max*100).toFixed(1) : '0');
+//   }
+function renderHomeBanner(){ renderHubBanner('home'); }
 
 // The hotspot layer is static markup built once in the HTML, so opening the hub
 // only has to refresh the banner. Kept as its own function so updateUI()'s
@@ -9502,6 +10231,37 @@ function homeDebugToggle(){
 function riderDebugToggle(){
   const st=document.getElementById('rider-stage');
   if(st) st.classList.toggle('rider-debug');
+}
+
+// fix204: the Training hub's calibration aid, and — this stage only — the ONLY
+// way to see the Training hub at all. It does two things where the other two
+// toggles do one, because at this stage the stage itself is gated off:
+//   .train-hub-preview on #tab-train  raises #train-stage (art + cover rect)
+//   .train-debug       on #train-stage paints the labelled grid over it
+// Both are toggled together so the preview can never be left raised with the
+// grid off — that state looks like a shipped hub with no way out of it, which
+// is exactly the impression this stage must not give.
+//
+// Off by default, no persisted flag, console-reachable: trainDebugToggle().
+// Nothing calls it, and nothing should until fix205; there is deliberately no
+// hotspot, gesture or key binding behind it, so a player cannot reach the
+// preview by accident.
+//
+// What to read off it on device (plan v1 §0.1's measure-do-not-assume rule):
+// hold the phone at 0.4286, 0.4613 and 0.5622 and check (a) that the medallion
+// grid sits where the ticks say, (b) whether the green top and bottom edge bars
+// are on screen — if an edge bar is off screen, that band of the painting is
+// cropped and nothing load-bearing may be placed in it in fix205 — and (c) the
+// y band of the painted stat row, for fix205's slots.
+//
+// Render-only, like everything else in the hub sections: no state is written
+// here and nothing is persisted, so a preview left raised is cleared by any
+// tab switch that re-renders, and by a reload regardless.
+function trainDebugToggle(){
+  const tab=document.getElementById('tab-train');
+  if(tab) tab.classList.toggle('train-hub-preview');
+  const st=document.getElementById('train-stage');
+  if(st) st.classList.toggle('train-debug');
 }
 
 // fix185: what a painted medallion does. Mirrors homeGo()'s shape — one small
@@ -9689,8 +10449,13 @@ function riderSheetSet(open){
 //
 // No custom property is written here. The ENERGY gauge fill is fix188's line
 // item (--rider-energy-pct), so this stage cannot regress it.
-let _riderBannerNodes=null, _riderBannerSig='';
-function renderRiderBanner(){
+// fix203: the body below is TOMBSTONED and replaced by the one-line alias that
+// follows it. Everything it guaranteed now lives in renderHubBanner() (see the
+// contract list there); this comment block is kept because it documents WHY
+// each of those guarantees exists, and deleting it would strand the reasoning.
+// The module-level `let _riderBannerNodes=null, _riderBannerSig='';` pair is
+// retired with it — renderHubBanner() keys its cache by tab instead.
+/* function renderRiderBanner(){
   if(currentTab!=='rider') return;
   if(!_riderBannerNodes){
     // fix188: the slot DIV joins the three value spans in the ref block. It is
@@ -9725,7 +10490,8 @@ function renderRiderBanner(){
   // en and max, both of which are already in the signature, so a tick that
   // clears the guard cannot have changed the fill either.
   n.slot.style.setProperty('--rider-energy-pct', max>0 ? (en/max*100).toFixed(1) : '0');
-}
+} */
+function renderRiderBanner(){ renderHubBanner('rider'); }
 
 // ═══════════════════════════════════════════════════════════
 // TRAIN TAB
