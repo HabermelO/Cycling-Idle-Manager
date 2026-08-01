@@ -4867,10 +4867,25 @@ body.home-open{overflow:hidden;}
          HTML comments do not nest: the inner closing delimiter terminated the
          outer comment early, so the Skills button below and the outer block's
          own trailing delimiter rendered live at the top of EVERY tab (a muscle
-         glyph, the word Skills, and a stray ----> arrow). The delimiters are
+         glyph, the word Skills, and a stray arrow glyph). The delimiters are
          stripped here; the prose is preserved verbatim as plain text inside the
          one remaining comment. Do not reintroduce comment delimiters inside a
          tombstone; write the note as bare prose like this.
+
+         fix214: fix200 stripped the nested delimiter pair but left the ASCII
+         arrow it was describing, drawn as four dashes and a greater-than. That
+         string CONTAINS a closing delimiter, so this tombstone still terminated
+         on this very line and the leak fix200 was written to repair survived
+         it verbatim: the prose below, the Skills button and the outer block's
+         own closing delimiter went on rendering live at the top of every tab.
+         The arrow is now the words 'arrow glyph'.
+         The rule is stronger than fix200 stated it. Inside a tombstone, never
+         write a closing comment delimiter in ANY form — not as a delimiter, not
+         inside an arrow, not inside a rule line, and not inside any run of two
+         or more dashes, because a run of dashes followed by a greater-than is
+         indistinguishable from a terminator to the parser. Write arrows as the
+         word 'arrow' or as a single greater-than; draw rules with the box
+         characters used elsewhere in this file, never with dashes.
          fix174: ninth button, added at the same time as the ninth TABS entry.
          showTab() maps TABS onto .main-tab BY INDEX, so the two lists must stay
          the same length and the same order. The sweep is a no-op today (this
@@ -11490,6 +11505,23 @@ const LAZY_ASSET_GROUPS = {
   // SPECIALISATION / POWER label band was re-checked at 2x against the source
   // crop, which is the one legibility risk fix184 flagged, and the painted
   // labels read cleanly.
+  //
+  // fix213: RESTORED. This entry was LOST in the fix201 edit — the three new
+  // groups were appended onto the end of the rider COMMENT rather than after
+  // the rider ENTRY, so the whole comment block above survived describing a key
+  // that no longer existed. lazyLoadAssetGroup('rider') then found no map,
+  // warned and returned; --sheet-rider-scene was never set; and #rider-art fell
+  // through to its --hub-sky gradient fallback. The tab therefore looked BLANK
+  // rather than broken — the fallback doing exactly its job — which is why this
+  // survived from fix201 to fix212 unnoticed.
+  // Sited HERE, immediately beneath its own comment block and above the fix201
+  // note, so the entry and the prose that documents it cannot drift apart a
+  // second time. Nothing else needed a change: the showTab() call site, the
+  // #rider-art consumer and the service worker's './assets/rider-bg.jpg'
+  // STATIC_ASSETS entry were all already present and all already correct.
+  rider: {
+    '--sheet-rider-scene': 'assets/rider-bg.jpg'
+  },
   //
   // fix201: the three new painted tabs. APPENDED, never inserted — see the
   // fix183 note above. All three are lazily bound in showTab() on the same
