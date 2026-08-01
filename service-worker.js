@@ -223,7 +223,26 @@
 // sheet chrome and no back bar while the stage stayed gated — the shop reachable
 // but the hub not, which is the inverse of what shipped.
 // const CACHE_VERSION = 'cim-v3.8.24';   // fix208: gear hub hotspots, painted BACK, banner slots (HTML only, no asset content change)
-const CACHE_VERSION = 'cim-v3.8.25';   // fix209: gear section sheet + stage ungated (HTML only, no asset content change)
+// const CACHE_VERSION = 'cim-v3.8.25';   // fix209: gear section sheet + stage ungated (HTML only, no asset content change)
+// fix210+fix211+fix212: NO asset byte changed across any of the three — tasks
+// geometry, the clipboard page re-parent and the PLAY routing are all CSS,
+// markup and JS. The bump is mandatory all the same, for the reason fix186
+// spells out above: './index.html' is in STATIC_ASSETS and the deployed HTML
+// filename never changes between fixes.
+//
+// It matters MORE than usual on fix211+fix212, in the same way fix203's and
+// fix209's did. fix211 RE-PARENTS #growth-nav and both #growth-section-* divs
+// into #tasks-page inside #tasks-art; an installed PWA serving the fix209 shell
+// out of the v3.8.25 cache would get the new stylesheet with the old markup and
+// paint the task list outside the measured clipboard rect entirely.
+//
+// fix212's own stake is smaller but sharper: the four new .hub-play buttons and
+// the re-pointed home PLAY are the only route this series gives a player to the
+// race tab from a hub. A stale shell keeps home's PLAY opening Training and
+// shows no PLAY at all on the other four hubs, so the stage reads as "nothing
+// happened" rather than as a broken screen — which is the failure mode that
+// gets shipped and not noticed.
+const CACHE_VERSION = 'cim-v3.8.26';   // fix212: hub PLAY -> race (real-DOM .hub-play on four hubs, home hotspot re-pointed)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
