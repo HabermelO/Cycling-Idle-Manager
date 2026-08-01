@@ -242,7 +242,23 @@
 // shows no PLAY at all on the other four hubs, so the stage reads as "nothing
 // happened" rather than as a broken screen — which is the failure mode that
 // gets shipped and not noticed.
-const CACHE_VERSION = 'cim-v3.8.26';   // fix212: hub PLAY -> race (real-DOM .hub-play on four hubs, home hotspot re-pointed)
+// const CACHE_VERSION = 'cim-v3.8.26';   // fix212: hub PLAY -> race (real-DOM .hub-play on four hubs, home hotspot re-pointed)
+
+// fix213 + fix214 — no asset CONTENT changed, so by the standing rule this bump
+// is not mandatory. It is taken anyway, and deliberately.
+//
+// fix213 restores the LAZY_ASSET_GROUPS entry that binds --sheet-rider-scene to
+// assets/rider-bg.jpg. That asset has been in STATIC_ASSETS and correctly cached
+// since fix183 — the file was never the problem, the binding was. So a stale
+// shell here fails in the most confusing way available: the jpeg is present in
+// cache, the network is quiet, no request 404s, and the Rider tab still paints a
+// flat sky. Nothing looks wrong except the screen. Bumping guarantees the fixed
+// HTML is the shell that runs.
+//
+// fix214 removes a live Skills button and a paragraph of tombstone prose from
+// the top of every tab. Same reasoning: leftover furniture on a stale shell
+// reads as "the fix did not work" rather than as a caching artefact.
+const CACHE_VERSION = 'cim-v3.8.27';   // fix213+fix214: rider scene var restored; tombstone comment terminator repaired (HTML only, no asset content change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
