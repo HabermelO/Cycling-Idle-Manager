@@ -1953,6 +1953,74 @@ button{font-family:inherit;cursor:pointer;}
   container-type:inline-size;
 }
 
+/* ═══════════ fix212: THE PLAY CONTROL, AS A REAL DOM BUTTON ═══════════
+   Plan v1 §3 reads "All hub PLAY buttons route to showTab('race')" as though it
+   were a one-line change. On HOME it is — that hotspot exists and only its
+   destination moves. On the other four hubs there is no PLAY hotspot to
+   re-point, and the fix202 note in the rider markup is explicit about why one
+   must not simply be added:
+
+     painted PLAY, rider art:  centre 56.36%, 87.60%, extent 13.70% x 3.57%
+     bottom edge               89.39%
+
+   Under .hub-art's cover geometry the visible slice at viewport aspect A is
+   0.44991/A of the art's height, centred, so the LAST visible row is
+   1 - (1 - 0.44991/A)/2. The painted PLAY survives whole only while
+
+     1 - (1 - 0.44991/A)/2 > 0.8939   =>   A < 0.5714
+
+   iPhone SE (0.5622) keeps it by 0.009 and every squarer device loses it. That
+   is a tenth of the margin the painted BACK ships with (0.638 crossover, fix202)
+   and far too thin to weld the game's primary call-to-action to. So PLAY is a
+   real control pinned to the VIEWPORT — the same §1c reasoning .rider-home was
+   built on, applied to the opposite corner and, this time, with no painted
+   fallback needed because the control is unconditional.
+
+   WHY BOTTOM-RIGHT, AND WHY 76px UP:
+   - bottom-LEFT is taken by .rider-home on the one hub where both can be live
+     at once (aspects above 0.60). Right keeps them from ever colliding.
+   - .main-tabs is position:fixed at bottom:0 with z-index 100. Every hub stage
+     is z-index 76-90, so the bar paints OVER the stage and anything pinned to
+     bottom:0 inside one would sit underneath it — which is what .rider-home
+     already does, harmlessly, because it is hidden below 0.60 aspect. PLAY is
+     live everywhere, so it cannot afford that. 76px clears the bar (48px min-
+     height + 12px padding) with margin, and matches the spirit of .toast's 84px.
+     Both are on top of the safe-area inset, not instead of it.
+   - When the bar is finally retired (plan §2) this becomes 76px of empty space
+     under the button, not a broken layout. Re-tune then, not before.
+
+   VISIBILITY IS STRUCTURAL, NOT SCRIPTED. Each button is a child of its own
+   #*-stage, which is (a) inside a tab panel that showTab() display:nones, and
+   (b) itself display:none while that tab's section sheet is open
+   (.rider-sheet-open / .train-sheet-open / .gear-sheet-open). An ancestor's
+   display:none hides a position:fixed descendant, so PLAY disappears on tab
+   change and on sheet open with no JS in showTab() and no fifth thing for a
+   later stage to forget to update.
+
+   Styled off .rider-home rather than re-inventing a pill: same 44px floor, same
+   :active scale, same reduced-motion guard. Declared as its own rule for the
+   reason the .rider-sheet-back block gives — .game-header .home-back retunes
+   that class for the header strip and this is not in the header. */
+.hub-play{
+  position:fixed;
+  z-index:2;
+  right:calc(env(safe-area-inset-right, 0px) + 12px);
+  bottom:calc(env(safe-area-inset-bottom, 0px) + 76px);
+  display:flex; align-items:center; gap:6px;
+  min-height:44px; padding:0 16px;
+  border:1px solid var(--border); border-radius:999px;
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:800; letter-spacing:.03em;
+  box-shadow:var(--shadow-md);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.hub-play:active{transform:scale(.96);}
+@media (prefers-reduced-motion: no-preference){
+  .hub-play{transition:transform .12s ease;}
+}
+.hub-play:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
 /* z-index:80 keeps this hub strictly BELOW #home-stage's 90, so tapping Home
    from the Rider hub can never leave the rider art painted over the home hub. */
 #rider-stage{
@@ -4117,15 +4185,20 @@ button{font-family:inherit;cursor:pointer;}
 
      There is no intermediate hotspot stage to be tempted by here: Tasks has no
      medallions, so fix211 is the first and only stage that puts a control on
-     this art, and the gate lifts exactly once, there. */
-  display:none;
+     this art, and the gate lifts exactly once, there.
+
+     fix211 LIFTS BOTH GATES, in the one edit fix210 said it would, because
+     both of its preconditions are now met in the same file: the painted BACK
+     hotspot below gives this stage an exit, and #tasks-page below gives the
+     painted clipboard something to hold. Tombstoned rather than deleted (house
+     rule) — the pair reads as the record of what had to become true before the
+     art was allowed in front of a working task list:
+       display:none;
+       pointer-events:none;
+     Nothing replaces them: with both gone, .hub-stage's own defaults apply and
+     the stage is a plain block that inherits pointer events, exactly as
+     #train-stage and #gear-stage do post-fix205 / post-fix208. */
   z-index:76;
-  /* Inert while every layer on the stage is inert. There is not one <button>
-     on this stage yet — only the art and the calibration overlay — so an
-     interactive overlay would be an invisible tap-eater over a working tab.
-     fix211 lifts this in the same edit that adds the first real control, as
-     fix205 lifted it on #train-stage and fix208 on #gear-stage. */
-  pointer-events:none;
 }
 /* One class on #tab-growth drives the preview, matching .train-hub-preview,
    .gear-hub-preview and .rider-sheet-open: raised/lowered is a single DOM write
@@ -4218,10 +4291,178 @@ button{font-family:inherit;cursor:pointer;}
    tick labels lost in it. Estimates until fix211 confirms them. */
 .hub-cal-rect{
   position:absolute;
-  left:13.42%; right:13.84%; top:32.53%; bottom:28.02%;
+  left:var(--tasks-page-l,13.42%); right:var(--tasks-page-r,13.84%);
+  top:var(--tasks-page-t,32.53%); bottom:var(--tasks-page-b,28.02%);
   border:2px dashed rgba(255,64,0,.85);
   pointer-events:none;
 }
+
+/* ═══ fix211: TASKS HUB — the clipboard page goes live ════════════════════
+   Plan v1 §3, final stage of the Tasks hub: "daily/lifetime nav and task list
+   rendered into the measured clipboard rect. No sheet." This tab is two
+   stages rather than three because the art paints a blank page and no
+   medallions — there is nothing to open, so there is nothing to open INTO.
+   That is the whole reason #tasks-sheet does not exist and must not be added
+   later out of symmetry with #gear-sheet and #train-sheet: a sheet on this tab
+   would be a second copy of the page that is already on screen.
+
+   THE RECT, MEASURED RATHER THAN INHERITED (plan §0's rule; fix210 published
+   its estimate explicitly labelled "to be confirmed and not trusted"). Read
+   off assets/tasks-bg.jpg — 728x1568, content box 707 wide — by taking the
+   paper's own luminance against the painted board:
+
+     column profile, y 600-1100   paper run x  95 - 610 of 707
+     row profile, x 125-580       paper run y 507 - 1129 of 1568
+
+     left    95/707        = 13.44%
+     right   1 - 611/707   = 13.58%
+     top     507/1568      = 32.33%
+     bottom  1 - 1130/1568 = 27.93%
+
+   fix210 estimated 13.42 / 13.84 / 32.53 / 28.02 from the source before the
+   crop arithmetic was applied. The confirmed rect is within 0.26% of it on
+   every edge — under one device pixel at any phone width — so the estimate is
+   CONFIRMED rather than corrected, and the measured numbers are the ones that
+   ship because they are the ones that were read off the raster.
+
+   THE FOUR EDGES ARE CUSTOM PROPERTIES ON THE STAGE, and both consumers read
+   them: #tasks-page positions itself from them, and the fix210 .hub-cal-rect
+   overlay is retargeted onto them just above. That is deliberate — the point
+   of a calibration overlay is to show where the load-bearing rect IS, and an
+   overlay carrying its own private copy of the numbers would go on drawing the
+   estimate long after the page had moved off it. One declaration, two readers,
+   no drift. The fallbacks in .hub-cal-rect are fix210's estimates, kept so the
+   generic class still draws something if a future hub adopts it without
+   declaring the four.
+
+   Percentages OF #tasks-art, never of the viewport — the whole reason
+   .hub-art (fix203) reproduces cover as a real element. At every phone aspect
+   the page stays welded to the painted paper, which on this tab is not a
+   nicety: the list IS the tab, and a list that slid off its own page would be
+   the one defect a player could not read around.
+
+   CROP SURVIVAL, checked against the aspect table in the fix184 block. Content
+   aspect 0.4515 against a 768/1707 (0.4499) cover rect, so squarer viewports
+   crop top and bottom. The rect spans art y 32.33% - 72.07%; at the squarest
+   viewport in the calibration set (0.5622) the art stands 124.9% of viewport
+   height with 12.5% lost off each end, putting the page at viewport y 27.9% -
+   77.5%. Both edges on screen with room to spare, at the worst case of the
+   three. The painted BACK at art y 17.5% lands at viewport y 9.4% there, which
+   is why it ships WITHOUT rider's min-aspect-ratio guard — and why 'growth' is
+   NOT added to HUB_TABS (see the JS): .game-header stays on this tab, so even
+   at an aspect this stage was never measured at, the header strip is still a
+   live route home. Two exits, one of them not dependent on the crop.
+
+   No asset content changed in fix211, so no CACHE_VERSION bump belongs to it,
+   exactly as in fix210. */
+#tasks-stage{
+  --tasks-page-l:13.44%;
+  --tasks-page-r:13.58%;
+  --tasks-page-t:32.33%;
+  --tasks-page-b:27.93%;
+}
+/* The page itself. A scroll container pinned to the painted paper, and the
+   only interactive region on this stage besides the painted BACK.
+
+   overflow-y:auto with overscroll-behavior:contain, matching #gear-sheet and
+   #train-sheet: the list is longer than the paper at any phone size, so it
+   MUST scroll, and a scroll that chains to the document behind it would drag
+   the whole painted stage. contain is what makes the page feel like paper in a
+   clipboard rather than a window onto a taller document.
+
+   container-type:inline-size so a future card style can size against the page
+   rather than the viewport. Nothing consumes it this stage — the task cards
+   are px-sized and are NOT restyled here, because .task-card, .ach-card and
+   .growth-summary are shared with the sponsors tab (~13601) and the lifetime
+   goals list, and restyling them for this tab's paper would reach outside this
+   stage's planned regions to change screens this fix never looked at. Scaling
+   the cards to the page is its own numbered stage if it is wanted.
+
+   No background of its own: the paper is PAINTED, and a panel colour here
+   would cover the artwork this whole series exists to show. The cards bring
+   their own surfaces and sit on the page like cards on a clipboard. */
+#tasks-page{
+  position:absolute;
+  left:var(--tasks-page-l); right:var(--tasks-page-r);
+  top:var(--tasks-page-t); bottom:var(--tasks-page-b);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  container-type:inline-size;
+  padding:2.4% 3.2% 3.2%;
+  /* The paper is the brightest region of the four paintings, so anything that
+     renders bare text into it inherits dark ink rather than the hub's light-on
+     -dark banner polarity. */
+  color:#22201f;
+}
+/* The nav sticks to the top of the page rather than scrolling off it, so the
+   daily/lifetime switch is reachable from anywhere in a long list without
+   scrolling back up. Scoped to #tasks-page so .gear-nav is unchanged on the
+   Gear sheet, which is a different screen with a different scroll container —
+   fix206's rule about one tab's polish not breaking another's. */
+#tasks-page .gear-nav{
+  position:sticky;
+  top:0;
+  z-index:2;
+  margin-bottom:.5rem;
+  padding-bottom:4px;
+  /* Opaque so the list scrolling under it is fully covered. Sampled from the
+     paper itself (rgb(225,224,220) across the page interior) rather than a
+     theme token, because the surface behind it is the artwork and not a panel. */
+  background:#e2e1dd;
+}
+/* The painted CASH / FTP / ENERGY plate goes live, closing the same defect on
+   this tab that fix187 closed on rider, fix205 on train and fix208 on gear:
+   until now the figures a player read here were whatever the art happened to
+   paint and never matched the save.
+
+   THE GEOMETRY IS GEAR'S, REUSED VERBATIM AND NOT RE-DERIVED. The two arts
+   carry the same plate: the three painted captions on this raster centre on
+   x 175 / 369 / 566, against gear's measured 177 / 369 / 566 — two exact and
+   one within two pixels, which is inside the JPEG's own edge ramp. Re-deriving
+   a second set of near-identical constants is precisely the drift fix207
+   refused when it reused training's 102.825% crop, and the same argument
+   applies with more force here because the evidence is a direct match rather
+   than an inference from framing.
+
+   Light ink on a dark plate — this plate's interior samples the same
+   rgb(48,33,40) family at the top edge that fix210 recorded, and #F4F7FA on it
+   clears 7:1. */
+.tasks-slot{
+  top:10.55%; height:2.00%;
+  color:#F4F7FA;
+  text-shadow:0 1px 2px rgba(0,0,0,.70);
+}
+#tasks-slot-money  {left:19.80%; width:12.25%;}
+#tasks-slot-ftp    {left:51.00%; width:7.90%;}
+#tasks-slot-energy {left:73.75%; width:13.10%;}
+/* ENERGY gauge fill. Mirrors #gear-slot-energy::before exactly — same inset,
+   same calc(var(--…-pct) * 1%) so the gauge animates on a single custom-
+   property write with no innerHTML churn, same reduced-motion guard, same dark
+   green for the same contrast reason (light ink on a dark plate cannot afford
+   a fill that lightens the plate). */
+#tasks-slot-energy::before{
+  content:'';position:absolute;inset:0;
+  width:calc(var(--tasks-energy-pct,0) * 1%);
+  background:linear-gradient(90deg, rgba(46,132,82,.60), rgba(56,150,92,.45));
+}
+@media (prefers-reduced-motion: no-preference){
+  #tasks-slot-energy::before{transition:width .35s ease;}
+}
+#tasks-slot-energy #tasks-energy{position:relative;}
+/* The hotspot, the slots and the page join the fix210 calibration overlay, so
+   one tasksDebugToggle() shot shows the grid, the BACK box, the value rects and
+   the page rect together. Magenta boxes and cyan slots, matching rider, train
+   and gear so a screenshot from any hub reads the same way. The page gets its
+   own colour: it is the one thing on this stage that is neither a hotspot nor a
+   readout, and confusing it with either is how a calibration pass misreads. */
+#tasks-stage.tasks-debug .tasks-hot{background:rgba(255,0,255,.28);outline:2px solid #ff0;}
+#tasks-stage.tasks-debug .tasks-hot::after{
+  content:attr(data-hot);position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);color:#ff0;font:700 13px/1 monospace;
+}
+#tasks-stage.tasks-debug .tasks-slot{background:rgba(0,255,255,.30);outline:1px solid #0ff;}
+#tasks-stage.tasks-debug #tasks-page{outline:2px solid rgba(255,64,0,.85);}
 
 /* ═══════════ fix170: HOME HUB ═══════════
    The art is load-bearing. It carries the background, the nine icon circles,
@@ -4684,7 +4925,22 @@ body.home-open{overflow:hidden;}
         <!-- Painted bottom bar. Two settings cogs, one either side of PLAY —
              confirmed by measurement, both route to the same lockout. -->
         <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="10" style="--hx:5.98%;--hy:87.59%;--hw:12%;--hh:5.24%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
-        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="11" style="--hx:50.07%;--hy:87.59%;--hw:30%;--hh:5.24%" aria-label="Play" onclick="homeGo('train')"></button>
+        <!-- fix212: PLAY re-pointed, resolving the open question plan v1 §1
+             flagged ("Move it to race for consistency, or leave home alone?
+             Plan assumes move; flip fix212 if not"). MOVED, as the plan
+             assumed. Tombstoned (fix136 form) — the fix170 destination:
+               onclick="homeGo('train')"
+             Rationale: four other hubs paint a PLAY button and all four now
+             route to the race tab (see the .hub-play controls on rider, train,
+             gear and tasks). Leaving home's alone would make the one PLAY a
+             player meets first the only one that means something different,
+             which is the exact inconsistency this stage exists to close.
+             Training is not stranded — icon 4 on this same hub still opens it.
+             GEOMETRY IS UNTOUCHED: --hx/--hy/--hw/--hh, data-hot and the
+             aria-label are byte-identical. Only the destination string moved,
+             so nothing that addresses this hotspot by index (HOME_BADGE_HOT,
+             the three ONBOARD steps) is affected. -->
+        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="11" style="--hx:50.07%;--hy:87.59%;--hw:30%;--hh:5.24%" aria-label="Play" onclick="homeGo('race')"></button>
         <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="12" style="--hx:72.82%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
         <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="13" style="--hx:83.55%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Shop, coming soon" onclick="homeComingSoon('Shop')"></button>
         <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="14" style="--hx:93.95%;--hy:87.59%;--hw:10.5%;--hh:5.24%" aria-label="Profile" onclick="homeGo('rider')"></button>
@@ -4829,6 +5085,15 @@ body.home-open{overflow:hidden;}
              creates or destroys this node. -->
         <div id="train-toast"></div>
       </div>
+      <!-- fix212: PLAY. Same control, same reasoning, same corner as the rider
+           hub's — see that button's comment and the .hub-play CSS block. A
+           sibling of #train-art rather than a child, so it is pinned to the
+           VIEWPORT; inside #train-stage, so .train-sheet-open hides it along
+           with the medallions when a session card is open.
+           This is a NEW real control, not a hotspot, so it does NOT take a
+           data-hot index and the APPEND-NEVER-INSERT rule for train's 1-9 is
+           untouched by this stage. -->
+      <button class="hub-play" aria-label="Play, go to racing" onclick="hubGo('race')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-flag"></use></svg> Play</button>
     </div>
     <!-- fix206: the section sheet. Opened by trainHubGo() from any of the eight
          medallions, closed by trainHubBack(). A real control inside the sheet
@@ -5078,6 +5343,25 @@ body.home-open{overflow:hidden;}
            .home-back makes — so there is still exactly one route to the hub and
            no second history mechanism. -->
       <button class="rider-home" aria-label="Back to home" onclick="showTab('home')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-home"></use></svg> Home</button>
+      <!-- fix212: PLAY. A REAL DOM control, not a .rider-hot over the painted
+           PLAY at (56.36, 87.60) — the fix202 note above measured that paint as
+           surviving only to 0.571 aspect, nine thousandths clear of an iPhone SE
+           and cropped on everything squarer, and said in as many words that
+           fix212 must route PLAY through something other than a hotspot over the
+           paint. This is that route. The crop arithmetic and the corner/offset
+           choice are in the .hub-play CSS block; it is not restated here.
+
+           A sibling of #rider-art, not a child, for the same reason .rider-home
+           is one: positioned against the VIEWPORT rather than against the cover
+           rect. Being inside #rider-stage is what makes it vanish when the
+           section sheet opens (#tab-rider.rider-sheet-open #rider-stage
+           {display:none}) with no JS anywhere.
+
+           Routes through hubGo('race') — the same funnel the fourteen painted
+           home hotspots use via the homeGo() alias, so the pending coming-soon
+           pill is dismissed on the way out and no second navigation mechanism
+           is introduced. Render-only: hubGo() writes no state. -->
+      <button class="hub-play" aria-label="Play, go to racing" onclick="hubGo('race')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-flag"></use></svg> Play</button>
     </div>
     <!-- fix186: #rider-sheet, the section overlay, replacing the transitional
          #rider-content of fix184–fix185 (its z-index:81 lift is tombstoned in
@@ -5292,6 +5576,11 @@ body.home-open{overflow:hidden;}
              code path ever creates or destroys this node. -->
         <div id="gear-toast"></div>
       </div>
+      <!-- fix212: PLAY. See the rider hub's button and the .hub-play CSS block.
+           Sibling of #gear-art (viewport-pinned), child of #gear-stage (hidden
+           by .gear-sheet-open along with the medallions). A real control, so it
+           takes no data-hot and gear's 1-6 indices are untouched. -->
+      <button class="hub-play" aria-label="Play, go to racing" onclick="hubGo('race')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-flag"></use></svg> Play</button>
     </div>
     <!-- fix209: the section sheet. Opened by gearHubGo() from any of the five
          medallions, closed by gearHubBack(). A real control inside the sheet
@@ -5376,6 +5665,28 @@ body.home-open{overflow:hidden;}
          fix207's reason: HUB_TABS hides .game-header, and until a painted BACK
          exists the header strip is the only chrome on this tab that goes
          anywhere. -->
+    <!-- fix211 supersedes two claims in the fix210 note above, which is left
+         standing as the record of what that stage shipped rather than edited
+         into agreement with this one:
+
+           1. The stage is NO LONGER GATED. Both the display:none and the
+              pointer-events:none are tombstoned in the CSS, because this stage
+              adds the two things their removal was waiting on — a painted BACK
+              that goes somewhere, and a page that holds the task list.
+              tasksDebugToggle() still works and is still the calibration aid;
+              it is no longer the only way to see the hub.
+           2. The Tasks panel is no longer "byte-for-byte the fix209 tab in
+              normal use". #growth-nav and both #growth-section-* divs are
+              re-parented into #tasks-page inside the art. Their IDS AND BODIES
+              are untouched, which is the part that matters:
+              setGrowthSection(), renderDailyTasks() and renderLifetimeTasks()
+              are not edited by this stage.
+
+         Still true and still load-bearing: 'growth' keeps its .main-tab button
+         and its index in TABS (plan v1 §2.1 — removing a "now-redundant" button
+         would silently desynchronise every mapping after it), and 'growth' is
+         still NOT in HUB_TABS, so .game-header remains a second exit alongside
+         the painted BACK. -->
     <div id="tasks-stage" class="hub-stage">
       <div id="tasks-art" class="hub-art">
         <!-- Calibration overlay, on the generic .hub-cal-* set introduced in
@@ -5408,8 +5719,94 @@ body.home-open{overflow:hidden;}
           <div class="hub-cal-tick hub-cal-x" style="--tx:80%">80</div>
           <div class="hub-cal-tick hub-cal-x" style="--tx:90%">90</div>
         </div>
+        <!-- fix211: the painted BACK, and the ONLY hotspot on this tab. There
+             are no medallions to number alongside it, so it takes data-hot="1"
+             rather than being appended after a row that does not exist.
+             APPEND-NEVER-INSERT still applies from here on, exactly as fix205
+             and fix208 adopted it before a consumer existed rather than after
+             one broke: if this tab ever gains a second hotspot it is 2.
+
+             Measured at cx 11.32% / cy 17.54% (painted 16.97% x 3.19%), which
+             lands within a quarter of a percent of gear's 11.58% / 17.63% and
+             training's 10.94% / 17.63% — a fourth painting agreeing with the
+             other three rather than inheriting from them, which is the check
+             fix210 asked for. --hw 19% and --hh 5.50% against those for
+             fix202's reason, unchanged by the agreement: 3.19% of an 867px
+             cover rect is a 28px target and misses the 44px floor, 5.50% is
+             48px and clears it. The box overhangs the paint into flat board,
+             and the nearest live thing below it is the page itself at 32.33%,
+             more than 12% clear.
+
+             Routes through showTab('home') — the same single call the rider
+             hub's painted BACK, .rider-home, the header's .home-back and the
+             Training and Gear painted BACKs all make. Six painted or real
+             routes to one function, still no second history mechanism.
+
+             NOT the only exit, deliberately: 'growth' is not in HUB_TABS, so
+             .game-header is still on screen and still goes home. That is what
+             lets this hotspot ship without rider's min-aspect-ratio guard. -->
+        <button class="hub-hot hub-hot-rect tasks-hot tasks-hot-rect" data-hot="1" style="--hx:11.32%;--hy:17.54%;--hw:19%;--hh:5.50%" aria-label="Back to home" onclick="showTab('home')"></button>
+        <!-- The painted CASH / FTP / ENERGY bar. Same contract as the other
+             three hubs: em-dash placeholders so no slot ever renders empty in
+             the frame before the first renderHubBanner('growth'), ids on the
+             inner spans so the ENERGY gauge is CSS alone, pointer-events:none
+             from .hub-slot so ordering these after the hotspot costs nothing in
+             hit testing. The measured runs are in the fix211 CSS block.
+
+             The banner is keyed 'growth', not 'tasks' — renderHubBanner()
+             early-returns on currentTab, and currentTab is the INTERNAL tab id.
+             The element ids stay 'tasks-*' because they belong to the painted
+             layer. Both spellings correct in their own layer (fix210's note). -->
+        <div class="hub-slot tasks-slot" id="tasks-slot-money"><span id="tasks-money">&#8212;</span></div>
+        <div class="hub-slot tasks-slot" id="tasks-slot-ftp"><span id="tasks-ftp">&#8212;</span></div>
+        <div class="hub-slot tasks-slot" id="tasks-slot-energy"><span id="tasks-energy">&#8212;</span></div>
+        <!-- fix211: the clipboard page. Everything inside is RE-PARENTED from
+             the Tasks panel, ids, classes and bodies untouched — see the
+             tombstone at their old position below. MOVED, NOT DUPLICATED: two
+             nodes with the same id would make setGrowthSection(),
+             renderDailyTasks() and renderLifetimeTasks() write to whichever one
+             the document happened to resolve first, which is fix209's stated
+             reason for moving rather than copying the gear sections.
+
+             There is no new container beyond this one, no new renderer, and no
+             sheet (plan §1). renderGrowthTab() resolves #growth-nav and both
+             #growth-section-* by id exactly as before and is byte-identical
+             this stage apart from the appended banner call.
+
+             .gear-nav moves WITH the sections rather than being retired: it is
+             the daily/lifetime switch, and on this tab it is the ONLY switch,
+             because the art paints no medallions to route through. It keeps its
+             .gear-nav class rather than being renamed — renderGrowthNav()
+             writes .gear-nav-btn markup, and renaming the wrapper for tidiness
+             would mean editing a renderer this stage promised not to touch. -->
+        <div id="tasks-page">
+          <div class="gear-nav" id="growth-nav"></div>
+          <div id="growth-section-daily"></div>
+          <div id="growth-section-lifetime" style="display:none">
+            <div id="lifetime-title-area"></div>
+            <div class="section-lbl">Lifetime Goals</div>
+            <div id="lifetime-goals-area"></div>
+            <div class="section-lbl" style="margin-top:1rem">Achievements</div>
+            <div id="ach-area"></div>
+          </div>
+        </div>
       </div>
+      <!-- fix212: PLAY. See the rider hub's button and the .hub-play CSS block.
+           Sibling of #tasks-art (viewport-pinned), child of #tasks-stage.
+
+           Tasks is the one hub with NO section sheet (plan §1), so this button
+           is live for the whole time the tab is open rather than only on the
+           medallion screen. It does not overlap the task list: #tasks-page's
+           bottom edge is --tasks-page-b 27.93% up from the art's bottom, and
+           this control sits in the painted board below it, above .main-tabs.
+
+           A real control, so it takes no data-hot — tasks' single painted
+           hotspot stays data-hot="1" and fix211's "if this tab ever gains a
+           second hotspot it is 2" still reads true. -->
+      <button class="hub-play" aria-label="Play, go to racing" onclick="hubGo('race')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-flag"></use></svg> Play</button>
     </div>
+    <!-- fix211 tombstone: #growth-nav and both #growth-section-* divs were here
+         and are now inside #tasks-page above. Moved, not duplicated.
     <div class="gear-nav" id="growth-nav"></div>
     <div id="growth-section-daily"></div>
     <div id="growth-section-lifetime" style="display:none">
@@ -5419,6 +5816,7 @@ body.home-open{overflow:hidden;}
       <div class="section-lbl" style="margin-top:1rem">Achievements</div>
       <div id="ach-area"></div>
     </div>
+    -->
   </div>
   <!-- fix174: Rider Skills panel. Was the #rs-overlay hub (fix150); the list
        markup is unchanged and #rs-hub-body kept its id, so renderRiderSkillsHub()
@@ -11462,7 +11860,25 @@ const HUB_BANNERS = {
   // not use this table as-is and would silently render no figures at all rather
   // than the two it had. Not the case here — all four exist in the markup.
   gear:  {money:'gear-money',  ftp:'gear-ftp',  energy:'gear-energy',
-          slot:'gear-slot-energy',  pct:'--gear-energy-pct'}
+          slot:'gear-slot-energy',  pct:'--gear-energy-pct'},
+  // fix211: the fifth and last hub of this series. Five ids and one custom-
+  // property name, no new logic and no alias function — the third consecutive
+  // stage to confirm what fix203 built this table for.
+  //
+  // THE KEY IS 'growth', THE IDS ARE 'tasks-*', AND THAT IS NOT A TYPO. The
+  // key is matched against currentTab, which carries the INTERNAL tab id, kept
+  // as 'growth' on purpose (plan v1 §1: renaming it would touch TABS,
+  // showTab(), #tab-growth, #growth-section-* and the save payload for a
+  // cosmetic gain). The element ids belong to the painted layer, which fix201
+  // named 'tasks' when it named the LAZY_ASSET_GROUPS key. This entry is the
+  // one place in the file where the two spellings sit on the same line, which
+  // is why they are named together here rather than left to be discovered.
+  //
+  // The Tasks art paints all THREE readouts, so this is a straight four-node
+  // peer of the other four — worth stating because the ref block below is
+  // all-or-nothing and a hub missing one node would silently render none.
+  growth:{money:'tasks-money', ftp:'tasks-ftp', energy:'tasks-energy',
+          slot:'tasks-slot-energy', pct:'--tasks-energy-pct'}
 };
 const _hubBannerCache = {};
 function renderHubBanner(tab){
@@ -11669,6 +12085,19 @@ function gearDebugToggle(){
 // Render-only, like everything else in the hub sections: no state is written
 // here and nothing is persisted, so a preview left raised is cleared by a
 // reload, and by any tab switch that re-renders.
+// fix211 UPDATE, left as an addendum rather than an edit to the note above so
+// the record of what fix210 shipped survives: this is no longer "the ONLY way
+// to see the Tasks hub". The stage is ungated and the hub is what the Tasks tab
+// now shows. Two consequences for this function, both intentional:
+//   - .tasks-hub-preview is now a no-op in normal use — #tasks-stage no longer
+//     needs raising. The class and its rule are KEPT, per fix210's own
+//     reasoning (a class toggle with no rule behind it is what a later reader
+//     assumes still does something — the fix136 lesson), and because the rule
+//     is what a future stage would re-gate through if the art were ever pulled.
+//   - the second toggle, .tasks-debug, is now the useful half: it paints the
+//     grid, the BACK box, the value rects and the page rect over a LIVE hub.
+// Still off by default, still not persisted, still reachable only from the
+// console. A preview left raised is cleared by a reload or any tab switch.
 function tasksDebugToggle(){
   const tab=document.getElementById('tab-growth');
   if(tab) tab.classList.toggle('tasks-hub-preview');
@@ -18231,6 +18660,13 @@ function renderGrowthTab(){
   document.getElementById('growth-section-lifetime').style.display = growthSection==='lifetime'?'':'none';
   if(growthSection==='daily')    renderDailyTasks();
   if(growthSection==='lifetime') renderLifetimeTasks();
+  // fix211: renderHubBanner('growth') APPENDED, not inserted, for fix205's and
+  // fix208's reason — the calls above are ordered and a new one in the middle
+  // is a diff that has to be read rather than skimmed. Cheap when nothing
+  // changed: the signature guard inside renderHubBanner() means a tick that
+  // moves no figure touches no DOM, and it early-returns outright unless
+  // currentTab is 'growth'.
+  renderHubBanner('growth');
 }
 
 function renderDailyTasks(){
@@ -19273,7 +19709,7 @@ function gameTick(){
     // fix208: renderHubBanner('gear') APPENDED for the same reason fix205
     // appended 'train'. Each call early-returns on currentTab, so at most one of
     // the four does any work on any given tick.
-    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); renderRiderBanner(); renderHubBanner('train'); renderHubBanner('gear'); }
+    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); renderRiderBanner(); renderHubBanner('train'); renderHubBanner('gear'); renderHubBanner('growth'); }
   }
   if(state.session.active){
     const t=TRAINING.find(t=>t.id===state.session.typeId);
