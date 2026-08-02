@@ -350,7 +350,17 @@
 // retires .game-header from this tab. A stale shell keeps the header AND gets
 // the new rules, which is the one combination where the tab has two exits and
 // neither of them is the painted one.
-const CACHE_VERSION = 'cim-v3.8.34';   // fix222: Skills hotspots, buff bar re-parent, sheet, header retirement
+// const CACHE_VERSION = 'cim-v3.8.34';   // fix222: Skills hotspots, buff bar re-parent, sheet, header retirement
+// const CACHE_VERSION = 'cim-v3.8.35';   // fix223: sponsor whiteboard lines re-seated on painted rules; plaque font (HTML only, no asset content change)
+// fix224 — gear hub: EXTRAS and ENERGY hotspot geometry exchanged. Two style
+// attribute values, no asset byte changed. The bump is mandatory all the same,
+// for the reason fix186 spells out above: './index.html' is in STATIC_ASSETS and
+// the deployed HTML filename never changes between fixes. Skip it and every
+// installed PWA keeps serving the fix223 shell — which on this stage means the
+// two medallions still open each other's section, the exact defect this fix
+// exists to close, while the file series says it was fixed.
+// const CACHE_VERSION = 'cim-v3.8.36';   // fix224: gear EXTRAS/ENERGY hotspot swap (HTML only, no asset content change)
+const CACHE_VERSION = 'cim-v3.8.37';   // fix225: rider hub PLAY pill retired (HTML only, no asset content change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
