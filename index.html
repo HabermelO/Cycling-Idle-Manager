@@ -5121,7 +5121,50 @@ button{font-family:inherit;cursor:pointer;}
    0.075, and 0.6373 is beyond even the 0.6250 tablet row. The whiteboard is
    never at risk in either direction — its box spans 30.80% - 41.80%, and the
    first visible row does not reach 30.80% until A > 1.17. */
-#sponsor-slot-name{left:8.50%; width:27.50%; top:82.60%; height:2.70%;}
+/* fix223: tightened onto the measured recess interior and given a real font
+   size, so the name FILLS the plate under the painted CURRENT SPONSOR label
+   instead of sitting as one small word in a large recess. Geometry moves are
+   sub-percent; the font is the substantive change. Re-profiled over x 10%-34%
+   of the shipped 644x1428 sponsorbg.jpg:
+
+     painted label "CURRENT SPONSOR"   y 81.18% - 81.61%
+     recess top bevel                  y 82.31% - 82.45%
+     recess flat interior              y 82.80% - 85.25%,  x 8.70% - 35.40%
+     recess bottom edge                y 85.32% - 85.46%
+
+   The fix219 box started on the top bevel, ended on the bottom edge and
+   overhung the interior's right edge by 0.6%. More importantly it inherited
+   .hub-slot's clamp(9px, 2.6cqw, 15px): at 27.50% of a 390px art (107px),
+   2.6cqw = 2.8px, so the 9px FLOOR was doing all the work — one 9px word in a
+   23px-tall recess, which is the reported "floating in space".
+
+   Box height 2.40% of an 866px art = 20.8px, so the type fits with the recess
+   bevels clear on both sides. Width 26.40% of 390px = 103px, so 13.0cqw =
+   13.4px and the clamp resolves on the cqw term, not on the floor. Ink and
+   shadow are inherited from .sponsor-slot unchanged — plate sampled
+   rgb(52,51,68), #F4F7FA on it is 11.39:1, the highest-contrast slot here.
+
+   CLAMP CEILING, per plan v1 §2.6's conditional: the longest name in
+   SPONSOR_TIERS is "WheelWorks Service Centre" (25 chars), so the ceiling is
+   taken at 17px rather than 19px. Recorded honestly: 17px does NOT make that
+   name fit — at ~0.55em average advance it wants ~180px in a 103px box and
+   .hub-slot's overflow:hidden clips it either way. Lowering the FLOOR far
+   enough to fit it would reinstate the exact defect this fix removes, so the
+   floor is not touched. Long-name handling on this plaque is a finding and
+   needs its own fix number; it is not absorbed here.
+
+   CROP SURVIVAL (plan §5.5 convention): visible slice is 0.44991/A of the
+   art's height, centred, so the last visible row is 1 - (1 - 0.44991/A)/2.
+   The plaque's BOTTOM edge moves 85.30% -> 85.20%, i.e.
+     1 - (1 - 0.44991/A)/2 > 0.8520  =>  A < 0.6386  (was A < 0.6373)
+   — a move in the safe direction. Every phone in fix218's table keeps it whole.
+
+   fix219 tombstone:
+     #sponsor-slot-name{left:8.50%; width:27.50%; top:82.60%; height:2.70%;} */
+#sponsor-slot-name{
+  left:8.70%; width:26.40%; top:82.80%; height:2.40%;
+  font-size:clamp(13px, 13.0cqw, 17px);
+}
 /* ═══ THE OBJECTIVES WHITEBOARD ════════════════════════════════════════
    The one slot on this hub that is NOT a single centred figure: it carries up
    to three lines, so it overrides .hub-slot's centring wholesale — column
@@ -5145,26 +5188,102 @@ button{font-family:inherit;cursor:pointer;}
    Sampled at rgb(214,218,226); #1A1F2B on it measures 11.76:1. No text-shadow:
    a dark shadow under dark ink on a light plate only muddies the glyph edges,
    which is why .sponsor-slot's shadow is cancelled rather than inherited. */
+/* fix223: container widened to the measured board and shortened to R1..R3,
+   because the three lines are now positioned INDIVIDUALLY against the painted
+   rules rather than sharing the box evenly. Retains dark-ink-on-white board,
+   no text-shadow, left alignment.
+
+   RE-MEASURED on the shipped 644x1428 sponsorbg.jpg, x 56%-95%, rows 24%-46%,
+   by row/column luminance profiling. Where this disagrees with the fix219
+   comment above, the new measurement wins:
+
+     painted header "OBJECTIVES TO MEET"   y 28.90% - 29.80%
+     board white interior                  x 54.35% - 99.20%   y 30.00% - 41.90%
+     painted ruled lines (profile minima)  R1 32.05%  R2 34.40%  R3 36.96%
+                                           R4 39.44%  R5 41.44%
+
+   Three findings, all of them the reported defect:
+
+   1. THE RULES ARE NOT EVENLY SPACED. Gaps are 2.35 / 2.56 / 2.48 / 2.00. The
+      retired even three-way split of an 11.00% box put line centres at 32.09 /
+      34.68 / 37.26 — line 1 within 0.04%, but line 3 a full 0.30% LOW, about a
+      third of a glyph height. An even split cannot track an uneven ruling, so
+      the lines are absolutely positioned one at a time.
+   2. THE BOX WAS NARROWER THAN THE BOARD. 56.00%-95.00% against a white area of
+      54.35%-99.20% left ~5.8% of usable width empty on the right, and the
+      narrow box is what forced the clamp down.
+   3. THE FONT CLAMP WAS PINNED AT ITS FLOOR. clamp(7px, 2.0cqw, 11px) resolves
+      against the slot's own width (container-type:inline-size on .hub-slot). At
+      39% of a 390px art = 152px, 2.0cqw = 3.0px, so every player on every phone
+      was reading 7px type. The FLOOR is the number that mattered.
+
+   DERIVATION of the three top values. Line boxes are 2.30% of the canvas tall
+   (height:27.4% = 2.30/8.40; half of that is 13.7%) and are centred 0.50%
+   ABOVE their rule, so the glyph baseline lands on the painted rule rather than
+   the box centre sitting on it. Container is top 30.30%, height 8.40%, so a
+   canvas percentage c converts as (c - 30.30)/8.40:
+
+     line 1  rule 32.05  centre 31.55  ->  14.9% - 13.7% = 1.2%
+     line 2  rule 34.40  centre 33.90  ->  42.9% - 13.7% = 29.2%
+     line 3  rule 36.96  centre 36.46  ->  73.3% - 13.7% = 59.6%
+
+   Container bottom is 38.70%, clear of R4 (39.44%). R4 and R5 STAY DECORATION:
+   there are five painted rules and sponsor.objectives is always three; no
+   fourth or fifth objective is invented to fill them.
+
+   FONT SANITY: box width 42% of a 390px art = 164px, so 8.8cqw = 14.4px —
+   inside the 12-16px clamp, so the cqw term and not a floor is what resolves,
+   which is the whole point. Line box height 2.30% of an 866px art = 19.9px, so
+   16px type has ~2px of leading each side and cannot clip vertically.
+
+   CONTRAST, unchanged and re-confirmed: board sampled rgb(214,218,226);
+   #1A1F2B on it is 11.76:1. Larger type on the same pair can only improve
+   legibility. Still no text-shadow — dark shadow under dark ink on a light
+   plate muddies glyph edges.
+
+   ACCEPTED REGRESSION, recorded not fixed: in the four single-message states
+   (No sponsor cooling off, Unsigned x2, offers waiting) line 1 carries a full
+   sentence and val is empty. At 14px in a 164px box that sentence ellipsises
+   sooner than it did at 7px. Accepted — the states are transient, the sheet
+   spells each one out in full, and the alternative is a per-state font size
+   maintained forever against a board that is a glance, not a document.
+
+   CROP SURVIVAL: the top edge moves 30.80% -> 30.30%; the first visible row
+   does not reach 30.30% until A > 1.17, so the board is never at risk.
+
+   fix219 tombstone:
+     #sponsor-slot-obj{
+       left:56.00%; width:39.00%; top:30.80%; height:11.00%;
+       flex-direction:column;
+       align-items:flex-start;
+       justify-content:flex-start;
+       font-size:clamp(7px, 2.0cqw, 11px);
+     }
+     .sponsor-obj-line{
+       display:flex; align-items:center; justify-content:space-between;
+       width:100%; height:23.5%;
+     }
+     .sponsor-obj-val{ padding-left:6px; }                                  */
 #sponsor-slot-obj{
-  left:56.00%; width:39.00%; top:30.80%; height:11.00%;
-  flex-direction:column;
-  align-items:flex-start;
-  justify-content:flex-start;
+  left:55.50%; width:42.00%; top:30.30%; height:8.40%;
   text-align:left;
   color:#1A1F2B;
   text-shadow:none;
-  font-size:clamp(7px, 2.0cqw, 11px);
+  font-size:clamp(12px, 8.8cqw, 16px);
   font-weight:700;
 }
 .sponsor-obj-line{
+  position:absolute; left:0; right:0; height:27.4%;
   display:flex; align-items:center; justify-content:space-between;
-  width:100%; height:23.5%;
 }
+.sponsor-obj-line:nth-child(1){top:1.2%;}
+.sponsor-obj-line:nth-child(2){top:29.2%;}
+.sponsor-obj-line:nth-child(3){top:59.6%;}
 .sponsor-obj-lbl{
   overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0;
 }
 .sponsor-obj-val{
-  flex:0 0 auto; padding-left:6px; font-variant-numeric:tabular-nums;
+  flex:0 0 auto; padding-left:8px; font-variant-numeric:tabular-nums;
 }
 
 /* ═══════════ fix220: SPONSOR HOTSPOTS, TOAST AND SHEET ═══════════
@@ -6812,7 +6931,22 @@ body.home-open{overflow:hidden;}
            home hotspots use via the homeGo() alias, so the pending coming-soon
            pill is dismissed on the way out and no second navigation mechanism
            is introduced. Render-only: hubGo() writes no state. -->
-      <button class="hub-play" aria-label="Play, go to racing" onclick="hubGo('race')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-flag"></use></svg> Play</button>
+      <!-- fix225 (plan v1 §5, taking fix226's number under §7 because fix225's
+           rider-banner measurement pass is gated on assets/rider-bg.jpg, which
+           was not supplied): the fix212 PLAY pill is retired from the Rider hub
+           at the player's request. Tombstoned, not deleted:
+             <button class="hub-play" aria-label="Play, go to racing"
+                     onclick="hubGo('race')"><svg class="icn" width="1em"
+                     height="1em" viewBox="0 0 24 24" aria-hidden="true">
+                     <use href="#icn-flag"></use></svg> Play</button>
+           The fix212 rationale comment immediately above is KEPT VERBATIM,
+           because it records why PLAY could not be a hotspot over the painted
+           paint at (56.36, 87.60) — if PLAY ever returns to this tab, that
+           measurement is still the reason it cannot go there.
+           The .hub-play CSS block is NOT touched: #tab-train, #tab-gear and
+           #tab-growth still use the class. hubGo() keeps those three callers.
+           Exits from this tab are unchanged: .rider-home (showTab('home'))
+           above, plus the .main-tab bar. -->
     </div>
     <!-- fix186: #rider-sheet, the section overlay, replacing the transitional
          #rider-content of fix184–fix185 (its z-index:81 lift is tombstoned in
@@ -6979,8 +7113,21 @@ body.home-open{overflow:hidden;}
         <button class="hub-hot gear-hot" data-hot="1" style="--hx:19.21%;--hy:29.34%;--hw:22%;--hh:9.90%" aria-label="Bikes" onclick="gearHubGo('bikes')"></button>
         <button class="hub-hot gear-hot" data-hot="2" style="--hx:80.51%;--hy:28.95%;--hw:22%;--hh:9.90%" aria-label="Wheels" onclick="gearHubGo('wheels')"></button>
         <button class="hub-hot gear-hot" data-hot="3" style="--hx:14.41%;--hy:58.04%;--hw:22%;--hh:9.90%" aria-label="Kit" onclick="gearHubGo('kit')"></button>
-        <button class="hub-hot gear-hot" data-hot="4" style="--hx:85.88%;--hy:57.53%;--hw:22%;--hh:9.90%" aria-label="Extras, accessories" onclick="gearHubGo('accessories')"></button>
-        <button class="hub-hot gear-hot" data-hot="5" style="--hx:50.00%;--hy:66.07%;--hw:22%;--hh:9.90%" aria-label="Energy" onclick="gearHubGo('energy')"></button>
+        <!-- fix224: EXTRAS and ENERGY were each sitting on the other's painted
+             medallion. The two boxes are IDENTICAL in size (22% x 9.90%), so this
+             exchanges their positions and nothing else. fix209 tombstone:
+               data-hot="4"  --hx:85.88%;--hy:57.53%
+               data-hot="5"  --hx:50.00%;--hy:66.07%
+
+             The GEOMETRY is swapped, not the onclick/aria-label pair. Either
+             edit produces the same screen, but swapping geometry keeps each
+             data-hot index welded to its ACTION — the invariant the
+             append-never-insert rule above exists to protect — and keeps
+             aria-label next to the onclick it describes, so a screen reader can
+             never announce one and fire the other. Indices are NOT renumbered
+             and the DOM order is NOT changed. -->
+        <button class="hub-hot gear-hot" data-hot="4" style="--hx:50.00%;--hy:66.07%;--hw:22%;--hh:9.90%" aria-label="Extras, accessories" onclick="gearHubGo('accessories')"></button>
+        <button class="hub-hot gear-hot" data-hot="5" style="--hx:85.88%;--hy:57.53%;--hw:22%;--hh:9.90%" aria-label="Energy" onclick="gearHubGo('energy')"></button>
         <!-- The painted BACK. Measured at cx 11.58% / cy 17.63%, painted 16.95%
              x 3.76%. --hw is 19% and --hh 5.50% against those, for fix202's and
              fix205's reason: 3.76% of an 867px cover rect is a 33px target and
