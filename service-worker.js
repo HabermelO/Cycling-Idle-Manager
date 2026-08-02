@@ -265,7 +265,69 @@
 // for the reason fix186 spells out above — './index.html' is in STATIC_ASSETS and
 // the deployed HTML filename never changes between fixes, so without a new cache
 // key every returning player keeps being served fix214 and the log stays a pill.
-const CACHE_VERSION = 'cim-v3.8.28';   // fix215: Training Log section (HTML only, no asset content change)
+// const CACHE_VERSION = 'cim-v3.8.28';   // fix215: Training Log section (HTML only, no asset content change)
+// fix216: a NEW asset ships — assets/calendar-bg.jpg, the 768x1707 re-cut of the
+// Calendar painting — and it is appended to STATIC_ASSETS below. That makes the
+// bump mandatory twice over, and both halves are worth stating because they fail
+// differently:
+//   1. cache.addAll() is all-or-nothing and runs at INSTALL. An installed PWA
+//      sitting on the v3.8.28 cache never re-runs install, so it would never
+//      fetch the new file at all — and #cal-art would fall back to flat sky on
+//      a cold offline open, silently, with no error anywhere.
+//   2. './index.html' is in STATIC_ASSETS and the deployed HTML filename never
+//      changes between fixes (the fix186 reasoning above). Without a new key
+//      every returning player keeps the fix215 shell, which has no #cal-stage,
+//      so the asset would be cached and nothing would ever paint it.
+// This stage is gated off in normal use, so neither failure is player-visible
+// yet — which is exactly why it has to be caught HERE rather than at fix217,
+// when it would present as hotspots welded to a picture the device is not
+// showing. That is this project's most common deployment failure and its worst
+// form (see the fix202 note above).
+// const CACHE_VERSION = 'cim-v3.8.29';   // fix216: Calendar hub art + calibration (NEW asset: calendar-bg.jpg)
+// const CACHE_VERSION = 'cim-v3.8.30';   // fix217: Calendar hotspots, slots, sheet, header retirement (HTML only, no asset content change)
+// fix218: a NEW asset ships — assets/sponsor-bg.jpg, the 768x1707 re-cut of the
+// Sponsor painting — and it is appended to STATIC_ASSETS below. Both halves of
+// the fix216 reasoning apply again unchanged, and both still fail differently:
+//   1. cache.addAll() is all-or-nothing and runs at INSTALL. An installed PWA
+//      sitting on the previous cache never re-runs install, so it would never
+//      fetch the new file at all — and #sponsor-art would fall back to flat sky
+//      on a cold offline open, silently, with no error anywhere.
+//   2. './index.html' is in STATIC_ASSETS and the deployed HTML filename never
+//      changes between fixes (the fix186 reasoning above). Without a new key
+//      every returning player keeps the fix217 shell, which has no
+//      #sponsor-stage, so the asset would be cached and nothing would paint it.
+// This stage is gated off in normal use, so neither failure is player-visible
+// yet — which is exactly why it has to be caught HERE rather than at fix220,
+// when it would present as hotspots welded to a picture the device is not
+// showing. That is this project's most common deployment failure and its worst
+// form (see the fix202 note above).
+// fix220: no new asset this fix — sponsor-bg.jpg is unchanged and already in the
+// manifest below. The bump is for index.html itself, which is precached and
+// whose FILENAME is unchanged while its content changed: the stale-cache failure
+// this project hits most often (see the fix202 note above) does not care whether
+// the changed file is a picture or the page. Bumped every fix that changes a
+// precached file, not only every fix that adds one.
+// const CACHE_VERSION = 'cim-v3.8.32';   // fix220: Sponsor hotspots, switch confirm, sheet, header retirement
+// fix221: a NEW asset ships — assets/skills-bg.jpg, the 768x1707 re-cut of the
+// Skills painting — and it is appended to STATIC_ASSETS below. It is the LAST
+// of plan v2's three, and both halves of the fix216/fix218 reasoning apply for
+// the third time, still failing differently:
+//   1. cache.addAll() is all-or-nothing and runs at INSTALL. An installed PWA
+//      sitting on the previous cache never re-runs install, so it would never
+//      fetch the new file at all — and #skills-art would fall back to flat sky
+//      on a cold offline open, silently, with no error anywhere.
+//   2. './index.html' is in STATIC_ASSETS and the deployed HTML filename never
+//      changes between fixes (the fix186 reasoning above). Without a new key
+//      every returning player keeps the fix220 shell, which has no
+//      #skills-stage, so the asset would be cached and nothing would paint it.
+// This stage is gated off in normal use, so neither failure is player-visible
+// yet — which is exactly why it has to be caught HERE rather than at fix222,
+// when it would present as hotspots welded to a picture the device is not
+// showing. That is this project's most common deployment failure and its worst
+// form (see the fix202 note above). It bites hardest on THIS tab of the three:
+// four of fix222's five hotspots are painted circles placed by centre, and a
+// centre read off the wrong raster is a miss with no visible cause.
+const CACHE_VERSION = 'cim-v3.8.33';   // fix221: Skills hub art + calibration (NEW asset: skills-bg.jpg)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
@@ -294,6 +356,21 @@ const STATIC_ASSETS = [
   './assets/training-bg.jpg',
   './assets/gear-bg.jpg',
   './assets/tasks-bg.jpg',
+  // fix216: Calendar tab scene, the first of plan v2's three. Same reasoning as
+  // the four above — bound lazily in showTab(), so a runtime-only cache would
+  // miss on exactly the first open, the one time the placeholder sky would be
+  // visible. APPENDED, never inserted.
+  './assets/calendar-bg.jpg',
+  // fix218: Sponsor tab scene, the second of plan v2's three. Same reasoning as
+  // the five above — bound lazily in showTab(), so a runtime-only cache would
+  // miss on exactly the first open, the one time the placeholder sky would be
+  // visible. APPENDED, never inserted.
+  './assets/sponsor-bg.jpg',
+  // fix221: Skills tab scene, the third and last of plan v2's three. Same
+  // reasoning as the six above — bound lazily in showTab(), so a runtime-only
+  // cache would miss on exactly the first open, the one time the placeholder
+  // sky would be visible. APPENDED, never inserted.
+  './assets/skills-bg.jpg',
   './assets/workshop-hero.jpg',
   // fix169: assets/race-hero.jpg retired — 'raceHero' is out of
   // RC_SHEET_NAMES / RC_VAR_NAMES / _rcSheetSources, so nothing fetches it
