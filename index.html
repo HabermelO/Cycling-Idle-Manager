@@ -4464,6 +4464,1115 @@ button{font-family:inherit;cursor:pointer;}
 #tasks-stage.tasks-debug .tasks-slot{background:rgba(0,255,255,.30);outline:1px solid #0ff;}
 #tasks-stage.tasks-debug #tasks-page{outline:2px solid rgba(255,64,0,.85);}
 
+/* ═══ fix216: CALENDAR HUB — art and calibration only ═════════════════════
+   Stage one of three for the Calendar tab (plan v2 §fix216). This fix ships the
+   painted art, the cover-rect geometry and the calibration overlay. It ships NO
+   hotspot, NO slot and NO sheet — those are fix217 — which is exactly why the
+   stage is GATED OFF below. A stage with no exit that is reachable is a trap,
+   and this one would paint over a working Calendar tab with nothing to tap.
+
+   Coordinate space, stated here because this is where the numbers get typed in
+   fix217: every percentage is a percentage OF #cal-art — the 768x1707 re-cut
+   canvas — and never a percentage of the viewport. That is what keeps fix217's
+   hotspots welded to the painting at any phone aspect.
+
+   ═══ THE RE-CUT, MEASURED NOT ASSUMED ═══════════════════════════════════
+   Plan §2 predicts a 784x1400 source with no margin, to be scaled to 768x1371
+   and padded by 336. The MEASURED source is different in both respects, and
+   the measurement wins (plan §2.4's "measure per tab, never copy"):
+
+     file            784 x 1400
+     content box     768 x 1376   (PURE WHITE margin on the right, 16 cols
+                                   768-783, and on the bottom, 24 rows
+                                   1376-1399 — the fix170/fix179 home-art
+                                   shape, NOT the fix202 rider shape)
+     kept content    768 x 1372   (rows 1372-1375 dropped: they carry the JPEG
+                                   boundary artefact — row 1375 means 124 on a
+                                   57-mean bar — and replicating a bright edge
+                                   row downward would paint a 1px light seam
+                                   across the bottom band)
+
+   So the content is ALREADY 768 wide: no horizontal scale, and no 102.825%
+   left-pinned crop like #rider-art / #train-art / #gear-art / #tasks-art take.
+   The white margin is removed by the re-cut itself, in the raster, which is why
+   the background shorthand below is a plain center/cover with no margin fudge.
+   If a future re-drop of this art carries a DIFFERENT margin, this whole block
+   is re-measured — do not assume the drop-in is as clean as this one was.
+
+   Band split: 1707 - 1372 = 335 px, split 162 TOP / 173 BOTTOM. Not 168/168.
+   Both extreme rows are flat plate and were stddev-checked before replication,
+   as plan §2.2 step 2 requires:
+     row 0     rgb(74,69,77)  std 11.7/10.6/11.7   (the dark banner)
+     row 1371  rgb(57,49,62)  std 10.7/8.3/9.5     (the dark bottom bar)
+   Both are flat enough to replicate; the gradient fallback was not needed.
+
+   ═══ WHY 162, AND THE OVER-DETERMINATION ═══════════════════════════════
+   Plan §2.3 wants the stat bar at canvas y 10.85% and the painted BACK at
+   17.5-17.6%, so all eight hubs share ONE crossover instead of eight. Measured
+   on this source (content coordinates):
+
+     bar plates   y 8-58    centre y 33
+     BACK pill    x 11-157, y 104-171   centre 84 / 137.5
+
+   Gap bar-centre to BACK-centre = 104.5 px. The gap the two targets require is
+   (0.1755 - 0.1085) x 1707 = 114.4 px. A ~10 px shortfall that NO band split
+   can close, because padding moves both together — plan §2.4's over-
+   determination, arriving smaller here than its worked example predicted.
+
+   Resolved in BACK's favour, deliberately: T=162 lands BACK at exactly 17.55%,
+   the number the other four hubs already carry, and lands the bar at 11.42% —
+   0.57% BELOW its target, which crops LATER, not earlier. So BACK keeps the
+   shared crossover and the bar is strictly safer than the shared one. The
+   opposite split (T=152) would have put the bar on its number and BACK 0.6%
+   high, i.e. a WORSE crossover on the more fragile of the two. Favour the
+   element whose miss costs survival, not the one whose miss costs tidiness.
+
+   Resulting canvas percentages (of 1707), for fix217 to start from and
+   re-verify — they are a starting hypothesis, not a licence to skip measuring:
+     top band      0 - 9.49%
+     bar plates    9.96% - 12.89%   centre 11.42%
+     BACK pill     15.58% - 19.51%  centre 10.94% / 17.55%, painted 19.01% x 3.92%
+
+   ═══ CROP SURVIVAL TABLE (plan §5.5) ═══════════════════════════════════
+   Under cover the visible slice of #cal-art is 0.44991/A of its height,
+   centred, so the first visible row is (1 - 0.44991/A)/2. Convention matches
+   fix202/fix205/fix208: the bar is judged at its CENTRE, the BACK at its hit
+   box's TOP edge (centre 17.55% minus half of --hh 5.50% = 14.80%).
+
+     A         first visible row   bar centre   BACK box top
+     0.4615    1.26%               visible      visible
+     0.5000    5.01%               visible      visible
+     0.5622    9.99%               visible      visible   (iPhone SE)
+     0.6000    12.51%              CLIPPED      visible
+     0.6250    14.01%              CLIPPED      visible
+
+   Crossovers: bar centre A < 0.5831 (shared number is 0.5746 — this hub is
+   safer), BACK box top A < 0.6391 (shared number is 0.6384 — the same crossover
+   to three decimals, which is the whole point of the split above). The bar
+   plates' painted TOP edge grazes at A < 0.5618, so at iPhone SE aspect a
+   sliver of the plate tops is off screen; the slot text fix217 adds is
+   vertically centred in the plate, so that is cosmetic and not a readout loss.
+
+   Everything above 0.60 is tablet territory, as it is on all four shipped hubs.
+
+   Asset: assets/calendar-bg.jpg, encoded 640x1422 (the same raster every hub
+   art uses, so #cal-art shares #home-art's 768/1707 arithmetic verbatim),
+   progressive 4:2:0, EXIF stripped, q60 = 119.8 KB against the 120 KB budget. */
+#cal-stage{
+  /* Everything except the z-index comes from .hub-stage (fix203). z-index 70 is
+     assigned by plan §1.3 and is BELOW every existing stage (tasks 76 ... home
+     90), so tapping through to an older hub can never leave this art painted
+     over it. Do not re-derive the sky placeholder, the overflow or the
+     tap-highlight kill here; they are the shared class's job. */
+  z-index:70;
+  /* fix217 tombstone: the fix216 gate is LIFTED, exactly where fix216 said it
+     would be and for the two reasons it named — the stage now has a painted
+     BACK (data-hot 2 -> hubGo('home')) and a medallion that opens #cal-sheet
+     (data-hot 1 -> calHubGo()), so it is no longer a picture with no exit and
+     is allowed in front of the Calendar tab. Both lines are commented out
+     rather than removed, per the house rule:
+       display:none;
+       pointer-events:none;
+     Nothing replaces them: the stage is now the tab, and the only thing that
+     hides it is the .cal-sheet-open pair further down this block. */
+}
+/* One class on #tab-calendar drives the preview, matching .tasks-hub-preview,
+   .train-hub-preview and .gear-hub-preview. This is a REAL gate this stage —
+   #cal-stage above is display:none, so without this class there is no route to
+   the art at all. It is KEPT when fix217 ungates the stage, exactly as fix206,
+   fix209 and fix211 kept theirs: a class toggle with no rule behind it is
+   precisely the thing a later reader assumes still does something (the fix136
+   lesson), and this rule is what a future stage would re-gate through if the
+   art were ever pulled. */
+#tab-calendar.cal-hub-preview #cal-stage{display:block;pointer-events:auto;}
+#cal-art{
+  /* Cover-rect arithmetic comes from .hub-art (fix203) — do NOT re-derive it
+     here. Only the background shorthand is per-tab, and unlike the other four
+     painted tabs this one takes NO margin crop: the re-cut above removed the
+     white margin in the raster, so it is a plain center/cover. The fallback is
+     the sky gradient, kept for the reason every other hub keeps it — a missing
+     asset degrades to flat sky, never to a black screen. */
+  background:var(--sheet-calendar-scene,
+    linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
+    center/cover no-repeat;
+}
+/* The calibration overlay rides the generic .hub-cal / .hub-cal-tick /
+   .hub-cal-edge set introduced in the fix210 block above — no third private
+   copy, which is what that block nominated the generic set for. Only the
+   .cal-debug scoping rules are new here, because the display gate is keyed to
+   each stage's own debug class. .hub-cal-rect is NOT used on this tab: it is
+   Tasks-specific (it calibrates the clipboard RECT), and Calendar calibrates
+   a medallion CENTRE, which the grid alone answers.
+
+   Off by default and never persisted: these only paint under .cal-debug, which
+   calDebugToggle() sets from the console. */
+#cal-stage.cal-debug .hub-cal{display:block;}
+#cal-stage.cal-debug .hub-cal::before{
+  content:'';position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(to right, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to bottom, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to right, rgba(0,255,255,.30) 0 1px, transparent 1px 5%),
+    repeating-linear-gradient(to bottom, rgba(0,255,255,.30) 0 1px, transparent 1px 2%);
+}
+/* Magenta boxes and cyan slots, matching rider, train, gear and tasks so a
+   screenshot from any hub reads the same way. NEITHER SELECTOR HAS A MATCH IN
+   THIS FILE YET — .cal-hot and .cal-slot are fix217's markup. They are written
+   now, with the rest of the debug set, so that fix217 adds markup only and
+   cannot ship a hotspot that is invisible to the calibration pass that is
+   supposed to place it. Dead selectors, deliberately, for exactly one stage. */
+#cal-stage.cal-debug .cal-hot{background:rgba(255,0,255,.28);outline:2px solid #ff0;}
+#cal-stage.cal-debug .cal-hot::after{
+  content:attr(data-hot);position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);color:#ff0;font:700 13px/1 monospace;
+}
+#cal-stage.cal-debug .cal-slot{background:rgba(0,255,255,.30);outline:1px solid #0ff;}
+
+/* ═══ fix217: CALENDAR HUB — live slots, the toast and the section sheet ═══
+   Stage two of two for this tab (plan v2 §fix217). The stage above is ungated
+   (see the tombstone in #cal-stage) because this fix welds the two things that
+   had to become true first: a painted BACK and a medallion that opens a sheet.
+
+   ═══ THE STAT BAR RUNS, MEASURED ══════════════════════════════════════════
+   Same method as fix205/fix208/fix211: the bar band was profiled column by
+   column over the plate's flat interior rows and the runs of LOW per-column
+   variance — i.e. the columns where the plate is blank paint and no glyph is
+   painted — were read off directly. Measured on the shipped raster, as
+   percentages of #cal-art:
+
+     after the cash glyph      20.03% - 34.32%   (14.29% wide)
+     after the gauge glyph     51.71% - 61.02%   ( 9.32% wide)
+     after the bolt glyph      74.53% - 88.98%   (14.44% wide)
+
+   Within ~0.5% of train's three runs on every edge, which is a coincidence of
+   the art and NOT a reason to have copied them — they were measured here, per
+   plan §2.4's "measure per tab, never copy", and the agreement is the check
+   that the measurement is right rather than the source of the numbers.
+
+   The slots below are inset inside each run so a seven-figure cash total or a
+   three-digit FTP grows into flat plate and never touches a glyph.
+
+   ═══ THE VERTICAL, MEASURED ═══════════════════════════════════════════════
+   The fix216 block predicted plate 9.96%-12.89%, centre 11.42%, from the
+   content-coordinate bar. Re-measured here on the canvas raster, separating
+   the plate's BEVEL from its flat interior — the bevel is bright and the ink
+   must not sit on it:
+
+     top bevel        9.80% - 10.43%   (bright, lum ~106)
+     flat interior   10.55% - 12.46%   (dark,   lum ~73)
+     bottom bevel    12.54% - 13.10%   (bright, lum ~103)
+
+   So the interior centre is 11.50%, 0.08% below fix216's whole-plate 11.42%,
+   and the slot is top:10.60%; height:1.80% — centred at 11.50% and clear of
+   both bevels by ~0.05%. fix216's crop table judged the bar at its CENTRE, and
+   11.50% is 0.08% LOWER than the number that table used, so every crossover it
+   recorded is very slightly safer here, never worse. No re-tabulation needed.
+
+   Light ink on a dark plate, which is home's and train's polarity and the
+   inverse of rider's. Plate sampled over the energy run at rgb(88,77,80);
+   #F4F7FA on it measures 7.55:1. */
+.cal-slot{
+  top:10.60%; height:1.80%;
+  color:#F4F7FA;
+  text-shadow:0 1px 2px rgba(0,0,0,.70);
+}
+#cal-slot-money  {left:20.60%; width:13.20%;}
+#cal-slot-ftp    {left:52.20%; width:8.50%;}
+#cal-slot-energy {left:75.00%; width:13.50%;}
+/* ENERGY gauge fill. Same absolute inset and the same calc(var(--…-pct) * 1%)
+   width as rider's and train's, so the gauge animates on a single custom
+   property write with no innerHTML churn, and the same reduced-motion guard.
+
+   THE STOPS ARE DARKER THAN TRAIN'S, and that is measured rather than a taste
+   call. This slot carries LIGHT ink on a DARK plate, so a fill that LIGHTENS
+   the plate can only reduce contrast. Train's own stops were re-checked
+   against THIS plate before being rejected:
+
+     empty plate rgb(88,77,80)              7.55:1
+     train's rgba(46,132,82,.60)            5.49:1   <- worse than empty
+     train's rgba(56,150,92,.45)            5.36:1   <- worse than empty
+     this hub's rgba(22,74,46,.65)          8.96:1
+     this hub's rgba(26,86,54,.50)          7.99:1
+
+   So a full gauge is never harder to read than an empty one anywhere along its
+   length — the same guarantee fix188 made for rider and fix205 for train, met
+   here with this plate's own numbers. Train's plate is lighter
+   (rgb(85,90,100)-ish) which is why its greens could be lighter too; copying
+   them would have shipped a gauge that dips under its own empty state. No
+   border-radius, for rider's and train's reason: this is an interior region of
+   a painted bar, not a plate of its own. */
+#cal-slot-energy::before{
+  content:'';position:absolute;inset:0;
+  width:calc(var(--cal-energy-pct,0) * 1%);
+  background:linear-gradient(90deg, rgba(22,74,46,.65), rgba(26,86,54,.50));
+}
+@media (prefers-reduced-motion: no-preference){
+  #cal-slot-energy::before{transition:width .35s ease;}
+}
+#cal-slot-energy #cal-energy{position:relative;}
+/* Informational pill. Same contract as #home-toast, #rider-toast, #train-toast
+   and #gear-toast: ONE pre-built node, text patched in place, never created per
+   tap. pointer-events:none so it cannot swallow the tap that follows it, and no
+   state is written when it shows — not a confirm(), not a modal, not a two-tap
+   arm. This hub's only caller is the LOCKED refusal, which is a statement of
+   fact with no "yes anyway" path behind it.
+
+   Positioned at 50% of #cal-art, over the flat painted wall: BELOW the painted
+   BACK (bottom edge 20.30%) and comfortably ABOVE the medallion (top edge
+   67.90%), so it can never cover the control that was just tapped. */
+#cal-toast{
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%) scale(.9);
+  padding:10px 18px; border-radius:999px;
+  background:rgba(14,20,32,.94);
+  border:1px solid rgba(255,255,255,.22);
+  color:#fff; font-weight:700; font-size:15px;
+  box-shadow:0 6px 20px rgba(0,0,0,.45);
+  pointer-events:none; opacity:0; visibility:hidden;
+  max-width:86%; text-align:center;
+}
+#cal-toast.on{opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1);}
+@media (prefers-reduced-motion: no-preference){
+  #cal-toast{transition:opacity .18s ease, transform .18s ease;}
+}
+
+/* ═══ fix217: the Calendar section sheet ═════════════════════════════════
+   Shaped on #train-sheet (fix206) and #gear-sheet (fix209) deliberately: same
+   hard-lockout mechanics, same sticky back bar, same measured top edge. Four
+   sheets, one pattern.
+
+   WHAT IS INSIDE IT IS RE-PARENTED, NOT REBUILT. #calendar-content moves here
+   from the Calendar panel with its ID AND ITS BODY UNTOUCHED, so
+   renderCalendarTab() looks it up by id and is not edited by this fix. Same id
+   contract fix186/fix206/fix209/fix211 preserved.
+
+   z-index 73 is assigned by plan v2 §1.3: strictly above #cal-stage's 70 so the
+   sheet covers the medallion, and strictly below every existing stage (tasks
+   76 ... home 90) so tapping through to any older hub can never leave a
+   calendar sheet painted over it.
+
+   display:none rather than a fade, for fix186's reason: it is a HARD lockout.
+   Closed, it cannot be scrolled, focused or tapped through; open, the stage
+   below is display:none (see the .cal-sheet-open pair) so the medallion cannot
+   be hit through it. Nothing is translucent, so there is no state in which both
+   layers are live at once. */
+#cal-sheet{
+  display:none;
+  position:fixed;
+  /* 'calendar' JOINS HUB_TABS this fix, so .game-header (z-index 83) is hidden
+     on this tab and this fallback is what actually applies — unlike train and
+     gear, where the measured branch is the live path. The measured branch in
+     calSheetSet() is kept anyway, verbatim, per plan §fix217: one sheet
+     pattern in the file beats four sheets and three-and-a-bit patterns, and the
+     day the header ever returns to this tab the sheet already handles it. */
+  top:env(safe-area-inset-top, 0px);
+  left:0; right:0; bottom:0;
+  z-index:73;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%);
+  /* bottom padding clears .main-tabs (z-index 100), which is still on this tab
+     and still overlays the sheet's lower edge — the bar is not retired until
+     all eight hubs are painted (plan v2 §6). */
+  padding:0 .75rem calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+}
+/* One class on #tab-calendar drives both layers, so open/closed is a single DOM
+   write and the two can never disagree about which is showing.
+
+   SOURCE ORDER IS LOAD-BEARING HERE. The .cal-hub-preview rule above is KEPT
+   (fix216 said so, and the fix136 lesson is why: a class toggle with no rule
+   behind it is exactly what a later reader assumes still works). It carries the
+   same specificity as the pair below — two ids and a class — so if it sat after
+   this, its display:block would beat the lockout whenever a calibration preview
+   had been left switched on. It sits before. Do not reorder this block. */
+#tab-calendar.cal-sheet-open #cal-sheet{display:block;}
+#tab-calendar.cal-sheet-open #cal-stage{display:none;}
+
+/* Sticky rather than fixed so it participates in the sheet's own scroll
+   container and needs no height reservation. Opaque --hub-sky (flat hex, not
+   the gradient) so content scrolling under it is fully covered. */
+.cal-sheet-bar{
+  position:sticky;
+  top:0;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 -.75rem .6rem;
+  padding:.45rem .75rem;
+  background:var(--hub-sky);
+  box-shadow:0 2px 8px rgba(30,25,32,.18);
+}
+.cal-sheet-title{
+  font-size:13px;font-weight:700;color:#123;
+  letter-spacing:.02em;
+}
+/* Declared rather than added to the .train-sheet-back / .gear-sheet-back
+   selector lists, for fix206's reason: one tab's back button must not be able
+   to break another's. Same 44px+ target, same :active scale, same
+   reduced-motion guard, same focus ring. */
+.cal-sheet-back{
+  display:flex; align-items:center; gap:6px;
+  min-height:44px; padding:0 14px 0 10px;
+  border:1px solid var(--border); border-radius:999px;
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:700;
+  box-shadow:var(--shadow-md);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.cal-sheet-back:active{transform:scale(.96);}
+@media (prefers-reduced-motion: no-preference){
+  .cal-sheet-back{transition:transform .12s ease;}
+}
+.cal-sheet-back:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
+/* ═══ fix218: SPONSOR HUB — art and calibration only ══════════════════════
+   Stage one of three for the Sponsor tab (plan v2 §fix218), and byte-for-byte
+   the SHAPE of fix216 with 'sponsor' substituted — art, cover-rect geometry,
+   calibration overlay. It ships NO hotspot, NO slot and NO sheet: the SWITCH
+   SPONSOR / BACK / CONTRACT hotspots and the whiteboard and plaque slots are
+   fix219 and fix220. That is exactly why the stage is GATED OFF below. A stage
+   with no exit that is reachable is a trap, and this one would paint over a
+   working Sponsor tab with nothing to tap.
+
+   Coordinate space, stated here because this is where the numbers get typed in
+   fix219/fix220: every percentage is a percentage OF #sponsor-art — the
+   768x1707 re-cut canvas — and never a percentage of the viewport. That is what
+   keeps the later hotspots welded to the painting at any phone aspect.
+
+   ═══ THE RE-CUT, MEASURED NOT ASSUMED ═══════════════════════════════════
+   Plan §2 predicts a 784x1400 source with no margin, to be scaled to 768x1371
+   and padded by 336. The MEASURED source is different in both respects, and the
+   measurement wins (plan §2.4's "measure per tab, never copy"). It lands on the
+   same shape fix216 measured for the Calendar drop, which is corroboration, not
+   licence to skip the measurement next time:
+
+     file            784 x 1400
+     content box     768 x 1376   (PURE WHITE margin on the right, 16 cols
+                                   768-783, and on the bottom, 24 rows
+                                   1376-1399 — the fix170/fix179 home-art
+                                   shape, NOT the fix202 rider shape)
+     kept content    768 x 1375   (row 1375 dropped: it carries the JPEG
+                                   boundary artefact — mean 69 against a
+                                   52-mean console bar — and replicating a
+                                   bright edge row downward would paint a 1px
+                                   light seam across the bottom band. Only ONE
+                                   row is dropped here, where fix216 dropped
+                                   four: rows 1372-1374 measure std 8.7-9.0 on
+                                   this source and are clean plate.)
+
+   So the content is ALREADY 768 wide: no horizontal scale, and no 102.825%
+   left-pinned crop like #rider-art / #train-art / #gear-art / #tasks-art take.
+   The white margin is removed by the re-cut itself, in the raster, which is why
+   the background shorthand below is a plain center/cover with no margin fudge.
+   If a future re-drop of this art carries a DIFFERENT margin, this whole block
+   is re-measured.
+
+   Band split: 1707 - 1375 = 332 px, split 170 TOP / 162 BOTTOM. Not 166/166.
+   Both extreme rows are flat plate and were stddev-checked before replication,
+   as plan §2.2 step 2 requires:
+     row 0     rgb(85,91,107)  std 16.9/20.0/19.9   (the boardroom banner)
+     row 1374  rgb(52,47,66)   std 9.0/8.2/8.3      (the dark metal console)
+   Both are flat enough to replicate; the gradient fallback was not needed. The
+   top row is the coarser of the two — it is painted banner with a soft vertical
+   shade rather than dead flat plate — but 170 replicated rows of it sit ENTIRELY
+   above the first visible row at every aspect in the table below, so no player
+   ever sees the band it makes.
+
+   ═══ WHY 170, AND THE OVER-DETERMINATION ═══════════════════════════════
+   Plan §2.3 wants the stat bar at canvas y 10.85% and the painted BACK at
+   17.5-17.6%, so all eight hubs share ONE crossover instead of eight. Measured
+   on this source (content coordinates):
+
+     bar plates   y 8-56    centre y 32
+     BACK pill    x 20-155, y 97-163   centre 87.5 / 130
+
+   Gap bar-centre to BACK-centre = 98 px. The gap the two targets require is
+   (0.1755 - 0.1085) x 1707 = 114.4 px. A ~16 px shortfall that NO band split can
+   close, because padding moves both together — plan §2.4's over-determination,
+   arriving here at almost exactly the size §2.4's worked example predicted (it
+   guessed 98 px of source gap and 17 px of shortfall) and larger than the ~10 px
+   fix216 hit.
+
+   Resolved in BACK's favour, deliberately and for fix216's reason: T=170 lands
+   BACK at 17.58%, within 0.03% of the number the other five hubs already carry,
+   and lands the bar at 11.86% — 1.01% BELOW its target, which crops LATER, not
+   earlier. So BACK keeps the shared crossover and the bar is strictly safer than
+   the shared one. The opposite split (T=155) would have put the bar on its
+   number and BACK ~1% high, i.e. a WORSE crossover on the more fragile of the
+   two. Favour the element whose miss costs survival, not the one whose miss
+   costs tidiness.
+
+   Resulting canvas percentages (of 1707), for fix219/fix220 to start from and
+   re-verify — they are a starting hypothesis, not a licence to skip measuring:
+     top band      0 - 9.96%
+     bar plates    10.43% - 13.24%   centre 11.86%
+     BACK pill     15.64% - 19.51%   centre 11.39% / 17.58%,
+                                     painted 17.58% x 3.87%
+
+   ═══ CROP SURVIVAL TABLE (plan §5.5) ═══════════════════════════════════
+   Under cover the visible slice of #sponsor-art is 0.44991/A of its height,
+   centred, so the first visible row is (1 - 0.44991/A)/2. Convention matches
+   fix202/fix205/fix208/fix216: the bar is judged at its CENTRE, the BACK at its
+   hit box's TOP edge (centre 17.58% minus half of --hh 5.50% = 14.83%).
+
+     A         first visible row   bar centre   BACK box top
+     0.4615    1.26%               visible      visible
+     0.5000    5.01%               visible      visible
+     0.5622    9.99%               visible      visible   (iPhone SE)
+     0.6000    12.51%              CLIPPED      visible
+     0.6250    14.01%              CLIPPED      visible
+
+   Crossovers: bar centre A < 0.5895 (shared number is 0.5746 — this hub is
+   safer, and safer than fix216's Calendar too), BACK box top A < 0.6395 (shared
+   number is 0.6384, Calendar's is 0.6391 — the same crossover to two decimals,
+   which is the whole point of the split above). The bar plates' painted TOP edge
+   grazes at A < 0.5686, so at iPhone SE aspect a sliver of the plate tops is off
+   screen; the slot text fix219 adds is vertically centred in the plate, so that
+   is cosmetic and not a readout loss — the identical situation fix216 recorded.
+
+   Everything above 0.60 is tablet territory, as it is on all five shipped hubs.
+
+   Asset: assets/sponsor-bg.jpg, encoded 640x1422 (the same raster every hub art
+   uses, so #sponsor-art shares #home-art's 768/1707 arithmetic verbatim),
+   progressive 4:2:0, EXIF stripped, q76 = 119.9 KB against the 120 KB budget.
+   q76 rather than fix216's q60 for the reason the tasks entry gives at q79: this
+   painting is flatter, so the same budget buys more quality. */
+#sponsor-stage{
+  /* Everything except the z-index comes from .hub-stage (fix203). z-index 71 is
+     assigned by plan v2 §1.3 — one above #cal-stage's 70 and BELOW every
+     pre-existing stage (tasks 76 ... home 90), so tapping through to an older
+     hub can never leave this art painted over it. The three new stages are
+     mutually exclusive by showTab() anyway, so 70/71/72 among themselves is
+     fixed for readability, not for correctness. Do not re-derive the sky
+     placeholder, the overflow or the tap-highlight kill here; they are the
+     shared class's job.
+
+     fix220 tombstone: the fix218 gate is LIFTED, exactly where fix218 said it
+     would be and for the two reasons it named — the stage now has a painted
+     BACK (data-hot 2 -> hubGo('home')) and two controls that open something
+     (data-hot 3 -> sponsorHubGo(), data-hot 1 -> sponsorSwitchOpen()), so it is
+     no longer a picture the player cannot leave and is allowed in front of the
+     Sponsor tab. Both lines are commented out rather than removed, per the
+     house rule:
+       display:none;
+       pointer-events:none;
+     Nothing replaces them: the stage is now the tab, and the only thing that
+     hides it is the .sponsor-sheet-open pair further down this block. */
+  z-index:71;
+}
+/* One class on #tab-sponsors drives the preview, matching .cal-hub-preview,
+   .tasks-hub-preview, .train-hub-preview and .gear-hub-preview. This is a REAL
+   gate this stage — #sponsor-stage above is display:none, so without this class
+   there is no route to the art at all. It is KEPT when fix220 ungates the stage,
+   exactly as fix206, fix209, fix211 and fix217 kept theirs: a class toggle with
+   no rule behind it is precisely the thing a later reader assumes still does
+   something (the fix136 lesson), and this rule is what a future stage would
+   re-gate through if the art were ever pulled. */
+#tab-sponsors.sponsor-hub-preview #sponsor-stage{display:block;pointer-events:auto;}
+#sponsor-art{
+  /* Cover-rect arithmetic comes from .hub-art (fix203) — do NOT re-derive it
+     here. Only the background shorthand is per-tab, and like #cal-art and unlike
+     the other four painted tabs this one takes NO margin crop: the re-cut above
+     removed the white margin in the raster, so it is a plain center/cover. The
+     fallback is the sky gradient, kept for the reason every other hub keeps it —
+     a missing asset degrades to flat sky, never to a black screen. */
+  background:var(--sheet-sponsor-scene,
+    linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
+    center/cover no-repeat;
+}
+/* The calibration overlay rides the generic .hub-cal / .hub-cal-tick /
+   .hub-cal-edge set introduced in the fix210 block above — no third private
+   copy, which is what that block nominated the generic set for. Only the
+   .sponsor-debug scoping rules are new here, because the display gate is keyed
+   to each stage's own debug class. .hub-cal-rect is NOT used on this tab: it is
+   Tasks-specific (it calibrates the clipboard RECT), and Sponsor calibrates
+   painted RECTANGLES whose edges the 5%/2% fine grid reads off directly.
+
+   Off by default and never persisted: these only paint under .sponsor-debug,
+   which sponsorDebugToggle() sets from the console. */
+#sponsor-stage.sponsor-debug .hub-cal{display:block;}
+#sponsor-stage.sponsor-debug .hub-cal::before{
+  content:'';position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(to right, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to bottom, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to right, rgba(0,255,255,.30) 0 1px, transparent 1px 5%),
+    repeating-linear-gradient(to bottom, rgba(0,255,255,.30) 0 1px, transparent 1px 2%);
+}
+/* Magenta boxes and cyan slots, matching rider, train, gear, tasks and calendar
+   so a screenshot from any hub reads the same way. NEITHER SELECTOR HAS A MATCH
+   IN THIS FILE YET — .sponsor-hot is fix220's markup and .sponsor-slot is
+   fix219's. They are written now, with the rest of the debug set, so that those
+   fixes add markup only and cannot ship a hotspot or a slot that is invisible to
+   the calibration pass that is supposed to place it. Dead selectors,
+   deliberately, for exactly two stages. */
+#sponsor-stage.sponsor-debug .sponsor-hot{background:rgba(255,0,255,.28);outline:2px solid #ff0;}
+#sponsor-stage.sponsor-debug .sponsor-hot::after{
+  content:attr(data-hot);position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);color:#ff0;font:700 13px/1 monospace;
+}
+#sponsor-stage.sponsor-debug .sponsor-slot{background:rgba(0,255,255,.30);outline:1px solid #0ff;}
+
+/* ═══════════ fix219: SPONSOR LIVE OVERLAYS (READ-ONLY) ═══════════
+   Five slots, no hotspots and no sheet — those are fix220. Nothing here writes
+   state and nothing here is tappable: every rule below sits on .hub-slot, which
+   is pointer-events:none, so the stage stays exactly as inert as fix218 left it
+   and the gate (#sponsor-stage display:none, .sponsor-hub-preview) is UNTOUCHED.
+   Until fix220 lifts that gate these paint only under sponsorDebugToggle(),
+   which is precisely the calibration pass fix218's dead .sponsor-slot selector
+   was written for.
+
+   Coordinate space is fix218's: every percentage is a percentage OF
+   #sponsor-art, the 768x1707 canvas, never of the viewport. Measured on the
+   shipped 644x1428 raster (the same canvas at 0.8385 scale) — fix218's
+   predicted numbers were treated as a hypothesis and re-measured, per its own
+   instruction, not copied.
+
+   ═══ THE BAR PLATES, RE-MEASURED ═══════════════════════════════════════
+   Column profile of the plate band, and a saturation pass to place the painted
+   glyphs so no figure is typed on top of one:
+
+     glyph   coin       x 15.53% - 18.31%
+     plate   CASH       x 18.94% - 34.32%
+     glyph   bolt       x 41.61% - 50.31%
+     plate   FTP        x 51.09% - 61.02%
+     glyph   battery    x 70.19% - 72.67%
+     plate   ENERGY     x 73.45% - 88.98%
+
+   Every glyph sits OUTSIDE its plate's dark run, so all three slots can take
+   the full plate with only a bevel inset and none of them needs the
+   after-the-glyph offset the Calendar bar needed.
+
+   Vertical, profiled down the FTP plate (rows of the 1428 raster):
+     top bevel        10.71% - 10.85%   (bright/dark edge pair, lum 95 -> 49)
+     flat interior    10.92% - 12.75%   (lum 59 -> 69)
+     bottom bevel     12.82% - 12.96%   (lum 62 -> 110)
+   Interior centre 11.83%, against fix218's predicted whole-plate centre 11.86%
+   — 0.03% apart, so fix218's crop survival table stands unaltered and needs no
+   re-tabulation. top:11.00%; height:1.70% is centred at 11.85% and clear of
+   both bevels by ~0.08%.
+
+   Light ink on dark plates, which is home's, train's and calendar's polarity.
+   Plates sampled over their blank runs and #F4F7FA measured on each:
+     CASH    rgb(58,68,83)   9.13:1
+     FTP     rgb(59,62,75)   9.84:1
+     ENERGY  rgb(57,60,75)  10.18:1
+
+   ═══ THE ENERGY GAUGE STOPS ARE DARKER AGAIN ═══════════════════════════
+   Same guarantee fix188 made for rider, fix205 for train and fix217 for
+   calendar: a FULL gauge must never read worse than an EMPTY one. Calendar's
+   stops were re-checked against THIS plate before being rejected, exactly as
+   calendar re-checked train's:
+
+     empty plate rgb(57,60,75)              10.18:1
+     calendar's rgba(22,74,46,.65)           9.87:1   <- worse than empty
+     calendar's rgba(26,86,54,.50)           9.20:1   <- worse than empty
+     this hub's rgba(16,56,34,.65)          11.54:1
+     this hub's rgba(20,66,40,.50)          10.53:1
+
+   This plate is DARKER than calendar's rgb(88,77,80), so its empty state is
+   already higher-contrast and the fill has to be darker still to clear it.
+   Copying calendar's greens would have shipped a gauge that dips under its own
+   empty state along its whole length. No border-radius, for the reason the
+   other four give: this is an interior region of a painted bar, not a plate of
+   its own. */
+.sponsor-slot{
+  color:#F4F7FA;
+  text-shadow:0 1px 2px rgba(0,0,0,.70);
+}
+.sponsor-banner-slot{top:11.00%; height:1.70%;}
+#sponsor-slot-money  {left:19.70%; width:13.80%;}
+#sponsor-slot-ftp    {left:51.80%; width:8.50%;}
+#sponsor-slot-energy {left:74.20%; width:14.00%;}
+#sponsor-slot-energy::before{
+  content:'';position:absolute;inset:0;
+  width:calc(var(--sponsor-energy-pct,0) * 1%);
+  background:linear-gradient(90deg, rgba(16,56,34,.65), rgba(20,66,40,.50));
+}
+@media (prefers-reduced-motion: no-preference){
+  #sponsor-slot-energy::before{transition:width .35s ease;}
+}
+#sponsor-slot-energy #sponsor-energy{position:relative;}
+/* ═══ THE CURRENT SPONSOR PLAQUE ═══════════════════════════════════════
+   The blank metal plaque on the console, directly under the painted
+   "CURRENT SPONSOR" label (label rows 81.2% - 82.1%, so the slot starts below
+   it and never overprints it).
+
+     plaque frame      x  5.0% -  7.3%   (left bevel pair)
+     flat interior     x  7.45% - 36.96%,  y 82.42% - 85.43%
+
+   left:8.50%; width:27.50%; top:82.60%; height:2.70% sits inside that on all
+   four sides. Plate sampled at rgb(52,51,68); #F4F7FA on it measures 11.39:1,
+   the highest of the five slots, which is why the plaque carries the one value
+   a player is most likely to read at a glance.
+
+   CROP SURVIVAL (plan §5.5, fix218's convention): the visible slice is
+   0.44991/A of the art's height, centred, so the LAST visible row is
+   1 - (1 - 0.44991/A)/2. The plaque's BOTTOM edge (85.30%, judged at the box
+   edge rather than the centre because this slot is near the foot of the canvas
+   and its miss is a clipped readout) survives while
+
+     1 - (1 - 0.44991/A)/2 > 0.8530   =>   A < 0.6373
+
+   Every phone in fix218's table keeps it whole: iPhone SE (0.5622) clears it by
+   0.075, and 0.6373 is beyond even the 0.6250 tablet row. The whiteboard is
+   never at risk in either direction — its box spans 30.80% - 41.80%, and the
+   first visible row does not reach 30.80% until A > 1.17. */
+#sponsor-slot-name{left:8.50%; width:27.50%; top:82.60%; height:2.70%;}
+/* ═══ THE OBJECTIVES WHITEBOARD ════════════════════════════════════════
+   The one slot on this hub that is NOT a single centred figure: it carries up
+   to three lines, so it overrides .hub-slot's centring wholesale — column
+   direction, both axes to flex-start, left-aligned text — and takes its own
+   smaller clamp, because three lines in an 11% box cannot use the one-line
+   size.
+
+     painted header "OBJECTIVES TO MEET"   y 28.6% - 30.0%
+     board white area                      x 54.66% - 96.27%
+     five painted ruled lines              y 31.86, 34.31, 36.90, 39.43, 41.46%
+
+   left:56.00%; width:39.00%; top:30.80%; height:11.00% starts below the painted
+   header and ends above the board's bottom edge (~42.4%). Each line is 23.5% of
+   the box, which lands the three line centres at 32.09%, 34.68% and 37.26% —
+   within 0.36% of the first three painted rules, so the text reads as written
+   ON them. The painted rules are DECORATION and stay decoration: there are five
+   of them and never more than three lines of content, and the spare two are not
+   filled with anything invented.
+
+   DARK ink here, the inverse of the other four slots — the board is white.
+   Sampled at rgb(214,218,226); #1A1F2B on it measures 11.76:1. No text-shadow:
+   a dark shadow under dark ink on a light plate only muddies the glyph edges,
+   which is why .sponsor-slot's shadow is cancelled rather than inherited. */
+#sponsor-slot-obj{
+  left:56.00%; width:39.00%; top:30.80%; height:11.00%;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:flex-start;
+  text-align:left;
+  color:#1A1F2B;
+  text-shadow:none;
+  font-size:clamp(7px, 2.0cqw, 11px);
+  font-weight:700;
+}
+.sponsor-obj-line{
+  display:flex; align-items:center; justify-content:space-between;
+  width:100%; height:23.5%;
+}
+.sponsor-obj-lbl{
+  overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0;
+}
+.sponsor-obj-val{
+  flex:0 0 auto; padding-left:6px; font-variant-numeric:tabular-nums;
+}
+
+/* ═══════════ fix220: SPONSOR HOTSPOTS, TOAST AND SHEET ═══════════
+   Stage three of three for the Sponsor tab (plan v2 §fix220). The gate above is
+   lifted, three hotspots go on, #sponsors-content is re-parented into
+   #sponsor-sheet and 'sponsors' joins HUB_TABS so .game-header retires from this
+   tab. Every geometry number below is a percentage OF #sponsor-art — the
+   768x1707 canvas — never of the viewport, and every one was re-measured on the
+   shipped 644x1428 raster rather than copied from fix218's predictions, per plan
+   §2.4's "measure per tab, never copy". Where a measurement agrees with the
+   prediction that is corroboration, not licence to skip the next one.
+
+   ═══ THE THREE HOTSPOTS, MEASURED ══════════════════════════════════════
+   Painted extents on the 644x1428 raster, converted to canvas percentages:
+
+     BACK pill        x  18 - 128   y  222 -  278   ->  x  2.80% - 19.88%
+                                                        y 15.55% - 19.47%
+                                    painted centre 11.34% / 17.51%
+     CONTRACT sheet   x 193 - 288   y  953 - 1158   ->  x 29.97% - 44.72%
+                                                        y 66.74% - 81.09%
+                                    painted centre 37.35% / 73.92%
+     SWITCH SPONSOR   x 426 - 602   y 1205 - 1268   ->  x 66.15% - 93.48%
+                                                        y 84.38% - 88.80%
+                                    painted centre 79.81% / 86.59%
+
+   BACK lands within 0.07% of fix218's predicted 11.39% / 17.58% — the band
+   split it argued for holds, and BACK keeps the crossover the other six hubs
+   carry. It therefore takes the SHARED --hw:20%; --hh:5.50% box, as calendar,
+   train, gear and tasks do, so one number describes BACK everywhere.
+
+   CONTRACT takes its painted box almost exactly (--hw:14.70%; --hh:14.30%): the
+   sheet is tall and already far above any 44px minimum at every aspect, so
+   there is nothing to gain by overhanging it into the table.
+
+   SWITCH SPONSOR is the one box that is NOT centred on its paint, and
+   deliberately. The painted pill is 4.42% of the canvas tall = ~38 CSS px on a
+   390px-wide phone, under the 44px target, so the box is grown to --hh:5.60%
+   (~48px). It is grown UPWARD ONLY — centre 86.00% rather than the painted
+   86.59% — so the box spans 83.20% - 88.80%: it contains the whole painted pill,
+   adds its touch slack in flat console plate above, and does NOT push its bottom
+   edge further down the canvas, which is the edge the crop eats (see the table).
+   Growing symmetrically would have cost ~0.6% of crossover for nothing.
+
+   The two painted chevrons flanking SWITCH SPONSOR (< and >) get NO hotspot,
+   per plan §3.2: getLateralSponsor() returns exactly one sponsor, so a prev/next
+   pair would be two controls for a binary choice. They stay decoration. Do not
+   add hotspots that do nothing.
+
+   ═══ COLLISION AUDIT (plan v2 §5.4) ════════════════════════════════════
+   Boxes as (x0-x1, y0-y1), from --hx/--hy/--hw/--hh:
+
+     1 SWITCH    66.15% - 93.45%   83.20% - 88.80%
+     2 BACK       1.34% - 21.34%   14.76% - 20.26%
+     3 CONTRACT  30.00% - 44.70%   66.75% - 81.05%
+
+   1 vs 2: disjoint in both axes.  1 vs 3: x disjoint (44.70 < 66.15).
+   2 vs 3: disjoint in both axes.  Three hotspots, three pairs, no intersection.
+
+   Slots are pointer-events:none and are exempt from the hotspot pass, but are
+   checked against the hotspots for VISUAL overlap, and against each other:
+     #sponsor-slot-name  x 8.50% - 36.00%, y 82.60% - 85.30%
+     #sponsor-slot-obj   x 56.00% - 95.00%, y 30.80% - 41.80%
+   CONTRACT's box ends at 81.05%, 1.55% clear of the plaque slot's top edge, so
+   the hotspot never sits over live text. SWITCH shares the plaque's rows but
+   starts at x 66.15%, 30.15% clear of the plaque's right edge. The whiteboard
+   slot is clear of everything by more than 25%.
+
+   ═══ CROP SURVIVAL TABLE (plan v2 §5.5) ════════════════════════════════
+   Under cover the visible slice of #sponsor-art is f = 0.44991/A of its height,
+   centred, so the first visible row is (1-f)/2 and the last is 0.5 + f/2.
+
+   HOTSPOTS ARE JUDGED AT THEIR BOX TOP, which is fix218's convention for BACK
+   and is the correct test for a control rather than a readout: cropping the
+   lower part of a hit box trims it, cropping past its TOP removes it. A slot is
+   judged at the edge whose loss is a clipped figure, which is why fix219 judged
+   the plaque at its bottom.
+
+     A         first row   last row   BACK top   CONTRACT top   SWITCH top   SWITCH bottom
+     0.4615    1.26%       98.75%     visible    visible        visible      visible
+     0.5000    5.01%       94.99%     visible    visible        visible      visible
+     0.5622    9.99%       90.01%     visible    visible        visible      visible  (iPhone SE)
+     0.6000    12.51%      87.49%     visible    visible        visible      CLIPPED
+     0.6250    14.01%      85.99%     visible    visible        visible      CLIPPED
+
+   Crossovers: BACK box top A < 0.6383 (the shared number is 0.6384 and fix218
+   predicted 0.6395 — the split holds); CONTRACT box top A < 1.343, i.e. never
+   at risk in either direction; SWITCH box top A < 0.6776, the safest of the
+   three. SWITCH's box BOTTOM crosses at A < 0.5745, so from A = 0.60 up the
+   lower ~1.3% of the painted pill and of its hit box is off screen. That is
+   TABLET territory only, it is COSMETIC — the top 4.1% of a 5.6% box is still
+   live and comfortably over 44px — and it is recorded here rather than fixed,
+   because the only fixes available are shrinking the touch target or moving a
+   control off its own paint. The plaque slot beside it crosses at A < 0.6373
+   (fix219's number, unchanged by this fix).
+
+   Every exit on this tab survives every phone aspect in the table. That matters
+   more than usual here because 'sponsors' joins HUB_TABS in this fix and
+   .game-header — until now this tab's second exit — is gone.
+
+   ═══ THE INFORMATIONAL PILL ════════════════════════════════════════════
+   Same node, same shape and the same rules as #cal-toast (fix217), #home-toast
+   and #train-toast: one pre-built node per hub, patched by textContent, never
+   created or destroyed at runtime. Absolutely positioned against #sponsor-art
+   rather than #sponsor-stage so it lands in the same place relative to the
+   painted boardroom at every aspect, exactly like the hotspots and the slots. */
+#sponsor-toast{
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%) scale(.9);
+  padding:10px 18px; border-radius:999px;
+  background:rgba(14,20,32,.94);
+  border:1px solid rgba(255,255,255,.22);
+  color:#fff; font-weight:700; font-size:15px;
+  box-shadow:0 6px 20px rgba(0,0,0,.45);
+  pointer-events:none; opacity:0; visibility:hidden;
+  max-width:86%; text-align:center;
+}
+#sponsor-toast.on{opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1);}
+@media (prefers-reduced-motion: no-preference){
+  #sponsor-toast{transition:opacity .18s ease, transform .18s ease;}
+}
+
+/* ═══ THE SECTION SHEET ════════════════════════════════════════════════
+   Shaped on #train-sheet (fix206), #gear-sheet (fix209) and #cal-sheet (fix217)
+   deliberately: same hard-lockout mechanics, same sticky back bar, same measured
+   top edge. Five sheets, one pattern.
+
+   WHAT IS INSIDE IT IS RE-PARENTED, NOT REBUILT. #sponsors-content moves here
+   from the Sponsor panel with its ID AND ITS BODY UNTOUCHED, so
+   renderSponsorsTab(), renderActiveSponsorView() and renderSponsorChoices() look
+   it up by id and are not edited by this fix. Same id contract fix186/fix206/
+   fix209/fix211/fix217 preserved.
+
+   z-index 74 is assigned by plan v2 §1.3: strictly above #sponsor-stage's 71 so
+   the sheet covers the hotspots, and strictly below every existing stage (tasks
+   76 ... home 90) so tapping through to an older hub can never leave a sponsor
+   sheet painted over it.
+
+   display:none rather than a fade, for fix186's reason: it is a HARD lockout.
+   Closed, it cannot be scrolled, focused or tapped through; open, the stage
+   below is display:none (see the .sponsor-sheet-open pair) so no hotspot can be
+   hit through it. Nothing is translucent, so there is no state in which both
+   layers are live at once — which matters more on this tab than on any other in
+   the series, because the sheet carries the SAME lateral-switch control the
+   painted hotspot arms, and two live copies of a two-tap arm sharing one
+   sponsorActionPending is exactly the confusion the lockout forecloses. */
+#sponsor-sheet{
+  display:none;
+  position:fixed;
+  /* 'sponsors' JOINS HUB_TABS this fix, so .game-header (z-index 83) is hidden
+     on this tab and this fallback is what actually applies — as on calendar, and
+     unlike train and gear where the measured branch is the live path. The
+     measured branch in sponsorSheetSet() is kept anyway, verbatim, per plan
+     §fix217's reasoning: one sheet pattern in the file beats five sheets and
+     four-and-a-bit patterns. */
+  top:env(safe-area-inset-top, 0px);
+  left:0; right:0; bottom:0;
+  z-index:74;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%);
+  /* bottom padding clears .main-tabs (z-index 100), which is still on this tab
+     and still overlays the sheet's lower edge — the bar is not retired until all
+     eight hubs are painted (plan v2 §6). */
+  padding:0 .75rem calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+}
+/* One class on #tab-sponsors drives both layers, so open/closed is a single DOM
+   write and the two can never disagree about which is showing.
+
+   SOURCE ORDER IS LOAD-BEARING HERE, exactly as it is in the calendar block.
+   The .sponsor-hub-preview rule above is KEPT (fix218 said so, and the fix136
+   lesson is why). It carries the same specificity as the pair below — two ids
+   and a class — so if it sat after this, its display:block would beat the
+   lockout whenever a calibration preview had been left switched on. It sits
+   before. Do not reorder this block. */
+#tab-sponsors.sponsor-sheet-open #sponsor-sheet{display:block;}
+#tab-sponsors.sponsor-sheet-open #sponsor-stage{display:none;}
+
+/* Sticky rather than fixed so it participates in the sheet's own scroll
+   container and needs no height reservation. Opaque --hub-sky (flat hex, not
+   the gradient) so content scrolling under it is fully covered. */
+.sponsor-sheet-bar{
+  position:sticky;
+  top:0;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 -.75rem .6rem;
+  padding:.45rem .75rem;
+  background:var(--hub-sky);
+  box-shadow:0 2px 8px rgba(30,25,32,.18);
+}
+.sponsor-sheet-title{
+  font-size:13px;font-weight:700;color:#123;
+  letter-spacing:.02em;
+}
+/* Declared rather than added to the .train-sheet-back / .gear-sheet-back /
+   .cal-sheet-back selector lists, for fix206's reason: one tab's back button
+   must not be able to break another's. Same 44px+ target, same :active scale,
+   same reduced-motion guard, same focus ring. */
+.sponsor-sheet-back{
+  display:flex; align-items:center; gap:6px;
+  min-height:44px; padding:0 14px 0 10px;
+  border:1px solid var(--border); border-radius:999px;
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:700;
+  box-shadow:var(--shadow-md);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.sponsor-sheet-back:active{transform:scale(.96);}
+@media (prefers-reduced-motion: no-preference){
+  .sponsor-sheet-back{transition:transform .12s ease;}
+}
+.sponsor-sheet-back:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+/* A disabled hotspot is still an invisible transparent button, so there is
+   nothing to grey out — the only visible change is that :active no longer
+   scales, which is the correct feedback for "this does not do anything right
+   now". It is cosmetic reinforcement of a refusal that sponsorSwitchOpen()
+   enforces in JS regardless; see that function for why the attribute alone is
+   never trusted. */
+#sponsor-stage .sponsor-hot[disabled]{cursor:default;}
+
+/* ═══ fix221: SKILLS HUB — art and calibration only ═══════════════════════
+   Stage one of two for the Skills tab (plan v2 §fix221), and the SHAPE of
+   fix216 and fix218 with 'skills' substituted — art, cover-rect geometry,
+   calibration overlay. It ships NO hotspot, NO slot and NO sheet: the four
+   drill medallions, the painted BACK, the three banner slots, the re-parented
+   buff bar and #skills-sheet are all fix222. That is exactly why the stage is
+   GATED OFF below. A stage with no exit that is reachable is a trap, and this
+   one would paint over a working Skills tab with nothing to tap.
+
+   Coordinate space, stated here because this is where the numbers get typed in
+   fix222: every percentage is a percentage OF #skills-art — the 768x1707 re-cut
+   canvas — and never a percentage of the viewport. That is what keeps the later
+   hotspots welded to the painting at any phone aspect.
+
+   ═══ THE RE-CUT, MEASURED NOT ASSUMED ═══════════════════════════════════
+   Plan §2 predicts a 784x1400 source with no margin, to be scaled to 768x1371
+   and padded by 336. The MEASURED source is different in both respects, and the
+   measurement wins (plan §2.4's "measure per tab, never copy"). It lands on the
+   same CONTENT BOX fix216 and fix218 measured — three for three — but NOT on
+   the same kept height, which is the part that would have been wrong to copy:
+
+     file            784 x 1400
+     content box     768 x 1376   (PURE WHITE margin on the right, 16 cols
+                                   768-783, and on the bottom, 24 rows
+                                   1376-1399 — the fix170/fix179 home-art
+                                   shape, NOT the fix202 rider shape)
+     kept content    768 x 1369   (rows 1369-1375 dropped: SEVEN rows here,
+                                   where fix218 dropped one and fix216 four.
+                                   Row 1375 carries the JPEG boundary artefact
+                                   — mean 72.9 against 63.2 on row 1374 — and
+                                   rows 1369-1374 measure std 20-25, which is
+                                   textured floor rather than plate. Row 1368
+                                   is the flattest row in the bottom thirty
+                                   (rgb(56,56,73), std 14.2/14.0/13.3) and the
+                                   darkest, so it is the one replicated.)
+
+   So the content is ALREADY 768 wide: no horizontal scale, and no 102.825%
+   left-pinned crop like #rider-art / #train-art / #gear-art / #tasks-art take.
+   The white margin is removed by the re-cut itself, in the raster, which is why
+   the background shorthand below is a plain center/cover with no margin fudge.
+   If a future re-drop of this art carries a DIFFERENT margin, this whole block
+   is re-measured.
+
+   Band split: 1707 - 1369 = 338 px, split 153 TOP / 185 BOTTOM. Not 169/169.
+   Both extreme rows were stddev-checked before replication, as plan §2.2 step 2
+   requires:
+     row 0     rgb(64,102,133)  std 11.0/17.7/23.1   (the sky above the roofline)
+     row 1368  rgb(56,56,73)    std 14.2/14.0/13.3   (the dark forecourt floor)
+   Both are flat enough to replicate — the bottom row is the FLATTEST of the
+   three arts in this plan and the top row is comparable to fix218's — so the
+   two-stop gradient fallback was not needed here either.
+
+   ═══ WHY 153, AND THE OVER-DETERMINATION IN THE OTHER DIRECTION ════════
+   Plan §2.3 wants the stat bar at canvas y 10.85% and the painted BACK at
+   17.5-17.6%. Measured on this source (content coordinates):
+
+     bar plates   y 15-50    centre y 32.5   (x 145-264, 382-471, 564-687)
+     BACK plaque  x 12-152, y 160-232        centre 82 / 196
+
+   Gap bar-centre to BACK-centre = 163.5 px. The gap the two targets require is
+   (0.1755 - 0.1085) x 1707 = 114.4 px. This art OVERSHOOTS by ~49 px where
+   fix216 and fix218 undershot by ~10 and ~16 — same over-determination, opposite
+   sign, and it flips which element the resolution favours. Padding moves both
+   together, so no band split closes it.
+
+   Resolved in the BAR's favour here, which is plan §2.4's stated default AND
+   fix218's meta-rule ("favour the element whose miss costs survival") pointing
+   the same way for once. T=153 lands the bar centre on 10.85% exactly and BACK
+   at 20.45% — 2.9% BELOW the shared number, which crops LATER, not earlier. The
+   opposite resolution (T=104, BACK on 17.58%) would have dragged the bar up to
+   7.95%, i.e. a WORSE crossover on the more fragile of the two. So on this hub
+   the bar carries the shared crossover to four decimals and BACK is strictly
+   safer than the shared one; on Calendar and Sponsor it was the other way round.
+   That asymmetry is the reason §2.4 says measure per tab and never copy.
+
+   Resulting canvas percentages (of 1707), for fix222 to start from and
+   re-verify — they are a starting hypothesis, not a licence to skip measuring:
+     top band      0 - 8.96%
+     bar plates     9.84% - 11.89%   centre 10.85%
+     BACK plaque   18.34% - 22.55%   centre 10.68% / 20.45%,
+                                     painted 18.23% x 4.22%
+     bottom band   89.16% - 100%
+
+   ═══ CROP SURVIVAL TABLE (plan §5.5) ═══════════════════════════════════
+   Under cover the visible slice of #skills-art is 0.44991/A of its height,
+   centred, so the first visible row is (1 - 0.44991/A)/2. Convention matches
+   fix202/fix205/fix208/fix216/fix218: the bar is judged at its CENTRE, the BACK
+   at its hit box's TOP edge (centre 20.45% minus half of --hh 5.50% = 17.70%).
+
+     A         first visible row   bar centre   BACK box top
+     0.4615    1.26%               visible      visible
+     0.5000    5.01%               visible      visible
+     0.5622    9.99%               visible      visible   (iPhone SE)
+     0.6000    12.51%              CLIPPED      visible
+     0.6250    14.01%              CLIPPED      visible
+
+   Crossovers: bar centre A < 0.5746 — the shared number to four decimals, which
+   is what landing it on 10.85% exactly buys — and BACK box top A < 0.6965,
+   comfortably past Calendar's 0.6391 and Sponsor's 0.6395 and past anything
+   that is still a phone. The bar plates' painted TOP edge (9.84%) grazes at
+   A < 0.5602, so at iPhone SE aspect a sliver of the plate tops is off screen;
+   the slot text fix222 adds is vertically centred in the plate, so that is
+   cosmetic and not a readout loss — the identical situation fix216 and fix218
+   both recorded.
+
+   Everything above 0.60 is tablet territory, as it is on all six shipped hubs.
+
+   Asset: assets/skills-bg.jpg, encoded 640x1422 (the same raster every hub art
+   uses, so #skills-art shares #home-art's 768/1707 arithmetic verbatim),
+   progressive 4:2:0, EXIF stripped, q54 = 117.9 KB against the 120 KB budget. */
+#skills-stage{
+  /* Everything except the z-index comes from .hub-stage (fix203). z-index 72 is
+     assigned by plan v2 §1.3 — one above #sponsor-stage's 71 and BELOW every
+     pre-existing stage (tasks 76 ... home 90), so tapping through to an older
+     hub can never leave this art painted over it. The three new stages are
+     mutually exclusive by showTab() anyway, so 70/71/72 among themselves is
+     fixed for readability, not for correctness. Do not re-derive the sky
+     placeholder, the overflow or the tap-highlight kill here; they are the
+     shared class's job.
+
+     display:none + pointer-events:none is the GATE, and it is the whole reason
+     this stage is safe to ship with no controls on it. fix222 lifts it, in the
+     same place and with the same tombstone fix220 used, once the painted BACK
+     exists. Until then the only route to this art is skillsDebugToggle(). */
+  z-index:72;
+  display:none;
+  pointer-events:none;
+}
+/* One class on #tab-skills drives the preview, matching .cal-hub-preview,
+   .sponsor-hub-preview, .tasks-hub-preview, .train-hub-preview and
+   .gear-hub-preview. This is a REAL gate this stage — #skills-stage above is
+   display:none, so without this class there is no route to the art at all. It
+   is KEPT when fix222 ungates the stage, exactly as fix206, fix209, fix211,
+   fix217 and fix220 kept theirs: a class toggle with no rule behind it is
+   precisely the thing a later reader assumes still does something (the fix136
+   lesson), and this rule is what a future stage would re-gate through if the
+   art were ever pulled. */
+#tab-skills.skills-hub-preview #skills-stage{display:block;pointer-events:auto;}
+#skills-art{
+  /* Cover-rect arithmetic comes from .hub-art (fix203) — do NOT re-derive it
+     here. Only the background shorthand is per-tab, and like #cal-art and
+     #sponsor-art, and unlike the other four painted tabs, this one takes NO
+     margin crop: the re-cut above removed the white margin in the raster, so it
+     is a plain center/cover. The fallback is the sky gradient, kept for the
+     reason every other hub keeps it — a missing asset degrades to flat sky,
+     never to a black screen. */
+  background:var(--sheet-skills-scene,
+    linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
+    center/cover no-repeat;
+}
+/* The calibration overlay rides the generic .hub-cal / .hub-cal-tick /
+   .hub-cal-edge set introduced in the fix210 block above — no fourth private
+   copy, which is what that block nominated the generic set for. Only the
+   .skills-debug scoping rules are new here, because the display gate is keyed
+   to each stage's own debug class. .hub-cal-rect is NOT used on this tab: it is
+   Tasks-specific (it calibrates the clipboard RECT), and Skills calibrates four
+   painted CIRCLES plus one rectangle, whose centres and edges the 5%/2% fine
+   grid reads off directly.
+
+   Off by default and never persisted: these only paint under .skills-debug,
+   which skillsDebugToggle() sets from the console. */
+#skills-stage.skills-debug .hub-cal{display:block;}
+#skills-stage.skills-debug .hub-cal::before{
+  content:'';position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(to right, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to bottom, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to right, rgba(0,255,255,.30) 0 1px, transparent 1px 5%),
+    repeating-linear-gradient(to bottom, rgba(0,255,255,.30) 0 1px, transparent 1px 2%);
+}
+/* Magenta boxes and cyan slots, matching rider, train, gear, tasks, calendar and
+   sponsor so a screenshot from any hub reads the same way. NEITHER SELECTOR HAS
+   A MATCH IN THIS FILE YET — .skills-hot and .skills-slot are both fix222's
+   markup. They are written now, with the rest of the debug set, so that fix222
+   adds markup only and cannot ship a hotspot or a slot that is invisible to the
+   calibration pass that is supposed to place it. Dead selectors, deliberately,
+   for exactly one stage. */
+#skills-stage.skills-debug .skills-hot{background:rgba(255,0,255,.28);outline:2px solid #ff0;}
+#skills-stage.skills-debug .skills-hot::after{
+  content:attr(data-hot);position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);color:#ff0;font:700 13px/1 monospace;
+}
+#skills-stage.skills-debug .skills-slot{background:rgba(0,255,255,.30);outline:1px solid #0ff;}
+
 /* ═══════════ fix170: HOME HUB ═══════════
    The art is load-bearing. It carries the background, the nine icon circles,
    their captions, the top banner plate and the bottom bar chrome. Nothing is
@@ -5855,15 +6964,415 @@ body.home-open{overflow:hidden;}
        1800 tier — they cover this panel, and their close functions call
        openRiderSkillsHub(), which now just returns here. -->
   <div id="tab-skills" style="display:none">
+    <!-- fix221: the painted SKILLS hub stage. Art and geometry only — no
+         hotspot, no slot, no sheet, no exit is welded to it yet (plan v2
+         §fix222: the four drill medallions, the painted BACK, the three banner
+         slots, the re-parented buff bar and #skills-sheet all land there).
+         Because it has no controls, it is GATED OFF by default and raised only
+         by skillsDebugToggle(), which adds .skills-hub-preview to this panel.
+
+         The Skills tab below it is byte-for-byte the fix220 tab in normal use:
+         #rs-buff-wrap, the .section-lbl and #rs-hub-body are untouched, and
+         renderRiderSkillsTab(), renderRiderSkillsCard(), renderRiderSkillsHub()
+         and rsTickBuffPills() are not read by this stage at all. That is
+         deliberate — this stage is assets-and-geometry so the re-cut can be
+         eyeballed on device, with the calibration grid over it, BEFORE fix222
+         types coordinates against it. It matters here for a reason the other
+         two hubs did not have: four of this tab's five hotspots are painted
+         CIRCLES, and a circular medallion's centre is the one thing a grid
+         reads well and an eyeball reads badly.
+
+         The .main-tab bar and TABS are UNTOUCHED by this stage. 'skills' keeps
+         its bar button and its index in TABS; the index-map coupling rule (plan
+         v2 §6) stays live until the bar is actually retired, and removing a
+         "now-redundant" button here would silently desynchronise every mapping
+         after it. 'skills' is also NOT added to HUB_TABS this stage, for
+         fix204's, fix207's, fix210's, fix216's and fix218's reason: HUB_TABS
+         hides .game-header, and until a painted BACK exists the header strip is
+         the only chrome on this tab that goes anywhere.
+
+         Coordinate space: every percentage is a percentage OF #skills-art —
+         the 768x1707 re-cut canvas — never of the viewport. See the fix221 CSS
+         block for the measured re-cut, the 153/185 band split and the crop
+         survival table. -->
+    <div id="skills-stage" class="hub-stage">
+      <div id="skills-art" class="hub-art">
+        <!-- Calibration overlay, on the generic .hub-cal-* set introduced in
+             the fix210 CSS block. Inert (pointer-events:none, and the whole
+             stage is inert this stage) and display:none until .skills-debug is
+             set. Static markup rather than JS-generated ticks: render-only
+             discipline, nothing here is built at runtime.
+             No .hub-cal-rect — that one is Tasks-specific (see the fix221 CSS
+             note); this tab calibrates four painted circles and one plaque,
+             whose centres and edges the 5%/2% fine grid answers on its own. -->
+        <div id="skills-cal" class="hub-cal">
+          <div class="hub-cal-edge top"></div>
+          <div class="hub-cal-edge bot"></div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:0%">0</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:10%">10</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:20%">20</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:30%">30</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:40%">40</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:50%">50</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:60%">60</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:70%">70</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:80%">80</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:90%">90</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:100%">100</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:10%">10</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:20%">20</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:30%">30</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:40%">40</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:50%">50</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:60%">60</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:70%">70</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:80%">80</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:90%">90</div>
+        </div>
+      </div>
+    </div>
     <div id="rs-buff-wrap"></div>
     <div class="section-lbl">Skill Drills</div>
     <div id="rs-hub-body" class="rs-overlay-body"></div>
   </div>
   <div id="tab-sponsors" style="display:none">
+    <!-- fix218: the painted SPONSOR hub stage. Art and geometry only — no
+         hotspot, no slot, no sheet, no exit is welded to it yet (plan v2
+         §fix218: the whiteboard and plaque slots land in fix219; the SWITCH
+         SPONSOR / BACK / CONTRACT hotspots and #sponsor-sheet land in fix220).
+         Because it has no controls, it is GATED OFF by default and raised only
+         by sponsorDebugToggle(), which adds .sponsor-hub-preview to this panel.
+
+         The Sponsor tab below it is byte-for-byte the fix217 tab in normal use:
+         #sponsors-content is untouched, and renderSponsorsTab(),
+         renderActiveSponsorView() and renderSponsorChoices() are not read by
+         this stage at all. That is deliberate — this stage is
+         assets-and-geometry so the re-cut can be eyeballed on device, with the
+         calibration grid over it, BEFORE fix219/fix220 type coordinates against
+         it. It matters more here than on Calendar: this hub has five distinct
+         states to overlay (plan v2 §fix219), and every one of them is placed
+         against the numbers this stage exists to confirm.
+
+         The .main-tab bar and TABS are UNTOUCHED by this stage. 'sponsors'
+         keeps its bar button and its index in TABS; the index-map coupling rule
+         (plan v2 §6) stays live until the bar is actually retired, and removing
+         a "now-redundant" button here would silently desynchronise every
+         mapping after it. 'sponsors' is also NOT added to HUB_TABS this stage,
+         for fix204's, fix207's, fix210's and fix216's reason: HUB_TABS hides
+         .game-header, and until a painted BACK exists the header strip is the
+         only chrome on this tab that goes anywhere.
+
+         fix220 UPDATE, all three paragraphs above: the stage is no longer gated
+         off, it is no longer control-free, and 'sponsors' IS now in HUB_TABS —
+         the painted BACK (data-hot 2) is the exit that made that safe. The
+         .main-tab bar and TABS remain UNTOUCHED, and that part of the note above
+         still stands exactly as written: the bar is retired in a later plan,
+         once all eight hubs are painted (plan v2 §6), and not one button earlier.
+
+         Coordinate space: every percentage is a percentage OF #sponsor-art —
+         the 768x1707 re-cut canvas — never of the viewport. See the fix218 CSS
+         block for the measured re-cut, the 170/162 band split and the crop
+         survival table. -->
+    <div id="sponsor-stage" class="hub-stage">
+      <div id="sponsor-art" class="hub-art">
+        <!-- Calibration overlay, on the generic .hub-cal-* set introduced in
+             the fix210 CSS block. Inert (pointer-events:none, and the whole
+             stage is inert this stage) and display:none until .sponsor-debug is
+             set. Static markup rather than JS-generated ticks: render-only
+             discipline, nothing here is built at runtime.
+             No .hub-cal-rect — that one is Tasks-specific (see the fix218 CSS
+             note); this tab calibrates painted rectangles, whose edges the
+             5%/2% fine grid answers on its own. -->
+        <div id="sponsor-cal" class="hub-cal">
+          <div class="hub-cal-edge top"></div>
+          <div class="hub-cal-edge bot"></div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:0%">0</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:10%">10</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:20%">20</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:30%">30</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:40%">40</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:50%">50</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:60%">60</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:70%">70</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:80%">80</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:90%">90</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:100%">100</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:10%">10</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:20%">20</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:30%">30</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:40%">40</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:50%">50</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:60%">60</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:70%">70</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:80%">80</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:90%">90</div>
+        </div>
+        <!-- fix219: the painted CASH / FTP / ENERGY bar goes live, closing the
+             same defect on this tab that fix187 closed on rider, fix205 on
+             train and fix217 on calendar: until now the figures painted here
+             were whatever the art happened to carry and never matched the save.
+             Each value sits in a measured blank run INSIDE its painted plate —
+             see the fix219 CSS for the column profile and the glyph pass that
+             confirmed no figure is typed over a painted icon. Em-dash
+             placeholders exactly as the other six hubs use, so no slot ever
+             renders empty in the frame before the first
+             renderHubBanner('sponsors'). Ids live on the INNER SPANS so the
+             ENERGY gauge is CSS alone, as fix188 was.
+
+             NO HOTSPOTS THIS FIX. .hub-slot is pointer-events:none and
+             #sponsor-stage is still display:none behind fix218's gate, so
+             everything in this subtree is read-only twice over. The SWITCH
+             SPONSOR / BACK / CONTRACT hotspots and #sponsor-sheet are fix220,
+             and the gate comes out there, not here. -->
+        <div class="hub-slot sponsor-slot sponsor-banner-slot" id="sponsor-slot-money"><span id="sponsor-money">&#8212;</span></div>
+        <div class="hub-slot sponsor-slot sponsor-banner-slot" id="sponsor-slot-ftp"><span id="sponsor-ftp">&#8212;</span></div>
+        <div class="hub-slot sponsor-slot sponsor-banner-slot" id="sponsor-slot-energy"><span id="sponsor-energy">&#8212;</span></div>
+        <!-- The CURRENT SPONSOR plaque and the OBJECTIVES TO MEET whiteboard,
+             both painted by renderSponsorHubSlots(). Five states share these two
+             slots; see that function for the table and for why every state has a
+             painted-safe fallback rather than an empty plate.
+
+             The whiteboard's three lines are PRE-BUILT here and patched by
+             textContent, never created per render — the same contract
+             #cal-toast has, and the reason this renderer can run on every
+             updateUI() tick without node churn. Three, not five: the painted
+             board carries five rules but sponsor.objectives is always three, and
+             the spare two rules stay decoration rather than being filled with an
+             invented fourth and fifth objective. In the four single-message
+             states line 1 carries the message and lines 2-3 are blanked. -->
+        <div class="hub-slot sponsor-slot" id="sponsor-slot-name"><span id="sponsor-name">&#8212;</span></div>
+        <div class="hub-slot sponsor-slot" id="sponsor-slot-obj">
+          <div class="sponsor-obj-line"><span class="sponsor-obj-lbl" id="sponsor-obj-lbl-1"></span><span class="sponsor-obj-val" id="sponsor-obj-val-1"></span></div>
+          <div class="sponsor-obj-line"><span class="sponsor-obj-lbl" id="sponsor-obj-lbl-2"></span><span class="sponsor-obj-val" id="sponsor-obj-val-2"></span></div>
+          <div class="sponsor-obj-line"><span class="sponsor-obj-lbl" id="sponsor-obj-lbl-3"></span><span class="sponsor-obj-val" id="sponsor-obj-val-3"></span></div>
+        </div>
+        <!-- fix220: the three hotspots. Transparent buttons on .hub-hot, boxed
+             in percentages of #sponsor-art so they stay welded to the painting
+             at every aspect. data-hot indices are the plan v2 §3.2 numbering and
+             are APPEND-ONLY from here: 1 SWITCH SPONSOR, 2 BACK, 3 CONTRACT.
+             Rider acquired an index consumer two stages after its hotspots
+             landed, so these are fixed immediately even though nothing reads
+             them today except the .sponsor-debug label.
+
+             Ordered SWITCH / BACK / CONTRACT to match data-hot rather than
+             painted reading order — the collision audit in the fix220 CSS block
+             proves no pair intersects, so DOM order decides nothing about hit
+             testing here.
+
+             All three use .hub-hot-rect: every target on this hub is a painted
+             RECTANGLE (a console button, a pill, a sheet of paper), unlike the
+             circular medallions on Calendar and Skills.
+
+             See the fix220 CSS block for the measured extents, the collision
+             audit, the crop survival table and why SWITCH's box is grown upward
+             rather than centred on its paint.
+
+             BACK routes through hubGo('home') directly rather than through the
+             homeGo() alias, per plan v2 §1.2 — and it is now the ONLY exit on
+             this tab that is not the .main-tab bar, because 'sponsors' joins
+             HUB_TABS in this fix and .game-header is gone. Its crossover
+             (A < 0.6383) is therefore load-bearing rather than cosmetic.
+
+             SWITCH SPONSOR carries the ONE interactive decision in this series.
+             It is not wired to lateralSwitchSponsor() directly: sponsorSwitchOpen()
+             sits in front of it and refuses, redirects or arms depending on
+             which of five sponsor states the player is in. The `disabled`
+             attribute is synced by renderSponsorHubSlots() in the three refusing
+             states, and sponsorSwitchOpen() re-checks all of them anyway,
+             because a disabled attribute is cosmetic and a hand-fired onclick
+             must still be refused.
+
+             CONTRACT is REQUIRED, not decorative: without it the whiteboard is
+             read-only and there is no route from this hub to claiming an
+             objective, signing, upgrading or terminating. The fix219 fallback
+             (making the plaque itself the hotspot) was NOT needed — the painted
+             sheet boxes cleanly, as the measurements in the CSS show. -->
+        <button class="hub-hot hub-hot-rect sponsor-hot" data-hot="1" style="--hx:79.80%;--hy:86.00%;--hw:27.30%;--hh:5.60%" aria-label="Switch sponsor" onclick="sponsorSwitchOpen()"></button>
+        <button class="hub-hot hub-hot-rect sponsor-hot" data-hot="2" style="--hx:11.34%;--hy:17.51%;--hw:20%;--hh:5.50%" aria-label="Back to home" onclick="hubGo('home')"></button>
+        <button class="hub-hot hub-hot-rect sponsor-hot" data-hot="3" style="--hx:37.35%;--hy:73.90%;--hw:14.70%;--hh:14.30%" aria-label="Open the sponsor contract" onclick="sponsorHubGo()"></button>
+        <!-- The informational pill. A child of #sponsor-art rather than of
+             #sponsor-stage so it is positioned against the cover rect and lands
+             in the same place relative to the painted boardroom at every aspect,
+             exactly like the hotspots and slots. Last in the subtree so it
+             paints over them. Built empty and hidden; sponsorComingSoon()
+             patches textContent, and no code path ever creates or destroys this
+             node. -->
+        <div id="sponsor-toast"></div>
+      </div>
+    </div>
+    <!-- fix220: the section sheet. Opened by sponsorHubGo() from the painted
+         contract (and by sponsorSwitchOpen() when the right move is a tier
+         upgrade, which is a choice between cards the sheet already renders),
+         closed by sponsorHubBack(). A real control inside the sheet rather than
+         a second history level: opening it pushes nothing, so the platform back
+         gesture from anywhere in this tab still lands where it did before. Same
+         shape as #train-sheet (fix206), #gear-sheet (fix209) and #cal-sheet
+         (fix217).
+
+         #sponsors-content below is RE-PARENTED from the Sponsor panel, id and
+         body untouched — see the tombstone at its old position. There is one
+         section on this tab, so the sheet takes no key: sponsorHubGo() has
+         nothing to disambiguate and #sponsor-sheet-title is a constant. -->
+    <div id="sponsor-sheet">
+      <div class="sponsor-sheet-bar">
+        <button class="sponsor-sheet-back" aria-label="Back to sponsor hub" onclick="sponsorHubBack()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Sponsor</button>
+        <div class="sponsor-sheet-title" id="sponsor-sheet-title">Contract</div>
+      </div>
+      <div id="sponsors-content"></div>
+    </div>
+    <!-- fix220 tombstone: #sponsors-content was here and is now inside
+         #sponsor-sheet above. Moved, not duplicated — two nodes with the same id
+         would make renderSponsorsTab() write to whichever one the document
+         happened to resolve first.
     <div id="sponsors-content"></div>
+    -->
   </div>
   <div id="tab-calendar" style="display:none">
+    <!-- fix216: the painted CALENDAR hub stage. Art and geometry only — no
+         hotspot, no slot, no sheet, no exit is welded to it yet (plan v2
+         §fix216: the ENTER EVENT medallion, the painted BACK, the three banner
+         slots and #cal-sheet all land in fix217). Because it has no controls,
+         it is GATED OFF by default and raised only by calDebugToggle(), which
+         adds .cal-hub-preview to this panel.
+
+         The Calendar tab below it is byte-for-byte the fix215 tab in normal
+         use: #calendar-content is untouched, and renderCalendarTab() is not
+         read by this stage at all. That is deliberate — this stage is
+         assets-and-geometry so the re-cut can be eyeballed on device, with the
+         calibration grid over it, BEFORE fix217 types coordinates against it.
+
+         The .main-tab bar and TABS are UNTOUCHED by this stage. 'calendar'
+         keeps its bar button and its index in TABS; the index-map coupling rule
+         (plan v2 §6) stays live until the bar is actually retired, and removing
+         a "now-redundant" button here would silently desynchronise every
+         mapping after it. 'calendar' is also NOT added to HUB_TABS this stage,
+         for fix204's, fix207's and fix210's reason: HUB_TABS hides
+         .game-header, and until a painted BACK exists the header strip is the
+         only chrome on this tab that goes anywhere.
+
+         Coordinate space: every percentage is a percentage OF #cal-art — the
+         768x1707 re-cut canvas — never of the viewport. See the fix216 CSS
+         block for the measured re-cut, the 162/173 band split and the crop
+         survival table. -->
+    <div id="cal-stage" class="hub-stage">
+      <div id="cal-art" class="hub-art">
+        <!-- Calibration overlay, on the generic .hub-cal-* set introduced in
+             the fix210 CSS block. Inert (pointer-events:none, and the whole
+             stage is inert this stage) and display:none until .cal-debug is
+             set. Static markup rather than JS-generated ticks: render-only
+             discipline, nothing here is built at runtime.
+             No .hub-cal-rect — that one is Tasks-specific (see the fix216 CSS
+             note); this tab calibrates a medallion centre, which the grid and
+             the labelled ticks answer on their own. -->
+        <div id="cal-cal" class="hub-cal">
+          <div class="hub-cal-edge top"></div>
+          <div class="hub-cal-edge bot"></div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:0%">0</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:10%">10</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:20%">20</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:30%">30</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:40%">40</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:50%">50</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:60%">60</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:70%">70</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:80%">80</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:90%">90</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:100%">100</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:10%">10</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:20%">20</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:30%">30</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:40%">40</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:50%">50</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:60%">60</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:70%">70</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:80%">80</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:90%">90</div>
+        </div>
+        <!-- fix217: the two hotspots. data-hot runs 1-2 in painted reading
+             order with BACK appended as 2, and is APPEND-ONLY from here — the
+             rider lesson (an index consumer arrived two stages after its
+             hotspots landed) says to treat these as fixed immediately.
+
+             1 - ENTER EVENT. Measured off calDebugToggle(): the gold medallion
+             is a clean circle spanning x 13.40%-45.30%, y 67.90%-82.45%, so
+             centre 29.35% / 75.15% and diameter 31.90% of 768 = 245px against
+             14.55% of 1707 = 248px. It is a CIRCLE on the canvas even though
+             the two percentages differ, which is the whole point of
+             --hx/--hy being percentages of #cal-art and not of the viewport.
+             --hw/--hh are set just inside the paint at 30% / 13.60% (230px /
+             232px) so the box never overhangs onto the desk edge or the
+             calendar frame above it; .hub-hot's border-radius:50% makes the hit
+             area the inscribed circle, matching what is painted.
+
+             2 - the painted BACK, at the numbers fix216 measured: cx 10.94% /
+             cy 17.55%, painted 19.01% x 3.92%. --hw 20% and --hh 5.50% against
+             those, for fix202's reason: 3.92% of an 867px cover rect is a 34px
+             target and misses the 44px floor, 5.50% is 48px and clears it. The
+             box overhangs the paint into flat wall.
+
+             COLLISION AUDIT (plan v2 §5.4): BACK's box is x 0.94%-20.94%,
+             y 14.80%-20.30%; ENTER EVENT's is x 14.35%-44.35%,
+             y 68.35%-81.95%. They overlap in x and are 48.05% clear in y, so
+             the boxes do not intersect. Two hotspots, one pair, no collision.
+
+             BACK routes through hubGo('home') directly rather than through the
+             homeGo() alias, per plan v2 §1.2 — and it is now the ONLY exit on
+             this tab that is not the .main-tab bar, because 'calendar' joins
+             HUB_TABS in this fix and .game-header is gone. That is what makes
+             the crossover in the fix216 crop table load-bearing rather than
+             cosmetic: BACK's box top survives to A < 0.6391, i.e. every phone.
+
+             ENTER EVENT routes through calHubGo(), which carries the locked
+             guard — the medallion never opens an empty room. -->
+        <button class="hub-hot cal-hot" data-hot="1" style="--hx:29.35%;--hy:75.15%;--hw:30%;--hh:13.60%" aria-label="Enter event, open the race calendar" onclick="calHubGo()"></button>
+        <button class="hub-hot hub-hot-rect cal-hot" data-hot="2" style="--hx:10.94%;--hy:17.55%;--hw:20%;--hh:5.50%" aria-label="Back to home" onclick="hubGo('home')"></button>
+        <!-- The painted CASH / FTP / ENERGY bar goes live, closing the same
+             defect on this tab that fix187 closed on rider and fix205 on train:
+             until now the figures painted here were whatever the art happened
+             to carry and never matched the save. Each value sits in a measured
+             blank run INSIDE the painted bar, after its glyph — see the CSS for
+             the runs and how they were profiled. Em-dash placeholders exactly
+             as the other five hubs use, so no slot ever renders empty in the
+             frame before the first renderHubBanner('calendar'). Ids live on the
+             INNER SPANS so the ENERGY gauge is CSS alone, as fix188 was.
+             .hub-slot is pointer-events:none, so ordering these AFTER the
+             hotspots costs nothing in hit testing and only decides paint
+             order — which matches train. -->
+        <div class="hub-slot cal-slot" id="cal-slot-money"><span id="cal-money">&#8212;</span></div>
+        <div class="hub-slot cal-slot" id="cal-slot-ftp"><span id="cal-ftp">&#8212;</span></div>
+        <div class="hub-slot cal-slot" id="cal-slot-energy"><span id="cal-energy">&#8212;</span></div>
+        <!-- The informational pill. A child of #cal-art rather than of
+             #cal-stage so it is positioned against the cover rect and lands in
+             the same place relative to the painted wall at every aspect,
+             exactly like the hotspots and slots. Last in the subtree so it
+             paints over them. Built empty and hidden; calComingSoon() patches
+             textContent, and no code path ever creates or destroys this node. -->
+        <div id="cal-toast"></div>
+      </div>
+    </div>
+    <!-- fix217: the section sheet. Opened by calHubGo() from the one medallion,
+         closed by calHubBack(). A real control inside the sheet rather than a
+         second history level: opening it pushes nothing, so the platform back
+         gesture from anywhere in this tab still lands where it did before. Same
+         shape as #train-sheet (fix206) and #gear-sheet (fix209).
+
+         #calendar-content below is RE-PARENTED from the Calendar panel, id and
+         body untouched — see the tombstone at its old position. There is one
+         section on this tab, so the sheet takes no key: calHubGo() has nothing
+         to disambiguate and #cal-sheet-title is a constant. -->
+    <div id="cal-sheet">
+      <div class="cal-sheet-bar">
+        <button class="cal-sheet-back" aria-label="Back to calendar hub" onclick="calHubBack()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Calendar</button>
+        <div class="cal-sheet-title" id="cal-sheet-title">Major Events</div>
+      </div>
+      <div id="calendar-content"></div>
+    </div>
+    <!-- fix217 tombstone: #calendar-content was here and is now inside
+         #cal-sheet above. Moved, not duplicated — two nodes with the same id
+         would make renderCalendarTab() write to whichever one the document
+         happened to resolve first.
     <div id="calendar-content"></div>
+    -->
   </div>
 </div>
 
@@ -11584,6 +13093,70 @@ const LAZY_ASSET_GROUPS = {
     // top rgb(48,33,41), bottom rgb(58,53,69); q79 = 118.5 KB. The clipboard art
     // is the flattest of the four, so the same budget buys far more quality.
     '--sheet-tasks-scene': 'assets/tasks-bg.jpg'
+  },
+  // fix216: the first of plan v2's three remaining painted tabs. APPENDED, not
+  // inserted, per the standing rule — nothing here is index-mapped today, and
+  // that is exactly the assumption that breaks the first time something is.
+  // THE GROUP KEY MATCHES THE TAB ID for this one ('calendar' / 'calendar'),
+  // unlike the growth/tasks pair above. That is worth saying out loud rather
+  // than leaving to inference: the mismatch above is a historical accident of
+  // fix201, not the convention, so nobody should go looking for a second name
+  // for this group or assume showTab()'s branch needs translating.
+  calendar: {
+    // top rgb(74,69,77), bottom rgb(57,49,62); q60 = 119.8 KB.
+    // 768x1707 re-cut from a 784x1400 source whose CONTENT box is 768x1376 —
+    // white margin right AND bottom, the home-art shape, so no left-pinned
+    // 102.825% crop is needed and #cal-art takes a plain center/cover. Band
+    // split 162/173 rather than the reflex 168/168; the reasoning, the measured
+    // bar/BACK positions and the crop survival table are all in the fix216 CSS
+    // block, which is the one place to change if the art is ever redrawn.
+    '--sheet-calendar-scene': 'assets/calendar-bg.jpg'
+  },
+  // fix218: the second of plan v2's three remaining painted tabs. APPENDED, not
+  // inserted, per the standing rule — nothing here is index-mapped today, and
+  // that is exactly the assumption that breaks the first time something is.
+  // THE GROUP KEY MATCHES THE TAB ID for this one too ('sponsors' / 'sponsors'),
+  // as it did for 'calendar' above and unlike the growth/tasks pair further up.
+  // Worth saying out loud rather than leaving to inference, because two matches
+  // in a row could read as a rule that the third entry then breaks: the
+  // growth/tasks mismatch is a historical accident of fix201, NOT the
+  // convention, so nobody should go looking for a second name for this group or
+  // assume showTab()'s branch needs translating.
+  sponsors: {
+    // top rgb(85,91,107), bottom rgb(52,47,66); q76 = 119.9 KB.
+    // 768x1707 re-cut from a 784x1400 source whose CONTENT box is 768x1376 —
+    // white margin right AND bottom, the home-art shape, so no left-pinned
+    // 102.825% crop is needed and #sponsor-art takes a plain center/cover. Band
+    // split 170/162 rather than the reflex 166/166; the reasoning, the measured
+    // bar/BACK positions and the crop survival table are all in the fix218 CSS
+    // block, which is the one place to change if the art is ever redrawn.
+    '--sheet-sponsor-scene': 'assets/sponsor-bg.jpg'
+  },
+  // fix221: the third and last of plan v2's remaining painted tabs. APPENDED,
+  // not inserted, per the standing rule — nothing here is index-mapped today,
+  // and that is exactly the assumption that breaks the first time something is.
+  // THE GROUP KEY MATCHES THE TAB ID for this one too ('skills' / 'skills'), as
+  // it did for 'calendar' and 'sponsors' above and unlike the growth/tasks pair
+  // further up, which is a historical accident of fix201 and NOT the convention.
+  // NOTE THE COLLISION HAZARD, which is new with this entry and is the reason
+  // it is spelled out rather than left to inference: there is ALREADY a group
+  // called 'riderskills' above, holding the three DRILL HERO BANNERS bound by
+  // startRiderSkillGame(). It is a different group with a different lifetime —
+  // 'riderskills' loads on the first drill LAUNCH, 'skills' loads on entering
+  // the TAB — and neither is a rename of the other. Do not merge them: a player
+  // who opens the Skills tab and never starts a drill should not pay for three
+  // hero banners, which is precisely what fix157 arranged.
+  skills: {
+    // top rgb(64,102,133), bottom rgb(56,56,73); q54 = 117.9 KB.
+    // 768x1707 re-cut from a 784x1400 source whose CONTENT box is 768x1376 —
+    // white margin right AND bottom, the home-art shape, so no left-pinned
+    // 102.825% crop is needed and #skills-art takes a plain center/cover. Kept
+    // content is 768x1369 (seven bottom rows dropped, not one or four) and the
+    // band split is 153/185 rather than the reflex 169/169; the reasoning, the
+    // measured bar/BACK positions and the crop survival table are all in the
+    // fix221 CSS block, which is the one place to change if the art is ever
+    // redrawn.
+    '--sheet-skills-scene': 'assets/skills-bg.jpg'
   }
 };
 const _lazyGroupsLoaded = {};
@@ -11666,6 +13239,31 @@ function showTab(name){
   if(name==='train') lazyLoadAssetGroup('training');
   if(name==='gear') lazyLoadAssetGroup('gear');
   if(name==='growth') lazyLoadAssetGroup('tasks');
+  // fix216: same precedent, same site, for the Calendar scene — bound BEFORE
+  // the panel is revealed so its first paint already carries the
+  // background-image declaration and the sky placeholder is never seen as a
+  // flash. No id/group translation needed here: the tab id and the
+  // LAZY_ASSET_GROUPS key are both 'calendar' (see that group's comment).
+  if(name==='calendar') lazyLoadAssetGroup('calendar');
+  // fix218: same precedent, same site, for the Sponsor scene — bound BEFORE the
+  // panel is revealed so its first paint already carries the background-image
+  // declaration and the sky placeholder is never seen as a flash. No id/group
+  // translation needed here either: the tab id and the LAZY_ASSET_GROUPS key are
+  // both 'sponsors' (see that group's comment). Note this binds even while the
+  // stage is gated off — the cost is one request the calibration preview would
+  // otherwise make lazily, and the alternative is a branch that has to be
+  // remembered and moved at fix220.
+  if(name==='sponsors') lazyLoadAssetGroup('sponsors');
+  // fix221: same precedent, same site, for the Skills scene — bound BEFORE the
+  // panel is revealed so its first paint already carries the background-image
+  // declaration and the sky placeholder is never seen as a flash. No id/group
+  // translation needed here either: the tab id and the LAZY_ASSET_GROUPS key are
+  // both 'skills' (see that group's comment, and in particular its note that
+  // 'skills' is NOT the pre-existing 'riderskills' group). Note this binds even
+  // while the stage is gated off — the cost is one request the calibration
+  // preview would otherwise make lazily, and the alternative is a branch that
+  // has to be remembered and moved at fix222.
+  if(name==='skills') lazyLoadAssetGroup('skills');
   // fix186: entering the Rider tab always lands on the HUB, never on whatever
   // section was open last time. riderSection itself is left alone — it is
   // transient pill state that renderRiderSection() still needs a value for —
@@ -11674,6 +13272,22 @@ function showTab(name){
   // the hub and no section is flashed. Extends the existing name==='rider'
   // branch rather than adding a second one.
   if(name==='rider') riderSheetSet(false);
+  // fix217: same contract one tab across — entering the Calendar tab always
+  // lands on the HUB, never on whatever the sheet was showing last time. Sited
+  // here beside the rider line and the lazy-load, for the same reason: before
+  // the panel is revealed, so the first paint is already the hub and the sheet
+  // is never flashed. A second branch rather than an extension of the
+  // name==='calendar' lazy-load line above, matching how rider's two branches
+  // are written.
+  if(name==='calendar') calSheetSet(false);
+  // fix220: same contract one tab across — entering the Sponsor tab always lands
+  // on the HUB, never on whatever the sheet was showing last time. Sited here
+  // beside the rider and calendar lines and the lazy-load, for the same reason:
+  // before the panel is revealed, so the first paint is already the hub and the
+  // sheet is never flashed. A second branch rather than an extension of the
+  // name==='sponsors' lazy-load line above, matching how rider's and calendar's
+  // two branches are written.
+  if(name==='sponsors') sponsorSheetSet(false);
   // fix88: leaving the workshop tab must never leave a mini-game rAF loop
   // running off-tab (spec guardrail). wsStopGame() is a no-op if nothing's
   // running, so this is safe on every tab switch, not just workshop->other.
@@ -11777,7 +13391,18 @@ function updateHeader(){
 // set as permission to touch TABS. Adding a hub means adding a name HERE. It
 // does not mean removing that tab's now-redundant bar button, which would
 // silently desynchronise every TABS mapping after it.
-const HUB_TABS = new Set(['home','rider']);
+// fix217: 'calendar' APPENDED, never inserted. This is the single edit that
+// retires .game-header on the Calendar tab, and it is gated on the painted BACK
+// that landed in the same fix — until a hotspot went home, the header strip was
+// the only chrome on this tab that went anywhere, which is exactly why fix216
+// deliberately did NOT add it. Adding a name here is still not permission to
+// touch TABS or the .main-tab bar (see the coupling rule above).
+// fix220: 'sponsors' APPENDED — the single edit that retires .game-header from
+// the Sponsor tab, and the reason the painted BACK (data-hot 2) had to land in
+// the same fix. Appended rather than inserted: this is a Set so iteration order
+// is not load-bearing here, but the habit is what plan v2 §6 asks for across
+// every registry in the file, and TABS — which IS index-mapped — is untouched.
+const HUB_TABS = new Set(['home','rider','calendar','sponsors']);
 
 // fix203: THE hub navigation funnel. Was homeGo(), which is now a thin alias
 // (below) so all 14 painted home hotspots keep their exact onclick text and
@@ -11800,6 +13425,22 @@ function hubGo(tab){
   homeHideToast();
   riderHideToast();
   trainHideToast();
+  // fix217: calHideToast() APPENDED for exactly the reason the fix203 comment
+  // above gives — the Calendar hub's painted BACK is itself a hub-to-hub tap,
+  // and without this a locked-calendar pill would stay mounted and mid-timer
+  // behind the home hub and then fade on a screen that never raised it.
+  // Null-safe and clears its own timer, so this is a fourth no-op in the
+  // common case.
+  calHideToast();
+  // fix220: sponsorHideToast() APPENDED for exactly the reason the fix203 and
+  // fix217 comments above give — the Sponsor hub's painted BACK is itself a
+  // hub-to-hub tap, and this hub raises the pill more than any other (three of
+  // the five switch states are refusals, and the armed state is a pill too), so
+  // without this a "No other sponsor at this tier" or a half-armed switch prompt
+  // would stay mounted and mid-timer behind the home hub and then fade on a
+  // screen that never raised it. Null-safe and clears its own timer, so this is
+  // a fifth no-op in the common case.
+  sponsorHideToast();
   showTab(tab);
 }
 
@@ -11926,7 +13567,36 @@ const HUB_BANNERS = {
   // peer of the other four — worth stating because the ref block below is
   // all-or-nothing and a hub missing one node would silently render none.
   growth:{money:'tasks-money', ftp:'tasks-ftp', energy:'tasks-energy',
-          slot:'tasks-slot-energy', pct:'--tasks-energy-pct'}
+          slot:'tasks-slot-energy', pct:'--tasks-energy-pct'},
+  // fix217: the sixth hub, and the first of plan v2's three. Five ids and one
+  // custom-property name, no new logic and no alias function — the fourth
+  // consecutive stage to confirm what fix203 built this table for.
+  //
+  // Key, ids and LAZY_ASSET_GROUPS key are ALL 'cal'/'calendar' with no
+  // translation: unlike the growth/tasks entry above, the tab id here really is
+  // 'calendar'. Stated so nobody reads the growth line as the convention.
+  //
+  // The Calendar art paints all THREE readouts, so this is a straight four-node
+  // peer of the other five — worth restating because the ref block below is
+  // all-or-nothing and a hub missing one node would silently render none.
+  calendar:{money:'cal-money', ftp:'cal-ftp', energy:'cal-energy',
+          slot:'cal-slot-energy', pct:'--cal-energy-pct'},
+  // fix219: the seventh hub, and the second of plan v2's three. APPENDED, never
+  // inserted — this object is keyed so order is not load-bearing here, but the
+  // habit is the one plan v2 §6 asks for across every registry in the file.
+  // Five ids and one custom-property name, no new logic and no alias function —
+  // the fifth consecutive stage to confirm what fix203 built this table for.
+  //
+  // Key, ids and LAZY_ASSET_GROUPS key are ALL 'sponsors' with no translation,
+  // as fix218 already noted for its asset group. Unlike the growth/tasks entry
+  // above, the tab id here really is the key. Stated again so nobody reads the
+  // growth line as the convention.
+  //
+  // The Sponsor art paints all THREE readouts, so this is a straight four-node
+  // peer of the other six — worth restating because the ref block below is
+  // all-or-nothing and a hub missing one node would silently render none.
+  sponsors:{money:'sponsor-money', ftp:'sponsor-ftp', energy:'sponsor-energy',
+          slot:'sponsor-slot-energy', pct:'--sponsor-energy-pct'}
 };
 const _hubBannerCache = {};
 function renderHubBanner(tab){
@@ -12151,6 +13821,97 @@ function tasksDebugToggle(){
   if(tab) tab.classList.toggle('tasks-hub-preview');
   const st=document.getElementById('tasks-stage');
   if(st) st.classList.toggle('tasks-debug');
+}
+
+// ═══ fix216: the Calendar hub's calibration preview ══════════════════════
+// Mirrors tasksDebugToggle() exactly, including the two-class shape, and for
+// the same two reasons that shape exists:
+//   - .cal-hub-preview goes on the TAB PANEL (#tab-calendar) and RAISES the
+//     stage, which is display:none until fix217 ungates it. This stage it is
+//     the ONLY way to see the Calendar art at all.
+//   - .cal-debug goes on the STAGE (#cal-stage) and paints the grid and the
+//     labelled ticks over it.
+// Getting these two the wrong way round is the mistake the fix210 note warns
+// about, so they are written out here rather than left to the reader.
+//
+// Render-only, like everything else in the hub paths: no state is written here
+// and nothing is persisted, so a preview left raised is cleared by a reload or
+// by any tab switch that re-renders. Off by default, console-reachable only —
+// there is deliberately no UI affordance for it.
+//
+// NOT called from anywhere in this file, and that is not an oversight: it is a
+// calibration aid for fix217, reached by typing calDebugToggle() in the
+// console. The onclick-handler audit only asserts that referenced names
+// RESOLVE, not that every function is referenced, so an unreferenced tool
+// function is clean by that rule — same as tasksDebugToggle() was at fix210.
+function calDebugToggle(){
+  const tab=document.getElementById('tab-calendar');
+  if(tab) tab.classList.toggle('cal-hub-preview');
+  const st=document.getElementById('cal-stage');
+  if(st) st.classList.toggle('cal-debug');
+}
+
+// ═══ fix218: the Sponsor hub's calibration preview ═══════════════════════
+// Mirrors calDebugToggle() exactly, including the two-class shape, and for the
+// same two reasons that shape exists:
+//   - .sponsor-hub-preview goes on the TAB PANEL (#tab-sponsors) and RAISES the
+//     stage, which is display:none until fix220 ungates it. This stage it is the
+//     ONLY way to see the Sponsor art at all.
+//   - .sponsor-debug goes on the STAGE (#sponsor-stage) and paints the grid and
+//     the labelled ticks over it.
+// Getting these two the wrong way round is the mistake the fix210 note warns
+// about, so they are written out here rather than left to the reader.
+//
+// Render-only, like everything else in the hub paths: no state is written here
+// and nothing is persisted, so a preview left raised is cleared by a reload or
+// by any tab switch that re-renders. Off by default, console-reachable only —
+// there is deliberately no UI affordance for it.
+//
+// NOT called from anywhere in this file, and that is not an oversight: it is a
+// calibration aid for fix219 and fix220, reached by typing sponsorDebugToggle()
+// in the console. The onclick-handler audit only asserts that referenced names
+// RESOLVE, not that every function is referenced, so an unreferenced tool
+// function is clean by that rule — same as tasksDebugToggle() was at fix210 and
+// calDebugToggle() was at fix216.
+function sponsorDebugToggle(){
+  const tab=document.getElementById('tab-sponsors');
+  if(tab) tab.classList.toggle('sponsor-hub-preview');
+  const st=document.getElementById('sponsor-stage');
+  if(st) st.classList.toggle('sponsor-debug');
+}
+
+// ═══ fix221: the Skills hub's calibration preview ════════════════════════
+// Mirrors calDebugToggle() and sponsorDebugToggle() exactly, including the
+// two-class shape, and for the same two reasons that shape exists:
+//   - .skills-hub-preview goes on the TAB PANEL (#tab-skills) and RAISES the
+//     stage, which is display:none until fix222 ungates it. This stage it is the
+//     ONLY way to see the Skills art at all.
+//   - .skills-debug goes on the STAGE (#skills-stage) and paints the grid and
+//     the labelled ticks over it.
+// Getting these two the wrong way round is the mistake the fix210 note warns
+// about, so they are written out here rather than left to the reader.
+//
+// Render-only, like everything else in the hub paths: no state is written here
+// and nothing is persisted, so a preview left raised is cleared by a reload or
+// by any tab switch that re-renders. Off by default, console-reachable only —
+// there is deliberately no UI affordance for it.
+//
+// NOT called from anywhere in this file, and that is not an oversight: it is a
+// calibration aid for fix222, reached by typing skillsDebugToggle() in the
+// console. The onclick-handler audit only asserts that referenced names RESOLVE,
+// not that every function is referenced, so an unreferenced tool function is
+// clean by that rule — same as tasksDebugToggle() was at fix210, calDebugToggle()
+// at fix216 and sponsorDebugToggle() at fix218.
+//
+// One caveat specific to this tab and worth stating before fix222 measures
+// against it: the three drill overlays sit at z-index 1800 and cover this panel.
+// Raise the preview from the Skills HUB, not from inside a drill, or the grid is
+// being read off a screen that is painted over.
+function skillsDebugToggle(){
+  const tab=document.getElementById('tab-skills');
+  if(tab) tab.classList.toggle('skills-hub-preview');
+  const st=document.getElementById('skills-stage');
+  if(st) st.classList.toggle('skills-debug');
 }
 
 // ═══ fix208: what a painted Gear medallion does ═════════════════════════
@@ -12617,6 +14378,269 @@ function trainComingSoon(msg){
 function trainHideToast(){
   if(_trainToastTimer){ clearTimeout(_trainToastTimer); _trainToastTimer=null; }
   const el=document.getElementById('train-toast');
+  if(el) el.classList.remove('on');
+}
+
+// ═══════════════════════════════════════════════════════════
+// CALENDAR HUB (fix217)
+// ═══════════════════════════════════════════════════════════
+// Render-only, in full. Nothing in this section writes to state and nothing
+// here is persisted — saveGame()'s payload is unchanged by this fix. The only
+// mutations the Calendar tab ever makes still happen inside the existing
+// signup/withdraw handlers that renderCalendarTab() paints, which this fix does
+// not touch.
+
+// What the painted medallion does. One funnel, no per-button logic in the
+// markup, mirroring homeGo()/trainHubGo()/gearHubGo().
+//
+// THE LOCKED GUARD IS A REFUSAL, NOT A TWO-TAP ARM. renderCalendarTab() already
+// early-returns a "Calendar Locked" placeholder below Semi-Pro, so without this
+// the medallion would open a full-screen sheet containing one greyed panel —
+// technically correct and a dead end to look at. There is no "yes anyway" path
+// here (the gate is a race category, not a cost the player could choose to pay),
+// so the arm pattern would be wrong: an arm implies a second tap can proceed.
+// It says why, and stays on the hub.
+//
+// No confirm()/alert()/prompt(), per the house rule — the refusal is the
+// informational pill and nothing else.
+function calHubGo(){
+  if(!isCalendarUnlocked()){ calComingSoon('Calendar unlocks at Semi-Pro'); return; }
+  // ORDER MATTERS, exactly as in riderHubGo() and trainHubGo(): render first,
+  // then open. The content paints while the sheet is still display:none, so the
+  // player never sees a frame of stale events before the fresh ones land.
+  renderCalendarTab();
+  calSheetSet(true);
+}
+
+// Back from the sheet to the medallion. Deliberately NOT history.back() —
+// opening the sheet pushed nothing, so there is no entry to unwind and calling
+// back() here would exit the tab entirely. Same reasoning as riderHubBack() and
+// trainHubBack(). No key is nulled because this tab has no key: one section,
+// one sheet, and #cal-sheet-title is a constant in the markup.
+function calHubBack(){
+  calSheetSet(false);
+}
+
+// THE single funnel for whether the sheet is showing, mirroring riderSheetSet(),
+// trainSheetSet() and gearSheetSet(). Every open and every close goes through
+// here, so the stage and the sheet can never both be live: one class on
+// #tab-calendar drives `#cal-sheet{display:block}` and `#cal-stage{display:none}`
+// together, in one DOM write. That mutual exclusion IS the hard lockout — with
+// the stage display:none there is no medallion to hit through the overlay, and
+// with the sheet display:none it cannot be scrolled or focus-trapped from the
+// hub.
+//
+// Idempotent and safe to call when the Calendar tab is not showing: toggle()
+// with an explicit second argument sets rather than flips, so a stray call can
+// never invert the sheet.
+function calSheetSet(open){
+  const tab=document.getElementById('tab-calendar');
+  if(tab) tab.classList.toggle('cal-sheet-open', !!open);
+  const sheet=document.getElementById('cal-sheet');
+  if(!sheet) return;
+  if(!open){ sheet.style.top=''; return; }
+  // The measured-header branch, KEPT VERBATIM even though 'calendar' joined
+  // HUB_TABS in this fix and .game-header is therefore hidden here. It costs one
+  // null-ish check per open and it means the file has ONE sheet pattern rather
+  // than three-and-a-bit; the day a header ever returns to this tab, the sheet
+  // already clears it instead of hiding its own back bar behind it.
+  // offsetParent is null for a display:none element — a hidden header detected
+  // without reading computed styles, which is exactly the case this tab is in
+  // today, so this resolves to 0 and the CSS fallback applies.
+  const hdr=document.querySelector('.game-header');
+  const h = (hdr && hdr.offsetParent!==null) ? Math.round(hdr.getBoundingClientRect().height) : 0;
+  sheet.style.top = h>0 ? h+'px' : '';
+}
+
+// The informational pill. Its own node and its own timer, never shared with the
+// other hubs' — a shared node would resolve to an element inside a hidden
+// #x-art and show the message on a screen nobody is looking at. Six hubs, six
+// nodes, six timers, identical shapes.
+//
+// The text is passed in whole rather than having ' — coming soon' appended the
+// way homeComingSoon() does: this hub's only message is a LOCK, not an unbuilt
+// feature, and "coming soon" would be a lie about a thing that already exists
+// and is gated on a race category.
+let _calToastTimer=null;
+function calComingSoon(msg){
+  const el=document.getElementById('cal-toast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('on');
+  if(_calToastTimer) clearTimeout(_calToastTimer);
+  _calToastTimer=setTimeout(calHideToast, 1800);
+}
+function calHideToast(){
+  if(_calToastTimer){ clearTimeout(_calToastTimer); _calToastTimer=null; }
+  const el=document.getElementById('cal-toast');
+  if(el) el.classList.remove('on');
+}
+
+// ═══════════ fix220: SPONSOR HUB FUNNELS ═══════════
+// What the painted contract does. One funnel, no per-button logic in the markup,
+// mirroring homeGo()/trainHubGo()/gearHubGo()/calHubGo().
+//
+// No locked guard here, unlike calHubGo(): renderSponsorsTab() has a branch for
+// every one of the five sponsor states (cooling off, not eligible, eligible and
+// unsigned, active, active with an upgrade available) and every one of them
+// renders something a player can read and act on. There is no state in which
+// this opens an empty room, so there is nothing to refuse.
+function sponsorHubGo(){
+  // ORDER MATTERS, exactly as in riderHubGo(), trainHubGo() and calHubGo():
+  // render first, then open. The content paints while the sheet is still
+  // display:none, so the player never sees a frame of a stale contract before
+  // the fresh one lands.
+  renderSponsorsTab();
+  sponsorSheetSet(true);
+}
+
+// Back from the sheet to the hub. Deliberately NOT history.back() — opening the
+// sheet pushed nothing, so there is no entry to unwind and calling back() here
+// would exit the tab entirely. Same reasoning as riderHubBack(), trainHubBack()
+// and calHubBack(). No key is nulled because this tab has no key: one section,
+// one sheet, and #sponsor-sheet-title is a constant in the markup.
+function sponsorHubBack(){
+  sponsorSheetSet(false);
+}
+
+// THE single funnel for whether the sheet is showing, mirroring riderSheetSet(),
+// trainSheetSet(), gearSheetSet() and calSheetSet(). Every open and every close
+// goes through here, so the stage and the sheet can never both be live: one
+// class on #tab-sponsors drives `#sponsor-sheet{display:block}` and
+// `#sponsor-stage{display:none}` together, in one DOM write. That mutual
+// exclusion IS the hard lockout, and it does more work on this tab than on any
+// other: the sheet carries the SAME lateral-switch control the painted hotspot
+// arms, both reading one sponsorActionPending, so two live copies would be two
+// arming buttons for one armed action.
+//
+// Idempotent and safe to call when the Sponsor tab is not showing: toggle() with
+// an explicit second argument sets rather than flips, so a stray call can never
+// invert the sheet.
+function sponsorSheetSet(open){
+  const tab=document.getElementById('tab-sponsors');
+  if(tab) tab.classList.toggle('sponsor-sheet-open', !!open);
+  const sheet=document.getElementById('sponsor-sheet');
+  if(!sheet) return;
+  if(!open){ sheet.style.top=''; return; }
+  // The measured-header branch, KEPT VERBATIM even though 'sponsors' joined
+  // HUB_TABS in this fix and .game-header is therefore hidden here. It costs one
+  // null-ish check per open and it means the file has ONE sheet pattern rather
+  // than four-and-a-bit; the day a header ever returns to this tab, the sheet
+  // already clears it instead of hiding its own back bar behind it.
+  // offsetParent is null for a display:none element — a hidden header detected
+  // without reading computed styles, which is exactly the case this tab is in
+  // today, so this resolves to 0 and the CSS fallback applies.
+  const hdr=document.querySelector('.game-header');
+  const h = (hdr && hdr.offsetParent!==null) ? Math.round(hdr.getBoundingClientRect().height) : 0;
+  sheet.style.top = h>0 ? h+'px' : '';
+}
+
+// THE ONE INTERACTIVE DECISION IN PLAN v2 (§fix220). Everything else this series
+// shipped is render-only; this is the single path that reaches a state mutator,
+// and it reaches EXISTING ones — lateralSwitchSponsor() — rather than adding a
+// mutator of its own. Nothing below writes to state directly.
+//
+// Five states, and the plan's table in full:
+//
+//   1  no active sponsor        -> refuse: 'Sign a sponsor first'
+//   2  canUpgradeSponsor()      -> redirect into the sheet's choosing view
+//   3  lateral cooldown running -> refuse: 'Can switch again in Nh'
+//   4  no lateral sponsor       -> refuse: 'No other sponsor at this tier'
+//   5  otherwise                -> arm the two-tap confirm
+//
+// Cases 1, 3 and 4 are HARD LOCKOUTS WITH A STATED REASON. No arm, no override,
+// no "yes anyway" second tap — an arm implies a second tap can proceed, and in
+// all three of these there is nothing on the far side of it. The refusal is the
+// informational pill and nothing else: no confirm()/alert()/prompt(), per the
+// house rule.
+//
+// Case 2 is a REDIRECT rather than a refusal. A tier upgrade is a choice between
+// sponsor cards, and renderSponsorChoices() already draws exactly that UI inside
+// the sheet — so the honest answer to "switch sponsor" when an upgrade is
+// available is to show the cards, not to say no. setSponsorViewMode() renders as
+// a side effect and sponsorHubGo() renders again before opening; that second
+// render is a few hundred microseconds and it keeps ONE open-the-sheet funnel
+// rather than a special case that opens it a different way.
+//
+// Case 5 reuses the EXISTING sponsorActionPending two-tap pattern verbatim,
+// rather than forking a second arm: same key ('lateral:'+id), same 4 s timer,
+// same commit. lateralSwitchSponsor() IS the pattern — first call arms, second
+// call within 4 s commits — so this calls it both times and only decides what to
+// paint. Reading sponsorActionPending before and after is how it tells an arm
+// from a commit without duplicating the mutator's own conditions; if a future
+// change to that function ever stops arming, this silently stops showing a
+// prompt rather than showing a false one.
+//
+// The armed pill gets the arm's own 4000 ms rather than the default 1800 ms, so
+// the prompt cannot vanish while the action behind it is still live — a player
+// who tapped once, watched the pill go, then tapped again would otherwise commit
+// a switch with no prompt on screen.
+//
+// EVERY CASE IS RE-CHECKED HERE even though renderSponsorHubSlots() also puts
+// `disabled` on the hotspot in states 1, 3 and 4. A disabled attribute is
+// cosmetic: it can be stale between renders (the cooldown in state 3 expires on
+// a clock, not on a player action) and it can be bypassed by a hand-fired
+// onclick. The attribute is the visible half of the lockout; this function is
+// the enforced half.
+//
+// The consequence copy — progress reset, 24 h cooldown — is NOT inlined onto the
+// painted art. It lives in INFO_TEXTS.sponsorSwitch behind the ⓘ in the sheet's
+// switch panel, per plan v2 §6, and the armed pill carries only the one-line
+// summary a player needs at the moment of tapping.
+function sponsorSwitchOpen(){
+  if(!getActiveSponsorDef()){ sponsorComingSoon('Sign a sponsor first'); return; }
+  if(canUpgradeSponsor()){ setSponsorViewMode('choosing'); sponsorHubGo(); return; }
+  const cdMs=getSponsorLateralCooldownRemaining();
+  if(cdMs>0){
+    // Hours, not a live countdown: the sheet already spells the cooldown out
+    // precisely, and a painted pill is a glance. Ceil, so a cooldown with any
+    // time left never reads '0h'.
+    const h=Math.ceil(cdMs/(60*60*1000));
+    sponsorComingSoon('Can switch again in '+h+'h');
+    return;
+  }
+  const lat=getLateralSponsor();
+  if(!lat){ sponsorComingSoon('No other sponsor at this tier'); return; }
+  const key='lateral:'+lat.id;
+  const wasArmed=(sponsorActionPending===key);
+  lateralSwitchSponsor(lat.id);
+  if(!wasArmed && sponsorActionPending===key){
+    sponsorComingSoon('Switch to '+lat.name+'? Resets weekly progress \u00B7 tap again', 4000);
+  } else {
+    // Committed (or the mutator refused for a reason of its own). Either way the
+    // arm prompt is stale, and lateralSwitchSponsor() has already raised the
+    // global showToast() confirming the switch — two pills at once would be one
+    // too many.
+    sponsorHideToast();
+  }
+}
+
+// The informational pill. Its own node and its own timer, never shared with the
+// other hubs' — a shared node would resolve to an element inside a hidden #x-art
+// and show the message on a screen nobody is looking at. Seven hubs, seven
+// nodes, seven timers, identical shapes.
+//
+// The text is passed in whole rather than having ' — coming soon' appended the
+// way homeComingSoon() does: nothing this hub says is about an unbuilt feature.
+// Every message here is a refusal or a confirmation about a system that already
+// exists, and "coming soon" would be a lie about all four.
+//
+// The ms argument is the ONE departure from the other six hubs' shape, and it is
+// the arm prompt's: 1800 ms is right for a refusal, which is over the moment it
+// is read, and wrong for a prompt whose action stays live for 4000 ms. Defaulted
+// so the three refusals read identically to every other hub's pill.
+let _sponsorToastTimer=null;
+function sponsorComingSoon(msg, ms){
+  const el=document.getElementById('sponsor-toast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('on');
+  if(_sponsorToastTimer) clearTimeout(_sponsorToastTimer);
+  _sponsorToastTimer=setTimeout(sponsorHideToast, ms || 1800);
+}
+function sponsorHideToast(){
+  if(_sponsorToastTimer){ clearTimeout(_sponsorToastTimer); _sponsorToastTimer=null; }
+  const el=document.getElementById('sponsor-toast');
   if(el) el.classList.remove('on');
 }
 
@@ -18947,8 +20971,126 @@ let sponsorViewMode='active'; // 'active' (showing signed sponsor) | 'choosing' 
 
 function setSponsorViewMode(mode){ sponsorViewMode=mode; renderSponsorsTab(); }
 
+// fix219: the two painted overlays on the Sponsor hub — the CURRENT SPONSOR
+// plaque and the OBJECTIVES TO MEET whiteboard. RENDER-ONLY: it reads state,
+// patches textContent on eight pre-built nodes and writes nothing back. No
+// innerHTML, so no node is created or destroyed on any path, and the signature
+// guard below makes a call with unchanged content a handful of reads — which is
+// what lets it sit on the updateUI() path beside renderSponsorsTab().
+//
+// FIVE STATES, each with a painted-safe fallback. The hub is a picture: a state
+// that left the plaque or the board empty would read as broken art rather than
+// as an absent sponsor, which is why every row below has text in both slots:
+//
+//   state              test                                       plaque
+//   cooling off        getSponsorTerminateCooldownRemaining()>0    No sponsor
+//   not eligible       getCurrentSponsorTierIndex()<0              Unsigned
+//   eligible, unsigned !getActiveSponsorDef()                      Unsigned
+//   active             else                                        sponsor.name
+//   active + upgrade   canUpgradeSponsor()                         sponsor.name
+//
+// The last two share a branch deliberately. An available tier upgrade is a
+// CHOICE BETWEEN CARDS and that UI already exists in the sheet, so the cue for
+// it belongs there; a board that shows the current objectives and an upgrade
+// nag at once has two calls to action in three lines of read-only paint.
+//
+// Progress is read with EXACTLY the expression renderActiveSponsorView() uses —
+// Math.min(o.target, state.sponsor.progress[o.type]||0) — so there is one
+// reading of progress in this file and not two that can drift. The duplication
+// is deliberate and noted: factoring a shared helper out of that renderer is a
+// change to a region this fix does not open, and would need its own diff-scope
+// check.
+let _sponsorHubSlotNodes=null, _sponsorHubSlotSig='';
+function renderSponsorHubSlots(){
+  if(currentTab!=='sponsors') return;
+  if(!_sponsorHubSlotNodes){
+    const name=document.getElementById('sponsor-name');
+    const lines=[1,2,3].map(i=>({
+      lbl:document.getElementById('sponsor-obj-lbl-'+i),
+      val:document.getElementById('sponsor-obj-val-'+i)
+    }));
+    // All-or-nothing, matching renderHubBanner(): a partial cache would paint
+    // some of the hub and silently skip the rest.
+    if(!name||lines.some(l=>!l.lbl||!l.val)) return;
+    _sponsorHubSlotNodes={name:name, lines:lines};
+  }
+  // fix220: the VISIBLE half of the switch lockout. Sited ABOVE the signature
+  // guard below on purpose — the signature covers the plaque and the three
+  // objective lines, and none of those move when a lateral cooldown expires, so
+  // running this after the guard would leave the hotspot disabled for as long as
+  // the board happened to read the same. Still render-only: an attribute write
+  // on one node, no state touched.
+  //
+  // This is COSMETIC REINFORCEMENT ONLY. It goes stale between renders (the
+  // cooldown expires on a clock, not on a player action) and it is trivially
+  // bypassed by a hand-fired onclick, which is exactly why sponsorSwitchOpen()
+  // re-checks all three refusing states itself and does not trust this.
+  //
+  // Deliberately NOT disabled in the upgrade state: canUpgradeSponsor() is a
+  // redirect into the sheet, not a refusal, so the control does something.
+  const _swHot=document.querySelector('#sponsor-stage .sponsor-hot[data-hot="1"]');
+  if(_swHot){
+    const _locked = !getActiveSponsorDef()
+      || (!canUpgradeSponsor() && (getSponsorLateralCooldownRemaining()>0 || !getLateralSponsor()));
+    _swHot.disabled=_locked;
+  }
+  let plaque, rows;
+  const terminateMsLeft=getSponsorTerminateCooldownRemaining();
+  if(terminateMsLeft>0){
+    // Days, not hours: the sheet already spells the cooldown out precisely, and
+    // three lines of painted board is a glance, not a countdown.
+    const d=Math.ceil(terminateMsLeft/(24*60*60*1000));
+    plaque='No sponsor';
+    rows=[['Cooling off — '+d+'d left','']];
+  } else if(getCurrentSponsorTierIndex()<0){
+    const firstCat=RACE_CATEGORIES[SPONSOR_TIERS[0].minCategory];
+    plaque='Unsigned';
+    rows=[['Reach '+(firstCat?firstCat.name:'the next category')+' to attract sponsors','']];
+  } else {
+    const activeInfo=getActiveSponsorDef();
+    if(!activeInfo){
+      plaque='Unsigned';
+      rows=[['Offers waiting — open the contract','']];
+    } else {
+      const sponsor=activeInfo.sponsor;
+      plaque=sponsor.name;
+      rows=sponsor.objectives.map(o=>{
+        const cur=Math.min(o.target, state.sponsor.progress[o.type]||0);
+        return [o.label, state.sponsor.claimed[o.id] ? '✓' : (cur+'/'+o.target)];
+      });
+    }
+  }
+  // Unit-separator characters rather than a printable delimiter, so a label
+  // that happened to contain one could not forge a matching signature.
+  const sig=plaque+'\u241E'+rows.map(r=>r[0]+'\u241F'+r[1]).join('\u241E');
+  if(sig===_sponsorHubSlotSig) return;
+  _sponsorHubSlotSig=sig;
+  const n=_sponsorHubSlotNodes;
+  n.name.textContent=plaque;
+  for(let i=0;i<3;i++){
+    const r=rows[i];
+    n.lines[i].lbl.textContent = r ? r[0] : '';
+    n.lines[i].val.textContent = r ? r[1] : '';
+  }
+}
+
 function renderSponsorsTab(){
   const wrap=document.getElementById('sponsors-content'); if(!wrap) return;
+  // fix219: the painted bar and the two hub overlays. Placed at the TOP of this
+  // renderer rather than APPENDED at the bottom, for fix217's reason and with
+  // more force here: this renderer early-returns on FOUR of its five branches,
+  // and appended calls would leave the hub showing em-dashes and a blank board
+  // for every player who is cooling off, not yet eligible or unsigned — the
+  // exact defect fix187 and fix205 existed to close, on the tab that has the
+  // most early returns in the file. The hub is on screen in all five states, so
+  // it renders in all five states.
+  //
+  // Cheap when nothing changed: both functions self-guard on currentTab and
+  // both hold a signature guard, so a call with identical figures and identical
+  // objectives is a few property reads.
+  renderHubBanner('sponsors');
+  renderSponsorHubSlots();
+
   const tierIdx=getCurrentSponsorTierIndex();
 
   // ── Termination cooldown ──────────────────────────────────────
@@ -19176,6 +21318,19 @@ function toggleCalendarHistory(){ calendarShowHistory=!calendarShowHistory; rend
 
 function renderCalendarTab(){
   const wrap=document.getElementById('calendar-content'); if(!wrap) return;
+
+  // fix217: the painted CASH / FTP / ENERGY bar. Placed at the TOP of this
+  // renderer rather than APPENDED at the bottom the way fix205/fix208/fix211
+  // placed theirs, and that is deliberate, not a slip: this renderer
+  // early-returns on the locked branch below, and an appended call would leave
+  // the hub's stat bar showing em-dashes for every player below Semi-Pro — the
+  // exact defect fix187 and fix205 existed to close. The bar belongs to the
+  // hub, which is on screen in both states, so it renders in both states.
+  //
+  // Cheap when nothing changed: the signature guard inside renderHubBanner()
+  // means a call with identical money/FTP/energy is three property reads, and
+  // it self-guards on currentTab so calls from off-tab cost one comparison.
+  renderHubBanner('calendar');
 
   if(!isCalendarUnlocked()){
     const cat=RACE_CATEGORIES[state.raceCategory];
@@ -19892,7 +22047,15 @@ function gameTick(){
     // fix208: renderHubBanner('gear') APPENDED for the same reason fix205
     // appended 'train'. Each call early-returns on currentTab, so at most one of
     // the four does any work on any given tick.
-    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); renderRiderBanner(); renderHubBanner('train'); renderHubBanner('gear'); renderHubBanner('growth'); }
+    // fix217: renderHubBanner('calendar') APPENDED for the same reason fix205,
+    // fix208 and fix211 appended theirs — each call self-guards on currentTab,
+    // so five of the six are one comparison on any given tick.
+    // fix219: renderHubBanner('sponsors') APPENDED for the same reason fix205,
+    // fix208, fix211 and fix217 appended theirs — each call self-guards on
+    // currentTab, so six of the seven are one comparison on any given tick.
+    // renderSponsorHubSlots() is NOT added here: nothing it paints changes with
+    // energy, and it is already on the updateUI() path via renderSponsorsTab().
+    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); renderRiderBanner(); renderHubBanner('train'); renderHubBanner('gear'); renderHubBanner('growth'); renderHubBanner('calendar'); renderHubBanner('sponsors'); }
   }
   if(state.session.active){
     const t=TRAINING.find(t=>t.id===state.session.typeId);
