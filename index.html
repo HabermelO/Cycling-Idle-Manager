@@ -2371,13 +2371,83 @@ button{font-family:inherit;cursor:pointer;}
        font-size:clamp(9px, 2.6cqw, 15px);
        letter-spacing:.2px;
        container-type:inline-size; */
-  top:13.58%; height:1.79%;
-  color:#2F1615;
-  text-shadow:0 1px 1px rgba(255,255,255,.75);
+  /* ═══ fix226: RE-MEASURED AGAIN, and the ink INVERTS ═══════════════════
+     The art was redrawn after fix225. fix202's numbers described a raster whose
+     banner carried the painted words CASH / FTP / ENERGY on light wall, with the
+     live figures sitting in the clear gaps AFTER each word. That art is gone.
+     The live file paints no word labels at all: it paints three ICONS, each
+     followed by a recessed dark plate, all three inside one flat grey banner.
+     So this is not a nudge of fix202's band — the whole premise of "figures sit
+     on lit wall after a painted label" is retired, and both the geometry and the
+     colour pair have to move together. Doing only the geometry would drop
+     #2F1615 ink onto a plate darker than the ink's own text-shadow assumes and
+     lose the figures entirely, which is the failure this fix exists to end.
+
+     Measured with fix187's method extended by one threshold, because a recessed
+     plate is not ink and does not register at fix187's single L<110 cut. Two
+     passes over the 708x1568 CONTENT box (the 20px white right margin and the
+     102.825% left-pinned crop in #rider-art above are UNCHANGED, so every
+     percentage here is still a percentage of the content box exactly as fix202
+     established):
+
+       L<70   glyph ink        - finds the three icons
+       L<95   plate fill       - finds the recessed plates, which median 85-95
+                                 against the banner's flat 112.5
+
+     A column is plate iff it is dark at 95 and clear at 70 (>=25 rows dark at
+     95, <=13 at 70 — the 13 is the plate's own top/bottom outline, which does
+     reach 70). That returns three runs and nothing else in the banner:
+
+       element                px band        percent band
+       flat grey banner       y0-212         0     - 13.52%
+       PLATES (all three)     y166-198       10.59% - 12.63%
+       cream wall starts      y213           13.58%
+
+       slot     icon px    plate px    plate left %   plate width %
+       CASH     89-136     143-231     20.20         12.57
+       FTP      296-363    364-429     51.41          9.32
+       ENERGY   494-524    525-628     74.15         14.69
+
+     All three plates share one row band, which is what "parallel to the emojis"
+     means geometrically and why height/top stay on .rider-slot rather than
+     going per-slot.
+
+     Each box is inset 1.5% of its plate width from both painted ends so a
+     one-pixel measurement error cannot push a digit onto a rounded corner;
+     overflow:hidden on .hub-slot clips it either way. The values below are the
+     inset boxes, not the raw plate rects above.
+
+     COLOUR. The plates are dark, so this tab now wants home's light-on-dark
+     pair, not its own dark-on-wall one. Taken VERBATIM from .home-banner-slot
+     rather than re-derived: #f2f7ff on the measured plate median rgb(92,88,86)
+     lands at 12.9:1, comfortably past WCAG AA, and using the same two
+     declarations as home means the two banners cannot drift apart under a later
+     theme change. border-radius:4px joins them for the same reason it exists on
+     home: these figures sit in a recessed rounded plate now, not on flat wall,
+     so fix188's "no radius, it would read as a floating pill" argument inverts
+     with the art it was written about.
+
+     fix226 tombstone: the fix202 geometry and the fix187 colour pair, both
+     correct for the retired label-on-wall raster —
+       .rider-slot{
+         top:13.58%; height:1.79%;
+         color:#2F1615;
+         text-shadow:0 1px 1px rgba(255,255,255,.75);
+       }
+       #rider-slot-money  {left:29.38%; width:19.52%;}
+       #rider-slot-ftp    {left:55.10%; width:18.10%;}
+       #rider-slot-energy {left:86.40%; width:12.20%;}
+     Note that fix202's band (13.58-15.31%) begins exactly where the new banner
+     ENDS (13.58%). That is not a near miss: every figure was landing on the
+     cream wall one full band below the plate it belonged in. */
+  top:10.59%; height:2.04%;
+  border-radius:4px;
+  color:#f2f7ff;
+  text-shadow:0 1px 2px rgba(0,0,0,.85);
 }
-#rider-slot-money  {left:29.38%; width:19.52%;}
-#rider-slot-ftp    {left:55.10%; width:18.10%;}
-#rider-slot-energy {left:86.40%; width:12.20%;}
+#rider-slot-money  {left:20.39%; width:12.19%;}
+#rider-slot-ftp    {left:51.55%; width:9.04%;}
+#rider-slot-energy {left:74.37%; width:14.25%;}
 
 /* ═══ fix188: ENERGY gauge fill ═══════════════════════════════════════════
    Supersedes the "NO energy gauge fill" paragraph in the fix187 block above —
@@ -2408,10 +2478,33 @@ button{font-family:inherit;cursor:pointer;}
    txt: ::before is a later sibling in paint order and would otherwise wash the
    digits. Targeted by id rather than by class because these spans carry ids and
    no class (the fix187 markup), so this needs no markup change either. */
+/* fix226: the gauge follows the ink. fix188's two deliberate divergences from
+   home were BOTH justified by the same retired fact — that this fill sat on lit
+   wall under the art's own dark #2F1615 ink — and both of them invert now that
+   the slot is a recessed dark plate under light #f2f7ff:
+
+     1. No border-radius became a radius, on .rider-slot above. The fill has to
+        follow the plate it is inside, exactly as home's does.
+     2. The weak rgba .30/.22 goes back to home's .75/.55. Those alphas were
+        chosen so a full gauge could not wash out DARK ink; under light ink the
+        arithmetic runs the other way and .30 over the plate's rgb(92,88,86) is
+        very nearly invisible — a full gauge would read as an empty one, which
+        is worse than no gauge at all. At .75 the fill lands rgb(93,178,113) and
+        #f2f7ff on it is 4.6:1, still clear of WCAG AA, so a full gauge still
+        cannot make the figure harder to read than an empty one. Same guarantee
+        fix188 gave, re-derived against the art that now exists.
+
+   The <span> lift below and the reduced-motion guard are UNCHANGED and needed no
+   re-derivation: paint order does not depend on the art.
+
+   fix226 tombstone: the fix188 declaration this replaces —
+     background:linear-gradient(90deg, rgba(90,200,120,.30), rgba(140,230,150,.22));
+   with no border-radius, correct for the retired lit-wall raster. */
 #rider-slot-energy::before{
   content:'';position:absolute;inset:0;
   width:calc(var(--rider-energy-pct,0) * 1%);
-  background:linear-gradient(90deg, rgba(90,200,120,.30), rgba(140,230,150,.22));
+  background:linear-gradient(90deg, rgba(90,200,120,.75), rgba(140,230,150,.55));
+  border-radius:4px;
 }
 @media (prefers-reduced-motion: no-preference){
   #rider-slot-energy::before{transition:width .35s ease;}
@@ -5161,9 +5254,132 @@ button{font-family:inherit;cursor:pointer;}
 
    fix219 tombstone:
      #sponsor-slot-name{left:8.50%; width:27.50%; top:82.60%; height:2.70%;} */
+/* ═══ fix228: the plaque, MEASURED — and the long-name finding closed ═════
+   fix219's box is not on the plaque. It is BELOW it. Measured on the shipped
+   644x1428 raster by connected components over the lower panel (L>120, the
+   plaque being BRIGHT against a dark panel, components under 3000px discarded),
+   which returns the brushed-metal rectangle as one object and nothing else of
+   that size:
+
+     plaque interior   x  92 - 394 px      14.20% - 61.21%   (w 47.01%)
+                       y 950 - 1160 px     66.53% - 81.23%   (h 14.70%)
+
+   x carries the same cover correction fix227 derived for this tab and for the
+   same reason (center/cover, no margin crop, raster 0.45098 vs element
+   0.44991): x% = (px/644 * 1.00238 - 0.00119) * 100. y needs none.
+
+   fix219's box was top:82.80%, height:2.40% — y 1182-1217px. The plaque ENDS at
+   1160. Every character of the sponsor's name has been painting on the panel
+   below the plaque, which is why moving it 0.2% at a time never helped: it was
+   never a near miss.
+
+   THE BOX. Centred on the plaque rather than filling it, so the brushed-metal
+   border reads as a border:
+     left 16.50% + width 42.40%  -> centre 37.70%  (plaque centre 37.71%)
+     top  68.90% + height 10.00% -> centre 73.90%  (plaque centre 73.88%)
+   That is a 4.6% inset on each side and a 2.4% inset top and bottom.
+
+   TWO LINES, which closes fix219's own recorded finding rather than carrying it
+   forward. fix219 wrote: "the longest name in SPONSOR_TIERS is 'WheelWorks
+   Service Centre' (25 chars) ... 17px does NOT make that name fit ... Long-name
+   handling on this plaque is a finding and needs its own fix number." This is
+   that fix number, and the answer is not a smaller font — it is the 14.70% of
+   painted height the name was never given. .hub-slot's centring is kept (a
+   1-line name still sits dead centre); only white-space and line-height are
+   added so a 2-line name wraps instead of clipping. At 18.2px a 25-character
+   uppercase name wants ~280px and the box is 165px at a 390px art, so it takes
+   two lines of ~140px with room to spare in a 10.00% box (~87px tall).
+
+   SIZE. clamp(15px, 11.0cqw, 26px) against fix219's clamp(13px, 13.0cqw, 17px).
+   The cqw term resolves against the slot (container-type:inline-size on
+   .hub-slot), so 11.0cqw of a 165px box is 18.2px — mid-clamp, not pinned at a
+   bound, which is the trap fix221 and fix227 both had to undo. The ceiling is
+   26px rather than 17px because the ceiling no longer has to protect against
+   clipping: wrapping does that now.
+
+   INK. Engraved, not printed: dark ink with a light BOTTOM highlight is what
+   reads as cut metal, and it is the one place on this hub where a text-shadow
+   earns its place (the objectives block cancels its shadow for the opposite
+   reason — dark on white muddies). The plaque medians 147 at its top and fades
+   to 120 at its bottom under the painted sheen; #20242C against the 135 midtone
+   is 4.35:1, past the 3:1 that WCAG AA asks of bold text this size, and still
+   3.85:1 against the darkest bottom row.
+
+   CROP SURVIVAL, same convention fix219 used — visible slice is 0.44991/A of
+   the art's height, centred, so the last visible row is 1 - (1 - 0.44991/A)/2:
+     bottom edge 85.20% -> 78.90%  =>  A < 0.7726  (was A < 0.6386)
+   A large move in the safe direction. The box is now well inside every phone in
+   fix218's table rather than near the edge of the squarest of them.
+
+   fix228 tombstone: the fix219/fix221 geometry, which sat below the paint —
+     #sponsor-slot-name{
+       left:8.70%; width:26.40%; top:82.80%; height:2.40%;
+       font-size:clamp(13px, 13.0cqw, 17px);
+     }                                                                      */
 #sponsor-slot-name{
-  left:8.70%; width:26.40%; top:82.80%; height:2.40%;
-  font-size:clamp(13px, 13.0cqw, 17px);
+  left:16.50%; width:42.40%; top:68.90%; height:10.00%;
+  font-size:clamp(15px, 11.0cqw, 26px);
+  white-space:normal;
+  line-height:1.08;
+  text-align:center;
+  color:#20242C;
+  text-shadow:0 1px 0 rgba(255,255,255,.60);
+}
+
+/* ═══ fix228: the sponsor VOICES ══════════════════════════════════════════
+   A nameplate that renders "Velo Café" and "EnduraTech Nutrition" in the same
+   letterforms is a label; giving each sponsor a face is what makes the plaque
+   read as THEIR plaque. Keyed off a data-sponsor attribute carrying the
+   sponsor's own id, which renderSponsorHubSlots() writes — see the note there
+   for why that write is render-only.
+
+   FIVE voices, not twelve. Twelve one-off stacks would be twelve chances for a
+   font to be missing on a device and fall through to something unintended,
+   and the sponsors already group by character. Every stack is SYSTEM fonts
+   only: this is a single-file offline PWA and a webfont would mean either a
+   network dependency or another base64 blob for one line of text on one hub.
+   Each stack ends at a generic family, so the worst case is the right CATEGORY
+   in a different face rather than a silent fallback to the body font.
+
+   The three non-sponsor plaque states — "No sponsor", "Unsigned" — carry no
+   data-sponsor attribute and so take the base rule above unstyled, which is
+   correct: they are the absence of a sponsor and should not borrow anyone's
+   voice.
+
+     voice        sponsors                          reads as
+     trade        daves_cycle, wheelworks           workshop signwriting
+     hospitality  velo_cafe, chainring_brewery      café/brewery lettering
+     engineered   apex_components, national_...     stamped component marks
+     lab          powergel, enduratech,             clinical, technical
+                  county_nutrition
+     prestige     global_apparel, worldtour_...,    WorldTour team livery
+                  elite_performance                                          */
+#sponsor-slot-name[data-sponsor="daves_cycle"],
+#sponsor-slot-name[data-sponsor="wheelworks"]{
+  font-family:'Trebuchet MS','Lucida Grande',Verdana,sans-serif;
+  font-style:italic; font-weight:700; letter-spacing:.01em;
+}
+#sponsor-slot-name[data-sponsor="velo_cafe"],
+#sponsor-slot-name[data-sponsor="chainring_brewery"]{
+  font-family:Georgia,'Iowan Old Style','Times New Roman',serif;
+  font-weight:700; font-variant:small-caps; letter-spacing:.05em;
+}
+#sponsor-slot-name[data-sponsor="apex_components"],
+#sponsor-slot-name[data-sponsor="national_sportswear"]{
+  font-family:'Arial Black','Helvetica Neue',Impact,sans-serif;
+  font-weight:900; text-transform:uppercase; letter-spacing:.02em;
+}
+#sponsor-slot-name[data-sponsor="powergel"],
+#sponsor-slot-name[data-sponsor="enduratech"],
+#sponsor-slot-name[data-sponsor="county_nutrition"]{
+  font-family:ui-monospace,'SF Mono','Consolas','Courier New',monospace;
+  font-weight:700; text-transform:uppercase; letter-spacing:-.01em;
+}
+#sponsor-slot-name[data-sponsor="global_apparel"],
+#sponsor-slot-name[data-sponsor="worldtour_syndicate"],
+#sponsor-slot-name[data-sponsor="elite_performance"]{
+  font-family:'Palatino Linotype',Palatino,Georgia,serif;
+  font-weight:700; text-transform:uppercase; letter-spacing:.10em;
 }
 /* ═══ THE OBJECTIVES WHITEBOARD ════════════════════════════════════════
    The one slot on this hub that is NOT a single centred figure: it carries up
@@ -5264,21 +5480,103 @@ button{font-family:inherit;cursor:pointer;}
        width:100%; height:23.5%;
      }
      .sponsor-obj-val{ padding-left:6px; }                                  */
+/* ═══ fix227: the box clears the NUMBERING, and drops one rule ═══════════
+   Two faults, one cause. fix221 measured the painted rules but never measured
+   the painted NUMBERING that sits to their left, and it picked its three rules
+   by position in the block rather than by which digit each one belongs to.
+
+   Re-measured on the shipped 644x1428 raster by connected components over the
+   board (L<150, 8-connectivity, components under 40px discarded as JPEG
+   speckle), which finds the digits and the rules as separate objects and so
+   cannot confuse one for the other the way an eye or a row-profile can:
+
+     object          x px       y px        canvas %
+     digits 1-5      364 - 373              56.54 - 58.28  (x)
+     periods         376 - 379              58.74 - 58.87  (x)
+     CLEAR GAP       380 - 384              58.87 - 59.81  (x)
+     rules 1-5       385 - 613              59.81 - 95.29  (x)
+
+     rule 1          y 411-427   centre 419    29.34%
+     rule 2          y 449-461   centre 455    31.86%
+     rule 3          y 488-495   centre 491.5  34.42%
+     rule 4          y 526-529   centre 527.5  36.94%
+     rule 5          y 560-567   centre 563.5  39.46%
+
+   x percentages carry the cover correction this tab needs and the other painted
+   hubs do not: #sponsor-art is center/cover with NO margin crop, the raster is
+   0.45098 against the element's 0.44991, so 0.238% of the width is cropped,
+   0.119% off each side. x% = (px/644 * 1.00238 - 0.00119) * 100. y needs no
+   correction — cover matches on height here.
+
+   FAULT 1, the numbering collision. left:55.50% is 357px, which is LEFT of the
+   digits at 364. The box did not merely graze the numbering, it started before
+   it and every objective label was drawn straight through the painted "1." and
+   its neighbours. The new left is the RULES' left edge, 59.81%, which is 0.94%
+   clear of the periods — a whole clear gap, not a hairline.
+
+   FAULT 2, the vertical. fix221's derivation names its three rules as 32.05 /
+   34.40 / 36.96. Against the table above those are rules 2, 3 and 4 — so the
+   first objective has been sitting on the line numbered 2 and the third on the
+   line numbered 4, with rule 1 left permanently blank above them. The digits
+   settle it and were the missing measurement: digit "1" spans y407-426 and
+   rule 1 spans y411-427, so they pair, and three objectives belong on rules
+   1-3. fix221's "R4 and R5 STAY DECORATION" was the right principle applied to
+   the wrong three rules; it now means R4 and R5 for real.
+
+   DERIVATION, same convention as fix221 and deliberately unchanged so the two
+   blocks stay comparable: line boxes are 2.30% of the canvas tall (half 13.7%
+   of a 27.4% box) and are centred 0.50% ABOVE their rule so the baseline lands
+   on the paint. Container top 27.50%, height 8.40%, so canvas c converts as
+   (c - 27.50)/8.40:
+
+     line 1  rule 29.34  centre 28.84  ->  15.95% - 13.7% =  2.25%
+     line 2  rule 31.86  centre 31.36  ->  45.95% - 13.7% = 32.25%
+     line 3  rule 34.42  centre 33.92  ->  76.43% - 13.7% = 62.73%
+
+   height:27.4% is UNCHANGED and that is not a coincidence: the rule spacing is
+   the same, only the starting rule moved, so the same 2.30% line box divided by
+   the same 8.40% container gives the same fraction. Line 3's box bottom is
+   62.73 + 27.4 = 90.13% of the container = canvas 35.07%, so it stops 1.87%
+   clear of rule 4 and cannot bleed onto a decorative line.
+
+   FONT. The box narrows 42.00% -> 35.48% because it now starts at the rules
+   rather than before the digits, and the cqw term is a percentage of the box.
+   At 8.8cqw the rendered size would have dropped 14.4px -> 12.2px, which is
+   two tenths of a pixel off the clamp FLOOR — precisely the failure fix221
+   diagnosed and fixed. 8.8 -> 10.4 holds the shipped size exactly: 35.48% of a
+   390px art = 138px, 10.4cqw = 14.4px, the same number fix221 derived and still
+   mid-clamp rather than pinned. The clamp bounds are untouched.
+
+   CONTRAST unchanged and still valid — the ink and the board are the same, only
+   the box moved: #1A1F2B on rgb(214,218,226) is 11.76:1, still no text-shadow.
+
+   CROP SURVIVAL: the top edge moves 30.30% -> 27.50%. The board's own painted
+   header sits above this at ~25.2% and is already accepted as visible, so
+   nothing this fix exposes is newly at risk.
+
+   fix227 tombstone: the fix221 geometry —
+     #sponsor-slot-obj{
+       left:55.50%; width:42.00%; top:30.30%; height:8.40%;
+       font-size:clamp(12px, 8.8cqw, 16px);
+     }
+     .sponsor-obj-line:nth-child(1){top:1.2%;}
+     .sponsor-obj-line:nth-child(2){top:29.2%;}
+     .sponsor-obj-line:nth-child(3){top:59.6%;}                             */
 #sponsor-slot-obj{
-  left:55.50%; width:42.00%; top:30.30%; height:8.40%;
+  left:59.81%; width:35.48%; top:27.50%; height:8.40%;
   text-align:left;
   color:#1A1F2B;
   text-shadow:none;
-  font-size:clamp(12px, 8.8cqw, 16px);
+  font-size:clamp(12px, 10.4cqw, 16px);
   font-weight:700;
 }
 .sponsor-obj-line{
   position:absolute; left:0; right:0; height:27.4%;
   display:flex; align-items:center; justify-content:space-between;
 }
-.sponsor-obj-line:nth-child(1){top:1.2%;}
-.sponsor-obj-line:nth-child(2){top:29.2%;}
-.sponsor-obj-line:nth-child(3){top:59.6%;}
+.sponsor-obj-line:nth-child(1){top:2.25%;}
+.sponsor-obj-line:nth-child(2){top:32.25%;}
+.sponsor-obj-line:nth-child(3){top:62.73%;}
 .sponsor-obj-lbl{
   overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0;
 }
@@ -21726,14 +22024,20 @@ function renderSponsorHubSlots(){
   if(currentTab!=='sponsors') return;
   if(!_sponsorHubSlotNodes){
     const name=document.getElementById('sponsor-name');
+    // fix228: the VOICE attribute goes on the slot DIV, not on the span the
+    // text lives in — the per-sponsor font rules are keyed to
+    // #sponsor-slot-name[data-sponsor=...] and a font set on the div is
+    // inherited by the span, whereas the reverse is not true. Cached alongside
+    // name rather than looked up per render, matching every other node here.
+    const slot=document.getElementById('sponsor-slot-name');
     const lines=[1,2,3].map(i=>({
       lbl:document.getElementById('sponsor-obj-lbl-'+i),
       val:document.getElementById('sponsor-obj-val-'+i)
     }));
     // All-or-nothing, matching renderHubBanner(): a partial cache would paint
     // some of the hub and silently skip the rest.
-    if(!name||lines.some(l=>!l.lbl||!l.val)) return;
-    _sponsorHubSlotNodes={name:name, lines:lines};
+    if(!name||!slot||lines.some(l=>!l.lbl||!l.val)) return;
+    _sponsorHubSlotNodes={name:name, slot:slot, lines:lines};
   }
   // fix220: the VISIBLE half of the switch lockout. Sited ABOVE the signature
   // guard below on purpose — the signature covers the plaque and the three
@@ -21756,6 +22060,12 @@ function renderSponsorHubSlots(){
     _swHot.disabled=_locked;
   }
   let plaque, rows;
+  // fix228: the sponsor's own id, used only to select a nameplate font. Empty
+  // in the three sponsorless states — "No sponsor" and "Unsigned" are the
+  // ABSENCE of a sponsor and must not borrow anyone's voice, so they fall
+  // through to the unstyled base rule. Declared beside plaque and assigned in
+  // the same branches, so the two can never describe different sponsors.
+  let plaqueId='';
   const terminateMsLeft=getSponsorTerminateCooldownRemaining();
   if(terminateMsLeft>0){
     // Days, not hours: the sheet already spells the cooldown out precisely, and
@@ -21775,6 +22085,7 @@ function renderSponsorHubSlots(){
     } else {
       const sponsor=activeInfo.sponsor;
       plaque=sponsor.name;
+      plaqueId=sponsor.id||'';
       rows=sponsor.objectives.map(o=>{
         const cur=Math.min(o.target, state.sponsor.progress[o.type]||0);
         return [o.label, state.sponsor.claimed[o.id] ? '✓' : (cur+'/'+o.target)];
@@ -21783,11 +22094,19 @@ function renderSponsorHubSlots(){
   }
   // Unit-separator characters rather than a printable delimiter, so a label
   // that happened to contain one could not forge a matching signature.
-  const sig=plaque+'\u241E'+rows.map(r=>r[0]+'\u241F'+r[1]).join('\u241E');
+  const sig=plaque+'\u241E'+plaqueId+'\u241E'+rows.map(r=>r[0]+'\u241F'+r[1]).join('\u241E');
   if(sig===_sponsorHubSlotSig) return;
   _sponsorHubSlotSig=sig;
   const n=_sponsorHubSlotNodes;
   n.name.textContent=plaque;
+  // fix228: render-only, and inside the signature guard on purpose. plaqueId is
+  // part of sig above, so a lateral switch between two sponsors whose names
+  // happened to render identically still repaints the voice; without it in the
+  // signature the guard could hold a stale font against a new name. One
+  // attribute write on one node, no state touched — the same shape as the
+  // _swHot.disabled write above.
+  if(plaqueId) n.slot.setAttribute('data-sponsor', plaqueId);
+  else n.slot.removeAttribute('data-sponsor');
   for(let i=0;i<3;i++){
     const r=rows[i];
     n.lines[i].lbl.textContent = r ? r[0] : '';
