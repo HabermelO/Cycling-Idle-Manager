@@ -327,7 +327,30 @@
 // form (see the fix202 note above). It bites hardest on THIS tab of the three:
 // four of fix222's five hotspots are painted circles placed by centre, and a
 // centre read off the wrong raster is a miss with no visible cause.
-const CACHE_VERSION = 'cim-v3.8.33';   // fix221: Skills hub art + calibration (NEW asset: skills-bg.jpg)
+// const CACHE_VERSION = 'cim-v3.8.33';   // fix221: Skills hub art + calibration (NEW asset: skills-bg.jpg)
+// fix222: NO asset byte changed — skills-bg.jpg is unchanged and already in the
+// manifest below. This stage is CSS, markup and JS only. The bump is mandatory
+// all the same, for the reason fix186 spells out above: './index.html' is in
+// STATIC_ASSETS and the deployed HTML filename never changes between fixes.
+//
+// It matters MORE than usual on this stage, in the way fix203's, fix209's,
+// fix211's and fix220's did, and for a sharper reason than any of them.
+// fix222 RE-PARENTS #rs-buff-wrap, the .section-lbl and #rs-hub-body into
+// #skills-sheet. An installed PWA serving the fix221 shell out of the v3.8.33
+// cache would get the new stylesheet with the OLD markup: those three nodes
+// would sit outside any .skills-sheet-open subtree, so renderRiderSkillsCard()
+// and renderRiderSkillsHub() would paint the buff bar and the drill list with
+// no sheet chrome and no back bar, while the fix221 gate — which this fix lifts
+// in the stylesheet, not the markup — would leave #skills-stage display:none.
+// The result is the Skills tab as it looked in fix220 with a dead stylesheet
+// over it: the drills reachable but the hub not, which is the inverse of what
+// shipped.
+//
+// Second, smaller stake: 'skills' joins HUB_TABS in this fix, which is what
+// retires .game-header from this tab. A stale shell keeps the header AND gets
+// the new rules, which is the one combination where the tab has two exits and
+// neither of them is the painted one.
+const CACHE_VERSION = 'cim-v3.8.34';   // fix222: Skills hotspots, buff bar re-parent, sheet, header retirement
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
