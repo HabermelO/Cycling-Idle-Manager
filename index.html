@@ -5514,8 +5514,14 @@ button{font-family:inherit;cursor:pointer;}
      same place and with the same tombstone fix220 used, once the painted BACK
      exists. Until then the only route to this art is skillsDebugToggle(). */
   z-index:72;
+  /* fix222 tombstone: the fix221 gate, retired here and not deleted. The stage
+     now carries six hotspots including a painted BACK (data-hot 5), so it is no
+     longer control-free and 'skills' IS now in HUB_TABS — which means this pair
+     would hide the ONLY chrome on the tab that goes anywhere. Lifted in the same
+     place fix217 and fix220 lifted theirs.
   display:none;
   pointer-events:none;
+  */
 }
 /* One class on #tab-skills drives the preview, matching .cal-hub-preview,
    .sponsor-hub-preview, .tasks-hub-preview, .train-hub-preview and
@@ -5572,6 +5578,311 @@ button{font-family:inherit;cursor:pointer;}
   transform:translate(-50%,-50%);color:#ff0;font:700 13px/1 monospace;
 }
 #skills-stage.skills-debug .skills-slot{background:rgba(0,255,255,.30);outline:1px solid #0ff;}
+
+/* ═══════════ fix222: SKILLS SLOTS, HOTSPOTS, TOAST AND SHEET ═══════════
+   Stage two of two for the Skills tab (plan v2 §fix222), and the LAST hub of
+   plan v2. The fix221 gate above is lifted, three banner slots and SIX hotspots
+   go on, #rs-buff-wrap / .section-lbl / #rs-hub-body are re-parented into
+   #skills-sheet, and 'skills' joins HUB_TABS so .game-header retires from this
+   tab. Every geometry number below is a percentage OF #skills-art — the
+   768x1707 canvas — never of the viewport, and every one was MEASURED on the
+   shipped 644x1428 raster (the same canvas at 0.8385 scale). fix221's predicted
+   numbers were treated as a hypothesis and re-measured, per its own instruction
+   and plan §2.4's "measure per tab, never copy".
+
+   ═══ THE BAR PLATES, RE-MEASURED ═══════════════════════════════════════
+   Column segmentation of the plate band (dark, low-saturation runs), with the
+   painted glyphs falling out as the gaps between them:
+
+     glyph   coin       x 15.5% - 19.4%
+     plate   CASH       x 19.41% - 34.32%
+     glyph   plus/gauge x 38.98% - 51.09%
+     plate   FTP        x 51.09% - 61.02%
+     glyph   cal/bolt   x 65.99% - 73.76%
+     plate   ENERGY     x 73.76% - 88.51%
+
+   Every glyph sits OUTSIDE its plate's dark run — the same clean split fix219
+   measured on the Sponsor bar, and unlike the Calendar bar, so no slot needs an
+   after-the-glyph offset. Worth noting the three plate x-runs land within 0.5%
+   of Sponsor's; these two arts share a bar treatment and the coincidence is real
+   rather than copied, because this block measured before it compared.
+
+   Vertical, profiled down the middle of each plate (rows of the 1428 raster):
+     top bevel        9.80% -  9.94%   (dark edge pair, lum 74 -> 47)
+     flat interior   10.01% - 11.83%   (lum 60 -> 73)
+     bottom bevel    11.90% - 11.97%   (lum 128 -> 108)
+   Interior centre 10.92%, against fix221's predicted whole-plate centre 10.85%
+   — 0.07% apart, so fix221's crop survival table needs no re-tabulation and its
+   crossover stands to three decimals. top:10.15%; height:1.55% is centred at
+   10.925% and clear of both bevels by ~0.14%.
+
+   Light ink on dark plates, which is home's, train's, calendar's and sponsor's
+   polarity. Plate sampled over its blank run at rgb(49,69,94); #F4F7FA on it
+   measures 9.11:1.
+
+   ═══ THE ENERGY GAUGE STOPS ═══════════════════════════════════════════
+   Same guarantee fix188 made for rider, fix205 for train, fix217 for calendar
+   and fix219 for sponsor: a FULL gauge must never read worse than an EMPTY one.
+   This plate is LIGHTER than sponsor's rgb(57,60,75), so its empty state starts
+   lower and sponsor's stops had to be re-checked here rather than assumed:
+
+     empty plate rgb(49,69,94)               9.11:1
+     sponsor's  rgba(16,56,34,.65)          11.18:1
+     sponsor's  rgba(20,66,40,.50)           9.92:1
+
+   Both clear the empty state along the whole length, so this is the one hub in
+   plan v2 where the previous hub's greens survived the check and are reused
+   rather than re-derived. Calendar's lighter pair was NOT re-checked, because
+   sponsor already rejected it against a darker plate than this one and it fails
+   here by the same margin. No border-radius, for the reason the other five
+   give: this is an interior region of a painted bar, not a plate of its own. */
+.skills-slot{
+  color:#F4F7FA;
+  text-shadow:0 1px 2px rgba(0,0,0,.70);
+}
+.skills-banner-slot{top:10.15%; height:1.55%;}
+#skills-slot-money  {left:20.00%; width:13.70%;}
+#skills-slot-ftp    {left:51.70%; width:8.70%;}
+#skills-slot-energy {left:74.40%; width:13.50%;}
+#skills-slot-energy::before{
+  content:'';position:absolute;inset:0;
+  width:calc(var(--skills-energy-pct,0) * 1%);
+  background:linear-gradient(90deg, rgba(16,56,34,.65), rgba(20,66,40,.50));
+}
+@media (prefers-reduced-motion: no-preference){
+  #skills-slot-energy::before{transition:width .35s ease;}
+}
+#skills-slot-energy #skills-energy{position:relative;}
+
+/* ═══ THE SIX HOTSPOTS, MEASURED ═══════════════════════════════════════
+   FOUR OF THE SIX ARE PAINTED CIRCLES PLACED BY CENTRE, which is the reason
+   fix221 insisted the raster be eyeballed with the grid over it before these
+   numbers were typed: a centre read off the wrong raster is a miss with no
+   visible cause. They were not read off the grid by eye in the end. Each circle
+   was fitted by scoring the mean image-gradient magnitude around a candidate
+   ring over a (cx, cy, r) sweep — the ring that best coincides with the painted
+   rim wins — which is repeatable and which the eye is measurably bad at:
+
+     #1 FEED ZONE     centre 19.41% / 30.39%   painted diameter 30.43% x 13.73%
+     #2 DRAFTING      centre 80.43% / 30.25%   painted diameter 30.43% x 13.73%
+     #3 WIND TUNNEL   centre 24.84% / 68.42%   painted diameter 31.68% x 14.29%
+     #4 BIDON TOSS    centre 76.40% / 68.77%   painted diameter 31.99% x 14.43%
+
+   The fit is corroborated three ways and that is why it is trusted: the top pair
+   is symmetric about x=50% to 0.02%; every fitted diameter has an h/w ratio of
+   0.451 against the canvas's own 768/1707 = 0.44991, i.e. the boxes really are
+   circles in canvas space; and the two rows agree on a diameter to within 1.5%
+   of width. The bottom pair is NOT symmetric about 50% (midpoint 50.62%) and is
+   NOT forced to be — that is the painting, and welding a hotspot to a symmetry
+   the art does not have is exactly the error plan §2.1 warns about.
+
+   HIT BOXES ARE SLIGHTLY INSIDE THE PAINT, which is the standard the home and
+   rider medallions set. The top pair is taken in further than the bottom pair
+   for one specific reason: at the full painted 13.73% the top row's box top
+   lands at 23.53%, and BACK's box bottom is at 23.20% — a 0.33% gap, ~5.6 canvas
+   px, which is not a gap. Trimming the top pair to 13.05% moves its box top to
+   23.87% and opens that to 0.67%. The alternative — shrinking BACK to its
+   painted 4.22% — was rejected because BACK is the tab's only exit and 4.22% of
+   the art height is ~40 CSS px on a 390 px phone, under the 44 px target, while
+   the medallions have 223 canvas px of width to give away and do not notice.
+
+     #  element        box x            box y            hw / hh
+     1  FEED ZONE       4.91 - 33.91    23.87 - 36.92    29.00% / 13.05%
+     2  DRAFTING       65.93 - 94.93    23.73 - 36.78    29.00% / 13.05%
+     3  WIND TUNNEL     9.59 - 40.09    61.56 - 75.28    30.50% / 13.72%
+     4  BIDON TOSS     61.15 - 91.65    61.91 - 75.63    30.50% / 13.72%
+     5  BACK            0.68 - 20.68    17.70 - 23.20    20.00% /  5.50%
+     6  PLINTH         27.00 - 73.00    53.00 - 58.60    46.00% /  5.60%
+
+   COLLISION AUDIT (plan §5.4), every pair, both axes:
+     1-2, 3-4      x-disjoint (33.91 < 65.93; 40.09 < 61.15)
+     1-3, 1-4, 2-3, 2-4, 3-6, 4-6, 1-6, 2-6, 5-anything
+                   y-disjoint (23.20 < 23.87 < 36.92 < 53.00 < 58.60 < 61.56)
+   The tightest pair in the file is 5-1 at 0.67% of canvas height (~11 canvas px,
+   ~6 CSS px on a 390 px phone). Both sides of that gap are legitimate targets
+   with unambiguous destinations, so a tap that lands in it hits one or the
+   other and neither outcome is a surprise; there is no third thing to hit.
+
+   Slots are pointer-events:none and are exempt from the hotspot pass, but were
+   checked against each other and against the hotspots for VISUAL overlap: the
+   three banner slots span 10.15% - 11.70%, and the nearest hotspot edge is
+   BACK's box top at 17.70%.
+
+   ═══ HOTSPOT 6, AND THE §7 QUESTION IT ANSWERS ════════════════════════
+   Plan §7 question 2 left the painted region for the sheet route open, to be
+   resolved at this calibration. RESOLVED: the stone plinth under the rider, not
+   the HONING CYCLING CLUB signage.
+
+   The signage was measured and rejected on size. It boxes at roughly
+   x 84% - 98%, y 21.5% - 24.5% — 3% of canvas height is ~26 CSS px on a 390 px
+   phone, well under the 44 px target, and it sits hard against the right edge
+   where a thumb reach is worst. The plinth was found by masking for the dais's
+   flat low-saturation stone (lum 85-175, sat < 28) and reading the row profile:
+   the mask peaks over y 54% - 56.5% and falls away into asphalt below 58%. A
+   46% x 5.6% box centred at 50% / 55.80% sits inside that, is ~48 CSS px tall on
+   the same phone, is horizontally centred where the thumb already is, and is
+   what a player would point at if asked where the rider is standing.
+
+   It is a RECT, not a circle, because the dais is painted as an ellipse in
+   perspective and its top surface is the part that reads as tappable. The bike
+   and rider overlap the upper part of the box; that is intentional and matches
+   the plan's own wording ("over the painted plinth / rider figure").
+
+   ═══ CROP SURVIVAL TABLE (plan §5.5) ═══════════════════════════════════
+   The visible slice of #skills-art under cover is f = 0.44991/A of its height,
+   centred, so the first visible row is (1-f)/2 and the last is 0.5 + f/2.
+   HOTSPOTS ARE JUDGED AT THEIR BOX TOP for top-anchored controls and at their
+   box BOTTOM for the two bottom-row medallions, which is fix219's convention
+   applied per element rather than per file: cropping the far side of a hit box
+   trims it, cropping past its near side removes it.
+
+     A         first    last     bar c   BACK top  med1/2 top  med3/4 bot  plinth
+     0.4615    1.26%    98.74%   vis     vis       vis         vis         vis
+     0.5000    5.01%    94.99%   vis     vis       vis         vis         vis
+     0.5622    9.99%    90.01%   vis     vis       vis         vis         vis  (SE)
+     0.6000   12.51%    87.49%   CLIP    vis       vis         vis         vis
+     0.6250   14.01%    85.99%   CLIP    vis       vis         vis         vis
+
+   Crossovers: bar centre A < 0.5757, within 0.002 of the shared 0.5746 fix221
+   bought by landing the plates on 10.85% — the 0.07% the interior centre came
+   in above the whole-plate centre is the entire difference. BACK box top
+   A < 0.6965, the safest painted BACK of the eight hubs (Calendar 0.6391,
+   Sponsor 0.6383). Top medallion box tops A < 0.8563 (judged on #2's 23.73%, the lower of
+   the two). Bottom medallion box
+   bottoms A < 0.8777. The plinth is not at risk in either direction: its box
+   bottom crosses at A < 2.62 and its box top is never reached from above.
+
+   So EVERY CONTROL ON THIS TAB SURVIVES EVERY ASPECT IN THE TABLE, including
+   both tablet rows — the only clip anywhere is the stat bar, which is a readout.
+   That matters more than usual here because 'skills' joins HUB_TABS in this fix
+   and .game-header, until now this tab's second exit, is gone.
+
+   The bar plates' painted TOP edge (10.01%) grazes at A < 0.5625, so at iPhone
+   SE aspect a sliver of the plate tops is off screen; the slot text is centred
+   in the interior and its own centre survives to 0.5757, so that is cosmetic and
+   not a readout loss — the identical situation fix216, fix218 and fix221 all
+   recorded.
+
+   ═══ THE INFORMATIONAL PILL ════════════════════════════════════════════
+   Same node, same shape and the same rules as #cal-toast (fix217) and
+   #sponsor-toast (fix220): one pre-built node per hub, patched by textContent,
+   never created or destroyed at runtime. Absolutely positioned against
+   #skills-art rather than #skills-stage so it lands in the same place relative
+   to the painted forecourt at every aspect, exactly like the hotspots and slots.
+   It is raised by ONE control on this hub — Bidon Toss, data-hot 4 — because
+   every other refusal on this tab belongs to rsCanStart() and goes out through
+   the global showToast(). See skillsHubGo() for why that split is deliberate. */
+#skills-toast{
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%) scale(.9);
+  padding:10px 18px; border-radius:999px;
+  background:rgba(14,20,32,.94);
+  border:1px solid rgba(255,255,255,.22);
+  color:#fff; font-weight:700; font-size:15px;
+  box-shadow:0 6px 20px rgba(0,0,0,.45);
+  pointer-events:none; opacity:0; visibility:hidden;
+  max-width:86%; text-align:center;
+}
+#skills-toast.on{opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1);}
+@media (prefers-reduced-motion: no-preference){
+  #skills-toast{transition:opacity .18s ease, transform .18s ease;}
+}
+
+/* ═══ THE SECTION SHEET ════════════════════════════════════════════════
+   Shaped on #train-sheet (fix206), #gear-sheet (fix209), #cal-sheet (fix217)
+   and #sponsor-sheet (fix220) deliberately: same hard-lockout mechanics, same
+   sticky back bar, same measured top edge. Six sheets, one pattern.
+
+   WHAT IS INSIDE IT IS RE-PARENTED, NOT REBUILT. #rs-buff-wrap, the
+   .section-lbl and #rs-hub-body move here from the Skills panel with their IDS
+   AND THEIR BODIES UNTOUCHED, so renderRiderSkillsCard(), renderRiderSkillsHub()
+   and rsTickBuffPills() look them up by id and none of the three is edited by
+   this fix. Same id contract fix186/fix206/fix209/fix211/fix217/fix220
+   preserved.
+
+   z-index 75 is assigned by plan v2 §1.3: strictly above #skills-stage's 72 so
+   the sheet covers the hotspots, and strictly below every existing stage (tasks
+   76 ... home 90) so tapping through to an older hub can never leave a skills
+   sheet painted over it.
+
+   display:none rather than a fade, for fix186's reason: it is a HARD lockout.
+   Closed, it cannot be scrolled, focused or tapped through; open, the stage
+   below is display:none (see the .skills-sheet-open pair) so no medallion can be
+   hit through it. Nothing is translucent, so there is no state in which both
+   layers are live at once — which on THIS tab means a drill can never be started
+   twice from two visible routes, since the sheet's own "Start drill" buttons and
+   the painted medallions both land in startRiderSkillGame(). */
+#skills-sheet{
+  display:none;
+  position:fixed;
+  /* 'skills' JOINS HUB_TABS this fix, so .game-header (z-index 83) is hidden on
+     this tab and this fallback is what actually applies — as on calendar and
+     sponsors, and unlike train and gear where the measured branch is the live
+     path. The measured branch in skillsSheetSet() is kept anyway, verbatim, per
+     plan §fix217's reasoning: one sheet pattern in the file beats six sheets and
+     five-and-a-bit patterns. */
+  top:env(safe-area-inset-top, 0px);
+  left:0; right:0; bottom:0;
+  z-index:75;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%);
+  /* bottom padding clears .main-tabs (z-index 100), which is still on this tab
+     and still overlays the sheet's lower edge — the bar is not retired until all
+     eight hubs are painted (plan v2 §6). */
+  padding:0 .75rem calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+}
+/* One class on #tab-skills drives both layers, so open/closed is a single DOM
+   write and the two can never disagree about which is showing.
+
+   SOURCE ORDER IS LOAD-BEARING HERE, exactly as it is in the calendar and
+   sponsor blocks. The .skills-hub-preview rule above is KEPT (fix221 said so,
+   and the fix136 lesson is why). It carries the same specificity as the pair
+   below — two ids and a class — so if it sat after this, its display:block would
+   beat the lockout whenever a calibration preview had been left switched on. It
+   sits before. Do not reorder this block. */
+#tab-skills.skills-sheet-open #skills-sheet{display:block;}
+#tab-skills.skills-sheet-open #skills-stage{display:none;}
+
+/* Sticky rather than fixed so it participates in the sheet's own scroll
+   container and needs no height reservation. Opaque --hub-sky (flat hex, not
+   the gradient) so content scrolling under it is fully covered. */
+.skills-sheet-bar{
+  position:sticky;
+  top:0;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 -.75rem .6rem;
+  padding:.45rem .75rem;
+  background:var(--hub-sky);
+  box-shadow:0 2px 8px rgba(30,25,32,.18);
+}
+.skills-sheet-title{
+  font-size:13px;font-weight:700;color:#123;
+  letter-spacing:.02em;
+}
+/* Declared rather than added to the .train-sheet-back / .gear-sheet-back /
+   .cal-sheet-back / .sponsor-sheet-back selector lists, for fix206's reason: one
+   tab's back button must not be able to break another's. Same 44px+ target, same
+   :active scale, same reduced-motion guard, same focus ring. */
+.skills-sheet-back{
+  display:flex; align-items:center; gap:6px;
+  min-height:44px; padding:0 14px 0 10px;
+  border:1px solid var(--border); border-radius:999px;
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:700;
+  box-shadow:var(--shadow-md);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.skills-sheet-back:active{transform:scale(.96);}
+@media (prefers-reduced-motion: no-preference){
+  .skills-sheet-back{transition:transform .12s ease;}
+}
+.skills-sheet-back:focus-visible{outline:3px solid #fff;outline-offset:2px;}
 
 /* ═══════════ fix170: HOME HUB ═══════════
    The art is load-bearing. It carries the background, the nine icon circles,
@@ -7029,11 +7340,101 @@ body.home-open{overflow:hidden;}
           <div class="hub-cal-tick hub-cal-x" style="--tx:80%">80</div>
           <div class="hub-cal-tick hub-cal-x" style="--tx:90%">90</div>
         </div>
+        <!-- fix222: the painted CASH / FTP / ENERGY bar goes live, closing the
+             same defect on this tab that fix187 closed on rider, fix205 on
+             train, fix217 on calendar and fix219 on sponsor: until now the
+             figures painted here were whatever the art happened to carry and
+             never matched the save. Each value sits in a measured blank run
+             INSIDE its painted plate — see the fix222 CSS for the column
+             segmentation and the glyph pass that confirmed no figure is typed
+             over a painted icon. Em-dash placeholders exactly as the other six
+             hubs use, so no slot ever renders empty in the frame before the
+             first renderHubBanner('skills'). Ids live on the INNER SPANS so the
+             ENERGY gauge is CSS alone, as fix188 was.
+
+             Ordered BEFORE the hotspots in source order, matching train and
+             calendar. Slots are pointer-events:none so paint order is all that
+             matters here and the hotspots paint over them harmlessly. -->
+        <div class="hub-slot skills-slot skills-banner-slot" id="skills-slot-money"><span id="skills-money">&#8212;</span></div>
+        <div class="hub-slot skills-slot skills-banner-slot" id="skills-slot-ftp"><span id="skills-ftp">&#8212;</span></div>
+        <div class="hub-slot skills-slot skills-banner-slot" id="skills-slot-energy"><span id="skills-energy">&#8212;</span></div>
+        <!-- fix222: the six hotspots. Transparent buttons on .hub-hot, boxed in
+             percentages of #skills-art so they stay welded to the painting at
+             every phone aspect. data-hot runs 1-5 in painted reading order with
+             BACK appended as 5, exactly as plan v2 §3.3 fixed it, and 6 is
+             APPENDED after — never inserted — per the append-only rule. Rider
+             acquired an index consumer two stages after its hotspots landed;
+             these are treated as fixed from now.
+
+             FOUR OF THE SIX ARE CIRCLES PLACED BY CENTRE and every centre was
+             fitted numerically against the shipped raster rather than eyeballed
+             — see the fix222 CSS for the method, the corroboration and the
+             full collision audit. The two rows are deliberately NOT forced to a
+             shared diameter or to symmetry about x=50%; the painting does not
+             have either and welding a hotspot to a symmetry the art lacks is the
+             error plan §2.1 warns about.
+
+             1-3 go STRAIGHT TO THE DRILL, not to a section. That is the
+             difference from the other seven hubs and it is deliberate: a Skills
+             medallion is a verb, not a section (plan v2 §fix222). 4 is Bidon
+             Toss, which has no entry in RS_GAMES and no drill behind it, so it
+             raises the pill rather than pretending — and it is the ONLY control
+             on this hub that does.
+
+             6 is the route to the sheet, and therefore the only route to the
+             buff bar, which would otherwise have none once the drill close
+             handlers land on the hub instead of the list. Plan §7 question 2
+             asked which painted region carries it; resolved to the plinth rather
+             than the club signage, on measured touch-target size — the reasoning
+             is in the fix222 CSS. -->
+        <button class="hub-hot skills-hot" data-hot="1" style="--hx:19.41%;--hy:30.39%;--hw:29.00%;--hh:13.05%" aria-label="Feed Zone Scramble drill" onclick="skillsHubGo('fz')"></button>
+        <button class="hub-hot skills-hot" data-hot="2" style="--hx:80.43%;--hy:30.25%;--hw:29.00%;--hh:13.05%" aria-label="Slipstream Drafting drill" onclick="skillsHubGo('sl')"></button>
+        <button class="hub-hot skills-hot" data-hot="3" style="--hx:24.84%;--hy:68.42%;--hw:30.50%;--hh:13.72%" aria-label="Wind Tunnel drill" onclick="skillsHubGo('wt')"></button>
+        <button class="hub-hot skills-hot" data-hot="4" style="--hx:76.40%;--hy:68.77%;--hw:30.50%;--hh:13.72%" aria-label="Bidon Toss drill" onclick="skillsComingSoon('Bidon Toss &#8212; coming soon')"></button>
+        <button class="hub-hot hub-hot-rect skills-hot" data-hot="5" style="--hx:10.68%;--hy:20.45%;--hw:20%;--hh:5.50%" aria-label="Back to home" onclick="hubGo('home')"></button>
+        <button class="hub-hot hub-hot-rect skills-hot" data-hot="6" style="--hx:50.00%;--hy:55.80%;--hw:46.00%;--hh:5.60%" aria-label="Skill drills and active buffs" onclick="skillsHubGo2Sheet()"></button>
+        <!-- The informational pill. A child of #skills-art rather than of
+             #skills-stage so it is positioned against the cover rect and lands
+             in the same place relative to the painted forecourt at every aspect,
+             exactly like the hotspots and slots. Last in the subtree so it
+             paints over them. Built empty and hidden; skillsComingSoon() patches
+             textContent, and no code path ever creates or destroys this node. -->
+        <div id="skills-toast"></div>
       </div>
     </div>
+    <!-- fix222: the section sheet. Opened by skillsHubGo2Sheet() from the
+         painted plinth, closed by skillsHubBack(). A real control inside the
+         sheet rather than a second history level: opening it pushes nothing, so
+         the platform back gesture from anywhere in this tab still lands where it
+         did before. Same shape as #train-sheet (fix206), #gear-sheet (fix209),
+         #cal-sheet (fix217) and #sponsor-sheet (fix220).
+
+         #rs-buff-wrap, the .section-lbl and #rs-hub-body below are RE-PARENTED
+         from the Skills panel, IDS AND BODIES UNTOUCHED — see the tombstone at
+         their old position. renderRiderSkillsCard(), renderRiderSkillsHub() and
+         rsTickBuffPills() find all three by id and none of the three functions
+         is edited by this fix. There is one section on this tab, so the sheet
+         takes no key: skillsHubGo2Sheet() has nothing to disambiguate and
+         #skills-sheet-title is a constant. -->
+    <div id="skills-sheet">
+      <div class="skills-sheet-bar">
+        <button class="skills-sheet-back" aria-label="Back to skills hub" onclick="skillsHubBack()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Skills</button>
+        <div class="skills-sheet-title" id="skills-sheet-title">Drills &amp; buffs</div>
+      </div>
+      <div id="rs-buff-wrap"></div>
+      <div class="section-lbl">Skill Drills</div>
+      <div id="rs-hub-body" class="rs-overlay-body"></div>
+    </div>
+    <!-- fix222 tombstone: #rs-buff-wrap, the .section-lbl and #rs-hub-body were
+         here and are now inside #skills-sheet above. Moved, not duplicated — two
+         nodes with the same id would make renderRiderSkillsCard() and
+         renderRiderSkillsHub() write to whichever one the document happened to
+         resolve first, which on this tab would silently be the one outside the
+         sheet and therefore the one nobody can see.
     <div id="rs-buff-wrap"></div>
     <div class="section-lbl">Skill Drills</div>
     <div id="rs-hub-body" class="rs-overlay-body"></div>
+    -->
   </div>
   <div id="tab-sponsors" style="display:none">
     <!-- fix218: the painted SPONSOR hub stage. Art and geometry only — no
@@ -13288,6 +13689,13 @@ function showTab(name){
   // name==='sponsors' lazy-load line above, matching how rider's and calendar's
   // two branches are written.
   if(name==='sponsors') sponsorSheetSet(false);
+  // fix222: same contract one tab across, and the LAST of plan v2's three —
+  // entering the Skills tab always lands on the HUB, never on whatever the
+  // sheet was showing last time. This one carries extra weight: all three drill
+  // close handlers call openRiderSkillsHub(), which is showTab('skills'), so
+  // this line is what makes finishing a drill land on the medallions rather
+  // than back inside the list it was started from.
+  if(name==='skills') skillsSheetSet(false);
   // fix88: leaving the workshop tab must never leave a mini-game rAF loop
   // running off-tab (spec guardrail). wsStopGame() is a no-op if nothing's
   // running, so this is safe on every tab switch, not just workshop->other.
@@ -13402,7 +13810,12 @@ function updateHeader(){
 // the same fix. Appended rather than inserted: this is a Set so iteration order
 // is not load-bearing here, but the habit is what plan v2 §6 asks for across
 // every registry in the file, and TABS — which IS index-mapped — is untouched.
-const HUB_TABS = new Set(['home','rider','calendar','sponsors']);
+// fix222: 'skills' APPENDED — the single edit that retires .game-header from
+// the Skills tab, and the reason the painted BACK (data-hot 5) had to land in
+// the same fix. Appended rather than inserted, per plan v2 §6; TABS — which IS
+// index-mapped — is untouched, and the .main-tab button for this tab STAYS.
+// This completes plan v2: all three of its hubs are now header-free.
+const HUB_TABS = new Set(['home','rider','calendar','sponsors','skills']);
 
 // fix203: THE hub navigation funnel. Was homeGo(), which is now a thin alias
 // (below) so all 14 painted home hotspots keep their exact onclick text and
@@ -13441,6 +13854,13 @@ function hubGo(tab){
   // screen that never raised it. Null-safe and clears its own timer, so this is
   // a fifth no-op in the common case.
   sponsorHideToast();
+  // fix222: skillsHideToast() APPENDED for exactly the reason the fix203,
+  // fix217 and fix220 comments above give — the Skills hub's painted BACK is
+  // itself a hub-to-hub tap, and without this a 'Bidon Toss — coming soon' pill
+  // would stay mounted and mid-timer behind the home hub and then fade on a
+  // screen that never raised it. Null-safe and clears its own timer, so this is
+  // a sixth no-op in the common case.
+  skillsHideToast();
   showTab(tab);
 }
 
@@ -13596,7 +14016,26 @@ const HUB_BANNERS = {
   // peer of the other six — worth restating because the ref block below is
   // all-or-nothing and a hub missing one node would silently render none.
   sponsors:{money:'sponsor-money', ftp:'sponsor-ftp', energy:'sponsor-energy',
-          slot:'sponsor-slot-energy', pct:'--sponsor-energy-pct'}
+          slot:'sponsor-slot-energy', pct:'--sponsor-energy-pct'},
+  // fix222: the eighth hub, the third of plan v2's three and the LAST painted
+  // hub in the file. APPENDED, never inserted — this object is keyed so order is
+  // not load-bearing here, but the habit is the one plan v2 §6 asks for across
+  // every registry in the file. Five ids and one custom-property name, no new
+  // logic and no alias function — the sixth consecutive stage to confirm what
+  // fix203 built this table for.
+  //
+  // Key, ids and LAZY_ASSET_GROUPS key are ALL 'skills' with no translation, as
+  // fix221 already noted for its asset group. Unlike the growth/tasks entry
+  // above, the tab id here really is the key. Note the group is 'skills' and NOT
+  // the pre-existing 'riderskills' group, which holds the three drill boards'
+  // art; those are two different registries with two different jobs.
+  //
+  // The Skills art paints all THREE readouts, so this is a straight four-node
+  // peer of the other seven — worth restating one last time because the ref
+  // block below is all-or-nothing and a hub missing one node would silently
+  // render none.
+  skills:{money:'skills-money', ftp:'skills-ftp', energy:'skills-energy',
+          slot:'skills-slot-energy', pct:'--skills-energy-pct'}
 };
 const _hubBannerCache = {};
 function renderHubBanner(tab){
@@ -14641,6 +15080,135 @@ function sponsorComingSoon(msg, ms){
 function sponsorHideToast(){
   if(_sponsorToastTimer){ clearTimeout(_sponsorToastTimer); _sponsorToastTimer=null; }
   const el=document.getElementById('sponsor-toast');
+  if(el) el.classList.remove('on');
+}
+
+// ── fix222: SKILLS HUB ──────────────────────────────────────────────────
+// What a painted medallion does — and this one is the ODD FUNNEL OF THE EIGHT.
+// homeGo(), riderHubGo(), trainHubGo(), gearHubGo(), calHubGo() and
+// sponsorHubGo() all open a section. This one starts a drill and never opens
+// anything, because on this hub a medallion is a VERB, not a section (plan v2
+// §fix222). The sheet exists for the buff bar and the drill list and is reached
+// by skillsHubGo2Sheet() from hotspot 6, which is a separate route on purpose.
+//
+// Guarded against an unknown drill id rather than trusting the three call sites,
+// mirroring riderHubGo(): a typo'd id would otherwise fall through
+// startRiderSkillGame()'s own `if(!g) return` and do nothing at all, silently.
+// Hard reject with a console warning, NO FALLBACK to 'fz' — starting a drill the
+// player did not tap is worse than not starting one.
+//
+// rsCanStart() IS THE SINGLE ENFORCEMENT POINT and it is called here rather than
+// left to startRiderSkillGame()'s own re-check, so the refusal happens before
+// any of the lazy-load or overlay work begins. It toasts the reason itself via
+// the global showToast(), so a locked medallion is never silent, and
+// rsLockCopy() stays the single source of the "why not" copy.
+//
+// NOTHING HERE CALLS skillsComingSoon(). That is deliberate and it is the one
+// place on this hub where the pill is deliberately NOT used: duplicating
+// rsLockCopy() into a painted pill would put the same sentence in two registries
+// and guarantee they drift. The painted pill on this tab belongs to Bidon Toss
+// alone — the one control with nothing behind it.
+//
+// startRiderSkillGame() re-checks rsCanStart() itself, and that duplication is
+// kept: this function is the early exit, that one is the enforcement, and a
+// hand-fired onclick on either still cannot start a locked drill.
+function skillsHubGo(gameId){
+  if(!RS_GAMES.some(g => g.id === gameId)){
+    console.warn('skillsHubGo: unknown drill', gameId); return;
+  }
+  if(!rsCanStart(gameId)) return;
+  startRiderSkillGame(gameId);
+}
+
+// The route into the sheet, from the painted plinth (hotspot 6). Named
+// skillsHubGo2Sheet() rather than skillsHubGo() because skillsHubGo() was
+// already taken by the verb above, and a hub whose two routes differ this much
+// should not have them named the same thing.
+//
+// THIS FUNCTION IS WHY HOTSPOT 6 EXISTS AT ALL. openRiderSkillsHub() is
+// showTab('skills') and is called by all three drill close handlers; from this
+// fix on, that lands on the HUB rather than the list. That is the right landing
+// — you have just finished a drill and you want the medallions — but it leaves
+// #rs-buff-wrap with no route whatsoever. openRiderSkillsHub() is therefore NOT
+// edited (it is a call target of three close handlers and its contract is
+// unchanged); this is the route that replaces the one it lost.
+//
+// ORDER MATTERS, exactly as in riderHubGo(), trainHubGo(), calHubGo() and
+// sponsorHubGo(): render first, then open. The buff card and the drill list
+// paint while the sheet is still display:none, so the player never sees a frame
+// of a stale buff timer before the fresh one lands.
+function skillsHubGo2Sheet(){
+  renderRiderSkillsTab();
+  skillsSheetSet(true);
+}
+
+// Back from the sheet to the hub. Deliberately NOT history.back() — opening the
+// sheet pushed nothing, so there is no entry to unwind and calling back() here
+// would exit the tab entirely. Same reasoning as riderHubBack(), trainHubBack(),
+// calHubBack() and sponsorHubBack(). No key is nulled because this tab has no
+// key: one section, one sheet, and #skills-sheet-title is a constant.
+function skillsHubBack(){
+  skillsSheetSet(false);
+}
+
+// THE single funnel for whether the sheet is showing, mirroring riderSheetSet(),
+// trainSheetSet(), gearSheetSet(), calSheetSet() and sponsorSheetSet(). Every
+// open and every close goes through here, so the stage and the sheet can never
+// both be live: one class on #tab-skills drives `#skills-sheet{display:block}`
+// and `#skills-stage{display:none}` together, in one DOM write. That mutual
+// exclusion IS the hard lockout, and on this tab it means the four painted
+// medallions and the sheet's own "Start drill" buttons — which land in the same
+// startRiderSkillGame() — are never both on screen.
+//
+// Idempotent and safe to call when the Skills tab is not showing: toggle() with
+// an explicit second argument sets rather than flips, so a stray call can never
+// invert the sheet.
+function skillsSheetSet(open){
+  const tab=document.getElementById('tab-skills');
+  if(tab) tab.classList.toggle('skills-sheet-open', !!open);
+  const sheet=document.getElementById('skills-sheet');
+  if(!sheet) return;
+  if(!open){ sheet.style.top=''; return; }
+  // The measured-header branch, KEPT VERBATIM even though 'skills' joined
+  // HUB_TABS in this fix and .game-header is therefore hidden here. It costs one
+  // null-ish check per open and it means the file has ONE sheet pattern rather
+  // than five-and-a-bit; the day a header ever returns to this tab, the sheet
+  // already clears it instead of hiding its own back bar behind it.
+  // offsetParent is null for a display:none element — a hidden header detected
+  // without reading computed styles, which is exactly the case this tab is in
+  // today, so this resolves to 0 and the CSS fallback applies.
+  const hdr=document.querySelector('.game-header');
+  const h = (hdr && hdr.offsetParent!==null) ? Math.round(hdr.getBoundingClientRect().height) : 0;
+  sheet.style.top = h>0 ? h+'px' : '';
+}
+
+// The informational pill. Its own node and its own timer, never shared with the
+// other hubs' — a shared node would resolve to an element inside a hidden #x-art
+// and show the message on a screen nobody is looking at. Eight hubs, eight
+// nodes, eight timers, identical shapes.
+//
+// ONE CALLER, and that is the whole design: hotspot 4, Bidon Toss, the only
+// painted control on this hub with nothing behind it. Every other refusal here
+// is a locked drill, and those belong to rsCanStart() / rsLockCopy() and go out
+// through the global showToast(). See skillsHubGo() for why that split is worth
+// the two toast systems.
+//
+// The text is passed in whole rather than having ' — coming soon' appended the
+// way homeComingSoon() does, matching sponsorComingSoon()'s shape: the caller
+// says what it means. No ms argument — unlike sponsor, nothing on this hub arms
+// anything, so there is no prompt that has to outlive a 1800 ms refusal.
+let _skillsToastTimer=null;
+function skillsComingSoon(msg){
+  const el=document.getElementById('skills-toast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('on');
+  if(_skillsToastTimer) clearTimeout(_skillsToastTimer);
+  _skillsToastTimer=setTimeout(skillsHideToast, 1800);
+}
+function skillsHideToast(){
+  if(_skillsToastTimer){ clearTimeout(_skillsToastTimer); _skillsToastTimer=null; }
+  const el=document.getElementById('skills-toast');
   if(el) el.classList.remove('on');
 }
 
@@ -18535,6 +19103,12 @@ function rsTickBuffPills(){
 function renderRiderSkillsTab(){
   renderRiderSkillsCard();
   renderRiderSkillsHub();
+  // fix222: the painted hub's stat bar. PREPENDED nothing and APPENDED here —
+  // neither of the two calls above early-returns, so unlike renderSponsorsTab()
+  // there is no branch this could be stranded behind and the tail position is
+  // safe. Self-guards on currentTab and holds a signature guard, so a call with
+  // identical figures is a few property reads.
+  renderHubBanner('skills');
 }
 
 // Now simply "go to the Skills panel". Still the single entry point, so the
@@ -22055,7 +22629,10 @@ function gameTick(){
     // currentTab, so six of the seven are one comparison on any given tick.
     // renderSponsorHubSlots() is NOT added here: nothing it paints changes with
     // energy, and it is already on the updateUI() path via renderSponsorsTab().
-    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); renderRiderBanner(); renderHubBanner('train'); renderHubBanner('gear'); renderHubBanner('growth'); renderHubBanner('calendar'); renderHubBanner('sponsors'); }
+    // fix222: renderHubBanner('skills') APPENDED for the same reason fix205,
+    // fix208, fix211, fix217 and fix219 appended theirs — each call self-guards
+    // on currentTab, so seven of the eight are one comparison on any given tick.
+    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); renderRiderBanner(); renderHubBanner('train'); renderHubBanner('gear'); renderHubBanner('growth'); renderHubBanner('calendar'); renderHubBanner('sponsors'); renderHubBanner('skills'); }
   }
   if(state.session.active){
     const t=TRAINING.find(t=>t.id===state.session.typeId);
