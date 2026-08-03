@@ -1,4 +1,34 @@
 <!DOCTYPE html>
+<!-- fix238: RESTORE THE TRAINING HERO, INSIDE THE SHEET.
+     fix237 completed the Train section lockout by hiding the whole legacy panel
+     behind the sheet — #rider-scene-wrap included. That was right for the node
+     (it was in flow behind a fixed overlay) and wrong for the player: the
+     pedalling sprite on its CSS road disappeared from the exact screen a
+     session is started from.
+
+     Restored as a SECOND WRAP inside #train-sheet, first in the sheet body, so
+     the banner sits at the top and the start button plus the attribute
+     breakdown read below it. #rider-scene-wrap is NOT moved and NOT unhidden —
+     it still serves the legacy panel and the fix237 rule that hides it is
+     untouched, so this fix reverts by deleting one node and two JS lines.
+
+     FOUR REGIONS, NOTHING ELSE:
+       1. #train-sheet markup — one empty <div id="train-sheet-scene-wrap">
+       2. CSS — one margin rule. .rider-scene itself is not restyled (shared
+          with the Gear tab).
+       3. RIDER_SCENE_WRAP_IDS — third id APPENDED. Keyed by id, not index.
+       4. renderTrainSheet() — visibility one-liner, gated on TRAINING
+          membership so gut and log get no banner.
+     No state key, no save payload change, no load migration. renderRiderScene()
+     is render-only and unmodified beyond the id list.
+
+     NOT IN THIS FIX — startSession()'s scrollIntoView still targets
+     #rider-scene-wrap, which is display:none while the sheet is open. It is a
+     no-op there (the document is overflow:hidden for the sheet's duration and
+     the sheet's own container is what scrolls), so it is harmless today; it is
+     nonetheless a stale target and belongs to its own fix. Service worker
+     CACHE_VERSION bump is required before deploy — the filename changed, but
+     the bump rule is unconditional here. -->
 <!-- fix169: retire the 'portrait' and 'raceHero' recolour sheets. Code only —
      no art in this fix, no gameplay change, no state change.
 
@@ -3802,6 +3832,15 @@ body.train-sheet-live .game-header{
    what stops the two layers desynchronising again: the sheet's top offset can
    only ever be measured against a header that is where the measurement says. */
 body.train-sheet-live{overflow:hidden;}
+
+/* ═══ fix238: the in-sheet training hero ═══════════════════════════════════
+   Spacing only. The banner itself is .rider-scene, unchanged and unrestyled —
+   the same 200px card, the same CSS sky/hills/road stack and the same sprite
+   the Train panel has always shown, reached through the shared builder rather
+   than a copy of its markup. Nothing in here overrides a .rider-scene rule; if
+   it ever needs to, that is a new class on the wrap, not a descendant override,
+   because .rider-scene is shared with the Gear tab. */
+#train-sheet-scene-wrap{margin-bottom:.75rem;}
 
 /* ── The section's session card ──────────────────────────────────────────
    A dedicated builder (buildTrainSheetSession) rather than restyled
@@ -8031,6 +8070,21 @@ body.home-open{overflow:hidden;}
         <button class="train-sheet-back" aria-label="Back to training hub" onclick="trainHubBack()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Training</button>
         <div class="train-sheet-title" id="train-sheet-title"></div>
       </div>
+      <!-- fix238: the training hero banner, restored INSIDE the sheet. fix237
+           hid the panel's #rider-scene-wrap along with the rest of the legacy
+           Train panel (correctly — it was in flow behind the sheet), which took
+           the pedalling sprite off screen for the one flow that most wants it:
+           the screen you start a session from. This is a SECOND WRAP, not a
+           move: #rider-scene-wrap stays where it is and keeps serving the
+           legacy panel, so nothing that reads it changes and this fix stays
+           revertable by deleting this node plus its two JS lines.
+           Two nodes, two ids, one builder — renderRiderScene() already paints
+           every id in RIDER_SCENE_WRAP_IDS with its own cached signature
+           (fix64), so adding an id here is the whole wiring. Empty in the
+           markup; renderTrainSheet() owns its visibility, the same one-liner as
+           #gut-train-card-wrap and #train-log-wrap. FIRST in the sheet body so
+           the start button and the attribute breakdown read below it. -->
+      <div id="train-sheet-scene-wrap"></div>
       <!-- fix57 (moved here fix206): active session card. Empty when no session
            is active, so it costs nothing on the other sections. Kept ABOVE the
            session card so a running session's progress bar is the first thing
@@ -16964,6 +17018,13 @@ function renderTrainSheet(){
   if(ttl) ttl.textContent = trainHubLabel(key) || '';
   const gut=document.getElementById('gut-train-card-wrap');
   if(gut) gut.style.display = (key==='gut') ? '' : 'none';
+  // fix238: the hero shows on the six SESSION sections only, toggled by the
+  // same one-liner shape as the gut card and the log — visibility here,
+  // contents in renderRiderScene(). Gated on TRAINING membership rather than on
+  // a list of the two non-session keys, so a medallion added later defaults to
+  // NOT showing a pedalling rider above a screen that has nothing to pedal for.
+  const tscene=document.getElementById('train-sheet-scene-wrap');
+  if(tscene) tscene.style.display = TRAINING.some(s=>s.id===key) ? '' : 'none';
   // fix215: the log body, toggled by the same one-liner as the gut card and for
   // the same reason — visibility here, contents in renderTrainLog(). It is
   // REBUILT ONLY WHILE IT IS SHOWING: renderTrainSheet() runs on the per-second
@@ -17919,7 +17980,13 @@ function renderTrainTab(){ renderRiderScene(); renderActiveBoostsPill(); renderE
 // fix64: scene now renders into every wrap id in RIDER_SCENE_WRAP_IDS (Train
 // tab + Gear tab), each tracked with its own cached signature so the two
 // copies never clobber each other's cached DOM state.
-const RIDER_SCENE_WRAP_IDS=['rider-scene-wrap','gear-rider-scene-wrap'];
+// fix238: third wrap — the Train section sheet's hero. Appended, never
+// inserted: the array is iterated, but _riderSceneSigs is keyed by id string
+// rather than by index, so order carries no meaning and a missing node is
+// already skipped by the `if(!wrap) return;` guard inside the loop. A wrap that
+// is display:none still gets built; that is one cached-signature comparison per
+// tick and it means the banner is already correct the instant the sheet opens.
+const RIDER_SCENE_WRAP_IDS=['rider-scene-wrap','gear-rider-scene-wrap','train-sheet-scene-wrap'];
 let _riderSceneSigs={};
 // fix56: transient victory pose window — set by triggerRiderVictory() when a
 // win/promotion/grand-tour ceremony is dismissed, read by renderRiderScene().
