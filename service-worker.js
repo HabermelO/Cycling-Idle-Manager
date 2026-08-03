@@ -360,7 +360,114 @@
 // two medallions still open each other's section, the exact defect this fix
 // exists to close, while the file series says it was fixed.
 // const CACHE_VERSION = 'cim-v3.8.36';   // fix224: gear EXTRAS/ENERGY hotspot swap (HTML only, no asset content change)
-const CACHE_VERSION = 'cim-v3.8.37';   // fix225: rider hub PLAY pill retired (HTML only, no asset content change)
+// const CACHE_VERSION = 'cim-v3.8.37';   // fix225: rider hub PLAY pill retired (HTML only, no asset content change)
+// fix229: a NEW asset ships — assets/race-bg.jpg, the 768x1707 re-cut of the
+// Race painting — and it is appended to STATIC_ASSETS below. It is the NINTH
+// and last painted hub, and both halves of the fix216/fix218/fix221 reasoning
+// apply for the fourth time, still failing differently:
+//   1. cache.addAll() is all-or-nothing and runs at INSTALL. An installed PWA
+//      sitting on the previous cache never re-runs install, so it would never
+//      fetch the new file at all — and #race-art would fall back to flat sky on
+//      a cold offline open, silently, with no error anywhere.
+//   2. './index.html' is in STATIC_ASSETS and the deployed HTML filename never
+//      changes between fixes (the fix186 reasoning above). Without a new key
+//      every returning player keeps the previous shell, which has no
+//      #race-stage, so the asset would be cached and nothing would paint it.
+// This stage is gated off in normal use, so neither failure is player-visible
+// yet — which is exactly why it has to be caught HERE rather than at fix231,
+// when it would present as hotspots welded to a picture the device is not
+// showing. That is this project's most common deployment failure and its worst
+// form (see the fix202 note above). It bites hardest on THIS tab of the nine:
+// SIX of fix231's seven medallions are painted circles placed by centre — one
+// more than Skills — and a centre read off the wrong raster is a miss with no
+// visible cause.
+//
+// ⚠ VERSION GAP, RECORDED NOT PAPERED OVER: the live constant below was
+// 'cim-v3.8.37' (fix225) while the HTML series had reached fix228. fix226,
+// fix227 and fix228 all changed './index.html' and each of them owed a bump by
+// the rule above. This fix bumps ONE step, to v3.8.38, which is enough to
+// invalidate the shell — the key only has to CHANGE, not to be consecutive —
+// but the gap means installed clients may have been serving a stale shell
+// across those three fixes. Worth confirming against the deployed service
+// worker rather than assuming this file is current.
+// const CACHE_VERSION = 'cim-v3.8.38';   // fix229: Race hub art + calibration (NEW asset: race-bg.jpg)
+// fix230: CALIBRATION ONLY. No asset ships, no asset content changes, and the
+// HTML change is a COMMENT BLOCK — the measured medallion, plate, BACK and
+// crop/occlusion numbers fix231 will type. The bump is mandatory all the same,
+// and for the fix186 / fix224 reason rather than the fix229 one: './index.html'
+// is in STATIC_ASSETS and the deployed HTML filename never changes, so without
+// a new key every installed PWA keeps serving the fix229 shell. On THIS stage
+// that costs nothing a player can see — the stage is still gated off — but it
+// would leave the deployed shell one behind going into fix231, which is the
+// stage that welds hotspots to this art. STATIC_ASSETS is UNCHANGED: race-bg.jpg
+// was appended at fix229 and no path is added or retired here.
+// const CACHE_VERSION = 'cim-v3.8.39';   // fix230: Race hub calibration (comment-only HTML; no asset change)
+// fix231: HTML-ONLY stage — no asset is added, removed or re-encoded, so
+// STATIC_ASSETS below is untouched. The bump is still MANDATORY (plan §0 rule
+// 4): './index.html' is in STATIC_ASSETS and the deployed filename never
+// changes, so without a new version every installed PWA keeps serving the
+// fix230 shell out of the v3.8.39 cache and the Race hub simply never appears —
+// no error, no fallback, just the old tab. This stage in particular would fail
+// invisibly, because the fix230 head is visually identical to fix228.
+// const CACHE_VERSION = 'cim-v3.8.40';   // fix231: Race hub hotspots, slots, painted BACK, header retires
+// fix232: HTML-ONLY stage — no asset is added, removed or re-encoded, so
+// STATIC_ASSETS below is untouched. The bump is MANDATORY anyway (plan §0 rule
+// 4): './index.html' is in STATIC_ASSETS and the deployed filename never
+// changes, so without a new version every installed PWA keeps serving the
+// fix231 shell out of the v3.8.40 cache. What that would look like on a device
+// is worth spelling out, because it is not a blank screen: the seven medallions
+// would still be there and still tappable, and every one of them would answer
+// with the fix231 'coming soon' pill instead of opening its section — a hub
+// that looks finished and does nothing.
+// const CACHE_VERSION = 'cim-v3.8.41';   // fix232: Race section sheet + seven sections
+// fix233: HTML-ONLY stage — no asset is added, removed or re-encoded, so
+// STATIC_ASSETS below is untouched. The bump is MANDATORY anyway (plan §0 rule
+// 4): './index.html' is in STATIC_ASSETS and the deployed filename never
+// changes, so without a new version every installed PWA keeps serving the
+// fix232 shell out of the v3.8.41 cache. What that costs is smaller than the
+// last two stages and worth stating plainly rather than waving through: the
+// Race Set-up section would simply have no route to Gear, and since fix231
+// retired .game-header on this tab there is no other route the sheet offers.
+// A missing row is invisible — nobody reports it, it just quietly never ships.
+// const CACHE_VERSION = 'cim-v3.8.42';   // fix233: Race Set-up -> Gear link
+// fix234: HTML-ONLY stage — no asset is added, removed or re-encoded, so
+// STATIC_ASSETS below is untouched. The bump is MANDATORY anyway (plan §0 rule
+// 4): './index.html' is in STATIC_ASSETS and the deployed filename never
+// changes, so without a new version every installed PWA keeps serving the
+// fix233 shell out of the v3.8.42 cache. The failure this one would produce is
+// the quietest of the series and worth naming: the Progress medallion would go
+// on opening and go on showing the single fix232 card, with no ladder, no
+// points-to-next figure and no ⓘ. Nothing errors, nothing looks broken, and the
+// stage would simply appear not to have shipped — which is exactly the class of
+// miss that gets re-implemented on top of itself at fix235.
+// const CACHE_VERSION = 'cim-v3.8.43';   // fix234: Race Progress build-out (category ladder)
+// fix235: HTML-ONLY stage — no asset is added, removed or re-encoded, so
+// STATIC_ASSETS below is untouched. The bump is MANDATORY anyway (plan §0 rule
+// 4): './index.html' is in STATIC_ASSETS and the deployed filename never
+// changes, so without a new version every installed PWA keeps serving the
+// fix234 shell out of the v3.8.43 cache. This stage's failure mode is the same
+// quiet class as the last one and is named for the same reason: the Your Club
+// section would go on opening and go on showing an unlabelled list stacked over
+// an unlabelled trophy card, with no ⓘ on either and — on a fresh save — a
+// series wrap that renders nothing at all. Nothing errors. It simply looks like
+// the stage was never written.
+// const CACHE_VERSION = 'cim-v3.8.44';   // fix235: Your Club build-out (headings, ⓘ, series empty state)
+
+// fix236 — the Race hub release pass. HTML-only stage: the only change to
+// index.html is the release-pass record comment above #race-stage, and no
+// asset is added or retired, so STATIC_ASSETS below is untouched and
+// 'assets/race-bg.jpg' stays exactly where fix229 put it.
+//
+// WHAT WOULD BREAK WITHOUT THIS BUMP: nothing visible, which is precisely why
+// it is easy to skip and why plan §0 rule 4 makes it unconditional.
+// './index.html' is in STATIC_ASSETS and the deployed filename never changes
+// between fixes, so a returning player with a warm cache would keep being
+// served the fix235 HTML indefinitely. On a comment-only stage that costs no
+// gameplay — but it means the release pass has certified a build that is not
+// the one on anyone's phone, and the NEXT stage to touch this tab would ship
+// on top of that same stale shell. The bump is what makes the pass mean
+// something.
+const CACHE_VERSION = 'cim-v3.8.45';   // fix236: Race hub release pass (HTML comment only, no asset change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
@@ -404,6 +511,14 @@ const STATIC_ASSETS = [
   // cache would miss on exactly the first open, the one time the placeholder
   // sky would be visible. APPENDED, never inserted.
   './assets/skills-bg.jpg',
+  // fix229: Race tab scene, the ninth and last painted hub. Same reasoning as
+  // the seven above — bound lazily in showTab(), so a runtime-only cache would
+  // miss on exactly the first open, the one time the placeholder sky would be
+  // visible. APPENDED, never inserted.
+  // NOT './assets/race-hero-bg.jpg', which is a different, still-live file
+  // further down this list and is the small hero card's backdrop, not the hub's.
+  // Both entries are correct and both stay.
+  './assets/race-bg.jpg',
   './assets/workshop-hero.jpg',
   // fix169: assets/race-hero.jpg retired — 'raceHero' is out of
   // RC_SHEET_NAMES / RC_VAR_NAMES / _rcSheetSources, so nothing fetches it
