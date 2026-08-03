@@ -1,4 +1,127 @@
 <!DOCTYPE html>
+<!-- fix246: BIDON TOSS — THE GAME LOOP. Plan §B4. The shell built at fix245 is
+     now a playable board. JS + two onclick strings only: no asset is added or
+     re-encoded, no CSS rule changes, no save field is added or read, and
+     NOTHING IS CREDITED — rewards are fix247 and go through btAward().
+
+     WHAT SHIPS: the standalone's fan, bidon, difficulty, drawing and input
+     ported into btFrame()/btStart()/btEnd(), the start panel's button repointed
+     from closeBidonToss() to btStart(), the end panel's "Throw again" repointed
+     to btStart(), and one showTab() branch that stops the loop off-tab.
+
+     THE MATHS IS VERBATIM. Canvas backing store stays 420x750, TARGET_Y stays
+     220, the catch radius stays 35, the compounding wind curve and the depth
+     scale are unchanged expressions. fix245 froze the width/height ATTRIBUTES
+     for exactly this reason: a port that rescales coordinates still runs, it
+     just misses, and it never announces itself.
+
+     FIVE PORT CHANGES, all deliberate and all recorded in full at the loop
+     itself: (1) every rAF handle tracked in btRafIds and the between-throws
+     timer in btResetTimer, both cancelled by the one btClearHandles() funnel
+     fix245 wired ahead of time — the standalone tracks neither; (2) mouse+touch
+     listener pairs collapsed to pointer events, bound in btStart() and removed
+     in btEnd(); (3) the run is BOUNDED at BT_THROWS and ends on the tenth throw
+     rather than the first miss, so btScore counts catches and btStreak survives
+     only as the difficulty driver — the standalone's denominator-free "Payout
+     Bonus" readout is not reproduced; (4) wind is a number, not the string
+     .toFixed(1) returns, so no arithmetic below is a silent coercion; (5) the
+     feedback message is drawn on the canvas instead of a DOM node, adding no
+     markup and no third timer.
+
+     TWO GUARDRAILS THE STANDALONE HAS NO NEED FOR. btFrame() refuses to
+     schedule the next frame when the overlay is display:none, so a board hidden
+     by any path stops itself rather than trusting the path to stop it. And
+     showTab() calls btStopOffTab() on a skills->other switch, the fix88
+     wsStopGame() precedent — btStopOffTab() rather than closeBidonToss()
+     because closeBidonToss() ends in openRiderSkillsHub(), which is
+     showTab('skills'), and that would re-enter showTab mid-switch.
+
+     STILL NOT REACHABLE FROM THE MEDALLION. startRiderSkillGame() is UNTOUCHED
+     — no 'bt' branch — and the hub hotspot still calls skillsComingSoon(). That
+     is fix249. btStart() checks rsCanStart('bt') on its own account regardless,
+     per fix155, and that check stays when the dispatcher's arrives.
+
+     Regions touched: two onclick strings in the #bt-overlay panels, the fix245
+     JS block (btClearHandles, openBidonToss, quitBidonToss, closeBidonToss, and
+     the new module vars and functions appended after it), one new branch in
+     showTab() beside the workshop ones. Nothing else. -->
+<!-- fix245: BIDON TOSS — THE OVERLAY SHELL. Plan §B3. CSS + markup + open/close
+     JS only. NO GAME LOOP, no canvas drawing, no rewards, no state writes, no
+     save payload change, no asset change (so NO service worker CACHE_VERSION
+     bump belongs to this fix — fix244 shipped the two JPEGs and bumped for
+     them; nothing new is fetched here).
+
+     WHAT SHIPS: #bt-overlay, a shell built as a structural copy of #fz-overlay
+     with every rule scoped under .bt-, plus openBidonToss() / closeBidonToss()
+     and the requestQuitBidonToss() two-tap quit.
+
+     DECLARED, NOT SHARED. Every .bt- rule below is written out in full rather
+     than appended to the .fz-/.sl-/.wt- selector lists it duplicates. That
+     duplication is deliberate and is the .race-sheet-back precedent: four
+     drills that share one selector list means one drill's future restyle can
+     silently break the other three's boards, and a board that breaks mid-run
+     costs the player the run. Same reasoning fix152 and fix153 applied when
+     they declined to fold .sl- and .wt- into .fz-.
+
+     THE CANVAS IS 420x750, VERBATIM. Those are the standalone's WIDTH/HEIGHT
+     constants. Keeping the internal resolution exactly means fix246 ports the
+     spawn, drag and collision maths with no coordinate rescaling at all — the
+     one class of port bug that does not announce itself, because the game still
+     runs, it just misses. CSS sizes the element (width:100%, aspect-ratio
+     420/750) and never the attribute: the fix151 lesson, where a fluid
+     backing-store would have changed difficulty with the viewport.
+     touch-action:manipulation and user-select:none are on the canvas now rather
+     than at fix246, so the fix114 iOS selection lesson cannot be forgotten by
+     the fix that is busy porting maths.
+
+     STAT ROW is Throws n/10 · Caught n · Crosswind, which is the plan §B1.2
+     bounded run made visible: the standalone's endless "Payout Bonus" readout
+     has no denominator and is deliberately NOT reproduced. BT_THROWS is
+     declared here, at 10, purely so the shell's static "0/10" and the loop that
+     arrives at fix246 read the same constant. Nothing else consumes it yet.
+
+     REACHABLE ONLY VIA CONSOLE THIS STAGE, by design. startRiderSkillGame() is
+     UNTOUCHED — no 'bt' branch is added — so the drill card added at fix244
+     still falls through to its trailing toast, and the skills-hub medallion
+     still raises skillsComingSoon(). Wiring those up is fix246 and fix249. A
+     shell that opened onto a canvas that never moves is worse than a card that
+     says "not yet".
+
+     Regions touched: one CSS block after .wt-legend, one markup block after the
+     #wt-overlay close, one JS block after closeWindTunnel(). Nothing else. -->
+<!-- fix239: THE RACE SECTIONS GET THEIR HERO BACK. Markup only — one node
+     moved, two comments. No CSS, no JS, no state, no save payload change.
+
+     The Race tab's hero was not deleted; it was ORPHANED. fix232 re-parented
+     seven groups into #race-sheet per the plan's table, and .race-hero-wrap was
+     a third child that table never named. That fix declined to invent a home
+     for it — correctly, re-parenting is not the fix that chooses art placement
+     — left it a direct child of #tab-race, and recorded that "which section it
+     belongs in, if any, is a fix233+ decision". Since #race-stage and
+     #race-sheet are both position:fixed and full-bleed, one of them has painted
+     over it in every frame since, which is why the sections open onto a title
+     bar and a card list with nothing above them.
+
+     THE DECISION: no section owns it, so it goes in ALL of them — a sibling of
+     the seven #race-section-* wrappers, directly under the sticky back bar,
+     inside the sheet's own scroll container.
+
+     WHY THIS NEEDED NO CODE. The subtree is static markup whose two layers are
+     recolour TARGETS, not recolour callers: .race-hero-bg is a plain url() and
+     .race-hero-rider reads --sheet-rider-front, both painted by the fix139-149
+     engine through CSS vars. No getElementById reaches it, so setRaceSection()
+     and raceSheetSet() are untouched and there is no visibility toggle to keep
+     in sync — the banner is shown by the sheet being open, which is already one
+     funnel. .race-hero-wrap also already carries margin-bottom:.6rem, so even
+     the spacing rule fix238 needed on Train is unnecessary here.
+
+     NOT THE SAME BUG AS fix237/fix238, and not fixed as if it were. Train's
+     was a stale header-height contract plus an incomplete lockout; #race-sheet
+     is full-viewport with its own sticky bar and 'race' is in HUB_TABS, so
+     .game-header is hidden on this tab and neither half applies. Only the
+     symptom — no visual above the section content — is shared.
+
+     Service worker CACHE_VERSION bump required before deploy. -->
 <!-- fix238: RESTORE THE TRAINING HERO, INSIDE THE SHEET.
      fix237 completed the Train section lockout by hiding the whole legacy panel
      behind the sheet — #rider-scene-wrap included. That was right for the node
@@ -944,6 +1067,162 @@ button{font-family:inherit;cursor:pointer;}
 .rs-hero-img.fz{background-image:var(--sheet-rs-fz);}
 .rs-hero-img.sl{background-image:var(--sheet-rs-sl);}
 .rs-hero-img.wt{background-image:var(--sheet-rs-wt);}
+/* fix244: Bidon Toss hero banner. APPENDED to the .rs-hero-img modifier list,
+   never inserted, and deliberately part of THIS list rather than its own class:
+   unlike .rt-hero above (race art, a different lazy group, a different
+   lifetime), this is drill art on a drill board and shares .rs-hero's box
+   verbatim. No url() fallback, exactly as fix137 established — --sheet-rs-bt is
+   undefined until lazyLoadAssetGroup('riderskills') binds it in
+   startRiderSkillGame(). Decorative only, never read by game logic.
+   NOTHING CONSUMES THIS RULE YET: fix244 is the assets + registry stage, and
+   the .rs-hero-img.bt node arrives with the #bt-overlay shell at fix245. Same
+   deliberate lead as fix240's .rt-hero, which shipped two stages ahead of its
+   markup. */
+.rs-hero-img.bt{background-image:var(--sheet-rs-bt);}
+/* fix240: UCI race-type banners — one per RACE_TYPES entry, shaped on .rs-hero
+   above (120px, var(--radius), cover) so the race sub-tab reads as a sibling of
+   the drill boards rather than a new design. Deliberately its OWN class rather
+   than an extra set of .rs-hero-img modifiers: these are race art, not drill
+   art, they bind from a different lazy group with a different lifetime, and
+   sharing the selector list would let a future edit to one break the other
+   (the .race-sheet-back precedent).
+   No url() fallback, exactly as fix137 established: the var is undefined until
+   lazyLoadAssetGroup('racetypes') binds it in showTab(), so nothing is fetched
+   on page load. Decorative only — never read by game logic.
+   NOTHING CONSUMES THESE RULES YET. fix240 is deliberately assets-only; the
+   markup that uses .rt-hero arrives at fix242.
+   DELIBERATE DEPARTURE from .rs-hero and from the plan's "120px banner": the
+   art is square (1036x1036 source, shipped 640x640) and is kept at its native
+   ratio rather than cropped to a band, so the box is sized by aspect-ratio:1
+   instead of a fixed height. A 120px box on a square source would show only the
+   middle ~34% of the picture — riders' torsos, no heads, no road — which is the
+   one thing this art is for. width:100% + aspect-ratio means the box tracks the
+   card width and the image never letterboxes at any phone size. */
+.rt-hero{position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;
+  border-radius:var(--radius);
+  border:1px solid var(--border);margin-bottom:8px;background:var(--bg3);}
+.rt-hero-img{position:absolute;inset:0;background-size:cover;background-position:center;}
+.rt-hero-img.crit{background-image:var(--sheet-rt-crit);}
+.rt-hero-img.road{background-image:var(--sheet-rt-road);}
+.rt-hero-img.tt{background-image:var(--sheet-rt-tt);}
+.rt-hero-img.hill{background-image:var(--sheet-rt-hill);}
+/* ═══ fix241: UCI RACE-TYPE PILL NAV ═════════════════════════════════════
+   Stage two of four for Part A (uci subtabs plan v1 §A3). This block styles
+   NOTHING new: #uci-type-nav carries .gear-nav and its children carry
+   .gear-nav-btn / .gear-nav-btn.active, which are the file's pill convention
+   (Gear sections, Workshop tuning targets, the retired rider nav). A fifth
+   navigation idea in a file that already has one would be the wrong change,
+   so the only rules here are the two the RACE sheet specifically needs.
+
+   1. TAP SIZE. .gear-nav-btn is 7px/13px padding at 11px text — about 30px
+      tall, under the 44px minimum every control added since fix114 has had to
+      clear. It passes elsewhere because those navs sit in dense shop lists
+      where a mis-tap costs a scroll; here a mis-tap eventually costs a race
+      entry, so min-height is raised on THIS nav only. Scoped by id, so the
+      Gear and Workshop pills are byte-for-byte unaffected.
+   2. SPACING. The nav sits directly above #race-entry-uci's one-line
+      description; .gear-nav's own .75rem bottom margin is kept and only the
+      top gap is added, so the pills clear the sheet's sticky bar.
+
+   NO :hover rule, deliberately — this is a touch surface and a sticky hover
+   state on mobile Safari reads as a second active pill (the fix118 lesson).
+   The active pill is marked by the class alone. */
+#uci-type-nav{margin-top:2px;}
+#uci-type-nav .gear-nav-btn{min-height:44px;padding:7px 14px;font-size:12px;}
+/* ═══ fix242: THE ONE BIG UCI RACE CARD ══════════════════════════════════
+   Stage three of four for Part A (uci subtabs plan v1 §A4). The card the pill
+   nav from fix241 selects: hero, chips, weights, equipment bonus, prize table
+   and a two-tap Enter button.
+
+   SCOPED .ucx-, NOT SHARED WITH .tsx-. Every rule below is shaped on the Train
+   sheet's .tsx- block and several are byte-identical to it, and that is on
+   purpose rather than an oversight: the two surfaces are meant to LOOK like one
+   another, but sharing a selector list means a future tweak to the Train card's
+   padding silently reshapes the race entry button — the .race-sheet-back
+   precedent, and plan §B3's rule stated for CSS. Two names, one look, no
+   coupling.
+
+   .ucx-start is the same 60px full-width control as .tsx-start including the
+   .armed green swap, because a player who has learned the two-tap arm on the
+   Train sheet must not have to learn a second one here. The [disabled] rule is
+   the VISIBLE half of the lockout only — the enforced half is re-checked inside
+   uciEnterTap(), so a hand-fired click still cannot start a race (plan §0
+   rule 4).
+
+   NO :hover, same reason as the fix241 nav block: a sticky hover on mobile
+   Safari would leave the Enter button looking armed when it is not, and that is
+   the one control in this file where a misread costs energy. */
+.ucx-card{
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius-lg); box-shadow:var(--shadow-md);
+  padding:1rem; margin-bottom:.75rem;
+}
+.ucx-head{display:flex;align-items:center;gap:10px;margin-bottom:.35rem;}
+.ucx-name{font-size:20px;font-weight:800;letter-spacing:-.01em;line-height:1.15;}
+.ucx-sub{font-size:12px;color:var(--txt2);margin-bottom:.85rem;}
+.ucx-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.85rem;}
+.ucx-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:700;
+  padding:4px 9px;border-radius:999px;
+  background:var(--bg2,rgba(0,0,0,.05));border:1px solid var(--border);color:var(--txt2);
+}
+.ucx-chip.bad{color:var(--red-txt);background:var(--red-bg);border-color:var(--red-bd);}
+.ucx-chip.good{color:var(--green-txt);background:var(--green-bg);border-color:var(--green-bd);}
+.ucx-lbl{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--txt3);margin:0 0 .4rem;
+}
+/* One row per weighted attribute. The bar length is the weight itself, so the
+   shape of the demand is readable at a glance without reading a number —
+   a 95% FTP time trial and a 20/60/20 crit look nothing alike here. */
+.ucx-w{display:flex;align-items:center;gap:9px;padding:.4rem 0;border-top:1px solid var(--border);}
+.ucx-w:first-of-type{border-top:0;padding-top:0;}
+.ucx-w-body{flex:1;min-width:0;}
+.ucx-w-top{display:flex;align-items:baseline;gap:6px;}
+.ucx-w-name{font-size:13px;font-weight:700;}
+.ucx-w-pct{font-size:11px;font-weight:700;color:var(--txt2);margin-left:auto;}
+.ucx-bar{height:5px;border-radius:999px;background:var(--border);overflow:hidden;margin-top:5px;}
+.ucx-bar > i{display:block;height:100%;border-radius:999px;background:var(--accent);}
+.ucx-row{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:12px;padding:.45rem 0;border-top:1px solid var(--border);
+}
+.ucx-row-v{font-weight:700;}
+.ucx-prizes{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.2rem;}
+.ucx-prize{
+  display:inline-flex;align-items:baseline;gap:4px;
+  font-size:11px;font-weight:700;
+  padding:4px 9px;border-radius:999px;
+  background:var(--bg2,rgba(0,0,0,.05));border:1px solid var(--border);color:var(--txt2);
+}
+.ucx-prize > b{color:var(--txt);}
+.ucx-start{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;min-height:60px;padding:0 1rem;margin-top:.75rem;
+  border:0;border-radius:var(--radius-lg);
+  background:var(--accent);color:#fff;
+  font-size:17px;font-weight:800;letter-spacing:.01em;
+  box-shadow:var(--shadow-md);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.ucx-start:active{transform:scale(.985);}
+@media (prefers-reduced-motion: no-preference){
+  .ucx-start{transition:transform .12s ease, background .12s ease;}
+}
+.ucx-start:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+.ucx-start.armed{background:var(--green-txt);}
+.ucx-start[disabled]{
+  background:var(--border);color:var(--txt3);
+  box-shadow:none;cursor:default;
+}
+.ucx-start[disabled]:active{transform:none;}
+.ucx-note{
+  font-size:11px;color:var(--txt3);text-align:center;
+  margin:.5rem 0 0;line-height:1.35;
+}
+.ucx-cd-wrap{height:6px;border-radius:999px;background:var(--border);overflow:hidden;margin-top:.6rem;}
+.ucx-cd-wrap > i{display:block;height:100%;border-radius:999px;background:var(--amber-txt);}
 /* fix157: per-drill win photo inside the existing .rs-pop-medal. The medallion
    keeps its border, ring and rs-pop-glow animation — the photo simply fills the
    circle, so the celebration matches the gut-training one. Hidden by default;
@@ -1119,6 +1398,53 @@ button{font-family:inherit;cursor:pointer;}
 .wt-legend{display:flex;justify-content:space-between;gap:8px;margin-top:6px;
   font-size:11.5px;color:var(--txt3);}
 .wt-legend span{display:inline-flex;align-items:center;gap:4px;}
+/* fix245: Bidon Toss. Same 1800 overlay tier as .fz-/.sl-/.wt-, opened only
+   from the hub (which closes itself first), so the four are never co-resident.
+   Every rule is DECLARED here rather than appended to the .fz-/.sl-/.wt-
+   selector lists it duplicates — the .race-sheet-back precedent, and the same
+   call fix152 and fix153 made. One drill's board must not be able to break
+   another's. */
+.bt-overlay{position:fixed;inset:0;height:100dvh;z-index:1800;background:var(--bg);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:calc(env(safe-area-inset-top) + 12px) 1rem calc(1rem + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:center;}
+.bt-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;max-width:340px;margin-bottom:.75rem;font-size:16px;font-weight:700;}
+.bt-quit{background:var(--bg2);color:var(--txt2);border:.5px solid var(--border);
+  border-radius:99px;padding:6px 14px;font-size:13px;font-weight:700;}
+.bt-quit.armed{background:var(--red-bg);color:var(--red-txt);border-color:var(--red-bd);}
+.bt-board{width:100%;max-width:340px;}
+/* Three readouts, not two: this drill's run is BOUNDED (plan §B1.2), so the
+   throw counter is load-bearing rather than decorative. tabular-nums keeps
+   "10/10" from shuffling the row on the last throw. */
+.bt-row{display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:700;
+  color:var(--txt2);margin-bottom:8px;font-variant-numeric:tabular-nums;}
+/* The stage. Unlike .fz-area this is a positioning CONTEXT for the panels only
+   — the play surface is the canvas inside it, and the canvas owns the pixels.
+   aspect-ratio matches the 420x750 backing store so the element never scales
+   the drawing non-uniformly; the backing store itself is set by the width/height
+   ATTRIBUTES in the markup and is never touched from CSS. That separation is
+   what lets fix246 port the standalone's coordinate maths unaltered. */
+.bt-area{position:relative;width:100%;aspect-ratio:420/750;overflow:hidden;
+  background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-lg);}
+/* fix114 lesson, applied at shell stage rather than left for the port: a drag
+   across a canvas selects text and fires the iOS callout unless both are killed
+   on the drawing surface itself. display:block kills the inline-element
+   baseline gap that would otherwise leave a sliver of .bt-area showing below. */
+#bt-canvas{display:block;width:100%;height:100%;
+  touch-action:manipulation;-webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none;}
+.bt-panel{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;padding:1rem;text-align:center;
+  background:rgba(0,0,0,.72);color:#fff;border-radius:var(--radius-lg);}
+.bt-panel.show{display:flex;}
+.bt-panel h3{margin:0;font-size:1.05rem;}
+.bt-panel p{margin:0;font-size:12.5px;line-height:1.5;opacity:.9;max-width:250px;}
+.bt-action{margin-top:6px;background:var(--green-txt);color:#fff;border:none;
+  border-radius:var(--radius);padding:11px 22px;font-size:13px;font-weight:700;cursor:pointer;}
+.bt-legend{display:flex;justify-content:space-between;gap:8px;margin-top:10px;
+  font-size:11.5px;color:var(--txt3);}
+.bt-legend span{display:inline-flex;align-items:center;gap:4px;}
 /* fix110: Gut Training mini-game overlay. Same fixed/inset/z-index tier as
    .race-overlay (1800) — Train tab only, never open alongside a race. All
    rules scoped under .gt-overlay so nothing here can leak into other tabs. */
@@ -8420,7 +8746,15 @@ body.home-open{overflow:hidden;}
          removing a recolour target to tidy a screen nobody sees is how a sprite
          registry loses a member. Which section it belongs in, if any, is a
          fix233+ decision. -->
-    <div class="race-hero-wrap"><div class="race-hero-bg"></div><div class="race-hero-rider"></div></div>
+    <!-- fix239 tombstone: the hero is RE-PARENTED into #race-sheet, above the
+         seven section wrappers. It was here, a direct child of #tab-race:
+           <div class="race-hero-wrap"><div class="race-hero-bg"></div><div class="race-hero-rider"></div></div>
+         Moved, NOT duplicated. Two .race-hero-wrap subtrees would be two
+         .race-hero-rider nodes reading --sheet-rider-front, i.e. the fix139-149
+         engine painting a second copy of the same recoloured rider on a screen
+         that only ever wanted one. The classes, the nesting and the two recolour
+         targets are byte-identical at the new position — this fix changes WHERE
+         it is, and nothing else about it. -->
     <!-- fix232 exception 1 of 2 (plan §1): #active-race-wrap belongs to
          #race-overlay, not to any section, so it is NOT re-parented into the
          sheet. Checked rather than assumed before leaving it here: no JS in the
@@ -8478,6 +8812,30 @@ body.home-open{overflow:hidden;}
         <button class="race-sheet-back" aria-label="Back to race hub" onclick="raceHubBack()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Race</button>
         <div class="race-sheet-title" id="race-sheet-title"></div>
       </div>
+      <!-- fix239: the hero banner, re-parented here from #tab-race. fix232 left
+           it an orphan — a third child the plan's section table never named, so
+           that fix declined to invent a home for it and said "which section it
+           belongs in, if any, is a fix233+ decision". This is that decision:
+           NONE of them, and therefore ALL of them. It is a sibling of the seven
+           #race-section-* wrappers rather than a child of one, so every section
+           opens onto it and no section owns it.
+
+           WHY THAT SHAPE AND NOT SEVEN COPIES. Putting it inside each wrapper
+           would mean seven .race-hero-rider nodes for the fix139-149 engine to
+           reach through --sheet-rider-front, and seven chances for one of them
+           to fall out of step with the other six. One node, above the fold,
+           below the sticky back bar.
+
+           NO JS IN THIS FIX. Nothing in the file reads this subtree — it is
+           static markup recoloured entirely by CSS var, exactly as the fix83 and
+           fix162 comments describe — so setRaceSection() and raceSheetSet() are
+           untouched and there is no visibility toggle to keep in sync. The
+           banner is shown by the sheet being open, which is already one funnel.
+
+           IT IS INSIDE THE SHEET'S SCROLL CONTAINER, deliberately, so it scrolls
+           away under the sticky bar as a player moves down a long race list
+           rather than eating 200px of a phone screen permanently. -->
+      <div class="race-hero-wrap"><div class="race-hero-bg"></div><div class="race-hero-rider"></div></div>
       <!-- fix232: THE UCI / CLUB SPLIT, which is the point of this hub (plan
            §1). Until now raceEntryView multiplexed both start sheets through one
            #race-entry-wrap card; from here, medallion 1 shows this section and
@@ -8494,10 +8852,78 @@ body.home-open{overflow:hidden;}
              <div id="race-entry-club" style="display:none">
              <div id="race-entry-uci" style="display:none"> -->
       <div id="race-section-uci" style="display:none">
-        <div id="race-entry-uci">
-          <div class="cat-desc" style="color:var(--txt3);margin:-.25rem 0 .4rem">Category points and prize money on the line</div>
-          <div id="race-list"></div>
-        </div>
+        <!-- fix241 (uci subtabs plan v1 §A3): the race-type pill nav, and the
+             WHOLE of this stage's markup diff — one node, no attributes on it
+             but the class and the id.
+
+             IT IS A SIBLING OF #race-entry-uci, NOT A CHILD. renderRaceTypes()
+             does an innerHTML wipe of #race-list on every renderRaceTab() tick;
+             #race-entry-uci itself is not wiped today, but the nav's whole job
+             from fix242 on is to sit above a container that IS rebuilt, and
+             putting it outside the entry card now means fix242 re-parents
+             nothing. Same reasoning as fix233's .race-setup-link.
+
+             EMPTY, filled by renderUciTypeNav(). The pills are built from
+             RACE_TYPES so that reordering or renaming a race type needs no edit
+             here — plan §0 rule 9, RACE_TYPES stays the only list of types.
+
+             NOTHING BELOW IT CHANGES THIS STAGE. #race-entry-uci and #race-list
+             keep the four compact rows and the one-tap startRace() binding they
+             have had since fix107, deliberately: this stage is meant to be
+             verifiable on a phone (do the pills track the type you tapped?)
+             before fix242 puts a card behind them and fix243 retires the list.
+             So for exactly two fixes the section shows a nav that selects
+             nothing visible yet. That is the plan, not an oversight. -->
+        <div class="gear-nav" id="uci-type-nav"></div>
+        <!-- fix242 (uci subtabs plan v1 §A4): the one big race card for the type
+             the nav has selected, and the WHOLE of this stage's markup diff —
+             one empty node, filled by renderUciRaceCard().
+
+             ABOVE #race-entry-uci, not inside it, for fix241's reason repeated:
+             renderRaceTypes() wipes #race-list every tick and this container is
+             rebuilt on its own cadence by its own renderer. Keeping the two
+             siblings means fix243 can tombstone #race-list by deleting a node
+             and re-parents nothing.
+
+             THE LEGACY LIST BELOW IS STILL LIVE THIS STAGE, deliberately, so
+             for one fix the section shows the big card AND the four compact
+             rows, i.e. two ways to enter the same race. That is the plan (§A4
+             then §A5), not a duplication bug: it makes the new card verifiable
+             on a phone against the rows it is replacing before fix243 removes
+             them. Both routes funnel into the same startRace(). -->
+        <div id="uci-race-card"></div>
+        <!-- fix243 (uci subtabs plan v1 §A5): THE LEGACY LIST IS RETIRED. The
+             four compact .race-card rows that lived here from fix107 to fix242
+             are gone; #uci-race-card above is now the only way into a UCI race
+             and the one-tap-to-start binding they carried no longer exists
+             anywhere. Every UCI entry goes through the fix242 two-tap arm.
+
+             TOMBSTONED, NOT DELETED, and tombstoned TOGETHER WITH the body of
+             renderRaceTypes() further down — they are one change in two places
+             and reverting fix243 means restoring BOTH (plan §D). Restoring the
+             node alone would give an empty container that nothing fills;
+             restoring the body alone would throw on a null #race-list.
+
+             GUARD CHECKED BEFORE REMOVAL (plan §A5): #race-list had exactly one
+             live reader in the whole file, the getElementById() at the head of
+             renderRaceTypes(). Every other occurrence of the id was prose in a
+             comment, including the fix160 tutorial note — the tutorial step
+             itself targets #race-entry-wrap, not this node, so the tour is
+             unaffected. #race-entry-uci likewise had no live reader: the only
+             code that ever wrote to it was fix232's display toggle, already
+             tombstoned at line ~20657. No CSS rule selects either id.
+
+             THE WHOLE WRAPPER GOES, not just #race-list. The one-line
+             "Category points and prize money on the line" caption was the
+             list's heading; left behind it would render as an orphan sentence
+             UNDER the card it no longer introduces, and the card already
+             carries the category's full prize table (fix242, §C q3).
+
+             Retired verbatim:
+             <div id="race-entry-uci">
+               <div class="cat-desc" style="color:var(--txt3);margin:-.25rem 0 .4rem">Category points and prize money on the line</div>
+               <div id="race-list"></div>
+             </div> -->
       </div>
       <div id="race-section-weather" style="display:none">
         <div id="weather-banner-wrap"></div>
@@ -9358,6 +9784,14 @@ body.home-open{overflow:hidden;}
              raises the pill rather than pretending — and it is the ONLY control
              on this hub that does.
 
+             AMENDED fix244 (comment only — no markup, no geometry, no onclick
+             changed on this hub this stage): Bidon Toss now HAS an RS_GAMES
+             entry. The rest of the paragraph still holds — there is still no
+             drill behind hotspot 4 and it still raises the pill. The onclick
+             swap to skillsHubGo('bt') is fix249's, and the sentence above is
+             rewritten there rather than here, so the pill's retirement is one
+             edit in one place.
+
              6 is the route to the sheet, and therefore the only route to the
              buff bar, which would otherwise have none once the drill close
              handlers land on the hub instead of the list. Plan §7 question 2
@@ -10003,6 +10437,65 @@ body.home-open{overflow:hidden;}
     <div class="wt-legend">
       <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-wind"></use></svg> Smooth streaks = clean air</span>
       <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-target"></use></svg> Match the stage</span>
+    </div>
+  </div>
+</div>
+
+<!-- fix245: Bidon Toss — SHELL ONLY. Structural copy of #fz-overlay above.
+     NOT REACHABLE FROM THE UI THIS STAGE: startRiderSkillGame() has no 'bt'
+     branch and the skills-hub medallion still calls skillsComingSoon(), so the
+     only way in is openBidonToss() from the console. That is deliberate — the
+     canvas below is blank until fix246 ports the loop, and a start button that
+     leads to a still picture is worse than a card that says "not yet".
+     "Start throwing" therefore points at closeBidonToss(), not at a btStart()
+     that does not exist: an onclick naming an undefined function would pass
+     node --check and fail the onclick-handler audit, and would be a dead button
+     on glass either way. fix246 repoints it to btStart() as its first edit.
+     The canvas WIDTH/HEIGHT ATTRIBUTES are the standalone's 420x750 verbatim
+     and are the drawing buffer — CSS sizes the element, never these. Do not
+     "tidy" them into the stylesheet; fix246's ported maths reads them. -->
+<div id="bt-overlay" class="bt-overlay" style="display:none">
+  <div class="bt-head">
+    <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Bidon Toss</span>
+    <button id="bt-quit-btn" class="bt-quit" onclick="requestQuitBidonToss()">Quit</button>
+  </div>
+  <div class="bt-board">
+    <!-- Drill hero banner, same slot as the other three boards. Decorative
+         only. --sheet-rs-bt is bound by lazyLoadAssetGroup('riderskills'),
+         which openBidonToss() does NOT call — the dispatcher does, and this
+         stage has no dispatcher path, so on a console-opened board the banner
+         is expected to be empty until fix246. Not a bug to chase here. -->
+    <div class="rs-hero"><div class="rs-hero-img bt"></div></div>
+    <div class="bt-row">
+      <span>Throws: <span id="bt-throws">0</span>/<span id="bt-throws-max">10</span></span>
+      <span>Caught: <span id="bt-score">0</span></span>
+      <span>Wind: <span id="bt-wind">0</span> km/h</span>
+    </div>
+    <div id="bt-area" class="bt-area">
+      <canvas id="bt-canvas" width="420" height="750"></canvas>
+      <!-- fix246: repointed from closeBidonToss() to btStart(), which is the
+           first edit this stage was told to make. The shell's button was a
+           placeholder pointing at the only function that existed; the loop
+           exists now, so the start panel starts the run. Label changed with it
+           so the button no longer says one thing and does another. -->
+      <div id="bt-panel-start" class="bt-panel show">
+        <h3>Bidon Toss</h3>
+        <p>Ten spent bidons and a roadside full of outstretched hands. Flick upward from the bottle, judge the crosswind, and let it go.</p>
+        <button class="bt-action" onclick="btStart()">Start throwing</button>
+      </div>
+      <div id="bt-panel-end" class="bt-panel">
+        <h3 id="bt-end-title">Bidons away</h3>
+        <p id="bt-end-copy">You landed <span id="bt-final">0</span> of 10.</p>
+        <!-- fix246: "Throw again" now re-enters btStart() directly, bypassing
+             the hub, exactly as fz's "Ride it again" does. btStart() re-checks
+             rsCanStart('bt') itself for that reason — see the fix155 note. -->
+        <button class="bt-action" onclick="btStart()">Throw again</button>
+        <button class="bt-action" style="background:var(--bg2);color:var(--txt2)" onclick="closeBidonToss()">Back to skills</button>
+      </div>
+    </div>
+    <div class="bt-legend">
+      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Ten throws a run</span>
+      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-wind"></use></svg> The wind builds</span>
     </div>
   </div>
 </div>
@@ -15325,7 +15818,19 @@ const LAZY_ASSET_GROUPS = {
   riderskills: {
     '--sheet-rs-fz': 'assets/feedzone-scramble.jpg',
     '--sheet-rs-sl': 'assets/slipstream.jpg',
-    '--sheet-rs-wt': 'assets/wind-tunnel.jpg'
+    '--sheet-rs-wt': 'assets/wind-tunnel.jpg',
+    // fix244: Bidon Toss. APPENDED to the existing 'riderskills' group rather
+    // than given a group of its own — it has the same binder
+    // (startRiderSkillGame), the same lifetime and the same box as the three
+    // above, so a fourth group would be three lines of ceremony for no
+    // behaviour. Contrast 'racetypes' (fix240), which is separate precisely
+    // because it binds from showTab() on a different tab.
+    // Source Bidon_Toss_hero.jpeg 1400x784 -> 640x358, q56, 4:2:0,
+    // progressive, EXIF stripped = 34.2 KB, well inside the ~120 KB .rs-hero
+    // budget. The win photo is NOT here: like the other three it is promoted
+    // from data-src inside rsShowSuccessPop(), so a player who never wins the
+    // drill never downloads it.
+    '--sheet-rs-bt': 'assets/bidon-toss.jpg'
   },
   // fix170: the home hub art. Unlike every other group here, this one loads on
   // EVERY cold start, because home is the landing tab — so it is budgeted
@@ -15571,6 +16076,50 @@ const LAZY_ASSET_GROUPS = {
   race: {
     // top rgb(63,98,129), bottom rgb(55,51,68); q50 = 121.6 KB.
     '--sheet-race-scene': 'assets/race-bg.jpg'
+  },
+  // fix240: the four UCI race-type banners, one per RACE_TYPES entry, read by
+  // the .rt-hero-img rules in the fix240 CSS block. APPENDED, not inserted, per
+  // the standing rule — nothing here is index-mapped today, and that is exactly
+  // the assumption that breaks the first time something is.
+  //
+  // ⚠ THIS IS A FOURTH THING WITH 'race' IN THE NAME. The race group above
+  // already carries a three-way hazard note; this entry makes it four, so the
+  // full list is worth restating in one place:
+  //   --sheet-race-scene       the Race HUB backdrop (the group above).
+  //   --sheet-race-hero        TOMBSTONED at fix162/fix169. Not live.
+  //   assets/race-hero-bg.jpg  LIVE, read by .race-hero-bg — the small hero
+  //                            card's opaque backdrop inside the tab body.
+  //   --sheet-rt-*             THESE. Per-race-TYPE banners, 640x300 each,
+  //                            shown at the top of one UCI sub-tab card.
+  // These are NOT folded into the race group: that group is one hub backdrop
+  // bound on entering the tab, and merging would be a silent four-request bill
+  // for a player who never opens the UCI section. They are NOT folded into
+  // 'riderskills' either — that is the drill banners, a different surface with
+  // a different lifetime (see the collision note on the 'skills' group above).
+  //
+  // Encoded from the four 1036x1036 project sources — verified as real JPEG
+  // data with Pillow before encoding, per the art-pipeline rule that a .jpeg
+  // extension proves nothing. NOT CROPPED: the source ratio is kept exactly
+  // (1:1), straight downscale to 640x640, because the composition puts the
+  // riders' heads high and their bikes low and any band crop loses one or the
+  // other. .rt-hero is sized by aspect-ratio:1 to match — see the fix240 CSS
+  // block, which is the one place to change if the art is ever re-cut.
+  // q52, 4:2:0, progressive, EXIF stripped. q52 rather than the 58 a banner
+  // would have taken because the square raster carries 4.5x the pixels; the
+  // painted rider faces were checked at 2x and read cleanly. Measured sizes,
+  // all under the ~120 KB per-file ceiling:
+  //   rt-crit.jpg 62.2 KB · rt-road.jpg 89.6 KB
+  //   rt-tt.jpg   79.3 KB · rt-hill.jpg 60.9 KB   (292.0 KB for the group)
+  // That group total is why these stay lazy and out of the cold-start budget:
+  // it is paid once, on first open of the UCI section, and never on load.
+  // KEYED BY RACE_TYPES id — 'crit'/'road'/'tt'/'hill' — so this map and the
+  // .rt-hero-img classes are the only two places the ids appear outside
+  // RACE_TYPES itself, and they are keyed BY it rather than duplicating it.
+  racetypes: {
+    '--sheet-rt-crit': 'assets/rt-crit.jpg',
+    '--sheet-rt-road': 'assets/rt-road.jpg',
+    '--sheet-rt-tt':   'assets/rt-tt.jpg',
+    '--sheet-rt-hill': 'assets/rt-hill.jpg'
   }
 };
 const _lazyGroupsLoaded = {};
@@ -15689,6 +16238,18 @@ function showTab(name){
   // otherwise make lazily, and the alternative is a branch that has to be
   // remembered and moved at fix231.
   if(name==='race') lazyLoadAssetGroup('race');
+  // fix240: the four UCI race-type banners, bound on the same schedule and at
+  // the same site as the hub backdrop above — before the panel is revealed, so
+  // the first paint of the UCI section already carries its background-image
+  // declarations and no banner is seen as a flash. A SECOND call on the same
+  // tab id rather than a second var inside the 'race' group, deliberately: the
+  // two groups are different things with the same word in their names (see the
+  // hazard note on LAZY_ASSET_GROUPS.racetypes), and keeping them separate
+  // leaves the option of moving this call to the UCI section's own entry point
+  // later without unpicking the hub backdrop. Note this binds even though
+  // nothing consumes the vars until fix242 — setting a custom property does not
+  // itself fetch, so today this line costs nothing at all.
+  if(name==='race') lazyLoadAssetGroup('racetypes');
   // fix186: entering the Rider tab always lands on the HUB, never on whatever
   // section was open last time. riderSection itself is left alone — it is
   // transient pill state that renderRiderSection() still needs a value for —
@@ -15761,6 +16322,14 @@ function showTab(name){
   // player can no longer see. Also dismisses it, so returning re-opens it fresh
   // via renderWorkshopSection's forced call.
   if(currentTab==='workshop' && name!=='workshop' && typeof wsCapModalClose==='function') wsCapModalClose();
+  // fix246: the same guardrail one tab across, for the Bidon Toss loop. Leaving
+  // the Skills tab must never leave a rAF chain animating a board nobody can
+  // see — the fix88 wsStopGame() precedent, sited beside it deliberately.
+  // btStopOffTab() rather than closeBidonToss(): the latter ends by calling
+  // openRiderSkillsHub(), i.e. showTab('skills'), and re-entering showTab from
+  // inside showTab would fight the switch in progress. No-op when the board is
+  // shut, so this is safe on every skills->other switch, not just mid-run.
+  if(currentTab==='skills' && name!=='skills' && typeof btStopOffTab==='function') btStopOffTab();
   currentTab=name;
   TABS.forEach(t=>{ document.getElementById('tab-'+t).style.display=t===name?'':'none'; });
   // fix170: home is deliberately NOT in TABS (see the panel comment — the
@@ -20415,103 +20984,424 @@ function renderClubRaces(){
   });
 }
 
+// ═══ fix241: THE UCI RACE-TYPE SUB-TAB STATE (uci subtabs plan v1 §A3) ═════
+// One type is selected at a time in the UCI section from fix242 onward. This
+// stage lands the state and the nav that drives it; nothing reads the value yet
+// except the nav's own active marker.
+//
+// TRANSIENT, NOT SAVED — the same call as riderSection (fix186), gearSection,
+// raceEntryView (fix160) and sponsorViewMode. Saving it would buy a new save
+// field, a loadGame() `??` guard and a migration for zero gameplay benefit, and
+// the section SHOULD open in a known state each session: reopening the sheet
+// three days later on whichever type you last glanced at is disorientation, not
+// continuity. Because it is transient it needs no reset at prestige or season
+// rollover either, which is one fewer place for it to drift.
+//
+// Seeded from RACE_TYPES[0].id rather than the literal 'crit' so that plan §0
+// rule 9 holds: this file has exactly one list of race types and this line does
+// not become a second one. If RACE_TYPES is ever reordered (appended to, per
+// rule 6 — never inserted into) the default follows it with no edit here.
+let uciTypeSection = RACE_TYPES[0].id;
+
+// Lookup, and the single place an id is turned into a race type for this
+// surface. Returns the RACE_TYPES entry or null — never a fallback entry. A
+// fallback is what makes a bad id look like a good one, and from fix242 the
+// consumer of this is a button that starts a race and spends energy.
+function getUciType(id){
+  return RACE_TYPES.find(rt=>rt.id===id) || null;
+}
+
+// Builds the pills from RACE_TYPES, in RACE_TYPES order, marking the active one.
+// Render-only (plan §0 rule 8): reads state, writes DOM, writes nothing else —
+// note that it does NOT correct uciTypeSection even if it somehow held an
+// unknown id, because a render function silently repairing state is exactly the
+// class of bug the tourProgress lesson is about. setUciTypeSection() is the only
+// writer and it hard-rejects, so an unknown id cannot arrive here.
+//
+// THE dataset GUARD is not an optimisation, it is a correctness measure. This
+// runs from renderRaceTypes(), i.e. on every renderRaceTab() tick, roughly once
+// a second. .gear-nav is a horizontally scrolling strip; rewriting innerHTML
+// under a thumb mid-scroll on a narrow phone throws the scroll position back to
+// zero every second. Comparing the marker on the container means the DOM is
+// rebuilt only when the selection actually changed. Reading an attribute back
+// out of the DOM is a read, not a state write — the authoritative value is still
+// the module variable, and the attribute is only ever a copy of it.
+function renderUciTypeNav(){
+  const nav=document.getElementById('uci-type-nav');
+  if(!nav) return;
+  if(nav.dataset.active===uciTypeSection && nav.children.length===RACE_TYPES.length) return;
+  nav.innerHTML=RACE_TYPES.map(rt=>
+    `<button class="gear-nav-btn${uciTypeSection===rt.id?' active':''}" onclick="setUciTypeSection('${rt.id}')">${icn(rt.icon)} ${rt.name}</button>`
+  ).join('');
+  nav.dataset.active=uciTypeSection;
+}
+
+// The only writer of uciTypeSection.
+//
+// HARD REJECT on an unknown id, no fallback to RACE_TYPES[0]. Landing the player
+// on a type they did not tap is worse than not moving at all — from fix242 the
+// card under this nav carries the Enter button, and a silent correction there
+// means a two-tap confirm that arms one race and starts the look of another.
+// The rejection is a genuine no-op: no variable set, no render, no toast.
+//
+// Writes no other state and calls no save. The renderer it calls is
+// render-only, so tapping a pill cannot touch money, energy or cooldowns.
+function setUciTypeSection(id){
+  if(!getUciType(id)) return;
+  uciTypeSection=id;
+  renderUciTypeNav();
+  // fix242: repaint the card in the same frame as the pill. Waiting for the
+  // next renderRaceTab() tick would leave the previous type's card under a
+  // newly-highlighted pill for up to a second, which is the exact mismatch the
+  // hard-reject above exists to prevent. Still render-only — no state write.
+  // The arm is NOT cleared here and does not need to be: it is keyed on the
+  // race id, so a card for a different type simply reads as unarmed and the
+  // stale arm expires on its own four-second window.
+  renderUciRaceCard();
+}
+
+// ═══ fix242: THE ONE BIG UCI RACE CARD + TWO-TAP ENTER ═══════════════════
+// uci subtabs plan v1 §A4. buildTrainSheetSession()'s treatment applied to the
+// race side: one type on screen at a time, everything the player needs to make
+// the decision on the card, and one large control that arms before it commits.
+//
+// DELIBERATE DUPLICATION, NOT AN OVERSIGHT. The four gates below — cooldown,
+// energy (weather-adjusted), busy, and the derived `available` — are recomputed
+// here from the SAME expressions renderRaceTypes() uses twenty lines down,
+// rather than shared through a helper. Extracting a helper would mean editing
+// renderRaceTypes(), and renderRaceTypes() still feeds the legacy #race-list
+// this stage is not allowed to touch. The duplication is temporary and dies
+// with that list at fix243, where the plan (§A5) folds it into one helper if
+// and only if the list's body is genuinely dead.
+//
+// fix243 ADDENDUM: the list's body IS now dead (tombstoned inside
+// renderRaceTypes()), so the "temporary" duplication is no longer duplication —
+// the only other copy of these four expressions is commented out. The §A5
+// helper was therefore NOT extracted: it would have exactly one caller. The
+// gates now live once here and are re-checked once in uciEnterTap().
+//
+// startRace() is still the only thing that starts a race. This builds a bigger
+// button in front of it and reimplements no part of it — no energy is spent, no
+// cooldown is written and no simulation is started anywhere in this block
+// except by that one call inside uciEnterTap().
+//
+// The arm lives in the two module variables below, never in the DOM: this card
+// is rebuilt by renderRaceTypes() on the per-second renderRaceTab() tick, so an
+// `armed` class on the button would be wiped inside a second of being set
+// (the fix237 lesson, restated by plan §0 rule 3). The builder READS the
+// variables, so the armed state survives every rebuild — which is also what
+// lets the cooldown countdown tick live inside an armed card without the arm
+// resetting.
+let _uciArmId = null;
+let _uciArmAt = 0;
+const UCI_ARM_MS = 4000;
+
+// Presentation-only labels for the three keys in rt.weights. NOT a second
+// registry of race types (plan §0 rule 9 is about RACE_TYPES, and this maps
+// weight keys, not types); ATTR_DEFS cannot serve here because 'ftp' is a
+// derived race weighting, not one of the five trained attributes.
+const UCI_WEIGHT_LABELS = {
+  ftp:{name:'FTP',icon:'chart-up'},
+  vo2:{name:'VO₂ Max',icon:'fire'},
+  sprint:{name:'Sprint',icon:'bolt'},
+};
+
+// Render-only (plan §0 rule 8): reads state, writes DOM, writes nothing else.
+// Mounted from renderRaceTypes()'s existing call site for fix241's reason — the
+// Race tab already ticks that function, so the card gets exactly the cadence the
+// list beneath it gets and no new tick wiring is introduced.
+function renderUciRaceCard(){
+  const wrap=document.getElementById('uci-race-card');
+  if(!wrap) return;
+  const rt=getUciType(uciTypeSection);
+  // No fallback to RACE_TYPES[0]: getUciType() hard-rejects and an unknown id
+  // cannot arrive here, so an empty container is the honest outcome rather than
+  // a card for a type nobody selected.
+  if(!rt){ wrap.innerHTML=''; return; }
+  const node=buildUciRaceCard(rt,Date.now());
+  wrap.innerHTML='';
+  if(node) wrap.appendChild(node);
+}
+
+function buildUciRaceCard(rt, now){
+  const cat=RACE_CATEGORIES[state.raceCategory];
+  if(!cat) return null;
+
+  // ── the four gates, duplicated from renderRaceTypes() verbatim ──
+  const cdEnd=state.raceCooldowns[rt.id]||0, onCd=cdEnd>now;
+  const actualCost=getWeatherEnergyCost(cat.energyCost);
+  const noEnergy=state.energy<actualCost;
+  const busy=state.raceActive||state.session.active;
+  const available=!onCd&&!noEnergy&&!busy;
+
+  const equipBonus=getEquipmentBonusForRace(rt.id);
+  const course=getHourlyCourse(rt.id);
+  const {condition,intensity}=getDailyWeather();
+  const wxPct=Math.round((condition.scoreEffect[rt.id]||0)*WEATHER_INTENSITY_MULTS[intensity]*100);
+  const weightPct=Math.round((getWeightFactorForRace(rt.id)-1)*100);
+  const showWeightBadge=(WEIGHT_SENSITIVITY[rt.id]||0)>0 && Math.abs(weightPct)>=1;
+
+  const div=document.createElement('div');
+  div.className='ucx-card';
+
+  // Chips: the facts. Status is carried by the button and the note under it, so
+  // nothing is said twice — same division of labour as the Train sheet card.
+  const chips=[
+    `<span class="ucx-chip${noEnergy?' bad':''}">${icn('bolt')} ${actualCost} energy${actualCost!==cat.energyCost?' (wx)':''}</span>`,
+    `<span class="ucx-chip">▶ ${Math.round(rt.animMs/1000)}s</span>`,
+    rt.cooldown>0 ? `<span class="ucx-chip">⏳ ${rt.cooldown}s cooldown</span>` : '',
+    Math.abs(wxPct)>=1 ? `<span class="ucx-chip${wxPct>0?' good':' bad'}">${icn(condition.icon)} ${wxPct>0?'+':''}${wxPct}%</span>` : ''
+  ].join('');
+
+  const weightRows=Object.entries(rt.weights)
+    .filter(([,w])=>w>0)
+    .map(([k,w])=>{
+      const L=UCI_WEIGHT_LABELS[k]||{name:k,icon:'gear'};
+      return `<div class="ucx-w">
+          <span style="font-size:15px;line-height:1">${icn(L.icon)}</span>
+          <div class="ucx-w-body">
+            <div class="ucx-w-top"><span class="ucx-w-name">${L.name}</span><span class="ucx-w-pct">${Math.round(w*100)}%</span></div>
+            <div class="ucx-bar"><i style="width:${Math.round(w*100)}%"></i></div>
+          </div>
+        </div>`;
+    }).join('');
+
+  // §C question 3, answered: the FULL prize table, not just first place. The
+  // Train sheet shows every attribute a session builds rather than the biggest
+  // one, and a player deciding whether a race is worth 30 energy needs to know
+  // what mid-pack pays.
+  const prizeChips=cat.prizes.map((p,i)=>p>0?`<span class="ucx-prize">${ordinal(i+1)} <b>${fmtMoney(p)}</b></span>`:'').join('');
+
+  const armed = _uciArmId===rt.id && (now-_uciArmAt)<UCI_ARM_MS;
+  let btnLabel, note='', dis=true, cls='ucx-start';
+  if(onCd){
+    btnLabel=`⏳ ${fmtTime(cdEnd-now)}`;
+    note='You have raced this discipline recently — the timer has to clear first.';
+  } else if(busy){
+    btnLabel='Busy';
+    note = state.raceActive ? 'You are racing right now.' : 'A training session is running.';
+  } else if(noEnergy){
+    btnLabel=`${icn('bolt')} Not enough energy`;
+    note=`You have ${Math.floor(state.energy)} of the ${actualCost} energy this race needs.`;
+  } else {
+    dis=false;
+    btnLabel = armed ? '✓ Tap again to confirm' : '▶ Enter race';
+    if(armed){ cls+=' armed'; note='Tap once more to start, or wait to cancel.'; }
+  }
+
+  // .rt-hero is the fix240 CSS, bound by lazyLoadAssetGroup('racetypes') in
+  // showTab(). Decorative only — never read by game logic (plan §A4).
+  div.innerHTML=`<div class="rt-hero"><div class="rt-hero-img ${rt.id}"></div></div>
+    <div class="ucx-head">
+      <span style="font-size:18px;line-height:1;color:var(--${rt.colorVar}-txt)">${icn(rt.icon)}</span>
+      <div class="ucx-name">${rt.name}</div>
+    </div>
+    <div class="ucx-sub">${rt.desc}</div>
+    <div class="ucx-meta">${chips}</div>
+    ${course?`<div class="ucx-row"><span>${icn(course.icon)} Today's course</span><span class="ucx-row-v">${course.name}</span></div>`:''}
+    <div class="ucx-row"><span>${icn('gear')} Equipment bonus</span><span class="ucx-row-v" style="color:${equipBonus>0?'var(--green-txt)':equipBonus<0?'var(--red-txt)':'var(--txt2)'}">${equipBonus>0?'+':''}${equipBonus}w</span></div>
+    ${showWeightBadge?`<div class="ucx-row"><span>${icn('scale')} Rider weight</span><span class="ucx-row-v" style="color:${weightPct>0?'var(--green-txt)':'var(--red-txt)'}">${weightPct>0?'+':''}${weightPct}%</span></div>`:''}
+    <p class="ucx-lbl" style="margin-top:.85rem">What this race asks of you</p>
+    ${weightRows}
+    <p class="ucx-lbl" style="margin-top:.85rem">${cat.name} prize money</p>
+    <div class="ucx-prizes">${prizeChips}</div>
+    ${onCd?`<div class="ucx-cd-wrap"><i style="width:${Math.round((1-(cdEnd-now)/Math.max(1,rt.cooldown*1000))*100)}%"></i></div>`:''}
+    <button type="button" class="${cls}" id="ucx-start-btn"${dis?' disabled':''}>${btnLabel}</button>
+    ${note?`<p class="ucx-note">${note}</p>`:''}`;
+
+  // Listener rather than an onclick attribute, for buildTrainSheetSession()'s
+  // reason: the id is closed over instead of threaded through a global, and the
+  // onclick auditor is unaffected because nothing here is referenced by name
+  // from markup. `available` is the belt-and-braces half (fix107) — the
+  // enforced half is inside uciEnterTap().
+  if(!dis && available){
+    const btn=div.querySelector('#ucx-start-btn');
+    if(btn) btn.addEventListener('click',()=>uciEnterTap(rt.id));
+  }
+  return div;
+}
+
+// The two-tap funnel. First tap arms and repaints; a second tap inside the
+// window starts the race. Tapping a DIFFERENT type re-arms for that one rather
+// than firing it, so an arm can never be spent on a race the player did not arm.
+//
+// THE GATES ARE RE-CHECKED HERE, at commit time, not only at arm time. Four
+// seconds is long enough for energy to drain on the tick, for a session started
+// in another tab to land, or for a cooldown to have been written by a race
+// begun elsewhere — an arm is permission to ask again, never a reservation.
+// This is the enforced half of the hard lockout (plan §0 rule 4): a hand-fired
+// click on the button gets exactly this far and no further.
+//
+// No setTimeout polices the window. renderRaceTypes() already runs every second
+// and the `now-_uciArmAt` test in the builder repaints an expired arm as
+// unarmed on the next tick, so there is nothing to cancel and nothing to leak
+// if the sheet closes or the tab changes mid-arm.
+function uciEnterTap(id){
+  const rt=getUciType(id);
+  if(!rt) return;
+  const now=Date.now();
+  const cat=RACE_CATEGORIES[state.raceCategory];
+  if(!cat) return;
+  const cdEnd=state.raceCooldowns[rt.id]||0;
+  const actualCost=getWeatherEnergyCost(cat.energyCost);
+  const available = !(cdEnd>now) && !(state.energy<actualCost) && !(state.raceActive||state.session.active);
+  if(!available){
+    _uciArmId=null; _uciArmAt=0;
+    renderUciRaceCard();
+    return;
+  }
+  if(_uciArmId===id && (now-_uciArmAt)<UCI_ARM_MS){
+    _uciArmId=null; _uciArmAt=0;
+    startRace(rt.id);
+    renderUciRaceCard();
+    return;
+  }
+  _uciArmId=id; _uciArmAt=now;
+  renderUciRaceCard();
+}
+
 function renderRaceTypes(){
-  const list=document.getElementById('race-list'); list.innerHTML='';
-  const now=Date.now(), cat=RACE_CATEGORIES[state.raceCategory];
-  RACE_TYPES.forEach(rt=>{
-    const cdEnd=state.raceCooldowns[rt.id]||0, onCd=cdEnd>now;
-    const actualCost=getWeatherEnergyCost(cat.energyCost);
-    const noEnergy=state.energy<actualCost, busy=state.raceActive||state.session.active;
-    const available=!onCd&&!noEnergy&&!busy;
-    const equipBonus=getEquipmentBonusForRace(rt.id);
-    const bonusCol=equipBonus>0?'var(--green-txt)':equipBonus<0?'var(--red-txt)':'var(--txt3)';
-    const bonusBg=equipBonus>0?'var(--green-bg)':equipBonus<0?'var(--red-bg)':'var(--bg3)';
-    const weightFactor=getWeightFactorForRace(rt.id);
-    const weightPct=Math.round((weightFactor-1)*100);
-    const showWeightBadge=(WEIGHT_SENSITIVITY[rt.id]||0)>0 && Math.abs(weightPct)>=1;
-    const weightCol=weightPct>0?'var(--green-txt)':'var(--red-txt)';
-    const weightBg=weightPct>0?'var(--green-bg)':'var(--red-bg)';
-    // Weather score badge for this race type
-    const {condition,intensity}=getDailyWeather();
-    const wxBase=condition.scoreEffect[rt.id]||0;
-    const wxPct=Math.round(wxBase*WEATHER_INTENSITY_MULTS[intensity]*100);
-    const showWxBadge=Math.abs(wxPct)>=1;
-    const wxCol=wxPct>0?'var(--green-txt)':'var(--red-txt)';
-    const wxBg=wxPct>0?'var(--green-bg)':'var(--red-bg)';
-    let statusHtml;
-    if(onCd)      statusHtml=`<span class="race-status" style="color:var(--txt2)">⏳ ${fmtTime(cdEnd-now)}</span>`;
-    else if(busy) statusHtml=`<span class="race-status" style="color:var(--txt3)">Busy</span>`;
-    else if(noEnergy) statusHtml=`<span class="race-status" style="color:var(--red-txt)">${icn('bolt')} ${Math.floor(state.energy)}/${actualCost}</span>`;
-    else statusHtml=`<span class="race-status" style="color:var(--green-txt)">▶ Race</span>`;
-    // Deliberately not shown to the player: which stat matters most per race
-    // type is meant to be worked out from results, not read off a badge. See
-    // the post-race hint in renderRaceResultBlock for the "soft" version of
-    // this — a nudge only after a poor finish, not a permanent readout.
-    // Show energy cost with weather suffix if it differs from base
-    const energyDisplay=actualCost!==cat.energyCost
-      ? `<span class="race-energy-badge${noEnergy?' unaffordable':''}">${icn('bolt')} ${actualCost}<span style="font-size:9px;opacity:.7"> (wx)</span></span>`
-      : `<span class="race-energy-badge${noEnergy?' unaffordable':''}">${icn('bolt')} ${actualCost}</span>`;
-    // Which specific named course is on offer this hour for this race type —
-    // what's shown here is exactly what startRace will use if the player taps.
-    const course=getHourlyCourse(rt.id);
-    const courseLine=course?`<div class="race-course-line">${icn(course.icon)} <strong>${course.name}</strong></div>`:'';
-    // fix107 — Stage 6: soft-lockout warning on the TT card when no TT bike is
-    // equipped. Entering is still allowed (see startRace/simulateRaceResult),
-    // this just makes the consequence visible before the player commits.
-    const showTTWarn = rt.id==='tt' && !state.equippedTTBike;
-    const ttWarnLine = showTTWarn
-      ? `<div class="race-tt-warn"><span>${icn('warning')} No TT bike — far off the pace, 0 category points</span><span class="race-tt-warn-link" data-tt-warn-link="1">Gear shop</span></div>`
-      : '';
-    // fix166 — gear-fitness warning. From Cat 3 up, the bike/wheels/kit you
-    // race on multiplies your finishing score, so the player must be told
-    // before they commit that the wheels on the bike are the wrong ones for
-    // this course. getGearFitness() returns exactly 1 below Cat 3, so this
-    // line never appears for new riders. Reuses the .race-tt-warn styling —
-    // no new CSS.
-    const gearFit = getGearFitness(rt.id);
-    const showGearWarn = gearFit < 0.995;
-    const gearHint = {crit:'deeper aero wheels and a skinsuit',
-                      road:'a faster all-round wheelset',
-                      tt:'the deepest aero setup you own',
-                      hill:'lighter climbing wheels'}[rt.id] || 'a better-suited setup';
-    const gearWarnLine = showGearWarn
-      ? `<div class="race-tt-warn"><span>${icn('warning')} Wrong kit for this course — ${gearHint} would suit it far better</span><span class="race-tt-warn-link" data-tt-warn-link="1">Gear shop</span></div>`
-      : '';
-    const div=document.createElement('div'); div.className='race-card'+(available?' available':'');
-    if(!available) div.style.opacity='0.65';
-    div.innerHTML=`<div class="race-card-head"><div class="race-type-icon">${icn(rt.icon)}</div><div class="race-card-text"><div class="race-card-name">${rt.name}</div><div class="race-card-desc">${rt.desc}</div></div>${statusHtml}</div>
-      ${courseLine}
-      ${ttWarnLine}
-      ${gearWarnLine}
-      <div class="race-meta">
-        ${energyDisplay}
-        <span class="race-meta-badge race-prize-badge">Prize: £${cat.prizes[cat.prizes.length-1]||0}–${fmtMoney(cat.prizes[0])}</span>
-        <span class="race-equip-bonus" style="background:${bonusBg};color:${bonusCol};padding:2px 7px;border-radius:99px;font-weight:700;font-size:10px">${icn('gear')} ${equipBonus>0?'+':''}${equipBonus}w</span>
-        ${showWeightBadge?`<span class="race-equip-bonus" style="background:${weightBg};color:${weightCol};padding:2px 7px;border-radius:99px;font-weight:700;font-size:10px">${icn('scale')} ${weightPct>0?'+':''}${weightPct}%</span>`:''}
-        ${showWxBadge?`<span class="race-equip-bonus" style="background:${wxBg};color:${wxCol};padding:2px 7px;border-radius:99px;font-weight:700;font-size:10px">${icn(condition.icon)} ${wxPct>0?'+':''}${wxPct}%</span>`:''}
-      </div>`;
-    if(showTTWarn||showGearWarn){
-      // The "Gear shop" link must jump tabs WITHOUT also triggering the card's
-      // own click-to-race handler (that handler is only attached when
-      // `available`, but this stopPropagation keeps behaviour correct even if
-      // that changes later — belt-and-braces, matches project conventions).
-      // fix166: both warn lines can be present at once (a TT with no TT bike
-      // and the wrong wheels), so bind every link, not just the first.
-      div.querySelectorAll('[data-tt-warn-link]').forEach(linkEl=>{
-        linkEl.addEventListener('click',(e)=>{ e.stopPropagation(); showTab('gear'); });
-      });
-    }
-    if(available) div.addEventListener('click',()=>startRace(rt.id));
-    list.appendChild(div);
-  });
-  // Rotation countdown — makes the hourly course change read as a deliberate
-  // mechanic ("new courses soon") rather than something that just happens.
-  const msLeft=3600000-(Date.now()%3600000);
-  const minLeft=Math.max(1,Math.ceil(msLeft/60000));
-  const countdownDiv=document.createElement('div');
-  countdownDiv.style.cssText='font-size:11px;color:var(--txt3);text-align:center;margin-top:6px';
-  countdownDiv.innerHTML=`${icn('refresh')} New courses in ${minLeft}m`;
-  list.appendChild(countdownDiv);
+  // fix242: the big card is painted from here for fix241's reason — this
+  // function is the Race tab's existing per-second call site, so the nav, the
+  // card and the legacy list below all tick together and there is one fewer
+  // render path to keep in step. Called AFTER the nav so the two paint in the
+  // order they appear on screen on the very first frame.
+  // fix241: the pill nav is painted from renderRaceTypes()'s existing call site
+  // rather than from a new tick wiring of its own. renderRaceTab() already calls
+  // this function whenever the Race tab is live, so the nav gets exactly the
+  // cadence the list below it gets and there is one fewer render path to keep in
+  // step. It is FIRST so that the nav exists above the list on the very first
+  // paint of the section rather than one tick later.
+  renderUciTypeNav();
+  renderUciRaceCard();
+  // ═══ fix243: LEGACY LIST BODY RETIRED (uci subtabs plan v1 §A5) ═══════
+  // SIGNATURE KEPT, BODY TOMBSTONED, in the setRaceEntryView() style. This
+  // function is still called by renderRaceTab() every second and still paints
+  // the section — the nav and the card above are the live half and are
+  // deliberately NOT commented out. What died is everything below: the
+  // #race-list wipe, the four compact .race-card rows, their per-card
+  // startRace() binding and the "New courses in Nm" footer. The node they
+  // filled is tombstoned in the markup (search fix243 near #uci-race-card);
+  // the two halves are one change and revert together (plan §D).
+  //
+  // Keeping the signature means renderRaceTab() needs no edit and the onclick
+  // auditor keeps resolving every name — the point of the tombstone rule.
+  //
+  // startRace() NOW HAS EXACTLY TWO LIVE CALL SITES, which is the invariant
+  // fix232 §6 established and this is the stage that changes its value:
+  //     1. renderClubRaces()   — the club rows, isClub=true
+  //     2. uciEnterTap()       — the fix242 two-tap arm, via buildUciRaceCard()
+  // The third, the per-row binding below, is inside the tombstone. Any future
+  // stage adding a third live call site should say so in its own comment.
+  //
+  // THE fix242 DUPLICATION IS LEFT IN PLACE, deliberately. §A5 permits folding
+  // the four gate expressions into one helper now that this body is dead, but
+  // only "if and only if" — and the dead copy below is now the only other
+  // reader, so a helper would have exactly one caller and buy nothing. A
+  // dead-code tidy is not worth a live regression on the one surface that
+  // spends energy and starts a simulation. The gates live once, in
+  // buildUciRaceCard() and re-checked in uciEnterTap().
+  //
+  // The hourly course rotation itself is untouched — getHourlyCourse() still
+  // drives the card's "Today's course" row; only the countdown READOUT retired
+  // with the list, and it can come back as a card row in a later fix if the
+  // rotation stops reading as deliberate without it.
+//  const list=document.getElementById('race-list'); list.innerHTML='';
+//  const now=Date.now(), cat=RACE_CATEGORIES[state.raceCategory];
+//  RACE_TYPES.forEach(rt=>{
+//    const cdEnd=state.raceCooldowns[rt.id]||0, onCd=cdEnd>now;
+//    const actualCost=getWeatherEnergyCost(cat.energyCost);
+//    const noEnergy=state.energy<actualCost, busy=state.raceActive||state.session.active;
+//    const available=!onCd&&!noEnergy&&!busy;
+//    const equipBonus=getEquipmentBonusForRace(rt.id);
+//    const bonusCol=equipBonus>0?'var(--green-txt)':equipBonus<0?'var(--red-txt)':'var(--txt3)';
+//    const bonusBg=equipBonus>0?'var(--green-bg)':equipBonus<0?'var(--red-bg)':'var(--bg3)';
+//    const weightFactor=getWeightFactorForRace(rt.id);
+//    const weightPct=Math.round((weightFactor-1)*100);
+//    const showWeightBadge=(WEIGHT_SENSITIVITY[rt.id]||0)>0 && Math.abs(weightPct)>=1;
+//    const weightCol=weightPct>0?'var(--green-txt)':'var(--red-txt)';
+//    const weightBg=weightPct>0?'var(--green-bg)':'var(--red-bg)';
+//    // Weather score badge for this race type
+//    const {condition,intensity}=getDailyWeather();
+//    const wxBase=condition.scoreEffect[rt.id]||0;
+//    const wxPct=Math.round(wxBase*WEATHER_INTENSITY_MULTS[intensity]*100);
+//    const showWxBadge=Math.abs(wxPct)>=1;
+//    const wxCol=wxPct>0?'var(--green-txt)':'var(--red-txt)';
+//    const wxBg=wxPct>0?'var(--green-bg)':'var(--red-bg)';
+//    let statusHtml;
+//    if(onCd)      statusHtml=`<span class="race-status" style="color:var(--txt2)">⏳ ${fmtTime(cdEnd-now)}</span>`;
+//    else if(busy) statusHtml=`<span class="race-status" style="color:var(--txt3)">Busy</span>`;
+//    else if(noEnergy) statusHtml=`<span class="race-status" style="color:var(--red-txt)">${icn('bolt')} ${Math.floor(state.energy)}/${actualCost}</span>`;
+//    else statusHtml=`<span class="race-status" style="color:var(--green-txt)">▶ Race</span>`;
+//    // Deliberately not shown to the player: which stat matters most per race
+//    // type is meant to be worked out from results, not read off a badge. See
+//    // the post-race hint in renderRaceResultBlock for the "soft" version of
+//    // this — a nudge only after a poor finish, not a permanent readout.
+//    // Show energy cost with weather suffix if it differs from base
+//    const energyDisplay=actualCost!==cat.energyCost
+//      ? `<span class="race-energy-badge${noEnergy?' unaffordable':''}">${icn('bolt')} ${actualCost}<span style="font-size:9px;opacity:.7"> (wx)</span></span>`
+//      : `<span class="race-energy-badge${noEnergy?' unaffordable':''}">${icn('bolt')} ${actualCost}</span>`;
+//    // Which specific named course is on offer this hour for this race type —
+//    // what's shown here is exactly what startRace will use if the player taps.
+//    const course=getHourlyCourse(rt.id);
+//    const courseLine=course?`<div class="race-course-line">${icn(course.icon)} <strong>${course.name}</strong></div>`:'';
+//    // fix107 — Stage 6: soft-lockout warning on the TT card when no TT bike is
+//    // equipped. Entering is still allowed (see startRace/simulateRaceResult),
+//    // this just makes the consequence visible before the player commits.
+//    const showTTWarn = rt.id==='tt' && !state.equippedTTBike;
+//    const ttWarnLine = showTTWarn
+//      ? `<div class="race-tt-warn"><span>${icn('warning')} No TT bike — far off the pace, 0 category points</span><span class="race-tt-warn-link" data-tt-warn-link="1">Gear shop</span></div>`
+//      : '';
+//    // fix166 — gear-fitness warning. From Cat 3 up, the bike/wheels/kit you
+//    // race on multiplies your finishing score, so the player must be told
+//    // before they commit that the wheels on the bike are the wrong ones for
+//    // this course. getGearFitness() returns exactly 1 below Cat 3, so this
+//    // line never appears for new riders. Reuses the .race-tt-warn styling —
+//    // no new CSS.
+//    const gearFit = getGearFitness(rt.id);
+//    const showGearWarn = gearFit < 0.995;
+//    const gearHint = {crit:'deeper aero wheels and a skinsuit',
+//                      road:'a faster all-round wheelset',
+//                      tt:'the deepest aero setup you own',
+//                      hill:'lighter climbing wheels'}[rt.id] || 'a better-suited setup';
+//    const gearWarnLine = showGearWarn
+//      ? `<div class="race-tt-warn"><span>${icn('warning')} Wrong kit for this course — ${gearHint} would suit it far better</span><span class="race-tt-warn-link" data-tt-warn-link="1">Gear shop</span></div>`
+//      : '';
+//    const div=document.createElement('div'); div.className='race-card'+(available?' available':'');
+//    if(!available) div.style.opacity='0.65';
+//    div.innerHTML=`<div class="race-card-head"><div class="race-type-icon">${icn(rt.icon)}</div><div class="race-card-text"><div class="race-card-name">${rt.name}</div><div class="race-card-desc">${rt.desc}</div></div>${statusHtml}</div>
+//      ${courseLine}
+//      ${ttWarnLine}
+//      ${gearWarnLine}
+//      <div class="race-meta">
+//        ${energyDisplay}
+//        <span class="race-meta-badge race-prize-badge">Prize: £${cat.prizes[cat.prizes.length-1]||0}–${fmtMoney(cat.prizes[0])}</span>
+//        <span class="race-equip-bonus" style="background:${bonusBg};color:${bonusCol};padding:2px 7px;border-radius:99px;font-weight:700;font-size:10px">${icn('gear')} ${equipBonus>0?'+':''}${equipBonus}w</span>
+//        ${showWeightBadge?`<span class="race-equip-bonus" style="background:${weightBg};color:${weightCol};padding:2px 7px;border-radius:99px;font-weight:700;font-size:10px">${icn('scale')} ${weightPct>0?'+':''}${weightPct}%</span>`:''}
+//        ${showWxBadge?`<span class="race-equip-bonus" style="background:${wxBg};color:${wxCol};padding:2px 7px;border-radius:99px;font-weight:700;font-size:10px">${icn(condition.icon)} ${wxPct>0?'+':''}${wxPct}%</span>`:''}
+//      </div>`;
+//    if(showTTWarn||showGearWarn){
+//      // The "Gear shop" link must jump tabs WITHOUT also triggering the card's
+//      // own click-to-race handler (that handler is only attached when
+//      // `available`, but this stopPropagation keeps behaviour correct even if
+//      // that changes later — belt-and-braces, matches project conventions).
+//      // fix166: both warn lines can be present at once (a TT with no TT bike
+//      // and the wrong wheels), so bind every link, not just the first.
+//      div.querySelectorAll('[data-tt-warn-link]').forEach(linkEl=>{
+//        linkEl.addEventListener('click',(e)=>{ e.stopPropagation(); showTab('gear'); });
+//      });
+//    }
+//    if(available) div.addEventListener('click',()=>startRace(rt.id));
+//    list.appendChild(div);
+//  });
+//  // Rotation countdown — makes the hourly course change read as a deliberate
+//  // mechanic ("new courses soon") rather than something that just happens.
+//  const msLeft=3600000-(Date.now()%3600000);
+//  const minLeft=Math.max(1,Math.ceil(msLeft/60000));
+//  const countdownDiv=document.createElement('div');
+//  countdownDiv.style.cssText='font-size:11px;color:var(--txt3);text-align:center;margin-top:6px';
+//  countdownDiv.innerHTML=`${icn('refresh')} New courses in ${minLeft}m`;
+//  list.appendChild(countdownDiv);
 }
 
 function renderRaceHistory(){
@@ -21413,6 +22303,26 @@ const RS_GAMES=[
   {id:'wt', name:'Wind Tunnel', icon:'wind',
    desc:'Dial in your position until the airflow goes quiet. Find the tuck and you carry it into your next race.',
    buffId:'wt_aero'},
+  // fix244: Bidon Toss. APPENDED, never inserted — rsActiveBuffs() and
+  // renderRiderSkillsHub() both iterate this array in order, so inserting would
+  // reshuffle the existing three cards and the buff pill row.
+  // Its buff is 'bt_hype': Fan Popularity modelled as a TIMED BUFF in the
+  // engine that already exists, not as a new state.hype key (plan §B1.1). No
+  // new save field, no load guard, no prestige/season reset rule, and it gets
+  // expiry, pill display and the free rsIsLocked('bt') lockout for nothing.
+  // THE DRILL DOES NOT EXIST YET. This entry buys three things this stage: the
+  // card appears in the drill list, rsIsLocked/rsCanStart('bt') resolve, and
+  // skillsHubGo('bt') would pass its membership check at fix249. Tapping
+  // "Start drill" falls through startRiderSkillGame()'s trailing toast — which
+  // is exactly the guard that comment describes ("a future game id added to the
+  // table before its branch exists") now doing its job for real. The board
+  // lands at fix245-fix246 and the medallion at fix249.
+  // Knock-on, stated so it is not read as a regression: the sheet's meta line
+  // reads `${RS_GAMES.length} drills` and now says 4, not 3. That is true —
+  // there are four drills, one of them not yet rideable.
+  {id:'bt', name:'Bidon Toss', icon:'drink',
+   desc:'Hit the outstretched hands in the crowd with a spent bidon. Land enough of them and the roadside carries you for half an hour.',
+   buffId:'bt_hype'},
 ];
 
 // Player-facing copy for an active buff. Answers "what is this doing for me?"
@@ -21421,6 +22331,13 @@ const RS_BUFF_COPY={
   fz_regen:{icon:'battery', label:'Legs recovering faster'},
   sl_xp:   {icon:'chart-up', label:'Training sticking harder'},
   wt_aero: {icon:'wind',     label:'Aero tuck dialled in'},
+  // fix244: game voice, no mechanics words, matching the other three — the
+  // player is told the crowd is on their side, not that they hold a 14-20%
+  // prize multiplier. Keyed by BUFF id (bt_hype), not by game id (bt): this
+  // registry is read by renderRiderSkillsCard() off a.id, which is the buff.
+  // 'fire' is already in the icon sprite (used by vo2 / combativ / ftp_400),
+  // so no new <symbol> is needed.
+  bt_hype: {icon:'fire',     label:'The crowd is behind you'},
 };
 
 function rsStore(){
@@ -21576,7 +22493,15 @@ const RS_WIN_COPY={
 const RS_WIN_IMG={
   fz:'assets/feedzone-scramble-win.jpg',
   sl:'assets/slipstream-win.jpg',
-  wt:'assets/wind-tunnel-win.jpg'
+  wt:'assets/wind-tunnel-win.jpg',
+  // fix244: keyed by GAME id (bt), not buff id — rsShowSuccessPop() looks up
+  // RS_WIN_IMG[gameId]. Source Bidon_toss_win.jpeg 1400x784 -> 640x358, q56,
+  // 4:2:0, progressive, EXIF stripped = 33.9 KB. Not in LAZY_ASSET_GROUPS by
+  // design: promoted from data-src on first win only, so it is never fetched
+  // by a player who has not won the drill.
+  // Nothing fires this yet — rsShowSuccessPop('bt') is called for the first
+  // time at fix247, on a threshold run.
+  bt:'assets/bidon-toss-win.jpg'
 };
 let _rsSuccessPopTimer=null;
 function rsShowSuccessPop(gameId){
@@ -22755,6 +23680,493 @@ function closeWindTunnel(){
   const btn=document.getElementById('wt-quit-btn');
   if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
   openRiderSkillsHub();
+}
+
+// ── fix245: Bidon Toss — SHELL ONLY ─────────────────────────────────────
+// Panels, the two-tap quit and the open/close pair. There is NO game loop in
+// this stage and nothing here starts one: no rAF, no setInterval, no canvas
+// context, no state read and no state write. Nothing below can change a save.
+//
+// WHY THE HANDLE SET AND THE FLAG EXIST ALREADY. btRafIds and btActive are
+// declared here, unused, and cleared by btClearHandles() on every close and
+// quit path. That is the fix151/fix152 teardown discipline established before
+// there is anything to tear down, and it is deliberate: plan §B4.1 notes the
+// standalone leaks one rAF chain per live object, and the way that leak gets
+// carried over is a port that adds the loop and then remembers the teardown
+// afterwards. The exit paths are wired first so fix246 only has to fill the
+// set, never to invent the funnel.
+//
+// BT_THROWS is the bounded-run denominator from plan §B1.2 — the standalone is
+// endless and its "Payout Bonus" readout has no denominator, which is why that
+// readout is not reproduced. It is consumed here only by the static throw
+// counter; successPct = catches / BT_THROWS arrives with the loop at fix246.
+const BT_THROWS = 10;
+
+let btActive=false, btThrows=0, btScore=0, btWind=0;
+const btRafIds=new Set();
+let _btQuitArmed=false, _btQuitTimer=null;
+
+// ── fix246: the ported loop's own module state ──────────────────────────
+// All of it lives here rather than in the DOM, per plan §0 rule 3 — the board
+// is repainted every frame and anything parked on an element would be wiped.
+// btStreak is the standalone's `streak`: it still drives difficulty (wind
+// strength and fan speed) and is still shown, but it no longer ENDS the run.
+// The run ends at BT_THROWS, so a first-throw miss is still worth playing out
+// (plan §B1.2). btScore counts catches and is the numerator fix247 will divide.
+const BT_W = 420;          // canvas backing-store width — the markup attribute
+const BT_H = 750;          // canvas backing-store height — ditto
+const BT_TARGET_Y = 220;   // depth line where the fan catches; standalone verbatim
+const BT_CATCH_DIST = 35;  // hit radius; standalone verbatim
+const BT_RESET_MS = 600;   // pause between throws; standalone verbatim
+let btCtx=null, btStreak=0, btResetTimer=null;
+let btDragging=false, btDragStartX=0, btDragStartY=0, btDragCurrX=0, btDragCurrY=0;
+let btMsgText='', btMsgColor='#fff', btMsgUntil=0;
+let btPointersBound=false;
+
+// Single teardown point for every handle this game owns. Called from btStart(),
+// btEnd(), quitBidonToss(), closeBidonToss() and btStopOffTab(), so no path can
+// leave a frame or a timer running. fix245 wired this funnel before there was
+// anything to put in it; fix246 fills it and adds nothing new to the exits.
+// btResetTimer is the standalone's `setTimeout(() => this.reset(), 600)` — in
+// the standalone that timer is untracked and fires into a dead game after a
+// close, which is exactly the class of leak plan §B4.1 says not to carry over.
+function btClearHandles(){
+  btRafIds.forEach(id=>cancelAnimationFrame(id));
+  btRafIds.clear();
+  clearTimeout(btResetTimer); btResetTimer=null;
+}
+
+function btResetPanels(showStart){
+  const s=document.getElementById('bt-panel-start');
+  const e=document.getElementById('bt-panel-end');
+  if(s) s.classList.toggle('show', !!showStart);
+  if(e) e.classList.remove('show');
+}
+
+// Render-only: writes the three readouts and nothing else. No state, per the
+// render-only discipline the scene and race paths hold to.
+function btUpdateUI(){
+  const t=document.getElementById('bt-throws');
+  const m=document.getElementById('bt-throws-max');
+  const s=document.getElementById('bt-score');
+  const w=document.getElementById('bt-wind');
+  if(t) t.textContent=btThrows;
+  if(m) m.textContent=BT_THROWS;
+  if(s) s.textContent=btScore;
+  if(w) w.textContent=Math.round(btWind);
+}
+
+function openBidonToss(){
+  const ov=document.getElementById('bt-overlay'); if(!ov) return;
+  btResetPanels(true);
+  btThrows=0; btScore=0; btWind=0; btUpdateUI();
+  // fix246: loop state is reset here too, not only in btStart(), so a board
+  // opened and abandoned cannot hand the next open a stale streak or a
+  // half-finished drag.
+  btStreak=0; btDragging=false; btMsgUntil=0;
+  btBottle.reset();
+  ov.style.display='flex';
+  document.body.style.overflow='hidden';
+  // ONE frame, behind the start panel, so the board is a road and a fan rather
+  // than a grey box while the player reads the copy. No loop is started: the
+  // countdown/animation must not run while the run has not begun (plan §B4).
+  btDrawFrame();
+}
+
+// Two-tap confirm, no confirm() — mirrors requestQuitFeedZone() exactly,
+// including the 3s disarm window, so a mis-tap on any drill board behaves the
+// same way as on every other.
+function requestQuitBidonToss(){
+  const btn=document.getElementById('bt-quit-btn');
+  if(!_btQuitArmed){
+    _btQuitArmed=true;
+    if(btn){ btn.textContent='Tap again to quit'; btn.classList.add('armed'); }
+    clearTimeout(_btQuitTimer);
+    _btQuitTimer=setTimeout(()=>{
+      _btQuitArmed=false;
+      if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
+    },3000);
+    return;
+  }
+  clearTimeout(_btQuitTimer);
+  _btQuitArmed=false;
+  quitBidonToss();
+}
+function quitBidonToss(){
+  btActive=false;
+  btClearHandles();
+  btUnbindPointers();   // fix246
+  closeBidonToss();
+}
+// Abandoning banks nothing — the run has to be finished for the score to count,
+// same contract as the other three drills. Restoring document.body.style.overflow
+// here is the one thing on this path that MUST NOT be skipped: leaving it
+// 'hidden' locks scrolling on every tab behind the closed overlay.
+function closeBidonToss(){
+  const ov=document.getElementById('bt-overlay'); if(!ov) return;
+  btActive=false;
+  btClearHandles();
+  btUnbindPointers();   // fix246: nothing listens on a closed board
+  btResetPanels(true);
+  ov.style.display='none';
+  document.body.style.overflow='';
+  _btQuitArmed=false;
+  clearTimeout(_btQuitTimer); _btQuitTimer=null;
+  const btn=document.getElementById('bt-quit-btn');
+  if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
+  openRiderSkillsHub();
+}
+
+// ── fix246: Bidon Toss — the ported game loop ───────────────────────────
+// Ported from the standalone Bidon_toss_mini-game.html. The spawn, drag,
+// flight and collision maths is VERBATIM: the canvas backing store is the
+// standalone's 420x750, so not one coordinate is rescaled. That is the whole
+// reason fix245 froze the width/height attributes and sized the element from
+// CSS alone — a rescaled port still runs, it just misses, and it never says so.
+//
+// Five deliberate changes during the port, mirroring the fix151 port notes:
+//
+//   1. TEARDOWN. Every requestAnimationFrame handle goes into btRafIds and is
+//      removed as soon as it fires, and the between-throws setTimeout is held
+//      in btResetTimer. btClearHandles() cancels both and is called from every
+//      exit — btStart(), btEnd(), quit, close and the off-tab guard. The
+//      standalone tracks neither: its rAF chain runs forever and its reset
+//      timer fires into a closed game.
+//   2. POINTER EVENTS. mousedown/mousemove/mouseup and the parallel touch*
+//      trio collapse into pointerdown/pointermove/pointerup, so a drag
+//      registers on touch without waiting for synthesised mouse events and
+//      there is one code path instead of two. Listeners are BOUND IN btStart()
+//      and REMOVED IN btEnd() — nothing is left listening on a board that is
+//      not being played. touch-action/user-select already live on #bt-canvas
+//      from fix245 (the fix114 lesson).
+//   3. BOUNDED RUN. The run ends at BT_THROWS, not on the first miss. btScore
+//      counts catches; btStreak survives as the difficulty driver and readout
+//      only. The standalone's "Payout Bonus" readout is replaced by the live
+//      throw counter — payout is resolved once, at the end, and that is
+//      fix247's job, not this one.
+//   4. WIND IS A NUMBER. The standalone assigns windSpeed from .toFixed(1),
+//      which yields a STRING, and then does arithmetic on it — every drift
+//      term there is a silent string-to-number coercion and the sign test
+//      `windSpeed < 0` compares a string. Ported as a real number rounded to
+//      one decimal. Same values, no coercion.
+//   5. FEEDBACK IS DRAWN, NOT A DOM NODE. The standalone's #message-overlay is
+//      drawn on the canvas instead, so the port adds no markup node and no
+//      third timer — the message expires by timestamp inside the frame that is
+//      already running.
+//
+// NO STATE IS WRITTEN ANYWHERE BELOW. No earnMoney, no grantBuff, no rsStore,
+// no saveGame. A finished run puts a number on the end panel and stops. Rewards
+// are fix247 and go through one funnel, btAward(), when they arrive.
+
+// The roadside fan. Bounces along the guardrail; speed scales with btStreak.
+const btFan = {
+  x: BT_W/2, y: BT_TARGET_Y, vx: 2, bobTimer: 0,
+  reset(){ this.x=BT_W/2; this.vx=2; this.bobTimer=0; },
+  update(){
+    this.x += this.vx;
+    this.bobTimer += 0.15;
+    if(this.x < 50 || this.x > BT_W-50) this.vx *= -1;
+  },
+  draw(ctx){
+    ctx.save();
+    const drawY = this.y + Math.sin(this.bobTimer)*4;
+    ctx.fillStyle='rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(this.x, this.y+20, 20, 6, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#ff4757'; ctx.fillRect(this.x-18, drawY-20, 36, 40);
+    ctx.fillStyle='#f1c27d';
+    ctx.beginPath(); ctx.arc(this.x, drawY-32, 14, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath(); ctx.arc(this.x, drawY-36, 14, Math.PI, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#ff4757';
+    ctx.beginPath();
+    ctx.arc(this.x-5, drawY-42, 3, 0, Math.PI*2);
+    ctx.arc(this.x+6, drawY-38, 3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle='#f1c27d';
+    ctx.fillRect(this.x-26, drawY-10, 8, 12);
+    ctx.fillRect(this.x+18, drawY-10, 8, 12);
+    ctx.restore();
+  }
+};
+
+// The bidon. Flight maths verbatim, including the compounding wind curve that
+// makes the bottle hook harder the further it travels.
+const btBottle = {
+  x: BT_W/2, y: BT_H-100, vx:0, vy:0, scale:1, inFlight:false, rotation:0, flightFrames:0,
+  reset(){
+    this.x=BT_W/2; this.y=BT_H-100; this.vx=0; this.vy=0;
+    this.scale=1; this.inFlight=false; this.rotation=0; this.flightFrames=0;
+  },
+  launch(vx,vy){ this.vx=vx; this.vy=vy; this.inFlight=true; this.flightFrames=0; },
+  update(){
+    if(!this.inFlight) return;
+    this.flightFrames++;
+    const windCurveFactor = 1 + (this.flightFrames*0.04);
+    const windDrift = btWind * 0.45 * windCurveFactor;
+    this.y -= this.vy;
+    this.x += this.vx + windDrift;
+    this.rotation += 0.08 + (btWind*0.005);
+    const totalDistance = (BT_H-100) - BT_TARGET_Y;
+    const currentProgress = ((BT_H-100) - this.y) / totalDistance;
+    this.scale = Math.max(0.3, 1 - (currentProgress*0.7));
+    if(this.y <= BT_TARGET_Y) btEvaluateThrow();
+  },
+  draw(ctx){
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.scale(this.scale, this.scale);
+    ctx.rotate(this.rotation);
+    ctx.fillStyle='rgba(0,0,0,0.25)';
+    ctx.beginPath(); ctx.ellipse(-btWind*0.5, 30, 18, 6, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath();
+    // roundRect is not on every engine this PWA runs on; the fallback keeps the
+    // bidon a bidon rather than throwing inside the frame loop.
+    if(typeof ctx.roundRect==='function') ctx.roundRect(-14,-26,28,50,6);
+    else ctx.rect(-14,-26,28,50);
+    ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle='#cccccc'; ctx.stroke();
+    ctx.fillStyle='#1e90ff'; ctx.fillRect(-14,-10,28,16);
+    ctx.fillStyle='#2f3542';
+    ctx.fillRect(-10,-34,20,8);
+    ctx.fillRect(-6,-40,12,6);
+    ctx.restore();
+  }
+};
+
+// Difficulty. Verbatim, except that the wind stays a number (port note 4).
+function btUpdateDifficulty(){
+  const minWind=4;
+  const maxWind=Math.min(28, 6+(btStreak*2));
+  const rawWind=Math.random()*(maxWind-minWind)+minWind;
+  const signed=(Math.random()>0.5 ? rawWind : -rawWind);
+  btWind=Math.round(signed*10)/10;
+  const speedMagnitude=Math.min(6, 2+(btStreak*0.3));
+  btFan.vx=(btFan.vx>0?1:-1)*speedMagnitude;
+}
+
+function btFeedback(text,color){
+  btMsgText=text; btMsgColor=color; btMsgUntil=Date.now()+1000;
+}
+
+// Called from btBottle.update() the frame the bidon reaches the fan's depth
+// line. This is the ONLY place btThrows and btScore move.
+function btEvaluateThrow(){
+  btBottle.inFlight=false;
+  const dist=Math.abs(btBottle.x - btFan.x);
+  if(dist < BT_CATCH_DIST){
+    btScore++; btStreak++;
+    btFeedback('CAUGHT!', '#2ed573');
+  }else{
+    btStreak=0;
+    btFeedback(dist>60?'BLOWN AWAY!':'JUST MISSED!', '#ff4757');
+  }
+  btThrows++;
+  btUpdateDifficulty();
+  btUpdateUI();
+  if(btThrows>=BT_THROWS){
+    // Let the last message land before the panel covers it. Tracked, so a quit
+    // inside this window cannot fire btEnd() into a closed board.
+    clearTimeout(btResetTimer);
+    btResetTimer=setTimeout(()=>{ btResetTimer=null; if(btActive) btEnd(); }, BT_RESET_MS);
+    return;
+  }
+  clearTimeout(btResetTimer);
+  btResetTimer=setTimeout(()=>{ btResetTimer=null; btBottle.reset(); }, BT_RESET_MS);
+}
+
+// ── drawing ─────────────────────────────────────────────────────────────
+// Every function below is render-only: it reads module state and paints. None
+// of them writes anything, per the render-only discipline.
+function btDrawEnvironment(ctx){
+  ctx.fillStyle='#7fb8d4'; ctx.fillRect(0,0,BT_W,BT_TARGET_Y-20);
+  ctx.fillStyle='#55efc4'; ctx.fillRect(0,BT_TARGET_Y-20,BT_W,BT_H);
+  ctx.fillStyle='#dcdde1'; ctx.fillRect(0,BT_TARGET_Y-5,BT_W,10);
+  ctx.fillStyle='#7f8fa6';
+  for(let i=0;i<BT_W;i+=40) ctx.fillRect(i,BT_TARGET_Y-5,4,15);
+  ctx.fillStyle='#57606f';
+  ctx.beginPath();
+  ctx.moveTo(40,BT_TARGET_Y+10);
+  ctx.lineTo(BT_W-40,BT_TARGET_Y+10);
+  ctx.lineTo(BT_W+60,BT_H);
+  ctx.lineTo(-60,BT_H);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='#ffffff'; ctx.lineWidth=4;
+  ctx.beginPath();
+  ctx.moveTo(48,BT_TARGET_Y+10); ctx.lineTo(10,BT_H);
+  ctx.moveTo(BT_W-48,BT_TARGET_Y+10); ctx.lineTo(BT_W-10,BT_H);
+  ctx.stroke();
+}
+
+function btDrawAimLine(ctx){
+  if(!btDragging || btBottle.inFlight) return;
+  ctx.save();
+  ctx.strokeStyle='rgba(255,255,255,0.4)';
+  ctx.lineWidth=3;
+  ctx.setLineDash([8,8]);
+  ctx.beginPath();
+  ctx.moveTo(btBottle.x, btBottle.y);
+  const deltaX=btDragCurrX-btDragStartX;
+  const deltaY=btDragStartY-btDragCurrY;
+  ctx.lineTo(btBottle.x+(deltaX*1.5), btBottle.y-Math.max(40, deltaY*1.5));
+  ctx.stroke();
+  ctx.restore();
+}
+
+function btDrawMessage(ctx){
+  if(Date.now()>btMsgUntil || !btMsgText) return;
+  ctx.save();
+  ctx.fillStyle=btMsgColor;
+  ctx.font='900 30px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.textAlign='center';
+  ctx.shadowColor='rgba(0,0,0,0.9)';
+  ctx.shadowBlur=6;
+  ctx.fillText(btMsgText, BT_W/2, BT_H*0.4);
+  ctx.restore();
+}
+
+// One frame, no motion and no rAF — used by openBidonToss() to paint the board
+// behind the start panel, and by the loop itself.
+function btDrawFrame(){
+  const cv=document.getElementById('bt-canvas'); if(!cv) return;
+  if(!btCtx || btCtx.canvas!==cv) btCtx=cv.getContext('2d');
+  const ctx=btCtx; if(!ctx) return;
+  ctx.clearRect(0,0,BT_W,BT_H);
+  btDrawEnvironment(ctx);
+  btFan.draw(ctx);
+  btDrawAimLine(ctx);
+  btBottle.draw(ctx);
+  btDrawMessage(ctx);
+}
+
+// The loop. One chain, one handle live at a time, and it refuses to schedule
+// the next frame if the run has stopped OR the overlay has been hidden — the
+// second half is plan §B4's "must not run while the overlay is display:none",
+// enforced in the loop rather than trusted to the callers that hide it.
+function btFrame(){
+  const ov=document.getElementById('bt-overlay');
+  if(!btActive || !ov || ov.style.display==='none') return;
+  btFan.update();
+  btBottle.update();
+  btDrawFrame();
+  const id=requestAnimationFrame(()=>{ btRafIds.delete(id); btFrame(); });
+  btRafIds.add(id);
+}
+
+function btStart(){
+  // fix155 discipline: the end panel's "Throw again" calls straight in here,
+  // bypassing the dispatcher, so the hard lockout is re-checked at the start
+  // function itself. Blocked runs bounce back to the hub so the player can see
+  // why. (The dispatcher's own check arrives with the 'bt' branch at fix249;
+  // this one stands on its own until then and is not removed when it does.)
+  if(!rsCanStart('bt')){ closeBidonToss(); return; }
+  btClearHandles();
+  btResetPanels(false);
+  btActive=true;
+  btThrows=0; btScore=0; btStreak=0;
+  btMsgUntil=0; btMsgText='';
+  btDragging=false;
+  btFan.reset();
+  btBottle.reset();
+  btUpdateDifficulty();
+  btUpdateUI();
+  btBindPointers();
+  btFrame();
+}
+
+// Run over. Panels and readouts only — NOTHING is credited here. fix247 adds
+// the single award funnel, btAward(successPct), and it is called from this
+// function and from nowhere else.
+function btEnd(){
+  btActive=false;
+  btClearHandles();
+  btUnbindPointers();
+  btUpdateUI();
+  const title=document.getElementById('bt-end-title');
+  const copy=document.getElementById('bt-end-copy');
+  const fin=document.getElementById('bt-final');
+  if(fin) fin.textContent=String(btScore);
+  if(title) title.textContent = btScore>=BT_THROWS ? 'Every hand filled' : 'Bidons away';
+  if(copy) copy.textContent = `You landed ${btScore} of ${BT_THROWS}.`;
+  btResetPanels(false);
+  const endPanel=document.getElementById('bt-panel-end');
+  if(endPanel) endPanel.classList.add('show');
+}
+
+// ── input ───────────────────────────────────────────────────────────────
+// Pointer events only (port note 2). Bound on start, removed on end, so a board
+// sitting on its start or end panel has nothing listening. btPointersBound
+// guards against a double bind if btStart() is tapped twice in a frame.
+function btCoords(e){
+  const cv=document.getElementById('bt-canvas'); if(!cv) return {x:0,y:0};
+  const rect=cv.getBoundingClientRect();
+  if(!rect.width || !rect.height) return {x:0,y:0};
+  return {
+    x:(e.clientX-rect.left)*(BT_W/rect.width),
+    y:(e.clientY-rect.top)*(BT_H/rect.height)
+  };
+}
+function btPointerDown(e){
+  if(!btActive || btBottle.inFlight) return;
+  const c=btCoords(e);
+  // Only start a drag near the bottle — verbatim from the standalone.
+  if(c.y > BT_H-250){
+    btDragging=true;
+    btDragStartX=c.x; btDragStartY=c.y;
+    btDragCurrX=c.x;  btDragCurrY=c.y;
+  }
+}
+function btPointerMove(e){
+  if(!btDragging) return;
+  const c=btCoords(e);
+  btDragCurrX=c.x; btDragCurrY=c.y;
+}
+function btPointerUp(){
+  if(!btDragging || btBottle.inFlight) return;
+  btDragging=false;
+  if(!btActive) return;
+  const deltaX=btDragCurrX-btDragStartX;
+  const deltaY=btDragStartY-btDragCurrY;   // positive on an upward flick
+  if(deltaY>30){
+    btBottle.launch(deltaX*0.15, Math.min(18, Math.max(8, deltaY*0.08)));
+  }
+}
+function btBindPointers(){
+  const cv=document.getElementById('bt-canvas'); if(!cv || btPointersBound) return;
+  cv.addEventListener('pointerdown', btPointerDown);
+  window.addEventListener('pointermove', btPointerMove);
+  window.addEventListener('pointerup', btPointerUp);
+  window.addEventListener('pointercancel', btPointerUp);
+  btPointersBound=true;
+}
+function btUnbindPointers(){
+  const cv=document.getElementById('bt-canvas');
+  if(cv) cv.removeEventListener('pointerdown', btPointerDown);
+  window.removeEventListener('pointermove', btPointerMove);
+  window.removeEventListener('pointerup', btPointerUp);
+  window.removeEventListener('pointercancel', btPointerUp);
+  btPointersBound=false;
+}
+
+// Off-tab guardrail, called from showTab(). Deliberately NOT closeBidonToss():
+// that function ends by calling openRiderSkillsHub(), which is showTab('skills')
+// — calling it from inside showTab() would re-enter the very function that is
+// mid-switch. This stops the run, tears down every handle and hides the board,
+// and lets showTab() finish the switch the player actually asked for.
+function btStopOffTab(){
+  const ov=document.getElementById('bt-overlay'); if(!ov) return;
+  const wasOpen = ov.style.display!=='none';
+  btActive=false;
+  btClearHandles();
+  btUnbindPointers();
+  if(!wasOpen) return;
+  btResetPanels(true);
+  ov.style.display='none';
+  document.body.style.overflow='';
+  _btQuitArmed=false;
+  clearTimeout(_btQuitTimer); _btQuitTimer=null;
+  const btn=document.getElementById('bt-quit-btn');
+  if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
 }
 
 // Spend handler: single-tap purchase, mirrors buyAccessory()'s mutate→
