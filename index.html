@@ -6513,6 +6513,914 @@ body.home-open{overflow:hidden;}
 @media (prefers-reduced-motion: no-preference){
   #home-toast{transition:opacity .18s ease, transform .18s ease;}
 }
+
+/* ═══ fix229: RACE HUB — art and calibration only ═════════════════════════
+   Stage one of eight for the Race tab (race hub plan v1 §fix229), and the
+   NINTH painted hub in the file. Deliberately the fix221 shape: the art and
+   the cover-rect geometry land here, and NOTHING is welded to them — no
+   hotspot, no banner slot, no sheet, no painted BACK. fix231 types
+   coordinates against this raster only after it has been eyeballed on device
+   with the calibration grid over it.
+
+   Coordinate space, as on all eight hubs before it: every percentage below is
+   a percentage OF #race-art — the 768x1707 re-cut canvas — and never of the
+   viewport. That is what keeps fix231's hotspots welded to the painting at
+   any phone aspect.
+
+   ═══ THE RE-CUT, MEASURED NOT ASSUMED ═══════════════════════════════════
+   Plan §fix229 predicts a 784x1400 source with a white margin on the right
+   and bottom. Both halves of that prediction hold, and the CONTENT BOX is the
+   fix216/fix218/fix221 one for the fourth time running — but corroboration is
+   not licence to skip the measurement (plan §0 rule 3), so it was measured:
+
+     file            784 x 1400
+     content box     768 x 1376   (PURE WHITE margin on the right, 16 cols
+                                   768-783, and on the bottom, 24 rows
+                                   1376-1399 — the home-art shape, NOT the
+                                   fix202 rider shape. Found by scanning for
+                                   FULLY uniform row/column runs inward from
+                                   the right and bottom edges. A connected-
+                                   component pass was run first and was WRONG
+                                   here: white paint inside the illustration
+                                   touches the margin, so the largest white
+                                   component spans the whole raster and reports
+                                   a content box of 768x1376 by accident of
+                                   two errors cancelling. The run scan is the
+                                   measurement that stands.)
+     kept content    768 x 1374   (rows 1374-1375 dropped: TWO rows here,
+                                   where fix218 dropped one, fix216 four and
+                                   fix221 seven. Row 1375 carries the JPEG
+                                   boundary artefact — mean 72.8 against 64.7
+                                   on row 1374, std 21.7/18.8/19.7 against
+                                   9.8/6.8/7.8 — and row 1374 is itself a
+                                   brightening edge, 9 levels above the plateau
+                                   at rows 1370-1373. Row 1372 is the flattest
+                                   row in the bottom thirty and is the one
+                                   replicated.)
+
+   So the content is ALREADY 768 wide: no horizontal scale, and no 102.825%
+   left-pinned crop like #rider-art / #train-art / #gear-art / #tasks-art take.
+   The white margin is removed by the re-cut itself, in the raster, which is
+   why the background shorthand below is a plain center/cover with no margin
+   fudge. If a future re-drop of this art carries a DIFFERENT margin, this
+   whole block is re-measured.
+
+   Band split: 1707 - 1374 = 333 px, split 152 TOP / 181 BOTTOM. Not 166/167,
+   and not any of calendar's 162/173, sponsor's 170/162 or skills' 153/185 —
+   §fix229 says none of those transfers and none of them did. Both replicated
+   rows were stddev-checked before replication:
+     row 0     rgb(63,98,129)   std 10.0/18.2/22.8   (the sky above the ridge)
+     row 1372  rgb(55,51,68)    std 8.0/6.5/7.2      (the dark road surface)
+   Both are flat enough to replicate. NOT MIRROR-PADDED — the fix185b lesson,
+   which cost a re-cut on rider: mirroring duplicates painted UI into the pad
+   bands, which is harmless under a blur and obviously wrong under a hub.
+   Each band is the replicated row's OWN PER-COLUMN colour, horizontally
+   smoothed (gaussian sigma 10px) to kill JPEG noise while keeping the sky's
+   real left-to-right gradient, and cross-faded from the raw edge row to the
+   smoothed profile over the 28 rows nearest the art so there is no seam step.
+
+   ═══ WHY 152, AND WHY THIS HUB HAS NO COMFORTABLE ANSWER ═══════════════
+   This is the densest art of the nine and the split is the resolution of a
+   genuine conflict rather than a preference. Measured on the source (content
+   coordinates):
+
+     bar plate    y 14-64                     centre y 39
+     BACK plaque  x 8-115, y 72-130           centre 61.5 / 101
+     caption row  y 1196-1226  (the bottom medallions' painted captions,
+                                detected as the last run of L>150 text pixels;
+                                everything below 1226 is road and verge)
+
+   The art puts its top furniture 14 px from the content edge and its bottom
+   furniture 148 px from it. At iPhone SE aspect (0.5622) the visible slice is
+   1366.1 canvas px against 1374 px of art, so the crop (341 px total) is
+   WIDER than the pad (333 px): about 8 rows of art are lost at SE whatever
+   the split does, and the split only chooses which end loses them. Three
+   constraints, all at SE:
+
+     A  bar plate centre visible          =>  T >= 131.5
+     B  BACK hit box top visible          =>  T >= 116.4
+        (box top = painted centre 101 minus half of the shared --hh 5.50%)
+     C  caption row clear of .main-tabs   =>  T <= 154.8
+        (.main-tabs is position:fixed bottom:0 at z-index 100 and paints OVER
+         every hub stage — see the fix212 .hub-play note. 76 screen px is the
+         allowance that note uses: 48px min-height + 12px padding, plus margin.
+         Occlusion, NOT crop, is what threatens the bottom row here: the
+         caption row survives the crop itself out to A = 0.7320, well past any
+         phone.)
+
+   The feasible window is T in [131.5, 154.8] and there is no value in it that
+   is comfortable at both ends. T = 152 sits near the top of the window because
+   of fix218's meta-rule — favour the element whose miss costs SURVIVAL — and
+   §3.4, which is sharper on this tab than on any other: once 'race' joins
+   HUB_TABS at fix231 the painted BACK is the ONLY exit, and the energy readout
+   the player needs before committing to a race is in the painted banner. A
+   clipped BACK strands the player; an occluded caption is a hotspot fix231
+   grows upward (the fix218 SWITCH SPONSOR precedent).
+
+   The cost is recorded rather than hidden: at SE the caption row's bottom edge
+   clears the .main-tabs allowance by 0.16% of canvas — under 3 canvas px, or
+   about 1.4 screen px. THE BOTTOM ROW IS THIS HUB'S CROP-CRITICAL ROW and
+   fix230 must treat it as such. If the measured medallion boxes push below the
+   captions, the bottom row grows UPWARD only.
+
+   Resulting canvas percentages (of 1707), for fix230 to start from and
+   re-verify — a starting hypothesis, not a licence to skip measuring.
+   ⚠ SUPERSEDED AT fix230. Kept in place per the tombstone rule so the two can
+   be compared: three of the five below survived measurement almost exactly and
+   the BACK plaque did NOT (it is out by 2.3% of canvas in y and 4.8% in width).
+   fix231 types the fix230 block's numbers, NOT these:
+     top band       0 - 8.90%
+     bar plate      9.72% - 12.65%   centre 11.19%
+     BACK plaque   13.12% - 16.52%   centre 8.01% / 14.82%,
+                                     painted 13.93% x 3.40%,
+                                     box top 12.07%
+     caption row   78.97% - 80.73%
+     bottom band   89.40% - 100%
+
+   ═══ CROP SURVIVAL TABLE (plan §fix230) ════════════════════════════════
+   Under cover the visible slice of #race-art is 0.44991/A of its height,
+   centred, so the first visible row is (1 - 0.44991/A)/2. Convention matches
+   fix202/fix205/fix208/fix216/fix218/fix221: the bar is judged at its CENTRE,
+   the BACK at its hit box's TOP edge.
+
+     A         first visible row   bar centre   BACK box top
+     0.4615    1.26%               visible      visible
+     0.5000    5.01%               visible      visible
+     0.5622    9.99%               visible      visible   (iPhone SE)
+     0.6000    12.51%              CLIPPED      CLIPPED
+     0.6250    14.01%              CLIPPED      CLIPPED
+
+   Crossovers: bar centre A < 0.5798 and BACK box top A < 0.5931. BOTH ARE
+   TIGHTER THAN THE SHARED NUMBERS — the eight hubs before this one run 0.5746
+   for the bar and 0.6391-0.6965 for BACK — and that is a property of the
+   painting, which pins its banner 14 px from the edge, not of this split. Both
+   still clear iPhone SE with 3.4% and 4.2% of canvas to spare respectively,
+   and everything above 0.60 is tablet territory, as it is on all eight shipped
+   hubs. If this art is ever redrawn, redraw it with more headroom.
+
+   Asset: assets/race-bg.jpg, encoded 640x1422 (the same raster home, rider and
+   every hub art uses, so #race-art shares #home-art's 768/1707 arithmetic
+   verbatim), progressive 4:2:0, EXIF stripped, q50 = 121.6 KB against the
+   ~120 KB budget. q50 rather than skills' q54 because this art is busier than
+   any of the eight — 640x1422 at q54 came in at 127.3 KB and the full 768x1707
+   raster did not reach the budget at any q that kept the medallion captions
+   legible. Legibility was the binding quality check, not general sharpness:
+   fix230 confirms each medallion against the OCR of its own caption strip, so
+   a q that softened YOUR CLUB / RESULTS / PROGRESS past reading would have
+   broken the next stage. Checked at 2x against the source on that band. */
+
+/* ═══ fix230: RACE HUB — CALIBRATION. MEASURED NUMBERS, NO BEHAVIOUR ═══════
+   Stage two of eight (race hub plan v1 §fix230). This fix ships NO behaviour
+   change of any kind: not a rule, not a selector, not a byte of markup or JS.
+   It is a measurement, written down where fix231 will read it. The only
+   non-comment change in the whole file series for this stage is the service
+   worker's CACHE_VERSION, and §4 rule 4 explains why even that is mandatory.
+
+   Everything below was MEASURED off the shipped raster, per the painted-hub
+   principle: calibration rects come from the asset's own luminance and
+   gradient profile after the crop arithmetic, never from an estimate off the
+   source image. Where a fix229 estimate survived, it is marked AGREES; where
+   it did not, the measured value stands and the estimate is tombstoned above.
+
+   ═══ 0. WHICH RASTER WAS MEASURED, AND A DISCREPANCY CLOSED ═════════════
+   The supplied file is 644 x 1428. That is NOT a different re-cut: rows
+   1422-1427 and columns 640-643 are PURE white (mean > 254, every pixel), a
+   container margin, and the content box is exactly 640 x 1422 — byte-for-byte
+   the encode fix229 records. Verified by full-row / full-column uniformity
+   scans, the same run-scan method fix229 used on the source, and NOT by a
+   connected-component pass, which fails here for fix229's reason: white paint
+   inside the illustration touches the margin.
+
+   So the calibration canvas is 640 x 1422, a uniform 0.8333 scale of the CSS
+   768 x 1707 canvas (640/768 = 0.83333, 1422/1707 = 0.83304 — the 0.03%
+   difference is sub-pixel at every phone width and is NOT corrected for).
+   Every percentage below is x/640 or y/1422, i.e. a percentage OF #race-art,
+   which is the coordinate space fix231's hotspots live in.
+
+   ═══ 1. THE SEVEN MEDALLIONS — RIM FITS ═══════════════════════════════════
+   Method, per plan §fix230 and the fix221 precedent: mean image-gradient
+   magnitude scored around a candidate ring over a (cx, cy, r) sweep on a
+   sigma-2.0 blurred luminance field, the score being the FRACTION of the 360
+   sampled ring points whose gradient is both strong (top quintile) and
+   radially aligned. Not an eyeball read off the 5%/2% grid, and not a Hough
+   pass — the rims are not clean circles on rows 2 and 3.
+
+   ⚠ THE FIRST TWO ATTEMPTS WERE WRONG AND THE WAY THEY WERE WRONG MATTERS.
+   A mean-gradient score and an unconstrained radius sweep both returned fits
+   that moved 30-50 px between scoring functions on medallions 3-7, because a
+   mean is dominated by the busy scene INSIDE each medallion. What fixed it was
+   two constraints, both derived from the art rather than assumed: a median /
+   support score, which requires the WHOLE ring to be an edge, and an x centre
+   constrained to the three painted columns. Recording this because the naive
+   version looks like it works — it reports a confident number for every
+   medallion — and only the row-to-row disagreement gives it away.
+
+     #  label            centre px   r px   support   cx %     cy %
+     1  ENTER UCI RACE   (124, 432)   98    1.000     19.38    30.38
+     2  WEATHER          (518, 431)   99    0.847     80.94    30.31
+     3  RACE SET-UP      (112, 687)   85    0.653     17.50    48.31
+     4  YOUR RIVAL       (533, 690)   85    0.453     83.28    48.52
+     5  YOUR CLUB        (131, 1009)  94    0.533     20.47    70.96
+     6  RESULTS          (329, 1013)  87    0.903     51.41    71.24
+     7  PROGRESS         (522, 1010)  92    0.869     81.56    71.03
+
+   Every one of the seven is a SHARP, ISOLATED peak in its own radial support
+   profile: support at r-5 and r+5 is a fraction of the value at r (e.g. #6:
+   0.428 / 0.903 / 0.144). That is a painted rim, not a scene edge, and it is
+   the single strongest piece of evidence here — a scene edge does not produce
+   a peak that narrow at a radius that agrees with its row.
+
+   ═══ 2. CORROBORATION, THREE WAYS, PER PLAN §fix230 ═══════════════════════
+   a) SYMMETRY, where the painting actually has it. Row 1 pair midpoint 321.0,
+      row 2 pair midpoint 322.5, row 3 outer pair midpoint 326.5, against the
+      canvas centre 320.0 and the painting's own centre line ~325 (the RESULTS
+      caption centres on 327). Rows 1 and 2 are symmetric to within 2.5 px.
+      ROW 3 IS NOT, and it is NOT FORCED: it sits ~5 px right of centre and
+      fix231 types it that way.
+   b) DIAMETER AGREEMENT within a row: row 1 is 98/99 (delta 1), row 2 is
+      85/85 (delta 0), row 3 is 94/87/92 (delta 7 — RESULTS is genuinely the
+      smallest medallion on the art, not a bad fit; its support is the second
+      highest of the seven at 0.903).
+   c) h/w RATIO against the canvas: each fit is a circle in RASTER px, so its
+      box is 2r/640 wide and 2r/1422 tall, and the ratio of those is 1422/640 =
+      2.222 by construction. The check that means something is the reverse one:
+      the fitted radii are equal in x and y within the fit's own 1 px step, so
+      the medallions ARE circles on this raster and nothing about the re-cut
+      stretched them.
+
+   ═══ 3. CAPTION-STRIP OCR CONFIRMATION (plan §5 open question 2: YES) ══════
+   The art DOES paint a caption under all seven icons, so the plan's primary
+   confirmation method is available and was used. Caption strips located as
+   runs of high-luminance text pixels, then column-clustered with a 14 px word
+   gap; the cluster centre is an x anchor that does not depend on rim quality
+   at all:
+
+     band              rows        canvas %        cluster centres (px)
+     row 1 captions    547-572     38.47-40.23     146.0        524.0
+     row 2 captions    792-814     55.70-57.24     112.5        530.0
+     row 3 captions   1123-1145    78.97-80.52     132.0  327.0 521.5
+
+   Against the rim fits: 112.5 vs 112, 530 vs 533, 132 vs 131, 327 vs 329,
+   521.5 vs 522, 524 vs 518. SIX of the seven agree within 6 px, five of them
+   within 3. The seventh is #1: caption centre 146 against rim centre 124, out
+   by 22 px, because ENTER UCI RACE is the longest string on the art and the
+   painting sets it flush left rather than centring it on the medallion. THE
+   RIM WINS THERE — #1 also carries the only support score of 1.000 in the file
+   — and this is precisely why the plan asks for a second method rather than
+   trusting captions alone.
+
+   ⚠ TWO CAPTION FALSE POSITIVES, NAMED SO THEY DO NOT ACQUIRE HOTSPOTS.
+   This is the "decorative wheel or lamp" failure the plan warns about, and it
+   fires twice on this art:
+     - row 1, x 287-432: the marquee's own painted lettering (SIGN ON
+       MARQUEE / HONING CYCLING CLUB) sits at caption height between medallions
+       1 and 2. There is NO middle medallion on row 1. It gets no hotspot.
+     - the bar caption band, x 0-77 and x 579-640: dark roof timbering either
+       side of the plate, not text.
+
+   ═══ 4. BANNER PLATE, THE THREE RUNS, AND THE PAINTED BACK ════════════════
+   Plate: bottom edge is a +30 luminance step at y 183 across x 71-585; top
+   edge is the softer +9 step at y 133. Left edge crisp at x 69. Right edge is
+   SOFT — the bottom-edge evidence thins out past x 585 and the ENERGY caption
+   and roofline interfere — so 600 is a best estimate, +/-5 px, and it is the
+   one number in this block fix231 should not lean on. Nothing does: the runs
+   are placed off the icons.
+
+     bar plate      y  9.35% - 12.87%    centre y 11.11%    x 10.78% - 93.75%
+                    (fix229 estimated centre 11.19% — AGREES, 0.08% out)
+
+   Painted icons inside the plate, x px: money 82-122, plus 220-250, gauge
+   278-309, calendar 392-424, bolt 449-473. The three empty painted slots are
+   the gaps AFTER money, AFTER gauge and AFTER bolt, and the bar's own painted
+   captions land inside them, which is the corroboration:
+
+     run      x %             centre %    its caption centre %
+     cash     19.06 - 33.59   26.33       25.23  (CASH)
+     ftp      48.28 - 60.94   54.61       52.34  (FTP)
+     energy   73.91 - 93.75   83.83       80.16  (ENERGY)
+
+   Each caption sits slightly LEFT of its run centre, consistently, on all
+   three — the painting left-aligns its labels. fix231 sets the slot text
+   accordingly rather than centring it.
+
+     BACK plaque   painted x 7-127, y 220-266 px
+                   = x 1.09% - 19.84%, y 15.47% - 18.71%
+                   painted 18.75% x 3.23%, centre (10.47%, 17.09%)
+                   shared box --hw:20% --hh:5.50% centred there
+                   = x 0.47% - 20.47%, y 14.34% - 19.84%   BOX TOP 14.34%
+
+   ⚠ THIS IS THE ONE fix229 ESTIMATE THAT DID NOT SURVIVE. fix229 predicted
+   centre (8.01%, 14.82%), painted 13.93% x 3.40%. Measured is 2.27% of canvas
+   LOWER and 4.82% WIDER. The plaque body was isolated as the largest sub-100
+   luminance component in x 0-200 / y 200-300 and read per row (rows 220-266
+   run nearly filled to x 127; the rows above and below are building, not
+   plaque), and corroborated independently by the white BACK lettering, whose
+   dense rows are 234-249 — centred on 241.5 against the plaque's own centre
+   243. Two methods, 1.5 px apart. The measured value stands.
+
+   ═══ 5. CROP SURVIVAL TABLE ═══════════════════════════════════════════════
+   Visible slice is 0.44991/A of the art's height, centred, so the first
+   visible row is (1 - 0.44991/A)/2 and the last is 1 minus that.
+
+     A         first visible   last visible   bar centre   BACK box top
+     0.4615    1.26%           98.74%         visible      visible
+     0.5000    5.01%           94.99%         visible      visible
+     0.5622    9.99%           90.01%         visible      visible  (iPhone SE)
+     0.6000    12.51%          87.49%         CLIPPED      CLIPPED
+     0.6250    14.01%          85.99%         CLIPPED      CLIPPED
+
+   The measured BACK box top of 14.34% is 2.27% LOWER than fix229's estimate,
+   which moves its crossover the SAFE way: it now clears down to A = 0.6099
+   rather than 0.5931. The bar centre crossover is unchanged at A < 0.5798.
+   Both still fail above 0.60, which remains tablet territory, as on all eight
+   shipped hubs.
+
+   Every hotspot's box BOTTOM against the last visible row at SE (90.01%):
+   the deepest is #5 YOUR CLUB at 77.57%, then #7 at 77.50% and #6 at 77.36%.
+   All clear by more than 12% of canvas. NO HOTSPOT NEEDS THE fix212 .hub-play
+   TREATMENT ON THIS TAB — every one of the seven survives the crop at SE, and
+   the crop is not what threatens this hub.
+
+   ═══ 6. WHAT ACTUALLY THREATENS THE BOTTOM ROW: .main-tabs OCCLUSION ══════
+   .main-tabs is position:fixed bottom:0 at z-index 100 and paints OVER the
+   stage. It is an OCCLUSION, not a crop, so it does not appear in the table
+   above and it does not scale with A the same way. Its 76 screen px allowance
+   converts to 3419/W percent of canvas, where W is the viewport width in CSS
+   px, so it gets WORSE on NARROWER phones — the opposite of the crop:
+
+     W (CSS px)   occluded band   occluded from   caption row bottom 80.52%
+     320          10.69%          79.32%          OCCLUDED by 1.20%
+     375          9.12%           80.89%          clears by 0.37%   (iPhone SE)
+     390          8.77%           81.24%          clears by 0.72%
+     430          7.95%           82.06%          clears by 1.54%
+
+   So fix229's warning holds and sharpens: at iPhone SE the painted bottom
+   captions clear the tab bar by 0.37% of canvas — about 5 canvas px, 2.5
+   screen px — and at 320 px they DO NOT CLEAR AT ALL. That is a cosmetic
+   clip of PAINTED TEXT only. Every row-3 HIT BOX bottom (77.57% worst case)
+   clears even at 320 px, where occlusion starts at 79.32%, by 1.75%.
+   Consequence for fix231, stated so it is not rediscovered: the bottom row's
+   boxes are already sized to sit ENTIRELY ABOVE the captions, and if any of
+   them is ever grown it grows UPWARD ONLY (the fix218 SWITCH SPONSOR
+   precedent). Do not extend a row-3 box down into the caption strip to gain
+   tap area — the caption strip is the part that disappears.
+
+   ═══ 7. TAP TARGET CHECK ══════════════════════════════════════════════════
+   #race-art is cover-fitted, so its width is the viewport width. The smallest
+   box is #3 / #4 at 26.56% wide: 104 px at 390, 100 px at 375, 85 px at 320.
+   Heights are 11.95% of the art's height, which is width/0.44991, so at 375 px
+   that is 99 px. Every one of the seven is more than double the 44 px minimum
+   on every phone. NOTHING NEEDS GROWING, which is the reason §6's rule costs
+   nothing to obey.
+
+   ═══ 8. COLLISION AUDIT — every pair, both axes ═══════════════════════════
+   Boxes (canvas %), medallions from §1 and BACK from §4:
+
+     1  x  4.06 - 34.69   y 23.49 - 37.27
+     2  x 65.47 - 96.41   y 23.35 - 37.27
+     3  x  4.22 - 30.78   y 42.33 - 54.29
+     4  x 70.00 - 96.56   y 42.55 - 54.50
+     5  x  5.78 - 35.16   y 64.35 - 77.57
+     6  x 37.81 - 65.00   y 65.12 - 77.36
+     7  x 67.19 - 95.94   y 64.56 - 77.50
+     8  x  0.47 - 20.47   y 14.34 - 19.84   (BACK)
+
+   All 28 pairs are disjoint on at least one axis. This audit is not a
+   formality on the densest hub in the file, so the three TIGHTEST separations
+   are named:
+     6-7   x gap 2.19%   (8.5 px at 390, 7.0 px at 320)
+     5-6   x gap 2.66%   (10.4 px at 390, 8.5 px at 320)
+     1-8   y gap 3.65%   BACK box bottom 19.84% vs medallion 1 top 23.49%
+   The two x gaps are between adjacent row-3 medallions and they are small
+   because the art paints three circles across a 640 px width. They are
+   POSITIVE and they are the reason §7's "nothing needs growing" is load
+   bearing: growing #5, #6 or #7 sideways by even 1.5% of canvas would close
+   one of them.
+
+   ═══ 9. STILL OPEN, NOT RESOLVED BY MEASUREMENT ═══════════════════════════
+   Plan §5 question 1 — the brief names bottom-left twice. The art reads, left
+   to right on row 3, YOUR CLUB / RESULTS / PROGRESS, which matches the plan's
+   assumption, and the caption OCR in §3 confirms the three strings and their
+   order. fix231 welds data-hot 5/6/7 to that order.
+   Plan §5 question 3 — YES, there is painted furniture at the bottom: a
+   SETTINGS / SHOP / PROFILE bar with a PLAY pill, painted from y 1200 down
+   (84.39% of canvas). It is the same shape the rider art has and it gets NO
+   hotspot, for fix225's reason. It also sits entirely inside the .main-tabs
+   occlusion band at every phone width in §6, so it is never fully visible
+   anyway. Do not add a hotspot to it later "because it is painted there".
+   Plan §5 question 4 is a fix232+ decision and is untouched here. */
+#race-stage{
+  /* Everything except the z-index comes from .hub-stage (fix203). z-index 73
+     is one above #skills-stage's 72 and BELOW every pre-existing stage
+     (tasks 76 ... home 90), so tapping through to an older hub can never
+     leave this art painted over it. The stages are mutually exclusive by
+     showTab() anyway, so 70/71/72/73 among themselves is fixed for
+     readability, not for correctness. Do not re-derive the sky placeholder,
+     the overflow or the tap-highlight kill here; they are the shared class's
+     job.
+
+     display:none + pointer-events:none is the GATE, and it is the whole reason
+     this stage is safe to ship with no controls on it. fix231 lifts it, in
+     this place, with the fix220/fix222 tombstone, once the painted BACK
+     exists. Until then the only route to this art is raceDebugToggle().
+
+     THE GATE MATTERS MORE ON THIS TAB THAN ON THE EIGHT BEFORE IT. #tab-race
+     is the most stateful panel in the file: an ungated fixed-position stage
+     would sit over #race-setup-wrap, #race-list and #club-race-list, i.e. over
+     live controls that start a simulation, not over a static screen. */
+  z-index:73;
+  /* fix231 tombstone: the fix229 gate, retired here and not deleted. The stage
+     now carries eight hotspots including a painted BACK (data-hot 8), so it is
+     no longer control-free and 'race' IS now in HUB_TABS — which means this
+     pair would hide the ONLY chrome on the tab that goes anywhere. Lifted in
+     the same place fix217, fix220 and fix222 lifted theirs.
+  display:none;
+  pointer-events:none;
+  */
+}
+/* One class on #tab-race drives the preview, matching .skills-hub-preview,
+   .sponsor-hub-preview, .cal-hub-preview, .tasks-hub-preview,
+   .train-hub-preview and .gear-hub-preview. This is a REAL gate this stage —
+   #race-stage above is display:none, so without this class there is no route
+   to the art at all. It is KEPT when fix231 ungates the stage, exactly as
+   fix206, fix209, fix211, fix217, fix220 and fix222 kept theirs: a class
+   toggle with no rule behind it is precisely the thing a later reader assumes
+   still does something (the fix136 lesson), and this rule is what a future
+   stage would re-gate through if the art were ever pulled. */
+#tab-race.race-hub-preview #race-stage{display:block;pointer-events:auto;}
+#race-art{
+  /* Cover-rect arithmetic comes from .hub-art (fix203) — do NOT re-derive it
+     here. Only the background shorthand is per-tab, and like #cal-art,
+     #sponsor-art and #skills-art, and unlike the other four painted tabs, this
+     one takes NO margin crop: the re-cut above removed the white margin in the
+     raster, so it is a plain center/cover. The fallback is the sky gradient,
+     kept for the reason every other hub keeps it — a missing asset degrades to
+     flat sky, never to a black screen.
+
+     ═══ NAME COLLISION, THREE WAYS. READ BEFORE TOUCHING ═══════════════
+     There are three similar names on this tab and they are three different
+     things:
+       --sheet-race-scene   THIS one. The Race HUB backdrop. New at fix229.
+       --sheet-race-hero    TOMBSTONED at fix162/fix169. Not live. Not this.
+       assets/race-hero-bg.jpg
+                            LIVE, read by .race-hero-bg, the small hero card's
+                            opaque backdrop inside the tab body. Unrelated to
+                            the hub, still fetched, and it STAYS.
+     Merging or "tidying" any two of these breaks a different thing each way
+     round. See the matching note on the LAZY_ASSET_GROUPS.race entry. */
+  background:var(--sheet-race-scene,
+    linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%))
+    center/cover no-repeat;
+}
+/* The calibration overlay rides the generic .hub-cal / .hub-cal-tick /
+   .hub-cal-edge set introduced in the fix210 block above — no fifth private
+   copy, which is what plan §0 nominates the generic set for. Only the
+   .race-debug scoping rules are new here, because the display gate is keyed to
+   each stage's own debug class. .hub-cal-rect is NOT used on this tab: it is
+   Tasks-specific (it calibrates the clipboard RECT), and Race calibrates seven
+   painted CIRCLES plus one plaque, whose centres and edges the 5%/2% fine grid
+   reads off directly.
+
+   Off by default and never persisted: these only paint under .race-debug,
+   which raceDebugToggle() sets from the console. */
+#race-stage.race-debug .hub-cal{display:block;}
+#race-stage.race-debug .hub-cal::before{
+  content:'';position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(to right, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to bottom, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to right, rgba(0,255,255,.30) 0 1px, transparent 1px 5%),
+    repeating-linear-gradient(to bottom, rgba(0,255,255,.30) 0 1px, transparent 1px 2%);
+}
+/* Magenta boxes and cyan slots, matching all eight painted hubs so a
+   screenshot from any of them reads the same way. NEITHER SELECTOR HAS A MATCH
+   IN THIS FILE YET — .race-hot and .race-slot are both fix231's markup. They
+   are written now, with the rest of the debug set, so that fix231 adds markup
+   only and cannot ship a hotspot or a slot that is invisible to the
+   calibration pass that is supposed to place it. Dead selectors, deliberately,
+   for exactly two stages. This is the densest hub in the file — seven
+   medallions plus BACK — so the numbered ::after label earns its place here
+   more than anywhere. */
+#race-stage.race-debug .race-hot{background:rgba(255,0,255,.28);outline:2px solid #ff0;}
+#race-stage.race-debug .race-hot::after{
+  content:attr(data-hot);position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);color:#ff0;font:700 13px/1 monospace;
+}
+#race-stage.race-debug .race-slot{background:rgba(0,255,255,.30);outline:1px solid #0ff;}
+
+/* ═══════════ fix231: RACE SLOTS, HOTSPOTS, TOAST, HEADER RETIRES ═══════════
+   Stage three of eight for the Race tab (race hub plan v1 §fix231). The fix229
+   gate above is lifted, three banner slots and EIGHT hotspots go on, and 'race'
+   joins HUB_TABS so .game-header retires from this tab. Every geometry number
+   below is a percentage OF #race-art — the 768x1707 canvas — never of the
+   viewport, and every one is TYPED FROM THE fix230 MEASUREMENT BLOCK ABOVE.
+   Nothing here is estimated and nothing is copied from another hub's plate: the
+   fix229 predictions were treated as a hypothesis, fix230 re-measured them
+   against the shipped raster, and where the two disagreed (the BACK plaque, out
+   by 2.27% of canvas) the MEASURED value is the one typed here.
+
+   ═══ WHAT THIS STAGE DELIBERATELY DOES NOT SHIP ════════════════════════════
+   #race-sheet and the seven #race-section-* wraps are fix232, per the plan's
+   own staging. So for exactly one stage raceHubGo() has nowhere to land and
+   every medallion raises the pill instead (see raceHubGo() in the JS for the
+   one-line swap fix232 makes). CONSEQUENCE, STATED SO IT IS NOT DISCOVERED ON A
+   DEVICE: this stage's stage covers #race-list, #club-race-list and every other
+   live control on the panel, so no race can be entered while it is the head of
+   the series. fix231 IS NOT A DEPLOYABLE HEAD — fix232 is. That is the price of
+   splitting hotspots from the sheet, and it is the same shape fix221 had (art
+   with no controls) rather than a new hazard, but it bites harder here because
+   this is the only panel in the file whose controls start a simulation.
+
+   ═══ THE THREE BANNER RUNS ════════════════════════════════════════════════
+   From fix230 §4. The plate's interior spans y 9.35%-12.87% and its measured
+   centre is y 11.11%; the slots below are top 10.25% + height 1.75%, i.e.
+   centred on 11.125%, which is 0.015% of canvas — a quarter of a raster pixel —
+   off the measured centre.
+
+     run      measured x %      slot left / width
+     cash     19.06 - 33.59     19.06% / 14.53%
+     ftp      48.28 - 60.94     48.28% / 12.66%
+     energy   73.91 - 93.75     73.91% / 19.84%
+
+   ═══ WHY THESE ARE THE ONLY RIGHT-ALIGNED SLOTS IN THE FILE ════════════════
+   The other seven hubs centre their figures, because their runs are EMPTY. This
+   plate is different and fix230 §4 measured the difference: this art paints its
+   own CASH / FTP / ENERGY captions INSIDE the runs, consistently left of each
+   run's centre (25.23 vs 26.33, 52.34 vs 54.61, 80.16 vs 83.83). A centred
+   figure would sit on top of painted lettering on all three. justify-content is
+   therefore flex-end with a 4% padding-right, so each figure lands in the right
+   half of its run, clear of the caption the painting already put in the left
+   half. This is fix230's "fix231 sets the slot text accordingly rather than
+   centring it", made concrete.
+
+   ═══ THE ENERGY GAUGE STOPS ═══════════════════════════════════════════════
+   Same guarantee fix188 made for rider, fix205 for train, fix217 for calendar,
+   fix219 for sponsor and fix222 for skills: a FULL gauge must never read worse
+   than an EMPTY one. Plan §fix231 says explicitly not to assume sponsor's pair
+   survives, so it was re-checked against THIS plate's measured empty state —
+   the median of the darker 60% of the pixels in the energy run's own band, the
+   run being the only place the fill ever paints:
+
+     empty plate rgb(68,77,92)               7.93:1   vs #F4F7FA
+     sponsor's  rgba(16,56,34,.65) over it  10.61:1
+     sponsor's  rgba(20,66,40,.50) over it   9.30:1
+
+   Both are BETTER than the empty state along the whole length, so the greens
+   are reused rather than re-derived — the second hub after skills where the
+   check passed rather than the calendar case where it failed. Note this plate
+   is the LIGHTEST of the nine (rgb(68,77,92) against skills' rgb(49,69,94)),
+   which is why its empty state is the weakest of the nine at 7.93:1 and why
+   assuming would have been the wrong call even though the answer came out the
+   same. No border-radius, for the reason the other six give: this is an
+   interior region of a painted bar, not a plate of its own. */
+.race-slot{
+  color:#F4F7FA;
+  text-shadow:0 1px 2px rgba(0,0,0,.70);
+  justify-content:flex-end;
+  padding-right:4%;
+}
+.race-banner-slot{top:10.25%; height:1.75%;}
+#race-slot-money  {left:19.06%; width:14.53%;}
+#race-slot-ftp    {left:48.28%; width:12.66%;}
+#race-slot-energy {left:73.91%; width:19.84%;}
+#race-slot-energy::before{
+  content:'';position:absolute;inset:0;
+  width:calc(var(--race-energy-pct,0) * 1%);
+  background:linear-gradient(90deg, rgba(16,56,34,.65), rgba(20,66,40,.50));
+}
+@media (prefers-reduced-motion: no-preference){
+  #race-slot-energy::before{transition:width .35s ease;}
+}
+#race-slot-energy #race-energy{position:relative;}
+
+/* ═══ THE INFORMATIONAL PILL ═══════════════════════════════════════════════
+   Same node, same shape and the same rules as #cal-toast (fix217),
+   #sponsor-toast (fix220) and #skills-toast (fix222): one pre-built node per
+   hub, patched by textContent, never created or destroyed at runtime.
+   Absolutely positioned against #race-art rather than #race-stage so it lands
+   in the same place relative to the painted scene at every aspect, exactly like
+   the hotspots and slots. Nine hubs, nine nodes, nine timers.
+
+   THIS HUB RAISES ITS PILL MORE THAN ANY OTHER, and that is by design rather
+   than by accident: plan §3.2 requires raceHubGo('uci') and raceHubGo('club')
+   to HARD REJECT while a race or a session is running, surfacing the existing
+   copy through this pill rather than showing a list of cards that look tappable
+   and are not. The per-card gating inside renderClubRaces() / renderRaceTypes()
+   stays exactly where it is, belt-and-braces per fix107. */
+#race-toast{
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%) scale(.9);
+  padding:10px 18px; border-radius:999px;
+  background:rgba(14,20,32,.94);
+  border:1px solid rgba(255,255,255,.22);
+  color:#fff; font-weight:700; font-size:15px;
+  box-shadow:0 6px 20px rgba(0,0,0,.45);
+  pointer-events:none; opacity:0; visibility:hidden;
+  max-width:86%; text-align:center;
+}
+#race-toast.on{opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1);}
+@media (prefers-reduced-motion: no-preference){
+  #race-toast{transition:opacity .18s ease, transform .18s ease;}
+}
+
+/* ═══════════ fix232: THE RACE SECTION SHEET ═══════════
+   Stage four of eight for the Race tab (race hub plan v1 §fix232). Nothing is
+   invented here: this is #skills-sheet's block with race ids, which is itself
+   #rider-sheet's from fix186. Six sheets in the file, one pattern.
+
+   ═══ THE Z-INDEX, AND PLAN §3.1 CHECKED RATHER THAN ASSUMED ══════════════
+   z-index 75: strictly ABOVE #race-stage's 73 so the sheet covers the eight
+   hotspots, and strictly BELOW every pre-existing stage (tasks 76 ... home 90)
+   so tapping through to an older hub can never leave a race sheet painted over
+   it. It EQUALS #skills-sheet's 75, deliberately and harmlessly — the two live
+   on different panels and showTab() makes them mutually exclusive, exactly as
+   #cal-sheet's 73 has equalled #race-stage's 73 since fix229. There is no
+   integer between 75 and 76 to take instead, and lifting this to 76+ would put
+   it over #tasks-stage, which is the one thing the tier is protecting.
+
+   Plan §3.1 asked for the ACTIVE-RACE OVERLAY ordering to be checked here
+   explicitly rather than assumed, because no hub stage had ever shared a tab
+   with it. Checked: .race-overlay is z-index 1800 (see its rule, and the tier
+   map comment at the .rs-overlay block — race 1800 / info 1900 / ceremony
+   2000). 1800 > 75 > 73, so startRace() paints over BOTH the sheet and the
+   stage with no edit anywhere, on every phone. That is the answer the plan
+   wanted written down; it is not a coincidence to be re-derived at fix236.
+
+   display:none rather than a fade, for fix186's reason: it is a HARD lockout.
+   Closed, it cannot be scrolled, focused or tapped through; open, the stage
+   below is display:none (see the .race-sheet-open pair) so no medallion can be
+   hit through it. Nothing is translucent, so there is no state in which both
+   layers are live at once — which on THIS tab is the one that matters most in
+   the file: the sheet's own race cards and the painted UCI/Club medallions both
+   lead to startRace(), and a player who can see both can start a race from a
+   screen the busy lockout has already refused. */
+#race-sheet{
+  display:none;
+  position:fixed;
+  /* 'race' joined HUB_TABS at fix231, so .game-header (z-index 83) is hidden on
+     this tab and this fallback is what actually applies — as on calendar,
+     sponsors and skills, and unlike train and gear where the measured branch is
+     the live path. The measured branch in raceSheetSet() is kept anyway,
+     verbatim, per fix217's reasoning. */
+  top:env(safe-area-inset-top, 0px);
+  left:0; right:0; bottom:0;
+  z-index:75;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%);
+  /* bottom padding clears .main-tabs (z-index 100), which is still on this tab
+     and still overlays the sheet's lower edge — the bar is not retired until
+     every hub is painted. */
+  padding:0 .75rem calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+}
+/* One class on #tab-race drives both layers, so open/closed is a single DOM
+   write and the two can never disagree about which is showing.
+
+   SOURCE ORDER IS LOAD-BEARING HERE, exactly as it is in the calendar, sponsor
+   and skills blocks. The .race-hub-preview rule in the fix229 block is KEPT
+   (fix231 said so, and the fix136 lesson is why). It carries the same
+   specificity as the pair below — two ids and a class — so if it sat AFTER
+   this, its display:block would beat the lockout whenever a calibration preview
+   had been left switched on, and on this tab that means painted medallions live
+   over a race list. It sits before. Do not reorder this block. */
+#tab-race.race-sheet-open #race-sheet{display:block;}
+#tab-race.race-sheet-open #race-stage{display:none;}
+
+/* Sticky rather than fixed so it participates in the sheet's own scroll
+   container and needs no height reservation. Opaque --hub-sky (flat hex, not
+   the gradient) so content scrolling under it is fully covered. */
+.race-sheet-bar{
+  position:sticky;
+  top:0;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 -.75rem .6rem;
+  padding:.45rem .75rem;
+  background:var(--hub-sky);
+  box-shadow:0 2px 8px rgba(30,25,32,.18);
+}
+.race-sheet-title{
+  font-size:13px;font-weight:700;color:#123;
+  letter-spacing:.02em;
+}
+/* Declared rather than added to the .train-sheet-back / .gear-sheet-back /
+   .cal-sheet-back / .sponsor-sheet-back / .skills-sheet-back selector lists,
+   for fix206's reason: one tab's back button must not be able to break
+   another's. Same 44px+ target, same :active scale, same reduced-motion guard,
+   same focus ring. */
+.race-sheet-back{
+  display:flex; align-items:center; gap:6px;
+  min-height:44px; padding:0 14px 0 10px;
+  border:1px solid var(--border); border-radius:999px;
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:700;
+  box-shadow:var(--shadow-md);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.race-sheet-back:active{transform:scale(.96);}
+@media (prefers-reduced-motion: no-preference){
+  .race-sheet-back{transition:transform .12s ease;}
+}
+.race-sheet-back:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
+/* ═══════════ fix233: RACE SET-UP → GEAR LINK ═══════════
+   Stage five of eight for the Race tab (race hub plan v1 §fix233). One row,
+   one funnel, and deliberately nothing else.
+
+   WHY IT EXISTS. Plan §1's table gives medallion 3 (#race-section-setup) both
+   "#race-setup-wrap + new link to Gear tab". Set-up is where the player decides
+   what to ride; the bike itself is chosen on the Gear tab, and since fix231
+   retired .game-header on this tab there is no chrome here that reaches it —
+   only the .main-tab bar, which is not a route the sheet advertises.
+
+   WHY hubGo('gear') AND NOT showTab('gear'). Plan §fix233 says "routing through
+   hubGo('gear') — the same funnel, no second navigation mechanism". hubGo() is
+   the seven-toast-dismissal funnel (see its JS comment stack): tapping this row
+   with a busy-lockout pill mid-timer must not leave that pill mounted and
+   fading over the Gear hub, and hubGo() is the only thing in the file that
+   guarantees it. It writes no state, so this row is render-path-safe under plan
+   §3.3. Not raceHubGo() — that is the INTRA-tab section funnel and hard-rejects
+   any name not in its seven; 'gear' is a tab, not a section.
+
+   NO BUSY GATE. Unlike raceHubGo('uci')/('club') (plan §3.2) this row is not
+   hard-locked while state.raceActive || state.session.active. Leaving the Race
+   tab mid-race has always been permitted — the .main-tab bar does it today and
+   #race-overlay is z-index 1800 over everything regardless — so gating here
+   would invent a restriction the rest of the file does not have. The lockout
+   protects STARTING a second race, not looking at a bike.
+
+   Styled as a row rather than a .btn so it reads as navigation, not as an
+   action taken on the set-up card above it. Full-width, 48px, so it clears the
+   44px target on the widest phone and cannot be mistaken for part of
+   renderRaceSetupCard()'s output — whose markup is UNCHANGED by this stage, per
+   the plan's second bullet. */
+.race-setup-link{
+  display:flex; align-items:center; gap:10px;
+  width:100%;
+  min-height:48px;
+  margin:.6rem 0 0;
+  padding:0 12px;
+  border:1px solid var(--border); border-radius:12px;
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:700;
+  text-align:left;
+  box-shadow:var(--shadow-md);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+/* Pushes the chevron to the trailing edge without a second flex container. */
+.race-setup-link .race-setup-link-txt{flex:1 1 auto;}
+.race-setup-link .race-setup-link-sub{
+  display:block;
+  font-size:11px; font-weight:600; color:var(--txt3);
+  letter-spacing:.01em;
+}
+/* A text chevron rather than an eighth <symbol>: there is no icn-arrow-right in
+   the fix22 sprite and adding one for a single caller is more surface than the
+   row deserves. aria-hidden on the node, so the button's label carries the
+   meaning. */
+.race-setup-link .race-setup-link-chev{
+  flex:0 0 auto;
+  font-size:18px; line-height:1; color:var(--txt3);
+}
+.race-setup-link:active{transform:scale(.98);}
+@media (prefers-reduced-motion: no-preference){
+  .race-setup-link{transition:transform .12s ease;}
+}
+.race-setup-link:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
+/* ═══════════ fix234: PROGRESS SECTION BUILD-OUT ═══════════
+   Stage six of eight for the Race tab (race hub plan v1 §fix234). The Progress
+   medallion opened onto #cat-card-wrap alone — one card, which is less than a
+   painted medallion promises. This block styles the ladder and the promotion
+   readout that sit UNDER it.
+
+   WHAT IS AND IS NOT NEW DATA. Nothing here is new state and no save key is
+   added (plan §fix234, second sentence). Every figure is read from data that
+   already exists: RACE_CATEGORIES, state.raceCategory, state.categoryPoints and
+   state.highestCategoryReached — the last of which has been saved since it was
+   introduced for the 'category' career stat and is the only reason the ladder
+   can distinguish "reached before, then a new season took it away" from "never
+   reached". renderCategoryCard() is UNTOUCHED; this is a second wrap and a
+   second render function beside it, which is what keeps the fix17 tick contract
+   (plan §3.3) exactly where it was.
+
+   RELEGATION, HONESTLY. Plan §fix234 asks for "the promotion/relegation state".
+   There is no relegation in this file — categoryPoints only ever increases and
+   promoteCategory() only ever steps raceCategory up. The one thing that moves a
+   player back down is prestige, which zeroes both. So the relegation half of
+   that state is rendered as what it actually is, in one line, rather than as a
+   mechanic invented to fill the slot. Inventing one would be a rules change
+   dressed as a layout stage.
+
+   The ladder is a list of rows, not a horizontal rail: seven categories will not
+   read on a 390px phone side by side, and a vertical list lets each row carry
+   its own promotion cost without truncation. Rows are static — no row is
+   tappable, because there is nothing at the far end of a tap on a category you
+   have not reached, and a dead-looking button is worse than plain text. */
+.cat-prog{
+  margin-top:.6rem;
+  border:1px solid var(--border); border-radius:12px;
+  background:var(--bg);
+  box-shadow:var(--shadow-md);
+  overflow:hidden;
+}
+.cat-prog-top{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:10px 12px;
+  border-bottom:1px solid var(--border);
+}
+.cat-prog-now{font-size:13px;font-weight:800;color:var(--txt);}
+.cat-prog-now span{display:block;font-size:11px;font-weight:600;color:var(--txt3);}
+/* Career best sits as a quiet pill rather than a second headline — it is
+   context for the ladder below, not a competing figure. */
+.cat-prog-best{
+  flex:0 0 auto;
+  font-size:11px;font-weight:700;
+  padding:4px 8px;border-radius:999px;
+  background:var(--amber-bg);color:var(--amber-txt);
+  border:.5px solid var(--amber-bd);
+  white-space:nowrap;
+}
+.cat-prog-next{
+  padding:10px 12px;
+  border-bottom:1px solid var(--border);
+}
+.cat-prog-next-row{
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  font-size:12px;font-weight:700;color:var(--txt2);
+}
+.cat-prog-next-val{font-size:13px;font-weight:800;color:var(--txt);}
+.cat-prog-hint{
+  margin-top:.35rem;
+  font-size:11px;font-weight:600;color:var(--txt3);
+}
+/* One list, seven rows. The :last-child rule only fires if the relegation note
+   below the rows is ever removed — as rendered the note is the last child, so
+   the seventh row keeps its rule and it reads as the separator before the note.
+   Kept so the list is not left with a hanging edge if that note moves. */
+.cat-prog-row{
+  display:flex;align-items:center;gap:9px;
+  padding:8px 12px;
+  border-bottom:1px solid var(--border);
+}
+.cat-prog-row:last-child{border-bottom:none;}
+.cat-prog-ic{flex:0 0 auto;display:flex;align-items:center;font-size:15px;}
+.cat-prog-nm{flex:1 1 auto;font-size:12px;font-weight:700;color:var(--txt);}
+.cat-prog-nm em{display:block;font-style:normal;font-size:10px;font-weight:600;color:var(--txt3);}
+.cat-prog-tag{flex:0 0 auto;font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;}
+/* Not-yet-reached rows dim as a block so the eye finds the current rung first;
+   opacity rather than a colour override, so every category keeps its own hue
+   underneath and nothing has to be re-derived per theme. */
+.cat-prog-row.is-locked{opacity:.45;}
+.cat-prog-row.is-now{background:var(--bg2);}
+
+/* ═══════════ fix235: YOUR CLUB SECTION BUILD-OUT ═══════════
+   Stage seven of eight for the Race tab (race hub plan v1 §fix235). The
+   re-parent this stage is named for landed early, at fix232 — #series-wrap was
+   moved into #race-section-club there rather than being moved twice — so what
+   is left here is the half the plan describes but the re-parent could not do:
+   making one screen out of two blocks that arrived on it separately.
+
+   As shipped at fix232 the section read as a caption, a list, and then a
+   trophy card with no heading and no stated relationship to the list above it.
+   That adjacency is exactly what plan §fix235 warns about: two things on one
+   screen imply each other unless told not to. So this stage adds the two
+   headings, puts the prose behind ⓘ per the standing rule (INFO_TEXTS,
+   'clubRaces' and 'seriesStandings'), and keeps the fix133 "No series points"
+   note where it is — the plan is explicit that the note gets MORE necessary
+   here, not less, and it is not folded into the ⓘ for tidiness.
+
+   NO NEW STATE, NO NEW SAVE KEY, and no new render function. renderClubRaces()
+   and renderSeriesCard() keep their wraps and their tick contract (plan §3.3);
+   the only JS this stage touches is renderSeriesCard()'s NULL branch, for the
+   reason in the comment there.
+
+   .club-lbl-note is a heading-adjacent caption, not a second .section-lbl —
+   it is the fix133 note, restyled only so far as sitting under a heading
+   requires. It keeps its own colour rather than inheriting the label's
+   uppercase treatment, because it is a statement of fact and not a heading. */
+.club-lbl-note{
+  margin:-.3rem 0 .5rem; padding:0 2px;
+  font-size:11px; font-weight:600; color:var(--txt3);
+}
+/* Empty-state card for the series, shown before the first UCI race has been
+   ridden. Without it the "Series Standings" heading would hang over nothing on
+   a fresh save — the one case renderSeriesCard() wrote an empty string for.
+   Styled as a quiet card rather than a locked one: nothing is locked, the
+   series simply has not started, and a padlock would misdescribe it. */
+.series-empty{
+  border:1px dashed var(--border); border-radius:12px;
+  background:var(--bg2);
+  padding:14px 12px;
+  text-align:center;
+}
+.series-empty-ttl{font-size:12px;font-weight:800;color:var(--txt2);}
+.series-empty-sub{margin-top:.25rem;font-size:11px;font-weight:600;color:var(--txt3);}
 </style>
 </head>
 <body>
@@ -7022,6 +7930,266 @@ body.home-open{overflow:hidden;}
     <div id="training-list"></div>
   </div>
   <div id="tab-race" style="display:none">
+    <!-- fix229: the painted RACE hub stage, the NINTH and last painted hub in
+         the file. Art and geometry only — no hotspot, no slot, no sheet, no
+         exit is welded to it yet (race hub plan v1: the seven medallions, the
+         painted BACK, the three banner slots and #race-sheet all land at
+         fix231/fix232). Because it has no controls, it is GATED OFF by default
+         and raised only by raceDebugToggle(), which adds .race-hub-preview to
+         this panel.
+
+         The Race tab below it is byte-for-byte the fix228 tab in normal use.
+         Every wrap — #weather-banner-wrap, #rival-wrap, #race-setup-wrap,
+         #cat-card-wrap, #series-wrap, #active-race-wrap, #race-result-wrap and
+         the rest — is untouched, and renderRaceTab(), renderRaceEntry(),
+         renderClubRaces(), renderRaceTypes(), renderActiveRaceBlock() and
+         renderRaceHistory() are not read by this stage at all. That is
+         deliberate, and it matters more here than on the eight hubs before it:
+         this is the only tab whose panel carries LIVE controls that start a
+         simulation, so a stage that shipped ungated would sit over the entry
+         lists rather than over a static screen. The gate is in the fix229 CSS
+         block, on #race-stage itself.
+
+         Six of the seven medallions fix231 places are painted CIRCLES, and a
+         circular medallion's centre is the one thing a grid reads well and an
+         eyeball reads badly — the fix221 reason for splitting art from
+         calibration, with one more circle than Skills had.
+
+         The .main-tab bar and TABS are UNTOUCHED by this stage. 'race' keeps
+         its bar button and its index in TABS; the index-map coupling rule
+         (plan §0 rule 1) stays live, and removing a "now-redundant" button
+         here would silently desynchronise every mapping after it. 'race' is
+         also NOT added to HUB_TABS this stage, for fix204's, fix207's,
+         fix210's, fix216's, fix218's and fix221's reason: HUB_TABS hides
+         .game-header, and until a painted BACK exists the header strip is the
+         only chrome on this tab that goes anywhere. On THIS tab the header is
+         also still carrying the energy readout the player needs before
+         committing to a race (plan §3.4), so retiring it early would cost more
+         than an exit.
+
+         Coordinate space: every percentage is a percentage OF #race-art — the
+         768x1707 re-cut canvas — never of the viewport. See the fix229 CSS
+         block for the measured re-cut, the 152/181 band split, the three-way
+         constraint that chose it and the crop survival table.
+
+         fix231 NOTE, appended rather than editing the paragraphs above (they
+         are the fix229 record and they stay): as of THIS stage the gate is
+         lifted, the eight hotspots below are live and 'race' IS in HUB_TABS, so
+         the two statements above about the gate and about the header no longer
+         describe the shipped file. What still holds unchanged is the sentence
+         about TABS and the .main-tab bar: 'race' keeps its bar button and its
+         index, and the index-map coupling rule (plan §0 rule 1) is as live as
+         it ever was. -->
+    <!-- ═══════════ fix236: RELEASE PASS ═══════════
+         Stage eight of eight for the Race tab (race hub plan v1 §fix236). This
+         stage ships NO behaviour change and NO geometry change. It is the
+         record of the release pass, plus the CACHE_VERSION bump that pass
+         requires. Not one --hx/--hy/--hw/--hh below is touched; if a future
+         diff shows one moved at fix236, that diff is wrong.
+
+         WHY A BUMP ON A COMMENT-ONLY STAGE: plan §0 rule 4. './index.html' is
+         in STATIC_ASSETS and the deployed filename never changes between
+         fixes, so without the bump this file is served from the fix235 cache
+         and the release pass has certified a build nobody is running.
+         CACHE_VERSION -> 'cim-v3.8.45' in service-worker-6-3-5-2-2-4-6.js.
+         No STATIC_ASSETS edit: 'assets/race-bg.jpg' went in at fix229 and no
+         asset is added or retired here.
+
+         ═══ THE PASS, ITEM BY ITEM (plan §fix236 + §4) ══════════════════════
+
+         1. ASSET RECONCILIATION (the fix150 tt.png failure mode). Every
+            'assets/*' path reachable from live markup, live CSS and live JS
+            was diffed against STATIC_ASSETS. Set difference both ways: EMPTY.
+            The four apparent strays — idlemid.png, idletop.png,
+            'assets/.', 'assets/...' — are all inside comment prose (the
+            fix148 FINDING 2 record and the fix183 rename audit table). They
+            are not load paths. Nothing 404s on a cold offline boot.
+
+         2. ASPECT SWEEP, computed rather than eyeballed. Visible band is
+            0.44991/A of the canvas, centred, so rows outside
+            [(1-0.44991/A)/2, 1-(1-0.44991/A)/2] are cropped:
+              A=0.4615 (21:9)  visible  1.26% .. 98.74%
+              A=0.5000         visible  5.01% .. 94.99%
+              A=0.5622 (SE)    visible  9.99% .. 90.01%
+            All eight hotspot boxes, top and bottom edge, against the WORST
+            case (SE, 9.99/90.01):
+              1 UCI            23.49 .. 37.27   OK
+              2 Weather        23.35 .. 37.27   OK
+              3 Set-up         42.33 .. 54.29   OK
+              4 Rival          42.55 .. 54.50   OK
+              5 Your Club      64.35 .. 77.57   OK
+              6 Results        65.12 .. 77.36   OK
+              7 Progress       64.56 .. 77.50   OK
+              8 BACK           14.34 .. 19.84   OK
+            BACK is the tight one and it is the one the plan named: its top
+            edge clears the SE crop line by 4.35% of canvas. That margin is
+            the reason fix230 grew this box UPWARD only (the fix218 SWITCH
+            SPONSOR precedent) — pushing its bottom edge down instead would
+            have spent margin it does not have. Do not re-centre it.
+
+         3. COLLISION AUDIT. All 28 pairs, both axes: every pair disjoint on
+            at least one axis. Zero failures. Densest hub in the file, clean.
+
+         4. TAP SIZE at a 390px-wide viewport: smallest box is BACK at
+            78.0 x 47.7 CSS px. All eight clear 44px on both axes.
+
+         5. .main-tab RACE BUTTON. TABS is still the nine-entry array in its
+            original order with 'race' at index 1, and #tab-btn-race still
+            calls showTab('race'), which still lands on the hub because
+            showTab()'s race branch calls raceSheetSet(false) before painting.
+            Plan §0 rule 1 held through all eight stages: HUB_TABS gained
+            'race', TABS did not lose it.
+
+         6. TWO ENTRY POINTS, ONE SIMULATION (plan §3.5). startRace() has
+            exactly two live call sites in the file: renderClubRaces() with
+            isClub=true and renderRaceTypes() with the default false. The
+            navigation split into two medallions did not become a logic split.
+            Both open .race-overlay at z-index 1800, which is above #race-sheet
+            (75) and #race-stage (73) — the fix232 comment settled that
+            ordering and this pass did not need to re-derive it.
+
+         7. BUSY LOCKOUT (plan §3.2). raceHubGo('uci') and raceHubGo('club')
+            hard-reject on state.raceActive and on state.session.active before
+            setRaceSection() is reached, and the per-card gating inside
+            renderClubRaces() / renderRaceTypes() is untouched. Belt and
+            braces, per fix107.
+
+         8. HYGIENE. No confirm() / alert() / prompt() anywhere in live JS.
+            .race-hub-preview appears in no markup — the fix229 calibration
+            gate rule is kept as a tombstone and is never applied at runtime.
+            raceDebugToggle() writes no storage key, so a debug grid cannot
+            survive a reload onto a player's screen.
+
+         9. HARNESS. node --check clean on all four inline script blocks
+            (the angle brackets are deliberately omitted from that phrase: a
+            literal script tag inside an HTML comment is inert to the browser
+            but it splits the harness's own block-extraction regex, which is
+            a self-inflicted false failure and was one during this pass);
+            onclick/onchange/oninput auditor resolves every referenced name
+            (the only two non-resolving tokens are the method calls
+            .select() and .stopPropagation(), which are not free functions).
+            renderRaceEntry() is still defined and still called from
+            renderRaceTab() — it was never tombstoned, so the failure mode §4
+            item 2 names does not apply here.
+
+         WHAT THIS PASS COULD NOT DO IN-CONTAINER: the offline cold reload on
+         a real device with the network disabled, and the visual confirmation
+         that each medallion's painted art sits under the box calibrated for
+         it. Items 1-4 above are the static half of that and they pass; the
+         on-device half is a manual step and is NOT certified by this comment.
+         Run it against the bumped cache, not against a warm one. -->
+    <div id="race-stage" class="hub-stage">
+      <div id="race-art" class="hub-art">
+        <!-- Calibration overlay, on the generic .hub-cal-* set introduced in
+             the fix210 CSS block. Inert (pointer-events:none, and the whole
+             stage is inert this stage) and display:none until .race-debug is
+             set. Static markup rather than JS-generated ticks: render-only
+             discipline, nothing here is built at runtime.
+             No .hub-cal-rect — that one is Tasks-specific (see the fix229 CSS
+             note); this tab calibrates seven painted circles and one plaque,
+             whose centres and edges the 5%/2% fine grid answers on its own. -->
+        <div id="race-cal" class="hub-cal">
+          <div class="hub-cal-edge top"></div>
+          <div class="hub-cal-edge bot"></div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:0%">0</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:10%">10</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:20%">20</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:30%">30</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:40%">40</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:50%">50</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:60%">60</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:70%">70</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:80%">80</div>
+          <div class="hub-cal-tick hub-cal-y" style="--ty:90%">90</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:0%">0</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:10%">10</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:20%">20</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:30%">30</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:40%">40</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:50%">50</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:60%">60</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:70%">70</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:80%">80</div>
+          <div class="hub-cal-tick hub-cal-x" style="--tx:90%">90</div>
+        </div>
+        <!-- fix231: the painted CASH / FTP / ENERGY bar goes live, closing the
+             same defect on this tab that fix187 closed on rider, fix205 on
+             train, fix217 on calendar, fix219 on sponsor and fix222 on skills:
+             until now the figures painted here were whatever the art happened
+             to carry and never matched the save.
+
+             ON THIS TAB THE BANNER IS LOAD-BEARING RATHER THAN DECORATIVE
+             (plan §3.4). 'race' joins HUB_TABS in this fix, so .game-header —
+             which carried the energy readout — is gone, and this is the one tab
+             where the player needs that figure BEFORE committing energy to a
+             race. That is why the energy fill bar is live here and not deferred,
+             and why the em-dash placeholders matter: no slot ever renders empty
+             in the frame before the first renderHubBanner('race').
+
+             Ids live on the INNER SPANS so the ENERGY gauge is CSS alone, as
+             fix188 was. Ordered BEFORE the hotspots in source order, matching
+             train, calendar and skills. Slots are pointer-events:none, so paint
+             order is all that matters and the hotspots paint over them
+             harmlessly. -->
+        <div class="hub-slot race-slot race-banner-slot" id="race-slot-money"><span id="race-money">&#8212;</span></div>
+        <div class="hub-slot race-slot race-banner-slot" id="race-slot-ftp"><span id="race-ftp">&#8212;</span></div>
+        <div class="hub-slot race-slot race-banner-slot" id="race-slot-energy"><span id="race-energy">&#8212;</span></div>
+        <!-- fix231: the eight hotspots, and the densest hub in the file.
+             Transparent buttons on .hub-hot, boxed in percentages of #race-art
+             so they stay welded to the painting at every phone aspect.
+
+             SEVEN OF THE EIGHT ARE PAINTED CIRCLES PLACED BY CENTRE, and every
+             centre was fitted numerically against the shipped raster rather
+             than eyeballed — see the fix230 block in the CSS for the method (a
+             median/support ring score with the x centre constrained to the
+             three painted columns, after two naive scorers returned confident
+             numbers that moved 30-50 px between runs), the three-way
+             corroboration, the caption-strip OCR confirmation and the full
+             28-pair collision audit.
+
+             THE ROWS ARE NOT FORCED TO SYMMETRY. Rows 1 and 2 are symmetric to
+             within 2.5 px and row 3 IS NOT — it sits ~5 px right of centre and
+             is typed that way, per plan §fix230's "do not force a symmetry the
+             painting does not have".
+
+             INDEX-MAP RULE (plan §fix231, fix224 precedent): data-hot runs 1-7
+             in the plan §1 order — UCI, Weather, Set-up, Rival, Club, Results,
+             Progress — with BACK appended as 8. These indices are WELDED TO
+             ACTIONS from here on. A later stage that wants to move a medallion
+             swaps the GEOMETRY, never the index.
+
+             TWO PAINTED THINGS ON THIS ART DELIBERATELY GET NO HOTSPOT, named
+             here so they do not acquire one later: the marquee lettering
+             between medallions 1 and 2 (fix230 §3 — there is no middle
+             medallion on row 1), and the SETTINGS / SHOP / PROFILE bar painted
+             from y 84.39% down (fix230 §9), which is the same furniture the
+             rider art has and which sits inside the .main-tabs occlusion band
+             at every phone width anyway.
+
+             NOTHING HERE IS GROWN. fix230 §7 measured the smallest box (#3/#4,
+             26.56% wide) at 85 px on a 320 px phone, roughly double the 44 px
+             minimum, and §8 measured the two tightest gaps at 2.19% and 2.66%
+             between adjacent row-3 medallions. Growing any row-3 box sideways
+             would close one of those; growing one DOWNWARD would push it into
+             the caption strip, which is the part the tab bar eats first. If one
+             ever must grow, it grows UPWARD ONLY (fix218 precedent). -->
+        <button class="hub-hot race-hot" data-hot="1" style="--hx:19.38%;--hy:30.38%;--hw:30.63%;--hh:13.78%" aria-label="Enter a UCI race" onclick="raceHubGo('uci')"></button>
+        <button class="hub-hot race-hot" data-hot="2" style="--hx:80.94%;--hy:30.31%;--hw:30.94%;--hh:13.92%" aria-label="Weather forecast" onclick="raceHubGo('weather')"></button>
+        <button class="hub-hot race-hot" data-hot="3" style="--hx:17.50%;--hy:48.31%;--hw:26.56%;--hh:11.96%" aria-label="Race set-up" onclick="raceHubGo('setup')"></button>
+        <button class="hub-hot race-hot" data-hot="4" style="--hx:83.28%;--hy:48.52%;--hw:26.56%;--hh:11.95%" aria-label="Your rival" onclick="raceHubGo('rival')"></button>
+        <button class="hub-hot race-hot" data-hot="5" style="--hx:20.47%;--hy:70.96%;--hw:29.38%;--hh:13.22%" aria-label="Your club races" onclick="raceHubGo('club')"></button>
+        <button class="hub-hot race-hot" data-hot="6" style="--hx:51.41%;--hy:71.24%;--hw:27.19%;--hh:12.24%" aria-label="Race results" onclick="raceHubGo('results')"></button>
+        <button class="hub-hot race-hot" data-hot="7" style="--hx:81.56%;--hy:71.03%;--hw:28.75%;--hh:12.94%" aria-label="Category progress" onclick="raceHubGo('progress')"></button>
+        <button class="hub-hot hub-hot-rect race-hot" data-hot="8" style="--hx:10.47%;--hy:17.09%;--hw:20%;--hh:5.50%" aria-label="Back to home" onclick="hubGo('home')"></button>
+        <!-- The informational pill. A child of #race-art rather than of
+             #race-stage so it is positioned against the cover rect and lands in
+             the same place relative to the painted scene at every aspect,
+             exactly like the hotspots and slots. Last in the subtree so it
+             paints over them. Built empty and hidden; raceComingSoon() patches
+             textContent, and no code path ever creates or destroys this node. -->
+        <div id="race-toast"></div>
+      </div>
+    </div>
     <!-- fix83: static hero avatar, mirrors the fix80 rider-portrait hero markup
          conventions. Jersey colour follows equipped kit (see applyKitColorToRider /
          _rcRecolorRiderSheets, which now also drives --sheet-race-hero).
@@ -7029,31 +8197,187 @@ body.home-open{overflow:hidden;}
          never recoloured) then .race-hero-rider (front-on rider, recoloured
          via --sheet-rider-front). Still static markup rendered once, so
          renderRaceTab() needs no change; the recolour arrives by CSS var.
-         Same contract as fix83. -->
+         Same contract as fix83.
+
+         fix232 NOTE — DELIBERATELY NOT RE-PARENTED, and not deleted either.
+         Plan §1's table covers seven sections and names two children as
+         exceptions; this hero is a THIRD child the table does not mention, so
+         there is no section it was specced into and inventing one would be
+         choosing art placement in a re-parenting fix. It stays a direct child
+         of #tab-race, which means one of #race-stage / #race-sheet — both
+         position:fixed and both full-bleed — is always painted over it, so it
+         is now invisible in normal play. It is left in place because its two
+         layers are recolour TARGETS (.race-hero-bg / .race-hero-rider are read
+         by the fix139-149 three-part hue engine via --sheet-rider-front), and
+         removing a recolour target to tidy a screen nobody sees is how a sprite
+         registry loses a member. Which section it belongs in, if any, is a
+         fix233+ decision. -->
     <div class="race-hero-wrap"><div class="race-hero-bg"></div><div class="race-hero-rider"></div></div>
-    <div id="weather-banner-wrap"></div>
-    <div id="rival-wrap"></div>
-    <div id="race-setup-wrap"></div>
-    <div id="cat-card-wrap"></div>
-    <div id="series-wrap"></div>
+    <!-- fix232 exception 1 of 2 (plan §1): #active-race-wrap belongs to
+         #race-overlay, not to any section, so it is NOT re-parented into the
+         sheet. Checked rather than assumed before leaving it here: no JS in the
+         file reads this id — renderActiveRaceBlock() paints into
+         #race-overlay-body, and has since the fix65-105 race visualisation
+         moved the live race onto the overlay. So this node is already inert and
+         re-parenting it would move nothing. The fix17 result-mode early return
+         inside renderActiveRaceBlock() is untouched by this stage (plan §3.3);
+         the Continue button lives on the overlay, which is z-index 1800 and
+         paints over both the sheet (75) and the stage (73). -->
     <div id="active-race-wrap"></div>
-    <div id="race-result-wrap"></div>
-    <!-- fix160: the two always-open lists are now behind a single "Enter a Race"
-         card that opens a discipline chooser. The #club-race-list and #race-list
-         ids are retained deliberately so renderClubRaces() / renderRaceTypes()
-         need no edit — only their containers' visibility changes. -->
-    <div id="race-entry-wrap"></div>
-    <div id="race-entry-club" style="display:none">
-      <!-- fix133: club races are excluded from the micro-league series -->
-      <div class="cat-desc" style="color:var(--txt3);margin:-.25rem 0 .4rem">No series points</div>
-      <div id="club-race-list"></div>
-    </div>
-    <div id="race-entry-uci" style="display:none">
-      <div class="cat-desc" style="color:var(--txt3);margin:-.25rem 0 .4rem">Category points and prize money on the line</div>
-      <div id="race-list"></div>
-    </div>
-    <div class="section-lbl" style="margin-top:.75rem">Recent Results</div>
-    <div id="race-history"></div>
+    <!-- ═══ fix232: #race-sheet, the section overlay ═══
+         Stage four of eight for the Race tab. Cloned from #skills-sheet
+         (fix222), which is #rider-sheet (fix186) with different ids — six
+         sheets in the file, one pattern, and this is the last tab to get one.
+         Closed by default: the painted hub IS the Race tab now, and a section
+         is something you open on top of it.
+
+         EVERY ID BELOW IS UNCHANGED AND EVERY BODY IS BYTE-IDENTICAL to the
+         fix231 file. This stage RE-PARENTS markup and edits none of it, which
+         is precisely what keeps renderWeatherBanner(), renderRivalCard(),
+         renderRaceSetupCard(), renderCategoryCard(), renderSeriesCard(),
+         renderRaceResultBlock(), renderClubRaces(), renderRaceTypes() and
+         renderRaceHistory() untouched — every one of them does a
+         getElementById() on an id that still exists, at a depth none of them
+         cares about. The ONE exception is called out in its own comment below
+         (#race-entry-club / #race-entry-uci lose an inline display:none), and
+         it is an exception the plan's own re-parent requires.
+
+         Grouping follows plan §1's table exactly, ids and all:
+           uci      <- #race-entry-uci (#race-list)
+           weather  <- #weather-banner-wrap
+           setup    <- #race-setup-wrap
+           rival    <- #rival-wrap
+           club     <- #race-entry-club (#club-race-list) + #series-wrap
+           results  <- #race-result-wrap + Recent Results + #race-history
+           progress <- #cat-card-wrap
+         The club grouping is the §fix235 arrangement landed early, because §1's
+         table already assigns #series-wrap to this section and splitting it
+         across two fixes would mean re-parenting the same node twice.
+
+         All seven ship display:none. Unlike #rider-section-form, no section is
+         the default-visible one: this sheet is only ever raised through
+         raceHubGo(), which calls setRaceSection() BEFORE raceSheetSet(true), so
+         by the time anything is displayed exactly one section has been shown.
+         A default-visible section here would be a frame of Enter-UCI-Race
+         flashing under every other medallion. -->
+    <div id="race-sheet">
+      <!-- Back to the medallions. A real control inside the sheet rather than a
+           third history level: opening a section pushes nothing, so the platform
+           back gesture from anywhere in this tab still lands on Home, exactly as
+           plan §fix232's last bullet requires and as the fix172 comment
+           promises. -->
+      <div class="race-sheet-bar">
+        <button class="race-sheet-back" aria-label="Back to race hub" onclick="raceHubBack()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Race</button>
+        <div class="race-sheet-title" id="race-sheet-title"></div>
+      </div>
+      <!-- fix232: THE UCI / CLUB SPLIT, which is the point of this hub (plan
+           §1). Until now raceEntryView multiplexed both start sheets through one
+           #race-entry-wrap card; from here, medallion 1 shows this section and
+           medallion 5 shows the club one, and neither can show the other.
+
+           #race-entry-uci and #race-entry-club below have each LOST an inline
+           style="display:none". That is the single markup edit in this
+           re-parent and it is required by it: those inline styles were written
+           by fix160 for renderRaceEntry() to drive, and renderRaceEntry()'s body
+           is tombstoned in this same fix. Left in place they would be an
+           inline display:none no code path ever clears, i.e. two sections that
+           open to nothing. Visibility is the #race-section-* wrapper's job now.
+           fix232 tombstone, the fix160 attributes retired here:
+             <div id="race-entry-club" style="display:none">
+             <div id="race-entry-uci" style="display:none"> -->
+      <div id="race-section-uci" style="display:none">
+        <div id="race-entry-uci">
+          <div class="cat-desc" style="color:var(--txt3);margin:-.25rem 0 .4rem">Category points and prize money on the line</div>
+          <div id="race-list"></div>
+        </div>
+      </div>
+      <div id="race-section-weather" style="display:none">
+        <div id="weather-banner-wrap"></div>
+      </div>
+      <div id="race-section-setup" style="display:none">
+        <div id="race-setup-wrap"></div>
+        <!-- fix233 (plan v1 §fix233): the ONE Race Set-up -> Gear link, and the
+             whole of this stage's markup diff.
+
+             It sits UNDER #race-setup-wrap and OUTSIDE it, which is the point:
+             renderRaceSetupCard() does an innerHTML write on #race-setup-wrap
+             on every renderRaceTab() tick, so anything placed inside that node
+             would be destroyed on the first tick after the section opened. As a
+             sibling it is static markup no render path touches, which is also
+             why plan §fix233's "Nothing else in renderRaceSetupCard() changes"
+             costs nothing here — that function is not edited, not called and not
+             read by this stage.
+
+             hubGo('gear'), not showTab('gear') and not raceHubGo('gear'). The
+             reasoning is in the .race-setup-link CSS block and is not restated.
+             Render-only: hubGo() writes no state (plan §3.3). -->
+        <button class="race-setup-link" aria-label="Open the Gear tab to change your bike and kit" onclick="hubGo('gear')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-bike"></use></svg><span class="race-setup-link-txt">Bike &amp; Kit<span class="race-setup-link-sub">Change your equipment on the Gear tab</span></span><span class="race-setup-link-chev" aria-hidden="true">&#8250;</span></button>
+      </div>
+      <div id="race-section-rival" style="display:none">
+        <div id="rival-wrap"></div>
+      </div>
+      <!-- fix235 (plan v1 §fix235): Your Club build-out. The two headings and
+           their ⓘ are the whole of this stage's markup diff. #race-entry-club,
+           #club-race-list and #series-wrap are UNCHANGED and stay in the order
+           fix232 put them in, so renderClubRaces() and renderSeriesCard() are
+           not affected by this stage at all — both still write into the same
+           ids at a depth neither reads. -->
+      <div id="race-section-club" style="display:none">
+        <div id="race-entry-club">
+          <div class="section-lbl"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-flag"></use></svg> Club Races <button class="info-btn" onclick="openInfo('clubRaces')">ⓘ</button></div>
+          <!-- fix133: club races are excluded from the micro-league series.
+               MORE necessary here, not less (plan §fix235): the club list and
+               the series leaderboard now sit on the same screen, so the note is
+               what stops that adjacency reading as a promise. fix235 keeps it
+               ON SCREEN rather than moving it behind the ⓘ above — a note that
+               exists to head off a wrong assumption has to be read without
+               being asked for. Class swapped from .cat-desc to .club-lbl-note
+               only because it now sits under a heading; the fix133 attribute it
+               replaces: class="cat-desc" style="color:var(--txt3);margin:-.25rem 0 .4rem" -->
+          <div class="club-lbl-note">No series points</div>
+          <div id="club-race-list"></div>
+        </div>
+        <div class="section-lbl" style="margin-top:.9rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-trophy"></use></svg> Series Standings <button class="info-btn" onclick="openInfo('seriesStandings')">ⓘ</button></div>
+        <div id="series-wrap"></div>
+      </div>
+      <div id="race-section-results" style="display:none">
+        <div id="race-result-wrap"></div>
+        <div class="section-lbl" style="margin-top:.75rem">Recent Results</div>
+        <div id="race-history"></div>
+      </div>
+      <div id="race-section-progress" style="display:none">
+        <div id="cat-card-wrap"></div>
+        <!-- fix234 (plan v1 §fix234): the Progress build-out. #cat-card-wrap is
+             UNCHANGED and stays first — renderCategoryCard() still owns it and
+             still writes exactly what it wrote at fix232. Everything added here
+             lives in a second wrap below it, which is what keeps the fix17 tick
+             contract and the "render-only" rule (plan §3.3) undisturbed: the
+             ladder's render function is additive, not a rewrite of the card's.
+             Prose is behind the ⓘ per the plan's second bullet — nothing
+             explanatory is inline in this section. -->
+        <div class="section-lbl" style="margin-top:.9rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-ladder"></use></svg> Category Ladder <button class="info-btn" onclick="openInfo('categoryProgress')">ⓘ</button></div>
+        <div id="cat-prog-wrap"></div>
+      </div>
+    </div><!-- /#race-sheet -->
+    <!-- fix232 exception 2 of 2 (plan §1): #race-entry-wrap, the fix160 "Enter a
+         Race" chooser card, MARKUP TOMBSTONED. It went redundant the moment UCI
+         and Club got their own medallions — shipping both would give this tab
+         two controls that must be kept in agreement about which discipline list
+         is open, and they would disagree the first time one was used without the
+         other. The fix160 comment and the node it described, retired here:
+           <!-\- fix160: the two always-open lists are now behind a single "Enter
+                a Race" card that opens a discipline chooser. The #club-race-list
+                and #race-list ids are retained deliberately so renderClubRaces()
+                / renderRaceTypes() need no edit — only their containers'
+                visibility changes. -\->
+           <div id="race-entry-wrap"></div>
+         renderRaceEntry() and setRaceEntryView() are NOT deleted; their bodies
+         are tombstoned in the renderRiderPortrait()/renderRiderNav() style so
+         renderRaceTab() needs no edit and the onclick-handler audit still
+         resolves every referenced name. renderRaceEntry() already opened with
+         `if(!wrap) return;`, so removing this node alone would have been safe —
+         but an empty body says so out loud instead of leaving a reader to
+         discover it. -->
   </div>
   <!-- fix180: hub-skin is the painted-panel pilot (see the CSS block of the
        same number). Class only — showTab() writes .style.display and never
@@ -14003,6 +15327,42 @@ const LAZY_ASSET_GROUPS = {
     // fix221 CSS block, which is the one place to change if the art is ever
     // redrawn.
     '--sheet-skills-scene': 'assets/skills-bg.jpg'
+  },
+  // fix229: the Race tab scene, and the NINTH painted hub. APPENDED, not
+  // inserted, per the standing rule — nothing here is index-mapped today, and
+  // that is exactly the assumption that breaks the first time something is.
+  // THE GROUP KEY MATCHES THE TAB ID ('race' / 'race'), as it does for
+  // 'calendar', 'sponsors' and 'skills' above and unlike the growth/tasks pair
+  // further up, which is a historical accident of fix201 and NOT the
+  // convention.
+  //
+  // ⚠ NOTE THE COLLISION HAZARD. It is spelled out rather than left to
+  // inference because there are THREE similar names on this tab and they are
+  // three different things:
+  //   --sheet-race-scene       THIS entry. The Race HUB backdrop. New here.
+  //                            768x1707 canvas, encoded 640x1422.
+  //   --sheet-race-hero        TOMBSTONED at fix162/fix169, out of
+  //                            _rcSheetSources / RC_SHEET_NAMES /
+  //                            RC_VAR_NAMES / RC149_SHEETS. Not live, not
+  //                            this, and not to be revived by anyone reading
+  //                            the name and assuming it is the hub's.
+  //   assets/race-hero-bg.jpg  LIVE. Read by .race-hero-bg, the small hero
+  //                            card's opaque backdrop inside the tab body.
+  //                            Nothing to do with the hub. It STAYS, it stays
+  //                            in STATIC_ASSETS, and it is still fetched.
+  // Merging or "tidying" any two of these breaks a different thing each way
+  // round. The same note sits on #race-art in the fix229 CSS block.
+  //
+  // Encoded on the same 640x1422 raster as home-bg.jpg and rider-bg.jpg so
+  // #race-art shares #home-art's 768/1707 arithmetic verbatim: q50, 4:2:0,
+  // progressive, EXIF stripped = 121.6 KB. Band split 152/181 rather than the
+  // reflex 166/167; the reasoning, the measured bar/BACK/caption positions,
+  // the three-way constraint that produced 152 and the crop survival table are
+  // all in the fix229 CSS block, which is the one place to change if the art
+  // is ever redrawn.
+  race: {
+    // top rgb(63,98,129), bottom rgb(55,51,68); q50 = 121.6 KB.
+    '--sheet-race-scene': 'assets/race-bg.jpg'
   }
 };
 const _lazyGroupsLoaded = {};
@@ -14110,6 +15470,17 @@ function showTab(name){
   // preview would otherwise make lazily, and the alternative is a branch that
   // has to be remembered and moved at fix222.
   if(name==='skills') lazyLoadAssetGroup('skills');
+  // fix229: the Race tab scene, bound on the same schedule as the eight hubs
+  // above — before the panel is revealed, so its first paint already carries
+  // the background-image declaration and the sky placeholder is never seen as
+  // a flash. No id/group translation needed here either: the tab id and the
+  // LAZY_ASSET_GROUPS key are both 'race' (see that group's comment, and in
+  // particular its note that --sheet-race-scene is NOT --sheet-race-hero and
+  // NOT assets/race-hero-bg.jpg). Note this binds even while the stage is
+  // gated off — the cost is one request the calibration preview would
+  // otherwise make lazily, and the alternative is a branch that has to be
+  // remembered and moved at fix231.
+  if(name==='race') lazyLoadAssetGroup('race');
   // fix186: entering the Rider tab always lands on the HUB, never on whatever
   // section was open last time. riderSection itself is left alone — it is
   // transient pill state that renderRiderSection() still needs a value for —
@@ -14141,6 +15512,20 @@ function showTab(name){
   // this line is what makes finishing a drill land on the medallions rather
   // than back inside the list it was started from.
   if(name==='skills') skillsSheetSet(false);
+  // fix232: the same contract one tab across, and the LAST of the nine —
+  // entering the Race tab always lands on the HUB, never on whatever section
+  // the sheet was showing last time. Sited here beside the other four and the
+  // lazy-load, for the same reason: before the panel is revealed, so the first
+  // paint is already the medallions and no section is flashed. A second branch
+  // rather than an extension of the name==='race' lazy-load line above,
+  // matching how rider's, calendar's, sponsor's and skills' branches are
+  // written.
+  //
+  // This one carries extra weight, for the reason plan §3.5 gives: the Race tab
+  // can be re-entered from the .main-tab bar mid-nothing and from a finished
+  // race, and landing back inside the UCI start sheet with a fresh energy bar
+  // is one tap from a second race the player did not mean to enter.
+  if(name==='race') raceSheetSet(false);
   // fix88: leaving the workshop tab must never leave a mini-game rAF loop
   // running off-tab (spec guardrail). wsStopGame() is a no-op if nothing's
   // running, so this is safe on every tab switch, not just workshop->other.
@@ -14260,7 +15645,17 @@ function updateHeader(){
 // the same fix. Appended rather than inserted, per plan v2 §6; TABS — which IS
 // index-mapped — is untouched, and the .main-tab button for this tab STAYS.
 // This completes plan v2: all three of its hubs are now header-free.
-const HUB_TABS = new Set(['home','rider','calendar','sponsors','skills']);
+// fix231: 'race' APPENDED — the single edit that retires .game-header from the
+// Race tab, and the reason the painted BACK (data-hot 8) had to land in the same
+// fix. Appended rather than inserted, per plan §0 rule 2; TABS — which IS
+// index-mapped onto the nine bar buttons — is untouched, and the .main-tab
+// button for this tab STAYS (plan §0 rule 1 spells that out precisely because
+// this hub makes that button look redundant and it is not).
+// THIS LINE COSTS MORE HERE THAN ON THE EIGHT HUBS BEFORE IT. The header was
+// carrying the energy readout, and this is the one tab where the player needs it
+// before spending energy (plan §3.4) — which is why the three painted slots and
+// the energy fill bar land in this same fix rather than being deferred.
+const HUB_TABS = new Set(['home','rider','calendar','sponsors','skills','race']);
 
 // fix203: THE hub navigation funnel. Was homeGo(), which is now a thin alias
 // (below) so all 14 painted home hotspots keep their exact onclick text and
@@ -14306,6 +15701,15 @@ function hubGo(tab){
   // screen that never raised it. Null-safe and clears its own timer, so this is
   // a sixth no-op in the common case.
   skillsHideToast();
+  // fix231: raceHideToast() APPENDED for exactly the reason the fix203, fix217,
+  // fix220 and fix222 comments above give — the Race hub's painted BACK is
+  // itself a hub-to-hub tap, and this hub raises the pill more than any other
+  // (every busy refusal and, until fix232 lands the sheet, every section), so
+  // without this a "You are out on the road" pill would stay mounted and
+  // mid-timer behind the home hub and then fade on a screen that never raised
+  // it. Null-safe and clears its own timer, so this is a seventh no-op in the
+  // common case.
+  raceHideToast();
   showTab(tab);
 }
 
@@ -14480,7 +15884,22 @@ const HUB_BANNERS = {
   // block below is all-or-nothing and a hub missing one node would silently
   // render none.
   skills:{money:'skills-money', ftp:'skills-ftp', energy:'skills-energy',
-          slot:'skills-slot-energy', pct:'--skills-energy-pct'}
+          slot:'skills-slot-energy', pct:'--skills-energy-pct'},
+  // fix231: the NINTH hub, and the last painted hub in the file. APPENDED,
+  // never inserted — this object is keyed so order is not load-bearing here,
+  // but the habit is the one plan §0 rule 2 asks for across every registry.
+  // Five ids and one custom-property name, no new logic and no alias function —
+  // the seventh consecutive stage to confirm what fix203 built this table for.
+  //
+  // Key, ids and LAZY_ASSET_GROUPS key are ALL 'race' with no translation.
+  // Unlike the growth/tasks entry above, the tab id here really is the key.
+  //
+  // The Race art paints all THREE readouts, so this is a straight four-node peer
+  // of the other eight — and on this hub the ref block being all-or-nothing
+  // matters most, because a hub missing one node renders NONE of the three and
+  // the energy figure is the one the player is about to spend (plan §3.4).
+  race:{money:'race-money', ftp:'race-ftp', energy:'race-energy',
+          slot:'race-slot-energy', pct:'--race-energy-pct'}
 };
 const _hubBannerCache = {};
 function renderHubBanner(tab){
@@ -14796,6 +16215,256 @@ function skillsDebugToggle(){
   if(tab) tab.classList.toggle('skills-hub-preview');
   const st=document.getElementById('skills-stage');
   if(st) st.classList.toggle('skills-debug');
+}
+
+// ═══ fix229: the Race hub's calibration preview ══════════════════════════
+// Mirrors calDebugToggle(), sponsorDebugToggle() and skillsDebugToggle()
+// exactly, including the two-class shape, and for the same two reasons that
+// shape exists:
+//   - .race-hub-preview goes on the TAB PANEL (#tab-race) and RAISES the
+//     stage, which is display:none until fix231 ungates it. This stage it is
+//     the ONLY way to see the Race art at all.
+//   - .race-debug goes on the STAGE (#race-stage) and paints the grid and the
+//     labelled ticks over it.
+// Getting these two the wrong way round is the mistake the fix210 note warns
+// about, so they are written out here rather than left to the reader.
+//
+// Render-only, like everything else in the hub paths: no state is written here
+// and nothing is persisted, so a preview left raised is cleared by a reload or
+// by any tab switch that re-renders. Off by default, console-reachable only —
+// there is deliberately no UI affordance for it.
+//
+// NOT called from anywhere in this file, and that is not an oversight: it is a
+// calibration aid for fix230, reached by typing raceDebugToggle() in the
+// console. The onclick-handler audit only asserts that referenced names
+// RESOLVE, not that every function is referenced, so an unreferenced tool
+// function is clean by that rule — same as tasksDebugToggle() was at fix210,
+// calDebugToggle() at fix216, sponsorDebugToggle() at fix218 and
+// skillsDebugToggle() at fix221.
+//
+// TWO caveats specific to this tab, and neither applied to any of the eight
+// before it. Both are about reading the grid off the wrong screen:
+//   1. #race-overlay is full-screen and is opened by startRace(). Raise the
+//      preview from the Race HUB with no race running, not mid-race, or the
+//      grid is being read off a screen that is painted over. Plan §3.1 checks
+//      that z-index ordering properly at fix232; this stage does not depend on
+//      it because the stage is inert.
+//   2. .main-tabs is fixed at bottom:0 on z-index 100 and paints OVER this
+//      stage. It is NOT a crop — it is an occlusion — so the bottom row of
+//      medallions can look clipped in a screenshot when the raster is fine.
+//      The fix229 CSS block's constraint C is the number to check against;
+//      do not "correct" the band split from a screenshot that mistakes the
+//      bar for the crop edge.
+function raceDebugToggle(){
+  const tab=document.getElementById('tab-race');
+  if(tab) tab.classList.toggle('race-hub-preview');
+  const st=document.getElementById('race-stage');
+  if(st) st.classList.toggle('race-debug');
+}
+
+// ═══ fix231: what a painted Race medallion does ══════════════════════════
+// The funnel. All seven medallions go through it and no per-button logic lives
+// in the markup, mirroring riderHubGo(), trainHubGo(), gearHubGo(), calHubGo()
+// and sponsorHubGo().
+//
+// RACE_SECTIONS is the single source of truth for which sections exist, and the
+// captions beside them are what the PILL says — the painted caption, not the
+// internal id (the art says YOUR CLUB where the code says 'club'). One registry,
+// two columns, so a section can never exist without a name or be named twice.
+//
+// Guarded against an unknown name rather than trusting the seven call sites:
+// hard reject, NO FALLBACK, per riderHubGo(). Silently landing somewhere other
+// than where the player tapped is worse than not moving.
+//
+// ═══ THE BUSY HARD LOCKOUT (plan §3.2) ══════════════════════════════════
+// 'uci' and 'club' are the two sections that can start a simulation, and while
+// state.raceActive or state.session.active is set they REFUSE, with the existing
+// copy, through the pill. Hard lockout, not a disabled-looking list the player
+// can still tap. The copy is duplicated from renderRaceEntry()'s `why` string
+// deliberately and it is the ONE duplication this hub accepts: that string is
+// built inside an innerHTML template, so there is nothing to call, and inventing
+// a shared raceBusyCopy() helper this stage would edit a function plan §fix232
+// requires to stay byte-identical while it is being re-parented. fix232 or later
+// may unify the two; until then, changing one means changing both.
+// The per-card `available` gating inside renderClubRaces() and renderRaceTypes()
+// stays exactly where it is, belt-and-braces per fix107 — this is an EARLY EXIT,
+// those are the enforcement, and a hand-fired onclick on either still cannot
+// start a race while busy.
+//
+// ═══ THE TAIL IS ONE STAGE OLD ══════════════════════════════════════════
+// #race-sheet and the seven #race-section-* wraps are fix232. Until they exist
+// there is nothing to open, so every section that clears the lockout raises the
+// pill instead. fix232 replaces the LAST LINE ONLY with the setRaceSection(id) /
+// raceSheetSet(true) pair, in that order — render while the sheet is still
+// display:none, so no frame of the previous section is seen — and everything
+// above it, the registry and the lockout included, stays exactly as it is.
+const RACE_SECTIONS = [
+  {id:'uci',      label:'Enter UCI Race'},
+  {id:'weather',  label:'Weather'},
+  {id:'setup',    label:'Race Set-up'},
+  {id:'rival',    label:'Your Rival'},
+  {id:'club',     label:'Your Club'},
+  {id:'results',  label:'Results'},
+  {id:'progress', label:'Progress'}
+];
+function raceHubGo(section){
+  const sec = RACE_SECTIONS.find(x => x.id === section);
+  if(!sec){ console.warn('raceHubGo: unknown section', section); return; }
+  if(section==='uci' || section==='club'){
+    if(state.raceActive){
+      raceComingSoon('You are out on the road \u2014 see it through first.'); return;
+    }
+    if(state.session.active){
+      raceComingSoon('You are mid-session \u2014 finish the training first.'); return;
+    }
+  }
+  // fix232: the tail, replaced exactly as fix231's comment above specified and
+  // nothing else in this function touched — the registry above it and the busy
+  // hard lockout above that are byte-identical to fix231.
+  // fix232 tombstone, the placeholder this pair replaces:
+  //   raceComingSoon(sec.label + ' \u2014 coming soon');
+  // ORDER MATTERS, exactly as in riderHubGo(), trainHubGo(), calHubGo(),
+  // sponsorHubGo() and skillsHubGo2Sheet(): set and render FIRST, open SECOND.
+  // setRaceSection() runs while #race-sheet is still display:none, so the
+  // player never sees a frame of the previously-open section before the one
+  // they tapped lands.
+  setRaceSection(section);
+  raceSheetSet(true);
+}
+
+// The informational pill. Its own node and its own timer, never shared with the
+// other hubs' — a shared node would resolve to an element inside a hidden #x-art
+// and show the message on a screen nobody is looking at. Nine hubs, nine nodes,
+// nine timers, identical shapes.
+//
+// The text is passed in whole rather than having ' — coming soon' appended the
+// way homeComingSoon() does, matching sponsorComingSoon()'s and
+// skillsComingSoon()'s shape: the caller says what it means, which is what lets
+// the same node carry both a refusal and a placeholder. No ms argument — nothing
+// on this hub arms anything, so there is no prompt that has to outlive a 1800 ms
+// refusal.
+let _raceToastTimer=null;
+function raceComingSoon(msg){
+  const el=document.getElementById('race-toast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('on');
+  if(_raceToastTimer) clearTimeout(_raceToastTimer);
+  _raceToastTimer=setTimeout(raceHideToast, 1800);
+}
+function raceHideToast(){
+  if(_raceToastTimer){ clearTimeout(_raceToastTimer); _raceToastTimer=null; }
+  const el=document.getElementById('race-toast');
+  if(el) el.classList.remove('on');
+}
+
+// ═══ fix232: the section sheet ══════════════════════════════════════════
+// Which section is open. Module-scope transient UI state, deliberately NOT
+// saved — same precedent as raceEntryView (which this supersedes), riderSection,
+// gearSection, sponsorViewMode and calendarShowHistory. A saved field would need
+// a loadGame() `?? default` guard and a migration for zero gameplay benefit, and
+// the tab should open on the HUB each session regardless (showTab() closes the
+// sheet on entry, so the value here is only ever what the last medallion set).
+//
+// Initialised to 'uci' rather than null so renderRaceSection() always has a
+// valid key to compare against. It is never read before setRaceSection() has
+// run in practice — raceHubGo() is the only route in — but a null here would
+// mean a first render that hides all seven and shows an empty sheet if that
+// ever stopped being true.
+let raceSection='uci';
+
+// Display toggles ONLY — no renderer calls, and this is the one place this
+// hub's sheet differs from #rider-sheet's, on purpose.
+//
+// renderRiderSection() has to call its section's renderers because
+// renderRiderTab() delegates the painting to it. renderRaceTab() does the
+// opposite: it calls all eleven renderers unconditionally on every tick (it is
+// wired to the main loop and to completeRace(), plan §3.3), so every
+// #race-section-* subtree is already up to date whether it is showing or not.
+// Calling them again from here would paint each one twice per open for nothing,
+// and — the part that actually matters — it would mean renderActiveRaceBlock()
+// ran from a second, section-dependent path, which is exactly the kind of
+// re-entry the fix17 result-mode early return exists to survive. Leaving the
+// render path single keeps that return the only thing guarding it.
+//
+// Render-only discipline: nothing here writes to `state`.
+function renderRaceSection(){
+  RACE_SECTIONS.forEach(sec=>{
+    const el=document.getElementById('race-section-'+sec.id);
+    if(el) el.style.display = sec.id===raceSection ? '' : 'none';
+  });
+}
+
+// Sets the section and the bar title, then paints. Does NOT open the sheet —
+// raceHubGo() does that on the next line, so that "render, then open" stays one
+// readable pair at the call site rather than being half-hidden in here.
+//
+// Guarded against an unknown id the same way raceHubGo() is: hard reject, NO
+// FALLBACK. Landing on a section other than the one tapped is worse than not
+// moving, and this function has a second potential caller in every later stage
+// of the plan.
+//
+// The title comes from RACE_SECTIONS' own `label` column, so the sheet bar says
+// what the painted caption says and a section still cannot exist without a name
+// or be named twice. textContent, never innerHTML: the labels are plain text
+// with no icn() calls, exactly as RIDER_SECTION_LABELS is, and markup here would
+// show as literal characters.
+function setRaceSection(id){
+  const sec = RACE_SECTIONS.find(x => x.id === id);
+  if(!sec){ console.warn('setRaceSection: unknown section', id); return; }
+  raceSection = id;
+  const ttl=document.getElementById('race-sheet-title');
+  if(ttl) ttl.textContent = sec.label;
+  renderRaceSection();
+  // Freshen the contents while the sheet is still display:none. Safe to call
+  // and not a new mechanism: renderRaceTab() is already called from the tick,
+  // from completeRace() and from the race animation's finish branch, so this is
+  // an existing entry point at an existing contract, and it writes no state.
+  renderRaceTab();
+}
+
+// Back from the sheet to the medallions. Deliberately NOT history.back() —
+// opening a section pushed nothing, so there is no entry to unwind and calling
+// back() here would exit the tab entirely. Same reasoning as riderHubBack(),
+// trainHubBack(), calHubBack(), sponsorHubBack() and skillsHubBack(). raceSection
+// is left alone: renderRaceSection() still needs a valid key, and the next
+// medallion sets it before anything is shown.
+function raceHubBack(){
+  raceSheetSet(false);
+}
+
+// THE single funnel for whether the sheet is showing, mirroring riderSheetSet(),
+// trainSheetSet(), gearSheetSet(), calSheetSet(), sponsorSheetSet() and
+// skillsSheetSet(). Every open and every close goes through here, so the stage
+// and the sheet can never both be live: one class on #tab-race drives
+// `#race-sheet{display:block}` and `#race-stage{display:none}` together, in one
+// DOM write. That mutual exclusion IS the hard lockout, and on THIS tab it is
+// load-bearing rather than tidy: the sheet's own race cards and the painted UCI
+// and Club medallions both end in startRace(), and raceHubGo()'s busy check
+// guards the medallions only. Two visible layers would be two routes to one
+// simulation with one guard between them (plan §3.5).
+//
+// Idempotent and safe to call when the Race tab is not showing: toggle() with an
+// explicit second argument sets rather than flips, so a stray call can never
+// invert the sheet.
+function raceSheetSet(open){
+  const tab=document.getElementById('tab-race');
+  if(tab) tab.classList.toggle('race-sheet-open', !!open);
+  const sheet=document.getElementById('race-sheet');
+  if(!sheet) return;
+  if(!open){ sheet.style.top=''; return; }
+  // The measured-header branch, KEPT VERBATIM even though 'race' joined
+  // HUB_TABS at fix231 and .game-header is therefore hidden here. It costs one
+  // null-ish check per open and it means the file has ONE sheet pattern rather
+  // than six-and-a-bit; the day a header ever returns to this tab — and plan
+  // §3.4 flags this as the one tab whose header was carrying something the
+  // player needs — the sheet already clears it instead of hiding its own back
+  // bar behind it. offsetParent is null for a display:none element, so a hidden
+  // header is detected without reading computed styles and this resolves to 0,
+  // which is the case this tab is in today.
+  const hdr=document.querySelector('.game-header');
+  const h = (hdr && hdr.offsetParent!==null) ? Math.round(hdr.getBoundingClientRect().height) : 0;
+  sheet.style.top = h>0 ? h+'px' : '';
 }
 
 // ═══ fix208: what a painted Gear medallion does ═════════════════════════
@@ -16796,7 +18465,17 @@ function renderWeatherBanner(){
   </div>`;
 }
 
-function renderRaceTab(){ renderWeatherBanner(); renderRivalCard(); renderRaceSetupCard(); renderCategoryCard(); renderSeriesCard(); renderActiveRaceBlock(); renderRaceResultBlock(); renderRaceEntry(); /* fix160 */ renderClubRaces(); renderRaceTypes(); renderRaceHistory(); }
+// fix231: renderHubBanner('race') APPENDED, not inserted, for fix205's and
+// fix208's reason — the painted CASH / FTP / ENERGY slots have to be repainted
+// whenever the tab is, and appending keeps every existing call in this line at
+// its existing position. Render-only: renderHubBanner() writes textContent and
+// one custom property and nothing else, so this obeys plan §3.3's rule that
+// nothing added by this plan may write state from inside renderRaceTab(), which
+// runs on a tick and after completeRace(). renderActiveRaceBlock()'s result-mode
+// early return (the fix17 hard-lock bug) is upstream of this and is untouched.
+// Cheap when nothing changed: the signature guard inside renderHubBanner() means
+// a tick where money, FTP and floored energy are all unchanged does no DOM work.
+function renderRaceTab(){ renderWeatherBanner(); renderRivalCard(); renderRaceSetupCard(); renderCategoryCard(); renderCategoryProgress(); /* fix234 */ renderSeriesCard(); renderActiveRaceBlock(); renderRaceResultBlock(); renderRaceEntry(); /* fix160 */ renderClubRaces(); renderRaceTypes(); renderRaceHistory(); renderHubBanner('race'); }
 
 function renderRivalCard(){
   const wrap=document.getElementById('rival-wrap');
@@ -16854,6 +18533,84 @@ function renderCategoryCard(){
     ${!isMax?`<div class="cat-promo" style="color:var(--${cv}-txt)">${pct>=100?`${icn('party')} Ready to promote to ${RACE_CATEGORIES[state.raceCategory+1].name}!`:`${RACE_CATEGORIES[state.raceCategory+1].shortName} promotion: ${pct}% there`}</div>`
             :`<div class="cat-promo" style="color:var(--amber-txt)">${icn('trophy')} The highest level — the Professional peloton.</div>`}
     ${streakHtml}
+  </div>`;
+}
+
+// ─── fix234: CATEGORY LADDER (race hub plan v1 §fix234) ───────
+// The Progress medallion's second half. renderCategoryCard() above is
+// deliberately untouched — this is a sibling, not an extension of it, so the
+// card's markup and its fix17-era tick behaviour stay byte-identical and the
+// only thing this stage can break is its own wrap.
+//
+// READS ONLY. RACE_CATEGORIES (const), state.raceCategory, state.categoryPoints
+// and state.highestCategoryReached. No writes, no new save keys, no defaults
+// seeded here — highestCategoryReached is already defaulted at load (see the
+// Math.max seed in the loader) and is read with a ||0 guard only because this
+// function also runs against a save that predates it in the same session.
+//
+// WHY highestCategoryReached AND NOT raceCategory FOR THE LADDER. raceCategory
+// is zeroed by prestige, so on rung after a new season it would paint six rungs
+// the player has genuinely earned as if they had never been there. The career
+// figure never decreases, which is what lets a row read "reached" while the
+// current rung sits below it.
+function renderCategoryProgress(){
+  const wrap=document.getElementById('cat-prog-wrap');
+  if(!wrap) return;
+  const idx=state.raceCategory, cat=RACE_CATEGORIES[idx];
+  if(!cat){ wrap.innerHTML=''; return; }
+  const isMax = idx === RACE_CATEGORIES.length-1;
+  const best = Math.max(state.highestCategoryReached||0, idx);
+  const pts = state.categoryPoints||0;
+  const need = Math.max(0, cat.ptsToPromote - pts);
+  const next = isMax ? null : RACE_CATEGORIES[idx+1];
+  const winPts = (cat.ptsPerPos && cat.ptsPerPos[0]) || 0;
+
+  // "Races at best" is an estimate and is labelled as one — it assumes wins,
+  // which is the ceiling, not the expectation. Ceil so it never reads 0 while
+  // points are still owed.
+  const racesAtBest = (need>0 && winPts>0) ? Math.ceil(need/winPts) : 0;
+
+  const nextBlock = isMax
+    ? `<div class="cat-prog-next">
+         <div class="cat-prog-next-row"><span>Top of the ladder</span><span class="cat-prog-next-val">${icn('trophy')} Pro</span></div>
+         <div class="cat-prog-hint">There is no category above this one. Season points keep scoring for the series.</div>
+       </div>`
+    : `<div class="cat-prog-next">
+         <div class="cat-prog-next-row"><span>To ${next.shortName}</span><span class="cat-prog-next-val" style="color:var(--${next.color}-txt)">${need>0?`${need} pts`:'Ready'}</span></div>
+         <div class="cat-prog-hint">${need>0
+             ? `A win here pays ${winPts} pts — about ${racesAtBest} more ${racesAtBest===1?'race':'races'} at best.`
+             : `Points are banked. Your next result promotes you.`}</div>
+       </div>`;
+
+  // Relegation, stated as it actually is (see the CSS block's comment): points
+  // are never taken away and no result moves a rider down a category. Only a new
+  // season does, and it says so rather than implying a drop can be provoked.
+  const relegation = `<div class="cat-prog-hint" style="padding:0 12px 10px">No relegation — season points are never taken away. Only starting a new season returns you to ${RACE_CATEGORIES[0].shortName}.</div>`;
+
+  const rows = RACE_CATEGORIES.map((c,i)=>{
+    const isNow = i===idx;
+    const reached = i<=best;
+    const tag = isNow
+      ? `<span class="cat-prog-tag" style="color:var(--${c.color}-txt)">Now</span>`
+      : (i<idx ? `<span class="cat-prog-tag" style="color:var(--txt3)">${icn('check')}</span>`
+               : (reached ? `<span class="cat-prog-tag" style="color:var(--amber-txt)">Reached</span>`
+                          : `<span class="cat-prog-tag" style="color:var(--txt3)">${icn('lock')}</span>`));
+    const sub = i===RACE_CATEGORIES.length-1 ? 'Top rung' : `${c.ptsToPromote} pts to leave`;
+    return `<div class="cat-prog-row${isNow?' is-now':''}${(!reached&&!isNow)?' is-locked':''}">
+      <span class="cat-prog-ic" style="color:var(--${c.color}-txt)">${icn(c.icon)}</span>
+      <span class="cat-prog-nm">${c.name}<em>${sub}</em></span>
+      ${tag}
+    </div>`;
+  }).join('');
+
+  wrap.innerHTML=`<div class="cat-prog">
+    <div class="cat-prog-top">
+      <span class="cat-prog-now">${cat.shortName}<span>Racing now · ${pts} season pts</span></span>
+      <span class="cat-prog-best">${icn('crown')} Best: ${RACE_CATEGORIES[best].shortName}</span>
+    </div>
+    ${nextBlock}
+    ${rows}
+    ${relegation}
   </div>`;
 }
 
@@ -16941,7 +18698,22 @@ function renderSeriesCard(){
   const wrap=document.getElementById('series-wrap');
   if(!wrap) return;
   const s=state.series;
-  if(!s){ wrap.innerHTML=''; return; }
+  // fix235: the null branch now renders an empty state instead of an empty
+  // string. state.series stays null until the first UCI race is scored
+  // (ensureSeries() is only reached from scoreSeriesRace()), and since fix235
+  // gives this wrap a "Series Standings" heading, an empty string would leave
+  // that heading hanging over nothing on every fresh save. Render-only — this
+  // branch still writes no state and does NOT call ensureSeries(), which would
+  // be a state write inside a tick render path (plan §3.3).
+  // fix133 tombstone, the line this replaces:
+  //   if(!s){ wrap.innerHTML=''; return; }
+  if(!s){
+    wrap.innerHTML=`<div class="series-empty">
+      <div class="series-empty-ttl">The series hasn't started</div>
+      <div class="series-empty-sub">Ride your first category race and the Spring Series opens with you on the sheet.</div>
+    </div>`;
+    return;
+  }
   const ranked=[...s.players].sort((a,b)=>b.pts-a.pts);
   const cat=RACE_CATEGORIES[state.raceCategory];
   const estTop = Math.round(SERIES_PAYOUT(1)*(cat.prizes[0]||0));
@@ -18137,54 +19909,76 @@ function renderRaceOverlayResult(){
 // null = closed | 'menu' = chooser open | 'club' | 'uci' = that sub-list open
 let raceEntryView=null;
 
+// fix232: body tombstoned, signature kept — the renderRiderNav() treatment.
+// The #race-entry-wrap card that carried its only call sites is tombstoned in
+// the markup this fix, so nothing reaches this function any more; the name is
+// kept so the onclick-handler audit still resolves the references inside that
+// tombstoned template. Its hard lockout is NOT lost — raceHubGo() enforces the
+// same one on 'uci' and 'club' (plan §3.2), and the per-card `available` gating
+// inside renderClubRaces() / renderRaceTypes() is untouched belt-and-braces per
+// fix107.
+// Tombstoned (fix136 form):
+//   if(!v) v=null;
+//   if(state.raceActive||state.session.active){ raceEntryView=null; renderRaceTab(); return; }
+//   raceEntryView=(v&&raceEntryView===v)?'menu':v;
+//   renderRaceTab();
 function setRaceEntryView(v){
-  if(!v) v=null;
-  // Hard lockout: while a race or a training session is running the chooser
-  // cannot be opened at all, and any open view collapses.
-  if(state.raceActive||state.session.active){ raceEntryView=null; renderRaceTab(); return; }
-  raceEntryView=(v&&raceEntryView===v)?'menu':v;
-  renderRaceTab();
 }
 
+// fix232: body tombstoned, signature kept, exactly as setRaceEntryView() above
+// and for the same reason: #race-entry-wrap is gone from the markup and the
+// seven painted medallions are the navigation now. renderRaceTab() still calls
+// this name and needs no edit — that is the point of keeping it. It already
+// began with `if(!wrap) return;` so it was a no-op the moment the node went, but
+// an empty body says so out loud instead of leaving a reader to discover it.
+//
+// The two display writes it made on #race-entry-club / #race-entry-uci are what
+// the fix232 markup comment refers to: those wraps' inline display:none went
+// with this body, and their visibility is the #race-section-* wrapper's job now.
+// raceEntryView is consequently read by nothing; it is left declared, with its
+// fix160 comment, rather than deleted — tombstone, never delete.
+// Tombstoned (fix136 form): the full fix160 body follows.
+//   function renderRaceEntry(){
+//     const wrap=document.getElementById('race-entry-wrap'); if(!wrap) return;
+//     const clubWrap=document.getElementById('race-entry-club');
+//     const uciWrap=document.getElementById('race-entry-uci');
+//     const busy=state.raceActive||state.session.active;
+//     if(busy) raceEntryView=null;
+//     if(clubWrap) clubWrap.style.display=(raceEntryView==='club')?'':'none';
+//     if(uciWrap)  uciWrap.style.display=(raceEntryView==='uci')?'':'none';
+//     if(busy){
+//       // Locked card. The per-card `available` gating inside renderClubRaces() and
+//       // renderRaceTypes() stays as belt-and-braces (fix107 pattern).
+//       const why=state.raceActive?'You are out on the road — see it through first.'
+//                                 :'You are mid-session — finish the training first.';
+//       wrap.innerHTML=`<div class="race-entry-card locked"><div class="race-entry-head">
+//         <div class="race-type-icon">${icn('lock')}</div>
+//         <div class="race-card-text"><div class="race-card-name">Enter a Race</div>
+//         <div class="race-card-desc">${why}</div></div>
+//         <span class="race-status" style="color:var(--txt3)">Busy</span></div></div>`;
+//       return;
+//     }
+//     const open=raceEntryView!==null;
+//     let html=`<div class="race-entry-card available" onclick="setRaceEntryView('${open?'':'menu'}')">
+//       <div class="race-entry-head"><div class="race-type-icon">${icn('flag')}</div>
+//       <div class="race-card-text"><div class="race-card-name">Enter a Race</div>
+//       <div class="race-card-desc">Pick a start sheet and pin on a number</div></div>
+//       <span class="race-entry-chev">${open?'▲':'▼'}</span></div></div>`;
+//     if(open){
+//       html+=`<div class="race-disc-row${raceEntryView==='club'?' open':''}" onclick="setRaceEntryView('club')">
+//         <div class="race-type-icon">${icn('rider')}</div>
+//         <div class="race-disc-text"><div class="race-disc-name">Club Races</div>
+//         <div class="race-disc-desc">Cheap, no cooldown — prize money only</div></div>
+//         <span class="race-entry-chev">${raceEntryView==='club'?'▲':'▼'}</span></div>
+//         <div class="race-disc-row${raceEntryView==='uci'?' open':''}" onclick="setRaceEntryView('uci')">
+//         <div class="race-type-icon">${icn('trophy')}</div>
+//         <div class="race-disc-text"><div class="race-disc-name">UCI Points Races</div>
+//         <div class="race-disc-desc">Category points and bigger prize money</div></div>
+//         <span class="race-entry-chev">${raceEntryView==='uci'?'▲':'▼'}</span></div>`;
+//     }
+//     wrap.innerHTML=html;
+//   }
 function renderRaceEntry(){
-  const wrap=document.getElementById('race-entry-wrap'); if(!wrap) return;
-  const clubWrap=document.getElementById('race-entry-club');
-  const uciWrap=document.getElementById('race-entry-uci');
-  const busy=state.raceActive||state.session.active;
-  if(busy) raceEntryView=null;
-  if(clubWrap) clubWrap.style.display=(raceEntryView==='club')?'':'none';
-  if(uciWrap)  uciWrap.style.display=(raceEntryView==='uci')?'':'none';
-  if(busy){
-    // Locked card. The per-card `available` gating inside renderClubRaces() and
-    // renderRaceTypes() stays as belt-and-braces (fix107 pattern).
-    const why=state.raceActive?'You are out on the road — see it through first.'
-                              :'You are mid-session — finish the training first.';
-    wrap.innerHTML=`<div class="race-entry-card locked"><div class="race-entry-head">
-      <div class="race-type-icon">${icn('lock')}</div>
-      <div class="race-card-text"><div class="race-card-name">Enter a Race</div>
-      <div class="race-card-desc">${why}</div></div>
-      <span class="race-status" style="color:var(--txt3)">Busy</span></div></div>`;
-    return;
-  }
-  const open=raceEntryView!==null;
-  let html=`<div class="race-entry-card available" onclick="setRaceEntryView('${open?'':'menu'}')">
-    <div class="race-entry-head"><div class="race-type-icon">${icn('flag')}</div>
-    <div class="race-card-text"><div class="race-card-name">Enter a Race</div>
-    <div class="race-card-desc">Pick a start sheet and pin on a number</div></div>
-    <span class="race-entry-chev">${open?'▲':'▼'}</span></div></div>`;
-  if(open){
-    html+=`<div class="race-disc-row${raceEntryView==='club'?' open':''}" onclick="setRaceEntryView('club')">
-      <div class="race-type-icon">${icn('rider')}</div>
-      <div class="race-disc-text"><div class="race-disc-name">Club Races</div>
-      <div class="race-disc-desc">Cheap, no cooldown — prize money only</div></div>
-      <span class="race-entry-chev">${raceEntryView==='club'?'▲':'▼'}</span></div>
-      <div class="race-disc-row${raceEntryView==='uci'?' open':''}" onclick="setRaceEntryView('uci')">
-      <div class="race-type-icon">${icn('trophy')}</div>
-      <div class="race-disc-text"><div class="race-disc-name">UCI Points Races</div>
-      <div class="race-disc-desc">Category points and bigger prize money</div></div>
-      <span class="race-entry-chev">${raceEntryView==='uci'?'▲':'▼'}</span></div>`;
-  }
-  wrap.innerHTML=html;
 }
 
 // Club Races (Phase 1A) — ultra-cheap, no-cooldown compact rows above the
@@ -23098,7 +24892,14 @@ function gameTick(){
     // fix222: renderHubBanner('skills') APPENDED for the same reason fix205,
     // fix208, fix211, fix217 and fix219 appended theirs — each call self-guards
     // on currentTab, so seven of the eight are one comparison on any given tick.
-    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); renderRiderBanner(); renderHubBanner('train'); renderHubBanner('gear'); renderHubBanner('growth'); renderHubBanner('calendar'); renderHubBanner('sponsors'); renderHubBanner('skills'); }
+    // fix231: renderHubBanner('race') APPENDED for the same reason fix205,
+    // fix208, fix211, fix217, fix219 and fix222 appended theirs — each call
+    // self-guards on currentTab, so eight of the nine are one comparison on any
+    // given tick. This one earns its place more than the others: 'race' is in
+    // HUB_TABS from this fix, so .game-header is gone from that tab and this
+    // line is the ONLY thing keeping the energy figure live on the screen where
+    // the player decides whether to spend it (plan §3.4).
+    if(Math.floor(state.energy)!==prevFloor){ updateHeader(); renderHomeBanner(); renderRiderBanner(); renderHubBanner('train'); renderHubBanner('gear'); renderHubBanner('growth'); renderHubBanner('calendar'); renderHubBanner('sponsors'); renderHubBanner('skills'); renderHubBanner('race'); }
   }
   if(state.session.active){
     const t=TRAINING.find(t=>t.id===state.session.typeId);
@@ -23288,7 +25089,11 @@ function gameTick(){
     // bar and affordability state tick down in the sheet exactly as they do in
     // the legacy list — both are the same buildSessionCard() output.
     if(currentTab==='train'&&!state.session.active){ renderSessionList(); renderEnergyCard(); renderRiderScene(); renderTrainSheet(); }
-    if(currentTab==='race'&&!state.raceActive){ renderRaceTypes(); renderCategoryCard(); }
+    // fix234: renderCategoryProgress() APPENDED beside renderCategoryCard() for
+    // the same reason fix206 appended renderTrainSheet() beside the legacy list
+    // — the two read the same three figures, so refreshing one and not the other
+    // would let the ladder's "N pts" disagree with the card's bar it sits under.
+    if(currentTab==='race'&&!state.raceActive){ renderRaceTypes(); renderCategoryCard(); renderCategoryProgress(); }
     _lastListRender=now;
   }
 }
@@ -23503,6 +25308,27 @@ const INFO_TEXTS = {
   // Rival popup deliberately no longer mentions FTP recalibration on category
   // change — the mechanic is unchanged (see recalibrateRivalIfNeeded), only
   // the narration was removed.
+  // fix234: category ladder (race hub plan v1 §fix234). Plan requires the
+  // Progress section's prose to live here behind openInfo('categoryProgress'),
+  // not inline in the section. In-world voice per the fix52 rules — no
+  // "raceCategory", no "points array", and the relegation line says plainly
+  // that there is none rather than leaving the player to test for it.
+  categoryProgress: {
+    title: 'Climbing the Ranks',
+    body: ()=>`Every category race pays season points on your finishing position — the sharper the result, the bigger the pay-out. Bank enough and you move up a category: bigger fields, harder rivals, and prize money that finally means something.<br><br>Points are never taken off you and a bad day never sends you down a rung. The only way back to the bottom is starting a fresh season, and that is your choice to make.<br><br>Club races are for sharpening the legs — they pay no season points at all.`
+  },
+  // fix235: Your Club section (race hub plan v1 §fix235). Two entries, one per
+  // heading in #race-section-club. In-world voice per the fix52 rules — no
+  // "micro-league", no "SERIES_LEN", and the club/series separation is stated
+  // in both directions because the two now share a screen.
+  clubRaces: {
+    title: 'Club Racing',
+    body: ()=>`Saturday morning stuff. Smaller fields, shorter distances, and a start sheet that will have you back home by lunch — the racing you do to keep the edge on between the real ones.<br><br>Club races pay prize money and cost energy like any other, but they carry no season points and no series points. Nothing you do here moves you up a category, and nothing you do here can cost you a place in the league below.`
+  },
+  seriesStandings: {
+    title: 'The Spring Series',
+    body: ()=>`A running league across ${SERIES_LEN} category races. Every finish scores — ten for the win, sliding down to one for scraping home — and your rival is on the same sheet, scoring against you every time either of you pins a number on.<br><br>When the last round is ridden the sheet pays out on your final placing, then rolls straight into a fresh series with the same faces and the points back to zero. Club races don't feature: the league is decided on the road.`
+  },
   // fix54: rider scene
   rider_scene: {
     title: 'Your Rider',
