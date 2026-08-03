@@ -468,7 +468,51 @@
 // on top of that same stale shell. The bump is what makes the pass mean
 // something.
 // const CACHE_VERSION = 'cim-v3.8.45';   // fix236: Race hub release pass (HTML comment only, no asset change)
-const CACHE_VERSION = 'cim-v3.8.47';   // fix237: Train sub-tab isolation — HTML only, no asset change
+// const CACHE_VERSION = 'cim-v3.8.46';   // fix237: Train sub-tab isolation — HTML only, no asset change
+// fix240: bumped because STATIC_ASSETS below GAINS four entries (the UCI
+// race-type banners). Mandatory for two separate reasons this time, either of
+// which alone would force it: './index.html' is in STATIC_ASSETS and the
+// deployed HTML filename never changes between fixes, so returning players
+// would otherwise keep the fix239 shell; and cache.addAll() only runs at
+// install, so without a new version the four new files are never precached and
+// an offline first open of the UCI section shows four empty boxes.
+// const CACHE_VERSION = 'cim-v3.8.47';   // fix240: UCI race-type banners (NEW assets: rt-crit/rt-road/rt-tt/rt-hill.jpg)
+
+// fix241: UCI race-type pill nav — HTML only, NO asset change. STATIC_ASSETS is
+// byte-identical to fix240's. Bumped anyway, and the reason is plan §0 rule 7:
+// './index.html' is in STATIC_ASSETS and the deployed HTML filename never
+// changes between fixes, so a returning player with the old version installed
+// keeps serving the fix240 shell from cache and never sees the nav at all. An
+// HTML-only stage is precisely the stage where forgetting this bump produces a
+// deployment that looks like a code bug.
+// const CACHE_VERSION = 'cim-v3.8.48';   // fix241: UCI race-type pill nav (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.49';   // fix242: UCI big race card + two-tap Enter (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.50';   // fix243: legacy #race-list retired — UCI entry is the big card only (HTML only, no asset change)
+
+// fix244: bumped because STATIC_ASSETS below GAINS two entries (the Bidon Toss
+// hero banner and its win photo). Mandatory for the same two independent
+// reasons fix240 recorded: './index.html' is in STATIC_ASSETS and the deployed
+// HTML filename never changes, so returning players would otherwise keep the
+// fix243 shell and never get the new RS_GAMES entry; and cache.addAll() runs
+// only at install, so without a new version neither new file is ever precached
+// and the drill's banner is empty on a first offline open.
+// const CACHE_VERSION = 'cim-v3.8.51';   // fix244: Bidon Toss assets + registry entry (NEW assets: bidon-toss.jpg, bidon-toss-win.jpg)
+// (no v3.8.52 — fix245 shipped the overlay shell with no asset change and its
+//  own comment declined the bump; the number is skipped rather than reused.)
+
+// fix246: HTML-ONLY stage — the Bidon Toss game loop. No file is added to or
+// removed from STATIC_ASSETS below and no asset byte changed, so the list is
+// identical to fix244's. The bump is mandatory all the same, for the reason
+// plan §0 rule 7 gives: './index.html' is in STATIC_ASSETS and the deployed
+// HTML filename never changes between fixes, so a returning player with a warm
+// cache keeps being served the fix245 shell.
+//
+// WHAT THAT WOULD LOOK LIKE, and why it is the worst class of miss on this
+// particular stage: the board would still open, the hero would still paint, the
+// stat row would still read 0/10 — and the canvas would sit there dead with a
+// button labelled "Start throwing" that closes the overlay. Every symptom points
+// at the port having failed, and none of them points at the cache.
+const CACHE_VERSION = 'cim-v3.8.53';   // fix246: Bidon Toss game loop (HTML only, no asset change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
@@ -520,6 +564,20 @@ const STATIC_ASSETS = [
   // further down this list and is the small hero card's backdrop, not the hub's.
   // Both entries are correct and both stay.
   './assets/race-bg.jpg',
+  // fix240: the four UCI race-type banners. Same reasoning as every scene above
+  // — they are bound lazily in showTab(), so a runtime-only cache would miss on
+  // exactly the first open, the one time the empty box would be visible.
+  // APPENDED, never inserted.
+  // NOT a replacement for './assets/race-bg.jpg' directly above (the hub
+  // backdrop) or './assets/race-hero-bg.jpg' at the foot of this list (the hero
+  // card's backdrop). All six entries are correct and all six stay.
+  // cache.addAll() is all-or-nothing at install: a typo in ANY one of these four
+  // filenames rejects the install promise and the SW never activates, so all
+  // four were checked against the encoded files on disk, not against this plan.
+  './assets/rt-crit.jpg',
+  './assets/rt-road.jpg',
+  './assets/rt-tt.jpg',
+  './assets/rt-hill.jpg',
   './assets/workshop-hero.jpg',
   // fix169: assets/race-hero.jpg retired — 'raceHero' is out of
   // RC_SHEET_NAMES / RC_VAR_NAMES / _rcSheetSources, so nothing fetches it
@@ -568,6 +626,17 @@ const STATIC_ASSETS = [
   './assets/slipstream-win.jpg',
   './assets/wind-tunnel.jpg',
   './assets/wind-tunnel-win.jpg',
+  // fix244: Bidon Toss, the fourth drill. Same split and the same reasoning as
+  // the three pairs above — the hero is lazy via lazyLoadAssetGroup(
+  // 'riderskills'), the win photo via the data-src promote in
+  // rsShowSuccessPop() — so neither is fetched on page load, but both must be
+  // precached here or the board opened offline shows an empty banner.
+  // APPENDED, never inserted. cache.addAll() is all-or-nothing at install: a
+  // typo in either filename rejects the install promise and the SW never
+  // activates, so both were checked against the encoded files on disk rather
+  // than against the plan.
+  './assets/bidon-toss.jpg',
+  './assets/bidon-toss-win.jpg',
   './assets/rider-photo.png',
   // fix161: front-on rider still, added to the recolour sheet set this fix.
   // Always-on, so it is fetched on the first recolour pass and must be here or
