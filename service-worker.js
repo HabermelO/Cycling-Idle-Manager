@@ -468,7 +468,7 @@
 // on top of that same stale shell. The bump is what makes the pass mean
 // something.
 // const CACHE_VERSION = 'cim-v3.8.45';   // fix236: Race hub release pass (HTML comment only, no asset change)
-const CACHE_VERSION = 'cim-v3.8.46';   // fix237: Train sub-tab isolation — HTML only, no asset change
+const CACHE_VERSION = 'cim-v3.8.47';   // fix237: Train sub-tab isolation — HTML only, no asset change
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
