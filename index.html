@@ -3727,6 +3727,160 @@ button{font-family:inherit;cursor:pointer;}
 }
 .train-sheet-back:focus-visible{outline:3px solid #fff;outline-offset:2px;}
 
+/* ═══ fix237: TRAINING SUB-TAB ISOLATION ═════════════════════════════════
+   Two defects, one root cause, both fixed here.
+
+   DEFECT 1 — the lockout was never complete. fix206's pair hid #train-stage
+   and nothing else, so with a section open the ENTIRE legacy panel was still
+   in flow behind the sheet: #attr-row, the "Training Sessions" label and
+   #training-list with all six cards built by renderSessionList(). Covered is
+   not hidden. The list below makes them display:none, which is what the fix206
+   comment already claimed ("no medallion can be hit through it") but only ever
+   delivered for the stage.
+
+   DEFECT 2 — a STALE MEASUREMENT CONTRACT left by fix188. #train-sheet is
+   position:fixed with its top set by trainSheetSet() to the measured height of
+   .game-header. That was written at fix206, when
+
+       .game-header{position:relative;z-index:83;}
+
+   was live and the header therefore held its place at the top of the viewport.
+   fix188 TOMBSTONED that rule — correctly, for rider — and .game-header has
+   been a plain in-flow strip ever since. Nothing on Train noticed, because the
+   arithmetic still LOOKS right at scrollTop 0.
+
+   It is only right at scrollTop 0. The document behind #train-stage is fully
+   scrollable (the stage is position:fixed, so the panel underneath keeps its
+   whole height and the page scrolls without appearing to), so a player who has
+   scrolled at any point opens a section to find the in-flow header gone and a
+   ~52px band at the top of the screen looking straight down at #training-list.
+   That band is the reported "can still see recovery training and the top cut
+   off of tempo", and it is why the session card read as sitting ON the header
+   strip rather than below it.
+
+   THE FIX IS TO RESTORE THE CONTRACT, NOT TO PATCH THE NUMBER. Nudging the
+   offset would leave the sheet's position a function of scrollTop, which is the
+   actual bug. Instead the header is PINNED for exactly as long as a section is
+   open, so the measured height means what trainSheetSet() has always assumed it
+   means. Pinning is chosen over covering deliberately: the header is the only
+   place live CASH / FTP / ENERGY appear on this tab (#train-stage's painted
+   slots are hidden with the stage), and a fullscreen sheet would take a
+   player's live figures away at the exact moment they are deciding whether to
+   spend energy.
+
+   The class goes on <body>, NOT on #tab-train, because .game-header is a
+   sibling of the tab panels inside #app — no `#tab-train.train-sheet-open …`
+   selector can reach it. trainSheetSet() owns the toggle, so open/close stays
+   one funnel exactly as fix206 built it. */
+#tab-train.train-sheet-open #boost-pill-wrap,
+#tab-train.train-sheet-open #energy-card-wrap,
+#tab-train.train-sheet-open #weight-card-wrap,
+#tab-train.train-sheet-open #rider-scene-wrap,
+#tab-train.train-sheet-open #attr-row,
+#tab-train.train-sheet-open > .section-lbl,
+#tab-train.train-sheet-open #training-list{display:none;}
+
+/* Pinned, opaque, and lifted to 83 — the value fix184 used and fix188 released.
+   Nothing consumes 83 today, so this reclaims a free tier rather than competing
+   for one: strictly above #train-sheet's 79, still below #home-stage's 90, so
+   tapping home still covers the header exactly as it always has.
+
+   Padding restates #app's horizontal 1rem because a fixed element leaves its
+   parent's box, and folds in the top safe-area inset that #app's own padding
+   was absorbing — without it the row rides under a notch. margin-bottom is
+   zeroed for the same reason: it would reserve gutter in a flow this element is
+   no longer part of. */
+body.train-sheet-live .game-header{
+  position:fixed; top:0; left:0; right:0; z-index:83;
+  max-width:600px; margin:0 auto;
+  background:var(--bg);
+  padding:calc(env(safe-area-inset-top, 0px) + .5rem) 1rem .5rem;
+}
+/* Document scroll is locked for the duration. With the header fixed and the
+   sheet fixed there is nothing left on screen that wants to scroll except the
+   sheet's own container, which has overscroll-behavior:contain already. This is
+   what stops the two layers desynchronising again: the sheet's top offset can
+   only ever be measured against a header that is where the measurement says. */
+body.train-sheet-live{overflow:hidden;}
+
+/* ── The section's session card ──────────────────────────────────────────
+   A dedicated builder (buildTrainSheetSession) rather than restyled
+   .session-card output. buildSessionCard() is SHARED with renderSessionList(),
+   so reshaping it here would silently reshape the legacy list too — and that
+   list is tombstoned in a later fix, not this one, so it has to keep working
+   untouched in the meantime. Same source data, same gates, two presentations. */
+.tsx-card{
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:var(--radius-lg); box-shadow:var(--shadow-md);
+  padding:1rem; margin-bottom:.75rem;
+}
+.tsx-head{display:flex;align-items:center;gap:10px;margin-bottom:.35rem;}
+.tsx-name{font-size:20px;font-weight:800;letter-spacing:-.01em;line-height:1.15;}
+.tsx-sub{font-size:12px;color:var(--txt2);margin-bottom:.85rem;}
+.tsx-meta{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.85rem;}
+.tsx-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:700;
+  padding:4px 9px;border-radius:999px;
+  background:var(--bg2,rgba(0,0,0,.05));border:1px solid var(--border);color:var(--txt2);
+}
+.tsx-chip.bad{color:var(--red-txt);background:var(--red-bg);border-color:var(--red-bd);}
+.tsx-lbl{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--txt3);margin:0 0 .4rem;
+}
+/* One row per attribute the session trains: what it is, what level the rider is
+   at NOW, what this session adds, and what that level is currently worth. The
+   benefit string is ATTR_DEFS[a].bonusDesc(level) — the same text the Rider tab
+   shows, read from the one registry, never restated here. */
+.tsx-attr{
+  display:flex;align-items:flex-start;gap:9px;
+  padding:.5rem 0;border-top:1px solid var(--border);
+}
+.tsx-attr:first-of-type{border-top:0;padding-top:0;}
+.tsx-attr-body{flex:1;min-width:0;}
+.tsx-attr-top{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
+.tsx-attr-name{font-size:13px;font-weight:700;}
+.tsx-attr-lv{font-size:11px;font-weight:700;color:var(--txt2);}
+.tsx-attr-gain{font-size:11px;font-weight:700;color:var(--green-txt);margin-left:auto;}
+.tsx-attr-bonus{font-size:11px;color:var(--txt3);line-height:1.35;margin-top:2px;}
+.tsx-bar{
+  height:5px;border-radius:999px;background:var(--border);
+  overflow:hidden;margin-top:5px;
+}
+.tsx-bar > i{display:block;height:100%;border-radius:999px;background:var(--accent);}
+/* The large start control the medallion flow was missing. Full width, 60px, its
+   own two-tap arm — never a confirm(). The armed state is a class swap on a
+   rebuilt node rather than in-place mutation, because renderTrainSheet() runs on
+   the per-second tick and rebuilds this card; the arm therefore lives in a JS
+   variable the builder READS, not in the DOM it writes. */
+.tsx-start{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;min-height:60px;padding:0 1rem;
+  border:0;border-radius:var(--radius-lg);
+  background:var(--accent);color:#fff;
+  font-size:17px;font-weight:800;letter-spacing:.01em;
+  box-shadow:var(--shadow-md);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.tsx-start:active{transform:scale(.985);}
+@media (prefers-reduced-motion: no-preference){
+  .tsx-start{transition:transform .12s ease, background .12s ease;}
+}
+.tsx-start:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+.tsx-start.armed{background:var(--green-txt);}
+.tsx-start[disabled]{
+  background:var(--border);color:var(--txt3);
+  box-shadow:none;cursor:default;
+}
+.tsx-start[disabled]:active{transform:none;}
+.tsx-note{
+  font-size:11px;color:var(--txt3);text-align:center;
+  margin:.5rem 0 0;line-height:1.35;
+}
+.tsx-cd-wrap{height:6px;border-radius:999px;background:var(--border);overflow:hidden;margin-top:.6rem;}
+.tsx-cd-wrap > i{display:block;height:100%;border-radius:999px;background:var(--amber-txt);}
+
 /* ═══ fix207: GEAR HUB — geometry stage + calibration ═════════════════════
    Plan v1 §3, stage fix207: "geometry + calibration". Hotspots, the painted
    BACK and the banner slots are fix208; the section sheet wrapping the five
@@ -15489,6 +15643,24 @@ function showTab(name){
   // the hub and no section is flashed. Extends the existing name==='rider'
   // branch rather than adding a second one.
   if(name==='rider') riderSheetSet(false);
+  // fix237: Train gets the same "always land on the hub" contract as rider,
+  // calendar and sponsors above — but UNCONDITIONALLY, not under a
+  // name==='train' branch like theirs, and that difference is load-bearing.
+  //
+  // Those three sheets only affect their own panel, so leaving one open while
+  // the player is elsewhere is invisible and resetting on re-entry is enough.
+  // The train sheet is no longer contained that way: .train-sheet-live is on
+  // <body>, and it pins .game-header and sets overflow:hidden GLOBALLY. Leaving
+  // via the header's Home button calls showTab('home') without ever touching
+  // trainHubBack(), so a branch-guarded reset would strand the scroll lock on
+  // every other tab in the game — the whole app unscrollable, with nothing on
+  // screen to explain why.
+  //
+  // Unconditional also covers the re-entry case the other three want, since
+  // trainSheetSet() is idempotent and the key is cleared alongside it exactly as
+  // trainHubBack() does. Placed before the panel is revealed, same as the rest.
+  trainSheetSet(false);
+  _trainSheetKey = null;
   // fix217: same contract one tab across — entering the Calendar tab always
   // lands on the HUB, never on whatever the sheet was showing last time. Sited
   // here beside the rider line and the lazy-load, for the same reason: before
@@ -16730,7 +16902,18 @@ function trainSheetSet(open){
   if(tab) tab.classList.toggle('train-sheet-open', !!open);
   const sheet=document.getElementById('train-sheet');
   if(!sheet) return;
-  if(!open){ sheet.style.top=''; return; }
+  // fix237: the pin. Toggled here rather than anywhere else so open/close stays
+  // the single funnel fix206 built — one call sets the panel class, the body
+  // class and the offset together, and no caller can set one without the others.
+  // MUST come before the measurement below: the header is only at its final
+  // position and padding once .train-sheet-live is on, and measuring first would
+  // capture the in-flow strip's height instead.
+  document.body.classList.toggle('train-sheet-live', !!open);
+  // fix237: a pending two-tap arm dies with the sheet. Without this an arm set
+  // just before a back-tap would still be inside its window on reopen, and the
+  // first tap on the reopened card would START rather than arm — a one-tap
+  // energy spend the player never confirmed.
+  if(!open){ _tsxArmId=null; _tsxArmAt=0; sheet.style.top=''; return; }
   // .game-header is above this sheet (z-index 83 vs 79) because 'train' is not
   // in HUB_TABS, so the sheet's top edge has to clear it or the back bar is
   // unreachable behind it. Measured, not hardcoded — updateHeader() rewrites the
@@ -16739,9 +16922,26 @@ function trainSheetSet(open){
   // day 'train' does join HUB_TABS this branch simply stops finding a header and
   // the fallback is already correct.
   const hdr=document.querySelector('.game-header');
-  // offsetParent is null for a display:none element — a hidden header detected
-  // without reading computed styles.
-  const h = (hdr && hdr.offsetParent!==null) ? Math.round(hdr.getBoundingClientRect().height) : 0;
+  // fix237 tombstone: the fix206 visibility guard —
+  //   const h = (hdr && hdr.offsetParent!==null) ? Math.round(...) : 0;
+  // offsetParent is null for a display:none element, which is what that guard
+  // was reading. It is ALSO null for a position:fixed element in every browser
+  // this ships to — so the moment .train-sheet-live pins the header, that guard
+  // reports "hidden" for a header that is plainly on screen, resolves to 0, and
+  // hands the sheet the top:env(safe-area-inset-top) fallback. The card would
+  // then be drawn UNDER the pinned header: the exact overlap this fix exists to
+  // remove, reintroduced by the fix for it.
+  //
+  // getBoundingClientRect().height is 0 for a display:none element and correct
+  // for a fixed one, so it answers the same question without the fixed-position
+  // blind spot. showTab() still hides .game-header outright on the HUB_TABS
+  // panels, so the zero case stays live and still has to be handled.
+  //
+  // NOT propagated to the other six sheets in this file. Every one of them
+  // still measures an IN-FLOW header, where offsetParent is correct and this
+  // change would be churn; only Train pins.
+
+  const h = hdr ? Math.round(hdr.getBoundingClientRect().height) : 0;
   sheet.style.top = h>0 ? h+'px' : '';
 }
 
@@ -16781,11 +16981,152 @@ function renderTrainSheet(){
   const t=TRAINING.find(s=>s.id===key);
   if(!t){ box.style.display='none'; return; }
   box.style.display='';
-  // null when this session is the one running — #active-session-wrap above is
-  // already showing it, and a second copy would offer a start button for a
+  // fix237 tombstone: the sheet used buildSessionCard(), the SAME compact row
+  // renderSessionList() stacks six of —
+  //   const card=buildSessionCard(t, Date.now());
+  // Correct for a list, wrong for a section that has the screen to itself: a
+  // 44px strip with a whole-card tap target and no visible benefit or level.
+  // buildSessionCard() is NOT retired and NOT restyled — it still builds the
+  // legacy #training-list, which is tombstoned in a later fix, not this one, so
+  // it has to keep working exactly as it does. Two presentations, one set of
+  // gates: see buildTrainSheetSession().
+  //
+  // Still null when this session is the one running — #active-session-wrap above
+  // is already showing it, and a second copy would offer a start button for a
   // session in flight.
-  const card=buildSessionCard(t, Date.now());
+  const card=buildTrainSheetSession(t, Date.now());
   if(card) box.appendChild(card);
+}
+
+// ═══ fix237: the section's own session card ═══════════════════════════════
+// Same source data and the SAME FOUR GATES as buildSessionCard() — running,
+// cooldown, unlock, energy — deliberately recomputed from the same expressions
+// rather than shared through a helper. A helper is the better shape and is worth
+// doing, but extracting one would edit buildSessionCard(), and that function
+// feeds the legacy list this fix is not allowed to touch. The duplication is
+// therefore TEMPORARY and dies with the list.
+//
+// startSession() is still the only thing that starts a session. This builds a
+// bigger button in front of it; it does not reimplement any part of it.
+//
+// Two-tap arm, never confirm(). The armed state lives in the two module
+// variables below rather than in the DOM, because renderTrainSheet() runs on the
+// per-second tick and REBUILDS this node — an arm held as a class on the button
+// would be wiped within a second of being set. The builder reads the variables,
+// so the armed card survives every rebuild until it is used or expires.
+let _tsxArmId = null;
+let _tsxArmAt = 0;
+const TSX_ARM_MS = 4000;
+
+function buildTrainSheetSession(t, now){
+  if(state.session.active && state.session.typeId===t.id) return null;
+  const cdEnd=state.trainCooldowns[t.id]||0, onCd=cdEnd>now;
+  const locked=t.unlock && state.attributes[t.unlock.attr].level < t.unlock.level;
+  const noEnergy=!locked && !onCd && state.energy < t.energyCost;
+  const busy=state.session.active || state.raceActive;
+  const available=!onCd && !locked && !noEnergy && !busy;
+  const cv=t.colorVar;
+
+  const div=document.createElement('div');
+  div.className='tsx-card';
+
+  // Chips: energy cost, duration, cooldown. Facts, not status — the status is
+  // carried by the button and the note beneath it, so nothing is said twice.
+  const chips=[
+    `<span class="tsx-chip${noEnergy?' bad':''}">${icn('bolt')} ${t.energyCost} energy</span>`,
+    `<span class="tsx-chip">▶ ${t.duration}s</span>`,
+    t.cooldown>0 ? `<span class="tsx-chip">⏳ ${t.cooldown}s cooldown</span>` : ''
+  ].join('');
+
+  // One row per trained attribute: current level, XP this session awards, the
+  // live benefit of the level the rider is AT, and progress to the next. The
+  // benefit string is ATTR_DEFS[a].bonusDesc(level) — the same registry the
+  // Rider tab reads, so the two can never disagree about what a level is worth.
+  // D.sessionMult is applied to the XP figures for buildSessionCard()'s reason:
+  // it is what the session will actually award.
+  const attrRows=Object.entries(t.xpGains).map(([a,x])=>{
+    const d=ATTR_DEFS[a], at=state.attributes[a];
+    const needed=xpForLevel(at.level);
+    const pct=needed>0 ? Math.min(100, Math.round(at.xp/needed*100)) : 100;
+    return `<div class="tsx-attr">
+        <span style="color:var(--${d.colorVar}-txt);font-size:15px;line-height:1">${icn(d.icon)}</span>
+        <div class="tsx-attr-body">
+          <div class="tsx-attr-top">
+            <span class="tsx-attr-name">${d.name}</span>
+            <span class="tsx-attr-lv">Lv ${at.level}</span>
+            <span class="tsx-attr-gain">+${Math.round(x*D.sessionMult)} xp</span>
+          </div>
+          <div class="tsx-attr-bonus">${d.bonusDesc(at.level)}</div>
+          <div class="tsx-bar"><i style="width:${pct}%;background:var(--${d.colorVar}-txt)"></i></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Button label and the note under it. Every unavailable reason gets its own
+  // wording — a disabled button with no explanation is the thing this whole
+  // sheet exists to avoid.
+  const armed = _tsxArmId===t.id && (now-_tsxArmAt)<TSX_ARM_MS;
+  let btnLabel, note='', dis=true, cls='tsx-start';
+  if(locked){
+    const ud=ATTR_DEFS[t.unlock.attr];
+    btnLabel=`${icn('lock')} Locked`;
+    note=`Reach ${ud.name} Lv ${t.unlock.level} to unlock this session.`;
+  } else if(onCd){
+    btnLabel=`⏳ ${fmtTime(cdEnd-now)}`;
+    note='This session is recovering — come back when the timer clears.';
+  } else if(busy){
+    btnLabel='Busy';
+    note = state.raceActive ? 'You are racing right now.' : 'Another session is already running.';
+  } else if(noEnergy){
+    btnLabel=`${icn('bolt')} Not enough energy`;
+    note=`You have ${Math.floor(state.energy)} of the ${t.energyCost} energy this session needs.`;
+  } else {
+    dis=false;
+    btnLabel = armed ? '✓ Tap again to confirm' : `▶ Start Training`;
+    if(armed){ cls+=' armed'; note='Tap once more to begin, or wait to cancel.'; }
+  }
+
+  div.innerHTML=`<div class="tsx-head">
+      <span class="zone-badge" style="background:var(--${cv}-txt)">Z${t.zone}</span>
+      <div class="tsx-name">${t.name}</div>
+    </div>
+    <div class="tsx-sub">${t.subtitle}</div>
+    <div class="tsx-meta">${chips}</div>
+    <p class="tsx-lbl">What this builds</p>
+    ${attrRows}
+    ${onCd ? `<div class="tsx-cd-wrap"><i style="width:${Math.round((1-(cdEnd-now)/(t.cooldown*1000))*100)}%"></i></div>` : ''}
+    <button type="button" class="${cls}" id="tsx-start-btn"${dis?' disabled':''}>${btnLabel}</button>
+    ${note?`<p class="tsx-note">${note}</p>`:''}`;
+
+  // Listener rather than an onclick attribute: the arm is per-session state that
+  // the handler closes over, and an inline handler would need the id threaded
+  // through a global. The onclick audit is unaffected — nothing is referenced by
+  // name from markup here.
+  if(!dis){
+    const btn=div.querySelector('#tsx-start-btn');
+    if(btn) btn.addEventListener('click',()=>tsxStartTap(t.id));
+  }
+  return div;
+}
+
+// fix237: the two-tap funnel. First tap arms and repaints; second tap inside the
+// window starts. A tap on a DIFFERENT session re-arms for that one rather than
+// firing it, so an arm can never be spent on a session the player did not arm.
+//
+// The window is not policed by a timer. renderTrainSheet() already runs every
+// second, and the `now-_tsxArmAt` test in the builder means an expired arm
+// simply paints as unarmed on the next tick — no setTimeout to cancel, nothing
+// to leak if the sheet closes mid-arm.
+function tsxStartTap(id){
+  const now=Date.now();
+  if(_tsxArmId===id && (now-_tsxArmAt)<TSX_ARM_MS){
+    _tsxArmId=null; _tsxArmAt=0;
+    startSession(id);
+    renderTrainSheet();
+    return;
+  }
+  _tsxArmId=id; _tsxArmAt=now;
+  renderTrainSheet();
 }
 
 // ═══ fix215: the Training Log ════════════════════════════════════════════
