@@ -1,4 +1,139 @@
 <!DOCTYPE html>
+<!-- fix249: BIDON TOSS — CONNECT THE MEDALLION. Plan §B7, the last stage of the
+     plan. TWO LIVE EDITS AND NOTHING ELSE: one onclick string on skills hub
+     hotspot 4, and one branch in startRiderSkillGame(). No CSS rule, no asset,
+     no save field, no geometry.
+
+     WHAT SHIPS: hotspot 4 stops calling skillsComingSoon('Bidon Toss — coming
+     soon') and calls skillsHubGo('bt'), the same string the other three
+     medallions carry with their own id. THE GEOMETRY DOES NOT CHANGE — --hx /
+     --hy / --hw / --hh and data-hot="4" are byte-identical to fix248's, because
+     the data-hot index is welded to the painted box and this stage swaps the
+     ACTION, not the box (plan §0 rule 6). The retired onclick string is
+     tombstoned verbatim in the comment above the hotspot block.
+
+     THE LOCKOUT IS ENFORCED THREE TIMES, all three deliberate, per fix155:
+       1. skillsHubGo('bt') — rsCanStart() before the dispatcher is entered, so
+          a locked drill refuses with its copy and the overlay never opens.
+       2. startRiderSkillGame('bt') — the shared re-check that already guards
+          fz/sl/wt, now reached by the new branch.
+       3. btStart() — fix246 wrote this one ahead of time precisely so the end
+          panel's "Throw again", which bypasses the dispatcher entirely, could
+          not slip past. It is NOT removed now that (2) exists.
+
+     THE BRANCH IS APPENDED, not inserted: 'fz', 'sl', 'wt', then 'bt'. The
+     trailing showToast() below it is now unreachable for every id in RS_GAMES
+     and stays exactly where it is, as the guard for a future id added to the
+     table before its branch exists — the same reason fix153 gave.
+
+     closeRiderSkillsHub() runs before openBidonToss() on this branch as it does
+     on the other three, so the hub and the board are never both on screen.
+
+     skillsComingSoon() NOW HAS NO LIVE CALLER. It is NOT deleted and neither is
+     the #skills-soon-pill node it patches: the function is a general-purpose
+     surface with its own two-tap-free semantics and the next unbuilt thing on
+     any hub is its caller. Tombstoning a function with no callers by commenting
+     out its body would break nothing today and cost an hour the day something
+     calls it. Recorded here so the absence of callers reads as expected rather
+     than as an oversight.
+
+     Regions touched: one onclick string + the comment above it in the skills
+     hub markup, one line in startRiderSkillGame(). Service worker: CACHE_VERSION
+     bump only. -->
+<!-- fix248: BIDON TOSS — THE HYPE BUFF GETS ITS CONSUMER. Plan §B6. JS only: no
+     markup node, no CSS rule, no asset and no save field is added or changed,
+     and the game loop, the award funnel and the buff engine are all untouched.
+     Until this fix bt_hype was a number nothing read (fix247 said so out loud);
+     this fix is the one line that reads it, plus the two places that tell the
+     player it happened.
+
+     SINGLE SITE. completeRace(), inside the prize computation, immediately
+     after the prestige multiplier and BEFORE the streak and club multipliers,
+     so the order is explicit and written down: base -> prestige -> HYPE ->
+     streak -> club. Nothing else multiplies finalPrize anywhere in the file
+     (verified by grep: the only finalPrize writes are the four lines in that
+     block), so this is the whole of the consumer.
+
+     TIMED, NOT RACE-SCOPED. consumeRaceBuffs() deletes only buffs flagged
+     consumeOnRace, and grantBuff('bt_hype', m, BT_HYPE_MS) writes
+     consumeOnRace:false — so racing does NOT spend the buff, it just benefits
+     from it for its 30 minutes. That claim is load-bearing for this stage and
+     is asserted in rsSelfTest() section 7 (fix247) and again in section 8 below.
+
+     OPEN QUESTION 2 ANSWERED (plan §C.2) — hype applies to CATEGORY and CLUB
+     races, and NOT to calendar events or Grand Tour stages. Those two run their
+     own prize tables (calEvent.prizes / gtStage.prizes) which are balanced in
+     isolation; stacking a 14-20% drill bonus on top of them is the hardest
+     thing to re-balance later, and a GT stage win is already the largest single
+     payout in the game. The eligibility test is `!isCalEvent` — gtStage only
+     ever exists on a calendar event, so one flag covers both, and it is the
+     same flag the series/cooldown/points carve-outs above already use rather
+     than a second notion of "a normal race".
+
+     btHypeApply(prize, eligible) IS PURE. It reads getBuff() and returns a new
+     object; it writes no state, does not round-trip through the buff map and
+     never mutates its argument. Pure so rsSelfTest() can assert the arithmetic
+     directly instead of having to run a race, and so the render path can call
+     it too if it ever needs to preview the number. completeRace() is still its
+     only live caller.
+
+     THE PLAYER MUST BE TOLD. A silent multiplier is indistinguishable from no
+     multiplier. The gain is stored on the history entry as `hype` (a plain
+     number of currency, plus the pct that produced it) and surfaced twice:
+     a gold pill on the result card via buildRaceResultCardHtml() — which is
+     shared by the Race-tab slot AND the overlay result mode, so one edit covers
+     both — and a fragment appended to the race-end toast. The 1st-place path
+     suppresses that toast in favour of the win ceremony, which is why the pill
+     and not the toast is the primary channel. `r.hype ?? 0` guards every
+     history entry saved before this fix, exactly as `r.kick` and `r.bonus` do.
+
+     Regions touched: the prize block inside completeRace(), the histEntry
+     literal, the toast string, one new pure function btHypeApply() beside the
+     other BT helpers, one pill in buildRaceResultCardHtml(), and section 8
+     appended to rsSelfTest(). Nothing else. Service worker: CACHE_VERSION
+     bump only. -->
+<!-- fix247: BIDON TOSS — REWARDS. Plan §B5. JS only: no markup node is added or
+     removed, no CSS rule changes, no asset changes, and the game loop shipped at
+     fix246 is untouched below the one line in btEnd() that now calls the award.
+
+     ONE AWARD FUNNEL: btAward(successPct). It is the ONLY path that credits
+     anything from this game — the wsAwardMG() spirit — and it is called from
+     btEnd() and from nowhere else. Cash goes out through earnMoney() alone
+     (plan §0 rule 9); the buff goes out through grantBuff() alone, which already
+     does recalc() + checkLifetimeGoals() + saveGame() + the toast, so none of
+     those four is duplicated here.
+
+     OPEN QUESTION 1 ANSWERED (plan §C.1) — catFactor is DERIVED, not a second
+     table: RACE_CATEGORIES[state.raceCategory].prizes[0] / BT_CAT_BASE_PRIZE,
+     where BT_CAT_BASE_PRIZE is Cat 4's 50 (Cat 4 is the "at Cat 4 base" the
+     BT_CASH_MAX figure is quoted against). Deriving keeps one ladder, so a
+     future prize retune moves this drill with it and cannot drift out of sync.
+     It is CLAMPED to [0.5, 6] because the raw ladder is not linear — Pro's
+     5000 would be a x100 factor and a single perfect run would pay 40,000.
+
+     THE HYPE BUFF READS NOTHING YET. bt_hype is granted here and consumed at
+     fix248 in completeRace(). Between the two stages it is an unread number,
+     which is exactly the state plan §D says is safe to leave behind on a
+     partial revert. Verified this stage: consumeRaceBuffs() only deletes
+     consumeOnRace buffs, and bt_hype is timed, so a race does NOT clear it.
+
+     ANTI-FARM, and why it is not the drill lockout. rsIsLocked('bt') paces the
+     BUFF — but a sub-threshold run grants no buff and therefore never locks, so
+     the cash path needs its own gate. It gets a rolling window keyed off a
+     STORED TIMESTAMP, never a calendar day: a day gate is frozen by
+     isClockRewound() and would shut the drill forever on a rewound clock (the
+     WS_MG_WINDOW_MS precedent, quoted in plan §B5).
+
+     NO NEW TOP-LEVEL SAVE KEY. The window's two fields live inside the existing
+     state.riderSkills object, normalised in place by btCashWindowTick() on
+     every award, so a fix246 save with neither field heals on first play — the
+     wsMgWindowTick() pattern, and the reason loadGame() needs no edit and no
+     migration. bestScores.bt likewise reuses the existing sub-object.
+
+     Regions touched: the BT constants block (new BT_CASH_*/BT_HYPE_* consts),
+     three new functions inserted immediately above btEnd(), the tail of btEnd(),
+     one appended RS_WIN_COPY entry, and section 7 appended to rsSelfTest().
+     Nothing else. Service worker: CACHE_VERSION bump only. -->
 <!-- fix246: BIDON TOSS — THE GAME LOOP. Plan §B4. The shell built at fix245 is
      now a playable board. JS + two onclick strings only: no asset is added or
      re-encoded, no CSS rule changes, no save field is added or read, and
@@ -9792,6 +9927,18 @@ body.home-open{overflow:hidden;}
              rewritten there rather than here, so the pill's retirement is one
              edit in one place.
 
+             SUPERSEDED fix249 (plan §B7). The exception is gone: hotspot 4 now
+             calls skillsHubGo('bt') like the other three and NO control on this
+             hub raises the pill. The retired string, tombstoned verbatim:
+
+                 onclick="skillsComingSoon('Bidon Toss &#8212; coming soon')"
+
+             The geometry is untouched — same data-hot="4", same --hx/--hy/
+             --hw/--hh — because the index is welded to the painted box and this
+             stage swaps the action, not the box. skillsComingSoon() itself and
+             the #skills-soon-pill node it patches both stay: see the fix249
+             header for why a caller-less function is not tombstoned here.
+
              6 is the route to the sheet, and therefore the only route to the
              buff bar, which would otherwise have none once the drill close
              handlers land on the hub instead of the list. Plan §7 question 2
@@ -9801,7 +9948,7 @@ body.home-open{overflow:hidden;}
         <button class="hub-hot skills-hot" data-hot="1" style="--hx:19.41%;--hy:30.39%;--hw:29.00%;--hh:13.05%" aria-label="Feed Zone Scramble drill" onclick="skillsHubGo('fz')"></button>
         <button class="hub-hot skills-hot" data-hot="2" style="--hx:80.43%;--hy:30.25%;--hw:29.00%;--hh:13.05%" aria-label="Slipstream Drafting drill" onclick="skillsHubGo('sl')"></button>
         <button class="hub-hot skills-hot" data-hot="3" style="--hx:24.84%;--hy:68.42%;--hw:30.50%;--hh:13.72%" aria-label="Wind Tunnel drill" onclick="skillsHubGo('wt')"></button>
-        <button class="hub-hot skills-hot" data-hot="4" style="--hx:76.40%;--hy:68.77%;--hw:30.50%;--hh:13.72%" aria-label="Bidon Toss drill" onclick="skillsComingSoon('Bidon Toss &#8212; coming soon')"></button>
+        <button class="hub-hot skills-hot" data-hot="4" style="--hx:76.40%;--hy:68.77%;--hw:30.50%;--hh:13.72%" aria-label="Bidon Toss drill" onclick="skillsHubGo('bt')"></button>
         <button class="hub-hot hub-hot-rect skills-hot" data-hot="5" style="--hx:10.68%;--hy:20.45%;--hw:20%;--hh:5.50%" aria-label="Back to home" onclick="hubGo('home')"></button>
         <button class="hub-hot hub-hot-rect skills-hot" data-hot="6" style="--hx:50.00%;--hy:55.80%;--hw:46.00%;--hh:5.60%" aria-label="Skill drills and active buffs" onclick="skillsHubGo2Sheet()"></button>
         <!-- The informational pill. A child of #skills-art rather than of
@@ -13656,9 +13803,29 @@ function completeRace(){
   // use the category's. Order: base -> prestige -> streak -> club.
   const prizeTable = gtStage ? gtStage.prizes : isCalEvent ? calEvent.prizes : cat.prizes;
   let finalPrize = Math.round((prizeTable[Math.min(finalPos-1, prizeTable.length-1)]||0) * state.prestigeMult);
+  // fix248 — Bidon Toss hype (plan §B6). Order is base -> prestige -> HYPE ->
+  // streak -> club, and this is the only place it is applied. NOT eligible on
+  // calendar events or Grand Tour stages: those run their own prize tables and
+  // gtStage only ever exists on a calendar event, so !isCalEvent covers both.
+  // Timed buff, so it is NOT consumed here — consumeRaceBuffs() further down
+  // deletes race-scoped buffs only, and bt_hype is not one.
+  const hypeRes = btHypeApply(finalPrize, !isCalEvent);
+  // A parallel no-hype figure is carried through the SAME two multipliers so the
+  // gain shown to the player is the real end-to-end difference, not the pre-club
+  // one. A club race scales the bonus by prizeMult like everything else, and
+  // quoting the unscaled number there would advertise ~7x what was banked.
+  let noHypePrize = finalPrize;
+  finalPrize = hypeRes.prize;
   const streakMult = 1 + Math.min(state.streak.podium,5)*0.06;
   finalPrize = Math.round(finalPrize * streakMult);
-  if(isClub) finalPrize = Math.round(finalPrize * CLUB_RACE.prizeMult);
+  noHypePrize = Math.round(noHypePrize * streakMult);
+  if(isClub){
+    finalPrize = Math.round(finalPrize * CLUB_RACE.prizeMult);
+    noHypePrize = Math.round(noHypePrize * CLUB_RACE.prizeMult);
+  }
+  // Clamped at 0: rounding on a tiny club prize can otherwise make the two
+  // figures equal, and a "+£0" pill is worse than no pill.
+  const hypeGain = hypeRes.pct > 0 ? Math.max(0, finalPrize - noHypePrize) : 0;
   // Overwrite result with decision-adjusted values
   rd.result.position = finalPos;
   rd.result.prize    = finalPrize;
@@ -13720,6 +13887,11 @@ function completeRace(){
     catName: catNameForDisplay,
     position:rd.result.position,fieldSize:rd.result.fieldSize,
     prize:rd.result.prize,points:isCalEvent?0:rd.result.points,gap:gapSecs,ts:Date.now(),
+    // fix248 — Bidon Toss hype, for the result-card pill. Two plain numbers, no
+    // new state key and no new save shape: histEntry is already saved whole.
+    // Entries written before this fix simply have neither field, which the
+    // `?? 0` reader in buildRaceResultCardHtml() handles like r.kick / r.bonus.
+    hype:hypeGain>0?hypeGain:0, hypePct:hypeGain>0?hypeRes.pct:0,
     kick:kick>0?kick:0}; // Phase 3A — finish kick from saved legs, shown on the result card
   state.raceHistory.unshift(histEntry);
   if(state.raceHistory.length>8) state.raceHistory.pop();
@@ -13853,7 +14025,10 @@ function completeRace(){
   // needs to be surfaced even on a win, since the ceremony doesn't show it —
   // so it gets its own toast only in that one case.
   if(rd.result.position!==1){
-    showToast(`${rd.result.prize>0?'+'+fmtMoney(rd.result.prize):'No prize'} · ${rd.result.position}${ordinal(rd.result.position)} / ${rd.result.fieldSize}${rivalMsg}${bonusToastText?' · '+bonusToastText:''}`);
+    // fix248: the hype fragment is folded into THIS string rather than fired as
+    // a second showToast(), which would clobber the first — the same reason
+    // rollRaceBonus() returns text instead of toasting (see its comment).
+    showToast(`${rd.result.prize>0?'+'+fmtMoney(rd.result.prize):'No prize'} · ${rd.result.position}${ordinal(rd.result.position)} / ${rd.result.fieldSize}${rivalMsg}${hypeGain>0?` · ${icn('fire')} +${fmtMoney(hypeGain)} hype`:''}${bonusToastText?' · '+bonusToastText:''}`);
   } else if(bonusToastText){
     setTimeout(()=>showToast(bonusToastText),600);
   }
@@ -20837,6 +21012,14 @@ function buildRaceResultCardHtml(r){
   // 3A — finish kick pill. ?? guards old history entries saved before this field existed.
   const kickVal = r.kick ?? 0;
   const kickHtml = kickVal>0 ? `<div class="result-bonus-pill">${icn('bolt')} Finish kick: +${kickVal} places (saved legs)</div>` : '';
+  // fix248 — Bidon Toss hype pill. Reuses .result-bonus-pill rather than adding
+  // a rule, so no CSS changes this fix. ?? guards every entry saved before the
+  // field existed, the r.kick / r.bonus treatment. This card is shared by the
+  // Race-tab result slot and the overlay result mode, so one pill covers both —
+  // which matters because the 1st-place path suppresses the race-end toast.
+  const hypeVal = r.hype ?? 0;
+  const hypePctVal = r.hypePct ?? 0;
+  const hypeHtml = hypeVal>0 ? `<div class="result-bonus-pill">${icn('fire')} The crowd is behind you: +${fmtMoney(hypeVal)} (+${hypePctVal}% prize)</div>` : '';
   return `<div class="race-result-card">
     <div class="result-head">
       <div class="result-pos-badge ${posCls}">${ordinal(r.position)}</div>
@@ -20847,6 +21030,7 @@ function buildRaceResultCardHtml(r){
       ${r.points>0?`<span class="result-reward-pill result-reward-pts">+${r.points} pts</span>`:''}
     </div>
     ${bonusHtml}
+    ${hypeHtml}
     ${kickHtml}
     ${isCalResult
       ? `<div class="result-cat-progress">${icn('calendar')} Calendar event</div>`
@@ -22486,6 +22670,10 @@ const RS_WIN_COPY={
   fz:{title:'Musette full',      sub:'Your legs will come back quicker for the next half hour.'},
   sl:{title:'Wheel held',        sub:'The next hour of training is going to stick harder.'},
   wt:{title:'Position dialled',  sub:'You will carry that tuck into your next race.'},
+  // fix247: appended for the threshold-run pop. Without an entry the medallion
+  // falls back to the generic 'Nailed it' line, which is not wrong but tells
+  // the player nothing about what the crowd is now doing for them.
+  bt:{title:'The crowd is up',   sub:'They will shout you round for the next half hour.'},
 };
 // fix157: per-drill win photo, shown inside the existing medallion so the
 // celebration matches the gut-training one. A drill with no entry here simply
@@ -22610,6 +22798,49 @@ function rsSelfTest(){
 
     // 6. Save migration: every riderSkills sub-object survives a missing key.
     ok(rsStore().buffs&&rsStore().lastPlayed&&rsStore().bestScores, 'rsStore left a sub-object undefined');
+
+    // 7. fix247 — Bidon Toss. Four claims the reward stage rests on.
+    s.buffs={};
+    s.buffs.bt_hype={expiresAt:Date.now()-1000, magnitude:20, consumeOnRace:false};
+    ok(getBuff('bt_hype').active===false, 'expired bt_hype still reads active');
+    pruneBuffs();
+    ok(!('bt_hype' in s.buffs), 'pruneBuffs left an expired bt_hype behind');
+
+    s.buffs.bt_hype={expiresAt:Date.now()+60000, magnitude:20, consumeOnRace:false};
+    ok(rsIsLocked('bt')===true, 'bt not locked while its own buff is running');
+
+    // Timed, not race-scoped: a race must NOT clear it (plan §B6 depends on this).
+    consumeRaceBuffs();
+    ok('bt_hype' in s.buffs, 'consumeRaceBuffs cleared the timed bt_hype buff');
+
+    // rsStore() heals a save written with no bt keys at all.
+    delete s.bestScores.bt; delete s.lastPlayed.bt;
+    delete s.btWindowStart; delete s.btWindowEarned;
+    btCashWindowTick(Date.now());
+    ok(typeof rsStore().btWindowStart==='number' && typeof rsStore().btWindowEarned==='number',
+       'btCashWindowTick left a window field undefined on a pre-fix247 save');
+    ok(isFinite(btCatFactor()) && btCatFactor()>0, 'btCatFactor returned a non-finite factor');
+
+    // 8. fix248 — the hype consumer. btHypeApply() is pure, so the arithmetic
+    //    completeRace() depends on can be asserted here without running a race.
+    s.buffs={};
+    ok(btHypeApply(1000,true).gain===0, 'btHypeApply paid out with no buff active');
+    s.buffs.bt_hype={expiresAt:Date.now()+60000, magnitude:20, consumeOnRace:false};
+    const h1=btHypeApply(1000,true);
+    ok(h1.prize===1200 && h1.gain===200 && h1.pct===20, 'btHypeApply arithmetic is wrong');
+    ok(btHypeApply(1000,false).gain===0, 'btHypeApply paid out on an ineligible race');
+    ok(btHypeApply(0,true).gain===0,     'btHypeApply paid out on a zero prize');
+    // Pure: neither the buff map nor the argument may be touched.
+    const bSnap=JSON.stringify(s.buffs);
+    for(let i=0;i<3;i++) btHypeApply(1000,true);
+    ok(JSON.stringify(s.buffs)===bSnap, 'btHypeApply mutated the buff map');
+    // And racing still must not spend it — restated here because THIS is the
+    // stage that made the claim load-bearing.
+    consumeRaceBuffs();
+    ok(getBuff('bt_hype').active===true, 'a race consumed the timed bt_hype buff');
+    // An expired buff pays nothing even though the key is still in the map.
+    s.buffs.bt_hype={expiresAt:Date.now()-1, magnitude:20, consumeOnRace:false};
+    ok(btHypeApply(1000,true).gain===0, 'btHypeApply paid out from an expired buff');
   }catch(e){
     fails.push('threw: '+e.message);
     console.error('rsSelfTest threw', e);
@@ -22736,6 +22967,11 @@ function startRiderSkillGame(gameId){
   if(gameId==='fz'){ closeRiderSkillsHub(); openFeedZone(); return; }
   if(gameId==='sl'){ closeRiderSkillsHub(); openSlipstream(); return; }
   if(gameId==='wt'){ closeRiderSkillsHub(); openWindTunnel(); return; }
+  // fix249: 'bt' APPENDED after the other three, per plan §B7. The rsCanStart()
+  // check above now guards it too — that is the second of the drill's three
+  // enforcement points (skillsHubGo, here, btStart), and btStart()'s own check
+  // stays because the end panel's "Throw again" never comes through here.
+  if(gameId==='bt'){ closeRiderSkillsHub(); openBidonToss(); return; }
   showToast(`${icn(g.icon)} ${g.name} — rolling out soon`);
 }
 
@@ -24074,9 +24310,126 @@ function btStart(){
   btFrame();
 }
 
-// Run over. Panels and readouts only — NOTHING is credited here. fix247 adds
-// the single award funnel, btAward(successPct), and it is called from this
-// function and from nowhere else.
+// ── fix247: rewards ─────────────────────────────────────────────────────
+// Plan §B5. Tunables first, all in one place so a playtest retune is a
+// one-line edit with a dated comment beside it, as FZ_THRESHOLD's was.
+const BT_CASH_MIN        = 25;              // a 1/10 run still pays something
+const BT_CASH_MAX        = 400;             // a perfect run, AT CAT 4 BASE
+const BT_CASH_CURVE      = 1.5;             // pct**1.5 — flat at the bottom, steep at the top
+const BT_CAT_BASE_PRIZE  = 50;              // RACE_CATEGORIES cat4.prizes[0]; the divisor, not a copy of it
+const BT_CAT_FACTOR_MIN  = 0.5;
+const BT_CAT_FACTOR_MAX  = 6;
+const BT_HYPE_THRESHOLD  = 0.6;             // 6/10 or better
+const BT_HYPE_MS         = 30*60*1000;
+const BT_CASH_WINDOW_MS  = 30*60*1000;
+// Cap is expressed in BT_CASH_MAX units and scaled by the SAME catFactor the
+// payout is, so the window means "about two perfect runs" at every category
+// rather than "two perfect runs at Cat 4, and a third of one at Pro".
+const BT_CASH_WINDOW_MULT = 2;
+
+// btCatFactor() — PURE READ. Derived from the live prize ladder (plan §C.1), so
+// a prize retune moves the drill with it. Defensive on both sides: a missing
+// category or a missing prizes[0] falls back to 1 (Cat 4 parity) rather than
+// NaN, which would otherwise reach earnMoney().
+function btCatFactor(){
+  const cat = RACE_CATEGORIES[state.raceCategory];
+  const top = cat && Array.isArray(cat.prizes) ? Number(cat.prizes[0]) : NaN;
+  if(!isFinite(top) || top <= 0) return 1;
+  return Math.max(BT_CAT_FACTOR_MIN, Math.min(BT_CAT_FACTOR_MAX, top / BT_CAT_BASE_PRIZE));
+}
+
+// btCashWindowTick(now) — expires the window if it has run its course, or if the
+// device clock has moved BACKWARDS past its start. Also the tolerant normaliser
+// for the two fields, so a save written before fix247 heals on first award and
+// no loadGame() guard or migration is needed. Verbatim in shape from
+// wsMgWindowTick(), deliberately: two windows that behave differently under a
+// clock rewind is the bug nobody reproduces.
+function btCashWindowTick(now){
+  const s = rsStore();
+  if(typeof s.btWindowStart  !== 'number' || !isFinite(s.btWindowStart))  s.btWindowStart  = 0;
+  if(typeof s.btWindowEarned !== 'number' || !isFinite(s.btWindowEarned)) s.btWindowEarned = 0;
+  if(!s.btWindowStart) return;
+  if(now < s.btWindowStart || (now - s.btWindowStart) >= BT_CASH_WINDOW_MS){
+    s.btWindowStart  = 0;
+    s.btWindowEarned = 0;
+  }
+}
+
+// fix248 — btHypeApply(prize, eligible) — PURE. The consumer of bt_hype, and
+// the only arithmetic this fix adds. Returns {prize, gain, pct}: the new prize,
+// the currency the buff added, and the percentage that produced it. Writes no
+// state, mutates nothing, and does not clear the buff — bt_hype is TIMED, so it
+// keeps paying out for every eligible race inside its 30 minutes and expires on
+// the clock via pruneBuffs(), not on a race.
+//
+// `eligible` is decided by the caller, not here: this function must not need to
+// know what a calendar event is. completeRace() passes !isCalEvent (plan §C.2 —
+// category and club yes, calendar and Grand Tour no).
+//
+// Rounding is applied to the whole product, and `gain` is derived from the
+// difference, so the pill can never advertise a penny the player did not get.
+function btHypeApply(prize, eligible){
+  const base = Math.round(Number(prize) || 0);
+  if(!eligible || base <= 0) return {prize: base, gain: 0, pct: 0};
+  const hype = getBuff('bt_hype');
+  if(!hype.active || !(hype.magnitude > 0)) return {prize: base, gain: 0, pct: 0};
+  const out = Math.round(base * (1 + hype.magnitude/100));
+  return {prize: out, gain: out - base, pct: hype.magnitude};
+}
+
+// THE funnel. Returns a plain summary object for the end panel to read; it does
+// no DOM work of its own beyond what grantBuff() already does, keeping the
+// "credit here, paint there" split btEnd() relies on.
+function btAward(successPct){
+  const pct = Math.max(0, Math.min(1, Number(successPct) || 0));
+  const now = Date.now();
+  const factor = btCatFactor();
+
+  // Cash. round5 is not a helper in this file, so the rounding is written out
+  // rather than a shared one invented for a single caller.
+  let cash = Math.round(
+    ((BT_CASH_MIN + (BT_CASH_MAX - BT_CASH_MIN) * Math.pow(pct, BT_CASH_CURVE)) * factor) / 5
+  ) * 5;
+  if(!isFinite(cash) || cash < 0) cash = 0;
+
+  // Window check runs BEFORE the credit, so a capped drill banks nothing at all
+  // rather than banking and then being told it was capped (the fix178 lesson).
+  btCashWindowTick(now);
+  const s = rsStore();
+  const windowCap = Math.round(BT_CASH_WINDOW_MULT * BT_CASH_MAX * factor);
+  const room = Math.max(0, windowCap - s.btWindowEarned);
+  const capped = cash > room;
+  if(capped) cash = room;
+
+  if(cash > 0){
+    earnMoney(cash);
+    if(!s.btWindowStart) s.btWindowStart = now;
+    s.btWindowEarned += cash;
+  }
+
+  // Best score and last-played reuse the existing sub-objects — no new key.
+  const catches = Math.round(pct * BT_THROWS);
+  if(s.bestScores.bt == null || catches > s.bestScores.bt) s.bestScores.bt = catches;
+  s.lastPlayed.bt = now;
+
+  // Hype. grantBuff() saves; the else branch is the only path that needs its own
+  // saveGame(), exactly as fzEnd() splits it.
+  let magnitude = 0;
+  const won = pct >= BT_HYPE_THRESHOLD;
+  if(won){
+    magnitude = 5 + Math.round(pct * 15);   // 14-20% at 6/10 to 10/10
+    grantBuff('bt_hype', magnitude, BT_HYPE_MS);
+  }else{
+    saveGame();
+  }
+
+  return {cash, magnitude, won, capped, windowCap};
+}
+
+// Run over. The panel goes up FIRST and every write that could throw runs behind
+// a try/catch after it (the fix116 rule) — a failed save must not cost the
+// player the panel telling them what they earned. btAward() is called from here
+// and from nowhere else.
 function btEnd(){
   btActive=false;
   btClearHandles();
@@ -24091,6 +24444,25 @@ function btEnd(){
   btResetPanels(false);
   const endPanel=document.getElementById('bt-panel-end');
   if(endPanel) endPanel.classList.add('show');
+
+  // fix247: everything below is credit, and all of it is behind the panel.
+  try{
+    const res=btAward(btScore/BT_THROWS);
+    if(title) title.textContent = res.won
+      ? (btScore>=BT_THROWS ? 'Every hand filled' : 'The roadside is roaring')
+      : 'Bidons away';
+    if(copy){
+      const paid = res.cash>0 ? `+${fmtMoney(res.cash)} in the tin.` : 'Nothing left in the tin this half hour.';
+      copy.textContent = res.won
+        ? `You landed ${btScore} of ${BT_THROWS}. ${paid} The crowd carries you for the next half hour.`
+        : `You landed ${btScore} of ${BT_THROWS}. ${paid} Land ${Math.ceil(BT_HYPE_THRESHOLD*BT_THROWS)} to get the crowd behind you.`;
+    }
+    // Celebration fires LAST, after all DOM work, so nothing rebuilds it out
+    // from under the pop (fix126/fix155).
+    if(res.won) rsShowSuccessPop('bt');
+  }catch(e){
+    console.warn('btEnd: award failed', e);
+  }
 }
 
 // ── input ───────────────────────────────────────────────────────────────
