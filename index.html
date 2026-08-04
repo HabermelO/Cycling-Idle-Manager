@@ -1193,6 +1193,15 @@ button{font-family:inherit;cursor:pointer;}
   padding:14px;margin-bottom:10px;}
 .rs-game-title{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:700;color:var(--txt);}
 .rs-game-desc{font-size:12.5px;color:var(--txt3);margin-top:4px;line-height:1.45;}
+/* fix253: the payoff line. NEW rule only — .rs-game-card, .rs-game-desc and
+   .rs-game-card.locked are untouched. Amber against .rs-game-desc's --txt3 so
+   the eye can skip flavour and land on the benefit, which is the whole point of
+   the fix. Tight leading and 6px of top margin: the four cards must still fit a
+   360x640 viewport with every Start button reachable, so this line costs one
+   text row and no more. No background plate, no border — it sits inside the
+   card, it is not a badge. */
+.rs-game-reward{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;
+  color:var(--amber-txt);margin-top:6px;line-height:1.3;}
 .rs-game-meta{display:flex;justify-content:space-between;font-size:11.5px;color:var(--txt3);margin-top:8px;}
 .rs-game-btn{width:100%;margin-top:10px;background:var(--green-txt);color:#fff;border:none;
   border-radius:var(--radius);padding:11px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;}
@@ -6538,6 +6547,57 @@ body.train-sheet-live{overflow:hidden;}
    never trusted. */
 #sponsor-stage .sponsor-hot[disabled]{cursor:default;}
 
+/* ═══ fix251: THE COLLECT CUE ═════════════════════════════════════════════
+   One predicate (sponsorHasClaimable) toggles .sponsor-cue on #sponsor-stage
+   and that class drives TWO paints, because the two halves say different
+   things and neither is enough alone:
+
+     #sponsor-slot-name   — a steady lift. The nameplate is a .hub-slot DIV,
+                            pointer-events:none by construction, so it must NOT
+                            read as tappable: no pulse, no ring, just "this
+                            sponsor owes you something".
+     .sponsor-hot[data-hot="3"]::after — an animated ring over the painted
+                            CONTRACT, which is the thing that actually opens
+                            the sheet. This is where the tap goes.
+
+   COLOUR: var(--green-txt), the same colour the Home medallion uses for
+   .home-hot.sponsor-ready, so the cue the player followed in is the cue they
+   arrive at.
+
+   NO PROPERTY HERE REFLOWS. Opacity, box-shadow, filter and transform only.
+   The nameplate's own rules — the base #sponsor-slot-name geometry and every
+   #sponsor-slot-name[data-sponsor=...] font rule — are untouched, and nothing
+   below can shift the plaque off its painted box: text-shadow and filter both
+   paint in place, and the ring is a pseudo-element on a hotspot that is
+   already position:absolute. */
+#sponsor-stage.sponsor-cue #sponsor-slot-name{
+  filter:brightness(1.08);
+  text-shadow:0 1px 0 rgba(255,255,255,.60),
+              0 0 10px rgba(30,158,79,.55),
+              0 0 20px rgba(30,158,79,.30);
+}
+#sponsor-stage.sponsor-cue .sponsor-hot[data-hot="3"]::after{
+  content:'';
+  position:absolute;
+  left:-4px; right:-4px; top:-4px; bottom:-4px;
+  border:3px solid var(--green-txt);
+  border-radius:14px; /* .hub-hot-rect 10px + the 4px bleed */
+  box-shadow:0 0 12px rgba(30,158,79,.55), inset 0 0 8px rgba(30,158,79,.35);
+  pointer-events:none;
+}
+@media (prefers-reduced-motion: no-preference){
+  #sponsor-stage.sponsor-cue .sponsor-hot[data-hot="3"]::after{
+    animation:sponsorCueRing 1.6s ease-in-out infinite;
+  }
+}
+/* prefers-reduced-motion: reduce inherits the static ring above — the cue is
+   still fully legible without the pulse, matching every other transition in
+   this file. */
+@keyframes sponsorCueRing{
+  0%,100%{opacity:.55;}
+  50%    {opacity:1;}
+}
+
 /* ═══ fix221: SKILLS HUB — art and calibration only ═══════════════════════
    Stage one of two for the Skills tab (plan v2 §fix221), and the SHAPE of
    fix216 and fix218 with 'skills' substituted — art, cover-rect geometry,
@@ -6935,6 +6995,59 @@ body.train-sheet-live{overflow:hidden;}
 #skills-toast.on{opacity:1; visibility:visible; transform:translate(-50%,-50%) scale(1);}
 @media (prefers-reduced-motion: no-preference){
   #skills-toast{transition:opacity .18s ease, transform .18s ease;}
+}
+
+/* ═══ fix254: PER-MEDALLION DRILL COUNTDOWN ═══════════════════════════════
+   Four overlays, one per drill medallion, shown only while that drill's buff
+   is running. Positioned by the SAME four custom properties as .hub-hot and
+   with the SAME centre-origin transform, because each node's inline
+   --hx/--hy/--hw/--hh are its hotspot's copied verbatim (see the markup note):
+   share the box model and the two can never drift apart, even if the painted
+   raster is ever re-cut and the hotspot percentages move with it.
+
+   border-radius:50% matches the circular medallions the four drill hotspots
+   sit on — .hub-hot's own default, not .hub-hot-rect's 10px, since none of
+   1-4 carries that class.
+
+   pointer-events:none IS LOAD-BEARING, not tidiness. The tap has to fall
+   through to the hotspot underneath so rsCanStart() can toast the reason. An
+   overlay that swallowed the tap would turn a stated refusal back into the
+   silent no-op fix252 spent a whole fix removing.
+
+   The plate is dark and translucent and the text sits on its own darker pill,
+   so the figure reads over whatever the painting happens to put behind it at
+   any phone aspect — the medallions are lit metal in the art and white text
+   alone would wash out on the highlights.
+
+   Hidden via opacity+visibility rather than display, so the fade below has
+   something to animate and no layout is computed for a hidden overlay. No
+   animation beyond that fade, and the fade is behind
+   prefers-reduced-motion: no-preference, matching #skills-toast directly
+   above and every other transition in this file. */
+.skills-lock{
+  position:absolute;
+  left:var(--hx); top:var(--hy);
+  width:var(--hw,22%); height:var(--hh,22%);
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(10,15,26,.62);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.20);
+  pointer-events:none;
+  opacity:0; visibility:hidden;
+}
+.skills-lock.on{opacity:1; visibility:visible;}
+.skills-lock-time{
+  font-weight:800; font-size:15px; line-height:1;
+  color:#fff; letter-spacing:.02em;
+  padding:4px 9px; border-radius:999px;
+  background:rgba(0,0,0,.50);
+  text-shadow:0 2px 6px rgba(0,0,0,.75);
+  max-width:92%; text-align:center;
+  white-space:nowrap;
+}
+@media (prefers-reduced-motion: no-preference){
+  .skills-lock{transition:opacity .18s ease;}
 }
 
 /* ═══ THE SECTION SHEET ════════════════════════════════════════════════
@@ -10029,6 +10142,44 @@ body.home-open{overflow:hidden;}
         <button class="hub-hot skills-hot" data-hot="4" style="--hx:76.40%;--hy:68.77%;--hw:30.50%;--hh:13.72%" aria-label="Bidon Toss drill" onclick="skillsHubGo('bt')"></button>
         <button class="hub-hot hub-hot-rect skills-hot" data-hot="5" style="--hx:10.68%;--hy:20.45%;--hw:20%;--hh:5.50%" aria-label="Back to home" onclick="hubGo('home')"></button>
         <button class="hub-hot hub-hot-rect skills-hot" data-hot="6" style="--hx:50.00%;--hy:55.80%;--hw:46.00%;--hh:5.60%" aria-label="Skill drills and active buffs" onclick="skillsHubGo2Sheet()"></button>
+        <!-- fix254: the per-medallion countdown overlays. FOUR PRE-BUILT NODES,
+             created once here and NEVER created or destroyed at runtime — the
+             #skills-toast / .hub-slot pattern, for the same reason: a renderer
+             that builds its own nodes cannot be signature-guarded and cannot be
+             cached all-or-nothing.
+
+             Defect they close: a drill whose buff is still running is locked
+             (rsIsLocked), and tapping its medallion fires skillsHubGo(id) ->
+             rsCanStart() -> a showToast() refusal. Correct, but only AFTER a
+             wasted tap — the painted hub showed four identical medallions with
+             no state on any of them.
+
+             GEOMETRY IS COPIED, NOT RE-MEASURED. Each node takes the
+             --hx/--hy/--hw/--hh of its matching hotspot VERBATIM — fz->data-hot
+             1, sl->2, wt->3, bt->4 — because those percentages were already
+             fitted numerically against the shipped 768x1707 raster (see the
+             fix222 CSS) and the overlay has to land exactly on the painted
+             plate. Re-deriving them here would be two numbers for one box, and
+             the second one would drift.
+
+             INDEX-MAP NOTE: this adds NO data-hot. The skills run stays 1-6 and
+             fix222's / fix249's numbering is untouched. These are divs, not
+             .hub-hot buttons, so nothing that queries .skills-hot or indexes on
+             data-hot can see them.
+
+             pointer-events:none on every one of them (the .skills-lock rule).
+             The hotspot underneath MUST keep receiving the tap so rsCanStart()
+             can state the refusal out loud. THE OVERLAY IS A LABEL, NEVER A
+             SHIELD — the same principle fix252 applied to the sponsor switch,
+             approached from the other direction: fix252 removed a silent block,
+             this one adds an explanation without adding a block.
+
+             Ordered AFTER the hotspots and BEFORE #skills-toast so they paint
+             over the medallions and the toast still paints over them. -->
+        <div class="skills-lock" id="skills-lock-fz" style="--hx:19.41%;--hy:30.39%;--hw:29.00%;--hh:13.05%" aria-hidden="true"><span class="skills-lock-time"></span></div>
+        <div class="skills-lock" id="skills-lock-sl" style="--hx:80.43%;--hy:30.25%;--hw:29.00%;--hh:13.05%" aria-hidden="true"><span class="skills-lock-time"></span></div>
+        <div class="skills-lock" id="skills-lock-wt" style="--hx:24.84%;--hy:68.42%;--hw:30.50%;--hh:13.72%" aria-hidden="true"><span class="skills-lock-time"></span></div>
+        <div class="skills-lock" id="skills-lock-bt" style="--hx:76.40%;--hy:68.77%;--hw:30.50%;--hh:13.72%" aria-hidden="true"><span class="skills-lock-time"></span></div>
         <!-- The informational pill. A child of #skills-art rather than of
              #skills-stage so it is positioned against the cover rect and lands
              in the same place relative to the painted forecourt at every aspect,
@@ -14471,23 +14622,53 @@ function checkSponsorWeeklyReset(){
   }
 }
 
+// fix251: THE single test for "the sponsor system owes the player an action".
+// Extracted verbatim out of updateSponsorBadge() below so that the Home
+// medallion and the sponsor hub's own cue cannot drift apart — the whole point
+// of the fix is that the cue the player follows in is the cue they arrive at,
+// and two copies of this expression would eventually disagree.
+//
+// PURE READ. No writes of any kind: it is called from a render path
+// (renderSponsorHubSlots) as well as from the badge updater, and a state write
+// on a render path is the one thing this project does not do.
+//
+// The four cases are exactly the four the Home badge already covered:
+//   1  an objective at/over target and unclaimed
+//   2  the completion bonus unclaimed with every objective claimed
+//   3  an available tier upgrade (canUpgradeSponsor())
+//   4  no sponsor, no terminate cooldown, and a tier is eligible
+function sponsorHasClaimable(){
+  const active=getActiveSponsorDef();
+  if(active){
+    // Claimable objectives or bonus
+    if(active.sponsor.objectives.some(o=>!state.sponsor.claimed[o.id] && (state.sponsor.progress[o.type]||0)>=o.target)) return true;
+    if(!state.sponsor.bonusClaimed && active.sponsor.objectives.every(o=>state.sponsor.claimed[o.id])) return true;
+    // Upgrade available
+    if(canUpgradeSponsor()) return true;
+    return false;
+  }
+  // No sponsor, no cooldown — something to act on
+  if(getSponsorTerminateCooldownRemaining()<=0) return getCurrentSponsorTierIndex()>=0;
+  return false;
+}
+
 // Lights up the Sponsors tab when there's something ready to claim, or when a tier is
 // unlocked and waiting to be picked for the first time.
 function updateSponsorBadge(){
   const btn=homeBadgeEl('sponsors'); if(!btn) return; // fix171: was #tab-btn-sponsors
-  const active=getActiveSponsorDef();
-  let ready=false;
-  if(active){
-    // Claimable objectives or bonus
-    ready = active.sponsor.objectives.some(o=>!state.sponsor.claimed[o.id] && (state.sponsor.progress[o.type]||0)>=o.target);
-    if(!ready && !state.sponsor.bonusClaimed && active.sponsor.objectives.every(o=>state.sponsor.claimed[o.id])) ready=true;
-    // Upgrade available
-    if(!ready && canUpgradeSponsor()) ready=true;
-  } else if(getSponsorTerminateCooldownRemaining()<=0){
-    // No sponsor, no cooldown — something to act on
-    ready = getCurrentSponsorTierIndex()>=0;
-  }
-  btn.classList.toggle('sponsor-ready', ready);
+  // fix251 tombstone: the inline test that used to live here is now
+  // sponsorHasClaimable(), above. Behaviour is byte-for-byte identical; the
+  // move exists so there is exactly ONE copy of it in this file.
+  //   const active=getActiveSponsorDef();
+  //   let ready=false;
+  //   if(active){
+  //     ready = active.sponsor.objectives.some(o=>!state.sponsor.claimed[o.id] && (state.sponsor.progress[o.type]||0)>=o.target);
+  //     if(!ready && !state.sponsor.bonusClaimed && active.sponsor.objectives.every(o=>state.sponsor.claimed[o.id])) ready=true;
+  //     if(!ready && canUpgradeSponsor()) ready=true;
+  //   } else if(getSponsorTerminateCooldownRemaining()<=0){
+  //     ready = getCurrentSponsorTierIndex()>=0;
+  //   }
+  btn.classList.toggle('sponsor-ready', sponsorHasClaimable());
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -22574,14 +22755,26 @@ function getCombinedWorkshopBonuses(raceTypeId){
 //                on the clock, so a buff earned before bed is still there in
 //                the morning, which is what "next race" means to a player.
 const RS_GAMES=[
+  // fix253: `reward` is a NEW FIELD on the existing entries, not a new array
+  // element — rsActiveBuffs() and renderRiderSkillsHub() still iterate the same
+  // four in the same order, so the index-map coupling this table has carried
+  // since fix244 is untouched. `desc` stays flavour; `reward` states the payoff
+  // and its SHAPE (timed vs banked) so the player can choose between drills.
+  // Durations are quoted from the constants that actually grant them —
+  // FZ_BUFF_MS 30 min, SL_BUFF_MS 60 min, BT_HYPE_MS 30 min, and wt_aero is
+  // granted with durationMs null (race-scoped), which is why it says "banked"
+  // and names no clock.
   {id:'fz', name:'Feed Zone Scramble', icon:'drink',
    desc:'Grab the right bottles on the fly. Nail it and your legs come back quicker for half an hour.',
+   reward:'Legs come back faster for 30 min',
    buffId:'fz_regen'},
   {id:'sl', name:'Slipstream Drafting', icon:'bike',
    desc:'Hold the wheel in front without touching it. Hold it long enough and the next hour of training sticks harder.',
+   reward:'Training sticks harder for 1 hour',
    buffId:'sl_xp'},
   {id:'wt', name:'Wind Tunnel', icon:'wind',
    desc:'Dial in your position until the airflow goes quiet. Find the tuck and you carry it into your next race.',
+   reward:'Aero tuck banked for your next race',
    buffId:'wt_aero'},
   // fix244: Bidon Toss. APPENDED, never inserted — rsActiveBuffs() and
   // renderRiderSkillsHub() both iterate this array in order, so inserting would
@@ -22600,8 +22793,13 @@ const RS_GAMES=[
   // Knock-on, stated so it is not read as a regression: the sheet's meta line
   // reads `${RS_GAMES.length} drills` and now says 4, not 3. That is true —
   // there are four drills, one of them not yet rideable.
+  // fix253: 'bt' gets a reward line like the other three even though the drill
+  // is not yet rideable. Its card already appears in the list, and a card with
+  // no payoff line among three that have one reads as a bug, not as "coming
+  // soon". The lockout copy is unchanged and still does that job.
   {id:'bt', name:'Bidon Toss', icon:'drink',
    desc:'Hit the outstretched hands in the crowd with a spent bidon. Land enough of them and the roadside carries you for half an hour.',
+   reward:'Bigger race prizes for 30 min',
    buffId:'bt_hype'},
 ];
 
@@ -23008,6 +23206,12 @@ function renderRiderSkillsTab(){
   // safe. Self-guards on currentTab and holds a signature guard, so a call with
   // identical figures is a few property reads.
   renderHubBanner('skills');
+  // fix254: the painted hub's drill state. APPENDED after renderHubBanner() for
+  // fix222's own reason — none of the three calls above early-returns, so the
+  // tail position cannot be stranded behind a branch. Self-guards on currentTab
+  // and holds its own signature guard, so a call with an unchanged shown-set is
+  // four getBuff() reads and four string compares.
+  renderSkillsHubLocks();
 }
 
 // Now simply "go to the Skills panel". Still the single entry point, so the
@@ -23041,11 +23245,80 @@ function renderRiderSkillsHub(){
     return `<div class="rs-game-card${locked?' locked':''}">
       <div class="rs-game-title">${icn(g.icon)} ${g.name}</div>
       <div class="rs-game-desc">${g.desc}</div>
+      <!-- fix253: payoff line. Inserted BETWEEN .rs-game-desc and
+           .rs-game-meta; nothing else in this template moves, so .rs-game-meta,
+           the fix155 lock note and the button keep their positions and classes
+           and the lockout render is untouched. Shown in both states — a locked
+           card still has to say what the drill is worth, or the player cannot
+           decide what to queue next. icn('gift') resolves to the existing
+           #icn-gift <symbol>; no new sprite this fix. -->
+      <div class="rs-game-reward">${icn('gift')} ${g.reward}</div>
       <div class="rs-game-meta"><span>${bestTxt}</span><span>${stateTxt}</span></div>
       ${note}
       <button class="rs-game-btn" ${locked?'disabled':''} onclick="startRiderSkillGame('${g.id}')">${locked?'Not yet':'Start drill'}</button>
     </div>`;
   }).join('');
+}
+
+// ── fix254: painted-hub drill state ─────────────────────────────────────
+// Paints the four #skills-lock-* overlays: which drills are busy, and for how
+// much longer. Closes the wasted-tap defect — the hub used to show four
+// identical medallions and only told you a drill was locked AFTER you tapped it
+// and rsCanStart() toasted.
+//
+// PURE READ. getBuff() only, exactly as rsIsLocked() does, so this renderer and
+// the lockout it reports can never disagree about what is running. Writes
+// nothing back to state — render-only discipline, and this is called from the
+// 100ms tick, where a state write would be a write every tick.
+//
+// Two guards doing different jobs, deliberately not merged:
+//   - the per-node textContent write is guarded on its own value, so a tick on
+//     which the displayed figure has not changed does no DOM work at all (the
+//     rsTickBuffPills() rule: guarded writes, no innerHTML, no DOM thrash);
+//   - the classList work is behind a SIGNATURE over the set of SHOWN IDS only.
+//     The signature deliberately does NOT include the countdown text: if it did
+//     it would change every second and the class toggles would be re-run every
+//     second for nothing. Shown-set only means the per-tick text patch is never
+//     fighting a rebuild.
+let _skillsLockNodes=null, _skillsLockSig='';
+function renderSkillsHubLocks(){
+  if(currentTab!=='skills') return;
+  if(!_skillsLockNodes){
+    // All-or-nothing cache, the _sponsorHubSlotNodes / renderHubBanner() rule:
+    // a partial cache would paint a countdown on some medallions and silently
+    // skip the rest, which is worse than painting none — the player would read
+    // the un-painted ones as Ready and tap into a refusal.
+    const map={};
+    for(const g of RS_GAMES){
+      const box=document.getElementById('skills-lock-'+g.id);
+      const t=box&&box.querySelector('.skills-lock-time');
+      if(!box||!t) return;
+      map[g.id]={box:box, time:t};
+    }
+    _skillsLockNodes=map;
+  }
+  const shown=[];
+  for(const g of RS_GAMES){
+    const n=_skillsLockNodes[g.id]; if(!n) continue;
+    const b=getBuff(g.buffId);
+    let txt='';
+    if(b.active){
+      shown.push(g.id);
+      // Race-scoped buffs (wt_aero: consumeOnRace, msLeft Infinity) read as a
+      // STATE, never a clock. A running counter on a buff that does not expire
+      // on the clock would be a lie, and the player would come back to a
+      // medallion that had counted down to nothing and still refused.
+      txt=b.consumeOnRace?'Banked':rsFormatLeft(b.msLeft);
+    }
+    if(n.time.textContent!==txt) n.time.textContent=txt;
+  }
+  const sig=shown.join(',');
+  if(sig===_skillsLockSig) return;
+  _skillsLockSig=sig;
+  for(const g of RS_GAMES){
+    const n=_skillsLockNodes[g.id]; if(!n) continue;
+    n.box.classList.toggle('on', shown.indexOf(g.id)!==-1);
+  }
 }
 
 // Dispatcher. fix151 lands the 'fz' branch, fix152 the 'sl' branch, fix153 the
@@ -26220,29 +26493,61 @@ function renderSponsorHubSlots(){
     }));
     // All-or-nothing, matching renderHubBanner(): a partial cache would paint
     // some of the hub and silently skip the rest.
-    if(!name||!slot||lines.some(l=>!l.lbl||!l.val)) return;
-    _sponsorHubSlotNodes={name:name, slot:slot, lines:lines};
+    // fix251: the stage carries the .sponsor-cue class that drives BOTH paints
+    // (plaque lift + contract ring). Cached here rather than looked up per
+    // render, and folded into the same all-or-nothing guard: a cue with no
+    // plaque, or a plaque with no cue, is worse than neither.
+    const stage=document.getElementById('sponsor-stage');
+    if(!name||!slot||!stage||lines.some(l=>!l.lbl||!l.val)) return;
+    _sponsorHubSlotNodes={name:name, slot:slot, lines:lines, stage:stage};
   }
-  // fix220: the VISIBLE half of the switch lockout. Sited ABOVE the signature
-  // guard below on purpose — the signature covers the plaque and the three
-  // objective lines, and none of those move when a lateral cooldown expires, so
-  // running this after the guard would leave the hotspot disabled for as long as
-  // the board happened to read the same. Still render-only: an attribute write
-  // on one node, no state touched.
+  // fix252: RETIRED — the cosmetic half of the switch lockout, tombstoned whole.
   //
-  // This is COSMETIC REINFORCEMENT ONLY. It goes stale between renders (the
-  // cooldown expires on a clock, not on a player action) and it is trivially
-  // bypassed by a hand-fired onclick, which is exactly why sponsorSwitchOpen()
-  // re-checks all three refusing states itself and does not trust this.
+  // fix220 added the block below as VISIBLE REINFORCEMENT of a refusal that is
+  // ENFORCED ELSEWHERE. Its own comment said it did not trust itself: it goes
+  // stale between renders (the lateral cooldown expires on a clock, not on a
+  // player action) and it is trivially bypassed by a hand-fired onclick, which
+  // is why sponsorSwitchOpen() re-checks every state itself.
   //
-  // Deliberately NOT disabled in the upgrade state: canUpgradeSponsor() is a
-  // redirect into the sheet, not a refusal, so the control does something.
-  const _swHot=document.querySelector('#sponsor-stage .sponsor-hot[data-hot="1"]');
-  if(_swHot){
-    const _locked = !getActiveSponsorDef()
-      || (!canUpgradeSponsor() && (getSponsorLateralCooldownRemaining()>0 || !getLateralSponsor()));
-    _swHot.disabled=_locked;
-  }
+  // The defect: a `disabled` painted hotspot is INVISIBLE. The art still shows a
+  // SWITCH SPONSOR plate, the tap does nothing, and the player is told nothing.
+  // A hard lockout must state its reason; a silent no-op is not a lockout, it is
+  // a dead control.
+  //
+  // Removing the attribute changes NOTHING about what can happen — the enforced
+  // half lives in sponsorSwitchOpen(), which still refuses every one of these
+  // states and now says so out loud:
+  //   no active sponsor  -> pill: 'Sign a sponsor first'
+  //   upgrade available  -> redirect into the sheet's choosing view (never was
+  //                         disabled here — a redirect is not a refusal)
+  //   lateral cooldown   -> pill: 'Can switch again in Nh'
+  //   no lateral sponsor -> pill: 'No other sponsor at this tier'
+  //   otherwise          -> two-tap arm, unchanged and NOT re-implemented here
+  // The pill renders into #sponsor-toast, a child of #sponsor-art, so it is on
+  // the stage in every one of those states (fix220).
+  //
+  // The matching CSS rule #sponsor-stage .sponsor-hot[disabled]{cursor:default;}
+  // is deliberately LEFT IN PLACE, unmatched: it costs nothing and it is the
+  // other half of this tombstone.
+  //
+  // const _swHot=document.querySelector('#sponsor-stage .sponsor-hot[data-hot="1"]');
+  // if(_swHot){
+  //   const _locked = !getActiveSponsorDef()
+  //     || (!canUpgradeSponsor() && (getSponsorLateralCooldownRemaining()>0 || !getLateralSponsor()));
+  //   _swHot.disabled=_locked;
+  // }
+  // fix251: the "you have something to collect" cue. Sited ABOVE the signature
+  // guard for exactly the reason _swHot was (fix252 tombstoned that block above,
+  // but its siting rationale is the one this write still relies on) —
+  // sponsorHasClaimable() moves on a
+  // clock and on claims made elsewhere, while the plaque text and the three
+  // objective lines do not, so a guarded write would leave a stale cue lit (or
+  // dark) for as long as the board happened to read the same.
+  //
+  // Render-only: one classList.toggle on one already-cached node. The class
+  // drives two CSS paints and nothing else — no geometry, no new node, no id.
+  const _cue = sponsorHasClaimable();
+  _sponsorHubSlotNodes.stage.classList.toggle('sponsor-cue', _cue);
   let plaque, rows;
   // fix228: the sponsor's own id, used only to select a nameplate font. Empty
   // in the three sponsorless states — "No sponsor" and "Unsigned" are the
@@ -26288,7 +26593,9 @@ function renderSponsorHubSlots(){
   // happened to render identically still repaints the voice; without it in the
   // signature the guard could hold a stale font against a new name. One
   // attribute write on one node, no state touched — the same shape as the
-  // _swHot.disabled write above.
+  // .sponsor-cue toggle above. (fix252: this used to point at the _swHot
+  // .disabled write, which is tombstoned above; the shape it describes is
+  // unchanged.)
   if(plaqueId) n.slot.setAttribute('data-sponsor', plaqueId);
   else n.slot.removeAttribute('data-sponsor');
   for(let i=0;i<3;i++){
@@ -27233,9 +27540,18 @@ function gameTick(){
     // one guard covers what used to be a tab check plus an overlay-visibility
     // check. fix155's point stands: this branch runs on expiry, not every tick,
     // so the innerHTML rebuild is not a per-tick rebuild.
-    if(currentTab==='skills'){ renderRiderSkillsCard(); renderRiderSkillsHub(); }
+    // fix254: the painted hub reports drill state too, so it has to clear on
+    // the same tick the buff does — otherwise an expired drill keeps a stale
+    // overlay until something else happens to re-render, and the medallion says
+    // busy while rsCanStart() says go.
+    if(currentTab==='skills'){ renderRiderSkillsCard(); renderRiderSkillsHub(); renderSkillsHubLocks(); }
   }
-  else if(currentTab==='skills') rsTickBuffPills(); // fix174: was 'train'
+  // fix254: and the countdown ticks on the non-expiry branch, beside the buff
+  // pills it mirrors. Same shape as rsTickBuffPills() — guarded textContent
+  // writes only, no innerHTML — so this is the per-tick text patch, not a
+  // per-tick rebuild; the class work inside is behind the shown-set signature
+  // and does not run on a tick where only the figure moved.
+  else if(currentTab==='skills'){ rsTickBuffPills(); renderSkillsHubLocks(); } // fix174: was 'train'
   // Passive sponsor income. Capped at SPONSOR_OFFLINE_CAP_SEC because delta can
   // now legitimately be hours rather than 100ms.
   if(D.sponsorPerSec>0) earnMoney(D.sponsorPerSec*Math.min(delta,SPONSOR_OFFLINE_CAP_SEC));
