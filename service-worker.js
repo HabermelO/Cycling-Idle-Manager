@@ -545,7 +545,28 @@
 // fix250: HTML only, no asset content change — but the HTML itself is the thing
 // that changed, and the shell is network-first, so this bump is belt-and-braces
 // for installed PWAs whose runtime cache is holding the fix249 document.
-const CACHE_VERSION = 'cim-v3.8.57';   // fix250: Bidon Toss swipe fix + wind band (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.57';   // fix250: Bidon Toss swipe fix + wind band (HTML only, no asset change)
+// fix251: HTML only (one CSS block, one extracted predicate, one class write).
+// No asset added, removed or re-encoded — the sponsor cue is painted entirely
+// in CSS over art that is already cached. Bumped anyway, per the house rule:
+// the shell is network-first but an installed PWA can be holding the fix250
+// document, and a stale shell is still the most common deployment failure here.
+// const CACHE_VERSION = 'cim-v3.8.58';   // fix251: sponsor hub collect cue (HTML only, no asset change)
+// fix252: HTML only (one tombstoned block in renderSponsorHubSlots()).
+// const CACHE_VERSION = 'cim-v3.8.59';   // fix252: SWITCH SPONSOR always tappable (HTML only, no asset change)
+// fix253: HTML only — a registry field, one node in the drill card template and
+// one new CSS rule. No asset byte changed. Bumped anyway, per the house rule:
+// './index.html' is precached and the deployed filename never changes between
+// fixes (the fix186 reasoning above), so without a new key a returning player
+// keeps the fix252 document and never sees the reward lines at all.
+// const CACHE_VERSION = 'cim-v3.8.60';   // fix253: drill cards state their payoff (HTML only, no asset change)
+// fix254: HTML only — four pre-built overlay nodes in #skills-art, one new
+// renderer, two existing call sites and one new CSS block. No asset byte
+// changed. Bumped anyway for the same reason as the four fixes above:
+// './index.html' is precached under a filename that never changes between
+// fixes, so without a new key a returning player keeps the fix253 document and
+// the painted medallions never report a running drill.
+const CACHE_VERSION = 'cim-v3.8.61';   // fix254: skills hub per-medallion drill countdown (HTML only, no asset change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
