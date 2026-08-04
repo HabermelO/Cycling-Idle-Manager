@@ -541,7 +541,11 @@
 // consumer — are all present in the cached build and none of them is reachable
 // by any route a player has. The one symptom points at the feature not having
 // been built, and nothing points at the cache.
-const CACHE_VERSION = 'cim-v3.8.56';   // fix249: Bidon Toss medallion connected (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.56';   // fix249: Bidon Toss medallion connected (HTML only, no asset change)
+// fix250: HTML only, no asset content change — but the HTML itself is the thing
+// that changed, and the shell is network-first, so this bump is belt-and-braces
+// for installed PWAs whose runtime cache is holding the fix249 document.
+const CACHE_VERSION = 'cim-v3.8.57';   // fix250: Bidon Toss swipe fix + wind band (HTML only, no asset change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
