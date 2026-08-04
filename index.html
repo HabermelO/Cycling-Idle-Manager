@@ -1,4 +1,48 @@
 <!DOCTYPE html>
+<!-- fix250: BIDON TOSS — THE THROW ACTUALLY THROWS, AND THE WIND IS VISIBLE.
+     Bug report: the upward swipe did nothing on a touch screen, and the wind
+     was a grey "-5" sharing a 13px row with two counters.
+
+     ROOT CAUSE OF THE DEAD SWIPE — one CSS declaration. #bt-canvas carried
+     `touch-action:manipulation`, which still permits PANNING, and its ancestor
+     .bt-overlay is `overflow-y:auto`. So on glass the browser treated an upward
+     flick as a scroll of the overlay: it took the gesture, stopped delivering
+     pointermove, and fired pointercancel. btDragCurrY never left btDragStartY,
+     deltaY stayed 0, and the `deltaY > 30` gate in btPointerUp() never opened.
+     Nothing threw an error and nothing logged — the throw simply never
+     happened. It worked with a mouse, which is why it shipped. `touch-action`
+     is now `none`, matching the only other drag surface in this file.
+
+     WHAT ELSE SHIPS (all Bidon Toss, nothing outside .bt-/bt*):
+       1. touch-action:none on #bt-canvas. THE fix. Old rule tombstoned.
+       2. setPointerCapture() on pointerdown, so a finger that leaves the 340px
+          board mid-flick keeps feeding the drag. Belt-and-braces, try/catch'd.
+       3. pointercancel unhooked from btPointerUp() onto a new btPointerCancel()
+          that ABORTS. A cancelled gesture must not launch on a stale delta.
+       4. The wind readout leaves .bt-row and becomes #bt-wind-band: full board
+          width, 40px arrow, 26px number, coloured by strength through
+          --bt-wind-c, flipped for a leftward wind, pulsed on every new roll.
+       5. btDrawWind() paints the same wind INSIDE the canvas sky strip — arrow,
+          scaled streaks and the number — so the player reads it without looking
+          away from the throw. Render-only, drawn above the guardrail, well
+          clear of BT_TARGET_Y.
+
+     SIGN CONVENTION, stated once and honoured in both renderers: positive
+     btWind drifts the bidon toward +x, i.e. RIGHT. The arrow's resting
+     direction is right; only a negative wind flips it. The minus sign is
+     therefore dropped from the number — a sign is not a direction anyone reads
+     mid-throw, and printing both says it twice.
+
+     #bt-wind IS NOT RETIRED. It moved inside the band and btUpdateUI() still
+     writes it, so no call site changes and no id lookup goes stale.
+
+     NO STATE, NO SAVE, NO REWARD MATHS TOUCHED. btUpdateDifficulty() is
+     unaltered: the wind values and the difficulty curve are exactly what
+     fix246 shipped. This fix changes what the player can SEE and DO, not what
+     the run pays. No new timer, no new rAF chain, no new listener beyond the
+     cancel handler that replaces one already in btBindPointers()/
+     btUnbindPointers() as a matched pair.
+-->
 <!-- fix249: BIDON TOSS — CONNECT THE MEDALLION. Plan §B7, the last stage of the
      plan. TWO LIVE EDITS AND NOTHING ELSE: one onclick string on skills hub
      hotspot 4, and one branch in startRiderSkillGame(). No CSS rule, no asset,
@@ -1566,9 +1610,43 @@ button{font-family:inherit;cursor:pointer;}
    across a canvas selects text and fires the iOS callout unless both are killed
    on the drawing surface itself. display:block kills the inline-element
    baseline gap that would otherwise leave a sliver of .bt-area showing below. */
+/* fix250: THE INPUT BUG. `touch-action:manipulation` still permits panning,
+   and .bt-overlay is overflow-y:auto — so on a touch device the browser claimed
+   the upward flick as a scroll gesture, stopped delivering pointermove, and
+   fired pointercancel. btDragCurrY therefore never moved off btDragStartY,
+   deltaY stayed 0, and btPointerUp()'s `deltaY>30` gate never opened: the throw
+   silently did nothing, every time, on glass only. `none` is what the other
+   drag surfaces in this file use (.wt-slider-group input[type=range]) and is
+   the fix114 lesson taken the whole way. Tombstoned, not deleted:
+   #bt-canvas{... touch-action:manipulation; ...}   <- fix245..fix249 */
 #bt-canvas{display:block;width:100%;height:100%;
-  touch-action:manipulation;-webkit-user-select:none;user-select:none;
+  touch-action:none;-webkit-user-select:none;user-select:none;
   -webkit-touch-callout:none;}
+/* fix250: the wind band. Deliberately LOUD — the readout it replaces was a
+   13px grey span sharing a row with two counters, which is why the wind read as
+   chrome rather than as the thing the throw has to beat. Sits directly above
+   the canvas, full board width, arrow + number + word. Colour comes from
+   --bt-wind-c, written by btRenderWind() each throw, so the band is a live part
+   of the difficulty curve rather than a static label. .flip rotates the arrow
+   180deg for a leftward wind; .bump is a one-shot pulse retriggered on every
+   new roll so a change is impossible to miss mid-run. */
+.bt-wind-band{--bt-wind-c:#2ed573;display:flex;align-items:center;justify-content:center;
+  gap:10px;width:100%;margin-bottom:8px;padding:8px 12px;border-radius:var(--radius-lg);
+  border:2px solid var(--bt-wind-c);background:color-mix(in srgb,var(--bt-wind-c) 16%,transparent);
+  color:var(--bt-wind-c);font-weight:900;font-variant-numeric:tabular-nums;
+  text-transform:uppercase;letter-spacing:.5px;}
+.bt-wind-arrow{flex:0 0 auto;width:40px;height:40px;display:block;
+  transition:transform .18s ease;}
+.bt-wind-band.flip .bt-wind-arrow{transform:scaleX(-1);}
+.bt-wind-val{font-size:26px;line-height:1;}
+.bt-wind-unit{font-size:12px;opacity:.85;}
+.bt-wind-word{font-size:12px;opacity:.85;margin-left:2px;}
+.bt-wind-band.bump{animation:btWindBump .45s ease;}
+@keyframes btWindBump{0%{transform:scale(1)}35%{transform:scale(1.06)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){
+  .bt-wind-band.bump{animation:none;}
+  .bt-wind-arrow{transition:none;}
+}
 .bt-panel{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;
   align-items:center;justify-content:center;gap:8px;padding:1rem;text-align:center;
   background:rgba(0,0,0,.72);color:#fff;border-radius:var(--radius-lg);}
@@ -10613,10 +10691,28 @@ body.home-open{overflow:hidden;}
          stage has no dispatcher path, so on a console-opened board the banner
          is expected to be empty until fix246. Not a bug to chase here. -->
     <div class="rs-hero"><div class="rs-hero-img bt"></div></div>
+    <!-- fix250: the wind span is GONE from this row and lives in the band below.
+         Tombstone of what stood here fix245..fix249:
+           <span>Wind: <span id="bt-wind">0</span> km/h</span>
+         #bt-wind is not retired — it MOVED, and btUpdateUI() still writes it.
+         Two counters left, so the row no longer three-ways its width. -->
     <div class="bt-row">
       <span>Throws: <span id="bt-throws">0</span>/<span id="bt-throws-max">10</span></span>
       <span>Caught: <span id="bt-score">0</span></span>
-      <span>Wind: <span id="bt-wind">0</span> km/h</span>
+    </div>
+    <!-- fix250: wind band. The arrow is inline SVG rather than a #icn- <use>
+         because it must be flippable on its own transform and tinted by
+         currentColor at 40px — the sprite set is sized for 1em chrome icons.
+         aria-live="polite" so a screen reader hears the new wind on each throw;
+         the arrow itself is aria-hidden because #bt-wind-text says it in words. -->
+    <div id="bt-wind-band" class="bt-wind-band" aria-live="polite">
+      <svg class="bt-wind-arrow" viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M4 24h26" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+        <path d="M26 12l16 12-16 12z" fill="currentColor"/>
+      </svg>
+      <span id="bt-wind-text">
+        <span class="bt-wind-val" id="bt-wind">0</span><span class="bt-wind-unit"> km/h</span><span class="bt-wind-word" id="bt-wind-word">Calm</span>
+      </span>
     </div>
     <div id="bt-area" class="bt-area">
       <canvas id="bt-canvas" width="420" height="750"></canvas>
@@ -23989,7 +24085,49 @@ function btUpdateUI(){
   if(t) t.textContent=btThrows;
   if(m) m.textContent=BT_THROWS;
   if(s) s.textContent=btScore;
-  if(w) w.textContent=Math.round(btWind);
+  // fix250: #bt-wind still exists and is still written here — it MOVED into the
+  // band, it was not replaced. The magnitude only: sign is carried by the arrow,
+  // because "-5 km/h ←" says the same thing twice and a minus sign is not a
+  // direction anyone reads mid-throw. btRenderWind() owns colour and rotation.
+  if(w) w.textContent=Math.abs(Math.round(btWind));
+  btRenderWind();
+}
+
+// fix250 — RENDER-ONLY. Reads btWind, paints the band: arrow direction, colour
+// and word. Called from btUpdateUI() (so every throw re-rolls it), which in turn
+// is called from openBidonToss(), btStart(), btEvaluateThrow() and btEnd() —
+// no new call site is invented for this and no state is written.
+//
+// The bands mirror the difficulty curve in btUpdateDifficulty(): minWind is 4
+// and maxWind climbs to 28 with the streak, so 0-8 is the opening rounds, 8-16
+// is a run going well and 16+ is only reachable deep into a streak. Colour is
+// therefore a live progress readout, not decoration.
+const BT_WIND_BANDS = [
+  {max: 0.05, c:'#8e9aaf', word:'Calm'},
+  {max: 8,    c:'#2ed573', word:'Light'},
+  {max: 16,   c:'#ffa502', word:'Gusting'},
+  {max: 22,   c:'#ff6348', word:'Strong'},
+  {max: Infinity, c:'#ff4757', word:'Howling'}
+];
+function btRenderWind(){
+  const band=document.getElementById('bt-wind-band'); if(!band) return;
+  const mag=Math.abs(btWind);
+  const b=BT_WIND_BANDS.find(x=>mag<x.max) || BT_WIND_BANDS[BT_WIND_BANDS.length-1];
+  band.style.setProperty('--bt-wind-c', b.c);
+  const word=document.getElementById('bt-wind-word');
+  if(word) word.textContent=b.word;
+  // Positive btWind drifts the bidon toward +x (see btBottle.update), i.e. to
+  // the RIGHT — which is the SVG's resting direction, so only a negative wind
+  // flips. Getting this backwards would teach the player to aim the wrong way,
+  // which is why the sign convention is stated here beside the class toggle.
+  band.classList.toggle('flip', btWind < 0);
+  // One-shot pulse. Removing the class and forcing a reflow before re-adding is
+  // the only way to retrigger a CSS animation that is already applied — without
+  // the offsetWidth read, throws 2..10 would set a class that is already set and
+  // nothing would move.
+  band.classList.remove('bump');
+  void band.offsetWidth;
+  if(mag>0.05) band.classList.add('bump');
 }
 
 function openBidonToss(){
@@ -24234,6 +24372,51 @@ function btDrawEnvironment(ctx){
   ctx.stroke();
 }
 
+// fix250 — RENDER-ONLY. The band above the board says how hard; this says the
+// same thing ON the road, in the sky strip the bidon flies through, so the
+// player never has to look away from the throw to read the wind. Streak length
+// and count scale with magnitude and the whole group flips with the sign, using
+// the SAME convention as btRenderWind(): positive drifts right.
+//
+// Drawn in the sky band only (y < BT_TARGET_Y-20), above the guardrail and well
+// clear of BT_TARGET_Y, so it can never be mistaken for the catch line or sit
+// under the fan. Writes nothing.
+function btDrawWind(ctx){
+  const mag=Math.abs(btWind);
+  if(mag<0.05) return;
+  const band=BT_WIND_BANDS.find(x=>mag<x.max) || BT_WIND_BANDS[BT_WIND_BANDS.length-1];
+  const dir=btWind<0 ? -1 : 1;
+  const cx=BT_W/2, cy=70;
+  const len=Math.min(150, 50+mag*3.5);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(dir, 1);
+  // Shaft + head.
+  ctx.strokeStyle=band.c; ctx.lineCap='round'; ctx.lineWidth=10;
+  ctx.beginPath(); ctx.moveTo(-len/2, 0); ctx.lineTo(len/2-16, 0); ctx.stroke();
+  ctx.fillStyle=band.c;
+  ctx.beginPath();
+  ctx.moveTo(len/2-20,-16); ctx.lineTo(len/2+8,0); ctx.lineTo(len/2-20,16);
+  ctx.closePath(); ctx.fill();
+  // Trailing streaks — three at most, only as many as the wind earns.
+  ctx.lineWidth=5; ctx.globalAlpha=.55;
+  const streaks=Math.min(3, Math.floor(mag/7));
+  for(let i=1;i<=streaks;i++){
+    const y=i*16, w=len*(0.7-i*0.12);
+    ctx.beginPath(); ctx.moveTo(-w/2, y); ctx.lineTo(w/2, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-w/2, -y); ctx.lineTo(w/2, -y); ctx.stroke();
+  }
+  ctx.restore();
+  // Number, unflipped so it is never mirrored.
+  ctx.save();
+  ctx.fillStyle=band.c;
+  ctx.font='900 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.textAlign='center';
+  ctx.shadowColor='rgba(0,0,0,0.55)'; ctx.shadowBlur=4;
+  ctx.fillText(Math.abs(Math.round(btWind))+' km/h', cx, cy+52);
+  ctx.restore();
+}
+
 function btDrawAimLine(ctx){
   if(!btDragging || btBottle.inFlight) return;
   ctx.save();
@@ -24269,6 +24452,7 @@ function btDrawFrame(){
   const ctx=btCtx; if(!ctx) return;
   ctx.clearRect(0,0,BT_W,BT_H);
   btDrawEnvironment(ctx);
+  btDrawWind(ctx);          // fix250 — after the sky, before the fan
   btFan.draw(ctx);
   btDrawAimLine(ctx);
   btBottle.draw(ctx);
@@ -24486,7 +24670,21 @@ function btPointerDown(e){
     btDragging=true;
     btDragStartX=c.x; btDragStartY=c.y;
     btDragCurrX=c.x;  btDragCurrY=c.y;
+    // fix250: belt-and-braces beside the touch-action:none above. Capture keeps
+    // the move/up pair coming to this element even if the finger leaves the
+    // canvas mid-flick, which it routinely does on a 340px-wide board. Guarded
+    // and try/catch'd: setPointerCapture throws on a stale pointerId on some
+    // engines, and a throw here would kill the drag it exists to protect.
+    try{ if(e.pointerId!=null && e.target && e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId); }catch(_){}
   }
+}
+// fix250: pointercancel used to share btPointerUp, which meant a cancelled
+// gesture could still LAUNCH on whatever stale delta it had. A cancel is the
+// browser saying the gesture never happened — so it drops the drag and throws
+// nothing. (With touch-action:none this should now be rare; that is exactly why
+// it must be correct rather than merely untested.)
+function btPointerCancel(){
+  btDragging=false;
 }
 function btPointerMove(e){
   if(!btDragging) return;
@@ -24508,7 +24706,7 @@ function btBindPointers(){
   cv.addEventListener('pointerdown', btPointerDown);
   window.addEventListener('pointermove', btPointerMove);
   window.addEventListener('pointerup', btPointerUp);
-  window.addEventListener('pointercancel', btPointerUp);
+  window.addEventListener('pointercancel', btPointerCancel);   // fix250
   btPointersBound=true;
 }
 function btUnbindPointers(){
@@ -24516,7 +24714,7 @@ function btUnbindPointers(){
   if(cv) cv.removeEventListener('pointerdown', btPointerDown);
   window.removeEventListener('pointermove', btPointerMove);
   window.removeEventListener('pointerup', btPointerUp);
-  window.removeEventListener('pointercancel', btPointerUp);
+  window.removeEventListener('pointercancel', btPointerCancel); // fix250 — must match the bind
   btPointersBound=false;
 }
 
