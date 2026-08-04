@@ -512,7 +512,36 @@
 // stat row would still read 0/10 — and the canvas would sit there dead with a
 // button labelled "Start throwing" that closes the overlay. Every symptom points
 // at the port having failed, and none of them points at the cache.
-const CACHE_VERSION = 'cim-v3.8.53';   // fix246: Bidon Toss game loop (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.53';   // fix246: Bidon Toss game loop (HTML only, no asset change)
+
+// fix247: HTML-ONLY stage — Bidon Toss rewards. STATIC_ASSETS below is
+// byte-identical to fix246's; no file is added, retired or re-encoded. The bump
+// is mandatory all the same (plan §0 rule 7): './index.html' is in
+// STATIC_ASSETS and the deployed HTML filename never changes, so a returning
+// player with a warm cache keeps being served the fix246 shell.
+//
+// WHAT THAT WOULD LOOK LIKE: a fully playable board that pays nothing. The run
+// would end, the end panel would read "You landed 7 of 10." and no money, no
+// buff pill and no medallion would ever appear — indistinguishable from
+// btAward() having been written wrong, and the class of miss that gets
+// re-implemented on top of itself at fix248.
+// const CACHE_VERSION = 'cim-v3.8.54';   // fix247: Bidon Toss rewards (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.55';   // fix248: bt_hype wired into completeRace() prize (HTML only, no asset change)
+
+// fix249: HTML-ONLY stage — the Bidon Toss medallion is connected. Two onclick
+// strings' worth of change and one JS branch; STATIC_ASSETS below is
+// byte-identical to fix248's, no file is added, retired or re-encoded. The bump
+// is mandatory all the same (plan §0 rule 7): './index.html' is in
+// STATIC_ASSETS and the deployed HTML filename never changes, so a returning
+// player with a warm cache keeps being served the fix248 shell.
+//
+// WHAT THAT WOULD LOOK LIKE, and why this is the worst stage of the plan to
+// miss it on: the player taps the fourth medallion and gets "Bidon Toss —
+// coming soon". Six stages of work — assets, overlay, loop, rewards, buff
+// consumer — are all present in the cached build and none of them is reachable
+// by any route a player has. The one symptom points at the feature not having
+// been built, and nothing points at the cache.
+const CACHE_VERSION = 'cim-v3.8.56';   // fix249: Bidon Toss medallion connected (HTML only, no asset change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
