@@ -591,7 +591,7 @@
 // nav locked out, carb intake in Gear > Energy, workshop cap modal on the tap
 // that reaches the cap) would sit in the repo and never reach an installed PWA.
 // No asset added, removed or re-encoded this stage: HTML only.
-const CACHE_VERSION = 'cim-v3.8.75';   // fix269: PLAY retired on 3 hubs, gear sub-nav lockout, carb intake in Energy, workshop cap modal on cap-reach (HTML only, no asset change)
+const CACHE_VERSION = 'cim-v3.8.76';   // fix269: PLAY retired on 3 hubs, gear sub-nav lockout, carb intake in Energy, workshop cap modal on cap-reach (HTML only, no asset change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
