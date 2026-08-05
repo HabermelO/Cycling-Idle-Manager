@@ -1073,6 +1073,19 @@ button{font-family:inherit;cursor:pointer;}
 .gear-nav-btn{flex-shrink:0;padding:7px 13px;border:1.5px solid var(--border);border-radius:99px;
   background:var(--bg);color:var(--txt2);font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;}
 .gear-nav-btn.active{border-color:var(--green-bd);background:var(--green-bg);color:var(--green-txt);font-weight:700;}
+/* fix269: NO cross-section nav inside the gear sheet. Opening Wheels used to
+   present all five section pills, so the painted medallion screen was only ever
+   the FIRST route in and every later hop bypassed it. The route between
+   sections is now the hub itself: back to Gear, tap the next medallion.
+
+   display:none is the hard lockout — a display:none button is not hit-testable
+   and not focusable, so there is no scripted guard to forget. Scoped to
+   #gear-sheet #gear-nav so .gear-nav / .gear-nav-btn keep working everywhere
+   else they are used (#uci-type-nav, #rider-nav, #growth-nav, the workshop
+   tuning-target pills and the Save buttons). renderGearNav() is separately
+   emptied — see its body — so this rule is belt AND braces, not the only
+   thing standing between the player and a live pill. */
+#gear-sheet #gear-nav{display:none;}
 /* fix165: Workshop tuning-target selector. Deliberately built on the existing
    .gear-nav / .gear-nav-btn pill conventions rather than a new component, so a
    pill here reads identically to the game selector directly above it. The only
@@ -7599,51 +7612,6 @@ body.train-sheet-live{overflow:hidden;}
   font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
 }
 
-/* fix269 (profile-plan-v1 §3.3): the relic strip. IDENTITY, NOT INVENTORY —
-   icons only, no names, no effect labels, no collect ceremony. .ach-grid /
-   .ach-card are deliberately NOT reused here: those carry the shelf's full
-   card language and reusing them would make this read as a second shelf. Every
-   selector below is scoped under #home-profile-body and NOTHING here carries an
-   id, so no node in this surface can collide with #relic-shelf-area or with any
-   other id in the document — the fix222 duplicate-id defect is impossible by
-   construction rather than by care. renderRelicShelf() is not called from here
-   and #rider-section-career is untouched. */
-#home-profile-body .profile-relics{
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;
-}
-#home-profile-body .profile-relic{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:36px;height:36px;flex:0 0 auto;
-  border:1px solid var(--border);border-radius:999px;
-  background:var(--bg);color:var(--purple-txt,var(--txt));
-}
-/* Unowned relics are silhouettes, the same locked language the shelf uses —
-   the shape of what is missing is part of the identity. */
-#home-profile-body .profile-relic.locked{
-  color:var(--txt-dim,var(--txt));opacity:.4;
-}
-#home-profile-body .profile-relic svg{width:18px;height:18px;display:block;}
-#home-profile-body .profile-relics-count{
-  font-size:12px;font-weight:800;color:var(--txt-dim,var(--txt));opacity:.9;
-  font-variant-numeric:tabular-nums;
-}
-
-/* The Career link. A LINK, NOT A RE-RENDER (plan §3.2): it leaves this surface
-   for the tab that owns the full picture rather than growing a seventh tile. */
-#home-profile-body .profile-career-link{
-  display:block;width:100%;margin-top:2px;
-  padding:.55rem .6rem;min-height:40px;
-  border:1px solid var(--border);border-radius:var(--radius-lg);
-  background:var(--bg);color:var(--txt);
-  font-size:13px;font-weight:800;font-family:inherit;text-align:center;
-  cursor:pointer;
-}
-#home-profile-body .profile-career-link:active{transform:scale(.99);}
-@media (prefers-reduced-motion:no-preference){
-  #home-profile-body .profile-career-link{transition:transform .12s ease;}
-}
-#home-profile-body .profile-career-link:focus-visible{outline:3px solid #fff;outline-offset:2px;}
-
 /* ═══════════ fix170: HOME HUB ═══════════
    The art is load-bearing. It carries the background, the nine icon circles,
    their captions, the top banner plate and the bottom bar chrome. Nothing is
@@ -9378,7 +9346,14 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
            This is a NEW real control, not a hotspot, so it does NOT take a
            data-hot index and the APPEND-NEVER-INSERT rule for train's 1-9 is
            untouched by this stage. -->
+      <!-- fix269 TOMBSTONE: the fix212 PLAY button was here and is RETIRED on
+           this hub. Commented, never deleted, per the tombstone rule. The
+           rider hub keeps its PLAY button — that one is unchanged — so the
+           .hub-play CSS block at the top of the file is NOT touched and still
+           has exactly one live consumer. hubGo() is likewise untouched: this
+           edit removes a call site, not the funnel.
       <button class="hub-play" aria-label="Play, go to racing" onclick="hubGo('race')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-flag"></use></svg> Play</button>
+      -->
     </div>
     <!-- fix206: the section sheet. Opened by trainHubGo() from any of the eight
          medallions, closed by trainHubBack(). A real control inside the sheet
@@ -10440,7 +10415,14 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
            Sibling of #gear-art (viewport-pinned), child of #gear-stage (hidden
            by .gear-sheet-open along with the medallions). A real control, so it
            takes no data-hot and gear's 1-6 indices are untouched. -->
+      <!-- fix269 TOMBSTONE: the fix212 PLAY button was here and is RETIRED on
+           this hub. Commented, never deleted, per the tombstone rule. The
+           rider hub keeps its PLAY button — that one is unchanged — so the
+           .hub-play CSS block at the top of the file is NOT touched and still
+           has exactly one live consumer. hubGo() is likewise untouched: this
+           edit removes a call site, not the funnel.
       <button class="hub-play" aria-label="Play, go to racing" onclick="hubGo('race')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-flag"></use></svg> Play</button>
+      -->
     </div>
     <!-- fix209: the section sheet. Opened by gearHubGo() from any of the five
          medallions, closed by gearHubBack(). A real control inside the sheet
@@ -10663,7 +10645,14 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
            A real control, so it takes no data-hot — tasks' single painted
            hotspot stays data-hot="1" and fix211's "if this tab ever gains a
            second hotspot it is 2" still reads true. -->
+      <!-- fix269 TOMBSTONE: the fix212 PLAY button was here and is RETIRED on
+           this hub. Commented, never deleted, per the tombstone rule. The
+           rider hub keeps its PLAY button — that one is unchanged — so the
+           .hub-play CSS block at the top of the file is NOT touched and still
+           has exactly one live consumer. hubGo() is likewise untouched: this
+           edit removes a call site, not the funnel.
       <button class="hub-play" aria-label="Play, go to racing" onclick="hubGo('race')"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-flag"></use></svg> Play</button>
+      -->
     </div>
     <!-- fix211 tombstone: #growth-nav and both #growth-section-* divs were here
          and are now inside #tasks-page above. Moved, not duplicated.
@@ -18287,23 +18276,6 @@ function homeHubGo2Profile(){
   homeSheetSet(true, 'profile');
 }
 
-// fix269 (profile-plan-v1 §3.2 / §5): the Career link. A LINK, NOT A RE-RENDER
-// — Profile does not grow a seventh tile and does not learn to draw #stats-grid;
-// it hands the player to the tab that already owns the full picture.
-//
-// hubGo() FIRST, unchanged and uncalled-into: its existing homeSheetSet(false,
-// null) closes this sheet and drops the key on the way out, so the ordering here
-// is the one the whole hub already uses and nothing about hubGo() is edited.
-// riderHubGo() is then CALLED, not edited (plan §1.3) — it is the single funnel
-// every Rider medallion goes through, so this route inherits its unknown-section
-// guard and its fix189 race lockout for free. 'career' is a member of
-// RIDER_SECTIONS, which is untouched by this series; if that ever stops being
-// true, riderHubGo() warns and refuses rather than opening a dead section.
-function profileGoCareer(){
-  hubGo('rider');
-  riderHubGo('career');
-}
-
 // ═══════════ fix268: THE RIDER NAME ═════════════════════════════════════
 // profile-plan-v1 §2. riderName is the FIRST genuinely free-text field in this
 // codebase and it ends up in a save file, a shared image and — from fix270 — a
@@ -18386,13 +18358,6 @@ function setRiderName(raw){
 // node would make the existing renderer write to whichever one the document
 // resolved first, which is the exact defect the fix222 tombstone documents.
 // The relic strip and the Career link are fix269, deliberately their own diff.
-//
-// fix269 (fix136 tombstone form): that last sentence has now been overtaken —
-// the strip and the link landed in this function in fix269. Everything it
-// asserted still holds: renderRelicShelf() is STILL not called from here,
-// #relic-shelf-area is STILL not duplicated (nothing added carries an id at
-// all), renderStats() and #rider-section-career are STILL unedited, and the
-// link is a route via hubGo()/riderHubGo() rather than a second renderer.
 function renderProfile(){
   const body=document.getElementById('home-profile-body');
   if(!body) return;
@@ -18418,28 +18383,6 @@ function renderProfile(){
   // setEquippedTitle()/equipTitle() already has a home, and a second caller
   // means two surfaces can disagree about what is selected.
   const tid = state.equippedTitle;
-  // fix269 (plan §3.3): the relic strip. READ-ONLY and ICONS ONLY — identity,
-  // not inventory. RELICS is iterated rather than state.relics, so the unowned
-  // ones show as silhouettes in a fixed order and the strip cannot reorder
-  // itself as relics land. state.relics is a Set everywhere it is written, but
-  // it is guarded here anyway: this render runs BEFORE the sheet opens, and a
-  // throw would leave the player on the hub with a dead hotspot and no error
-  // they can see — the same reasoning the category clamps above carry.
-  //
-  // renderRelicShelf() IS NOT CALLED and no node here carries an id, so there is
-  // no second #relic-shelf-area for the existing renderer to resolve to. That is
-  // the fix222 defect and this fix is split out from fix268 precisely so this
-  // one property gets its own diff-scope check.
-  const relicSet   = (state.relics instanceof Set) ? state.relics : new Set();
-  const relicsOwned = RELICS.reduce((n,r)=>n + (relicSet.has(r.id) ? 1 : 0), 0);
-  const relicIcons = RELICS.map(r=>{
-    const done = relicSet.has(r.id);
-    // The label is a constant from the RELICS registry — never state, never the
-    // rider name, so nothing free-text reaches this interpolation.
-    const lbl = done ? r.name : 'Relic not yet won';
-    return `<span class="profile-relic${done?'':' locked'}" role="img" aria-label="${lbl}" title="${lbl}">${icn(done ? r.icon : 'lock')}</span>`;
-  }).join('');
-
   const titleLine = (tid && state.unlockedTitles && state.unlockedTitles.has(tid))
     ? `<div class="profile-title">${titleTextFor(tid)}</div>`
     : `<div class="profile-title">No title equipped</div>`;
@@ -18466,15 +18409,7 @@ function renderProfile(){
       <div class="profile-tile"><div class="profile-tile-lbl">GC podiums</div><div class="profile-tile-val">${gcPods}</div></div>
       <div class="profile-tile"><div class="profile-tile-lbl">Lifetime earnings</div><div class="profile-tile-val">${fmtMoney(Math.max(0, Math.floor(Number(state.lifetimeMoney) || 0)))}</div></div>
       <div class="profile-tile"><div class="profile-tile-lbl">Lifetime VP</div><div class="profile-tile-val">${life}</div></div>
-    </div>
-    <div class="set-row">
-      <div class="profile-tile-lbl">Grand Tour relics</div>
-      <div class="profile-relics">
-        ${relicIcons}
-        <span class="profile-relics-count">${relicsOwned} / ${RELICS.length}</span>
-      </div>
-    </div>
-    <button class="profile-career-link" onclick="profileGoCareer()">Full career record →</button>`;
+    </div>`;
 
   // fix268 (§2.2): THE NAME IS NEVER INTERPOLATED INTO THE TEMPLATE ABOVE. Both
   // live read sites are written here, after the innerHTML, as properties:
@@ -21563,6 +21498,37 @@ function renderEnergyCard(){
   </div>`;
 }
 
+// ── fix269: carb intake block, ONE source of markup ─────────────────────────
+// The player buys and eats carbs in Gear ▸ Energy but could only read how close
+// they were to the day's limit over in Rider ▸ Form, which is the wrong tab to
+// have to visit mid-purchase. The block now renders in both places — and
+// because it renders in two places, the markup is a function rather than a
+// second copy, for the wsAwardMG()/carbBase()/workshopMaxLevel() reason: two
+// copies of a threshold drift the first time one of them is retuned.
+//
+// The NUMBERS were already funnelled: getCarbLimit() is the single limit source
+// (base + gut-training bonus) and this reads it rather than restating 80. Only
+// the presentation was duplicated, and now it is not.
+//
+// Render-only: reads state.carbsToday and getCarbLimit(), writes nothing.
+// Returns the head/bar/hint trio WITHOUT a wrapper, so each caller keeps the
+// container it already had — the weight card's hairline-topped sub-block, and
+// the Energy section's own .energy-card.
+function carbIntakeBlockHtml(){
+  const carbsToday=state.carbsToday||0;
+  const carbLimit=getCarbLimit();
+  const carbPct=Math.min(100,Math.round(carbsToday/carbLimit*100));
+  const carbBarCls=carbsToday>=carbLimit?'critical':carbPct>=80?'low':'';
+  const carbHint=carbsToday>=carbLimit
+    ? `<div class="energy-hint" style="color:var(--red-txt)">${icn('warning')} Over today's limit — excess converts to weight tonight</div>`
+    : carbPct>=80
+      ? `<div class="energy-hint">${icn('warning')} Approaching today's carb limit</div>`
+      : '';
+  return `<div class="energy-head" style="margin-bottom:.4rem"><span class="energy-label">${icn('bread')} Today's Carb Intake</span><span class="energy-amount" style="font-size:16px">${carbsToday} / ${carbLimit}</span></div>
+      <div class="energy-bar-outer"><div class="energy-bar-inner ${carbBarCls}" style="width:${carbPct}%"></div></div>
+      ${carbHint}`;
+}
+
 function renderWeightCard(){
   const wrap=document.getElementById('weight-card-wrap'); if(!wrap) return;
   const pw=getPowerToWeight();
@@ -21573,23 +21539,11 @@ function renderWeightCard(){
       ? `<span style="color:var(--green-txt)">(${weightDelta.toFixed(1)}kg vs default)</span>`
       : `<span style="color:var(--txt3)">(at default)</span>`;
 
-  const carbsToday=state.carbsToday||0;
-  const carbLimit=getCarbLimit();
-  const carbPct=Math.min(100,Math.round(carbsToday/carbLimit*100));
-  const carbBarCls=carbsToday>=carbLimit?'critical':carbPct>=80?'low':'';
-  const carbHint=carbsToday>=carbLimit
-    ? `<div class="energy-hint" style="color:var(--red-txt)">${icn('warning')} Over today's limit — excess converts to weight tonight</div>`
-    : carbPct>=80
-      ? `<div class="energy-hint">${icn('warning')} Approaching today's carb limit</div>`
-      : '';
-
   wrap.innerHTML=`<div class="energy-card">
     <div class="energy-head"><span class="energy-label">${icn('scale')} Rider Weight <button class="info-btn" onclick="event.stopPropagation();openInfo('nutrition')">ⓘ</button></span><span class="energy-amount">${state.riderWeight.toFixed(1)}kg</span></div>
     <div class="energy-meta"><span>Power-to-weight: <strong>${pw.toFixed(2)} W/kg</strong></span><span>${deltaHtml}</span></div>
     <div style="margin-top:.6rem;padding-top:.6rem;border-top:.5px solid var(--border)">
-      <div class="energy-head" style="margin-bottom:.4rem"><span class="energy-label">${icn('bread')} Today's Carb Intake</span><span class="energy-amount" style="font-size:16px">${carbsToday} / ${carbLimit}</span></div>
-      <div class="energy-bar-outer"><div class="energy-bar-inner ${carbBarCls}" style="width:${carbPct}%"></div></div>
-      ${carbHint}
+      ${carbIntakeBlockHtml()}
     </div>
   </div>`;
 }
@@ -24767,11 +24721,33 @@ function setGearSection(s){
   renderRiderScene();
 }
 
+// fix269: the cross-section pills are RETIRED. Since fix209 the medallion hub
+// is the way into a gear section, and these pills let the player hop straight
+// from Wheels to Bikes without ever passing back through it — two routes to the
+// same place, one of which skipped the art entirely.
+//
+// The FUNCTION IS KEPT, not deleted, and still clears its container. It has
+// three live callers (setGearSection, renderGearTab, and gearHubGo by way of
+// setGearSection) and deleting it would mean editing all of them; emptying it
+// here keeps one funnel and one edit. Clearing rather than early-returning
+// matters on load: a save written before this fix has no markup here, but a
+// hot-reload during play could, and an empty container can never hold a stale
+// live pill.
+//
+// The CSS (#gear-sheet #gear-nav{display:none}) is the actual lockout. This is
+// the second lock, not the first.
+function renderGearNav(){
+  const nav=document.getElementById('gear-nav');
+  if(!nav) return;
+  nav.innerHTML='';
+}
+/* fix269 TOMBSTONE — the fix209 body, retired above:
 function renderGearNav(){
   const nav=document.getElementById('gear-nav');
   const labels={energy:`${icn('bolt')} Energy`,bikes:`${icn('bike-photo')} Bikes`,wheels:`${icn('circle-blue')} Wheels`,kit:`${icn('jersey')} Kit`,accessories:`${icn('wrench')} Extras`};
   nav.innerHTML=GEAR_SECTIONS.map(s=>`<button class="gear-nav-btn${gearSection===s?' active':''}" onclick="setGearSection('${s}')">${labels[s]}</button>`).join('');
 }
+*/
 
 function renderGearTab(){
   renderGearNav();
@@ -28409,7 +28385,21 @@ function wsAwardMG(gained, msgEl, msg){
   if(actual > 0){
     if(!state.workshop.mgWindowStart) state.workshop.mgWindowStart = nowW;
     state.workshop.mgWindowEarned += actual;
-    if(state.workshop.mgWindowEarned >= WS_MG_WINDOW_CAP) renderWsGameSelector();
+    // fix269: the tap that REACHES the cap now raises the modal, not just the
+    // next tap after it. Before this, crossing 500 only repainted the selector
+    // into its shut state — the player's last successful move looked like every
+    // other successful move, and the explanation waited until they tapped a
+    // dead bench. The lockout is now announced at the moment it is applied.
+    //
+    // wsCapModalOpen(false), NOT force: the wsCapShownFor guard keys on
+    // mgWindowStart, so this open and the capped-early-return open above are
+    // the same once-per-window event and cannot double up. Whichever fires
+    // first claims the window; the other becomes a no-op. Dismissal is the
+    // existing backdrop-tap or ✕ — no confirm(), no new overlay, no new CSS.
+    if(state.workshop.mgWindowEarned >= WS_MG_WINDOW_CAP){
+      renderWsGameSelector();
+      wsCapModalOpen(false);
+    }
   }
 
   const now = Date.now();
@@ -28647,6 +28637,20 @@ function renderEnergyItems(){
   const list=document.getElementById('gear-section-energy'); list.innerHTML='';
   ensureDailyMarket();
   const energyFull=state.energy>=MAX_ENERGY_CAP;
+
+  // fix269: today's carb intake, FIRST card in the section. This is where the
+  // player is standing when they decide whether to eat another gel, so it is
+  // where the number belongs — the same block still renders on the weight card
+  // in Rider ▸ Form, from the same carbIntakeBlockHtml() and therefore never
+  // out of step with it.
+  //
+  // Prepended rather than appended deliberately: it is a read-before-you-buy
+  // number, so it must sit above the shop rows and not below them. Everything
+  // after this point is byte-identical to fix268 and appends in the order it
+  // always has, so no existing banner moves relative to another.
+  const carbDiv=document.createElement('div');
+  carbDiv.innerHTML=`<div class="energy-card" style="margin-bottom:8px">${carbIntakeBlockHtml()}</div>`;
+  list.appendChild(carbDiv);
 
   // Group inventory by type for count + soonest-expiry-per-type display
   const grouped={};
