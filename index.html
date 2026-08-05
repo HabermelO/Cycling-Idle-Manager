@@ -7360,6 +7360,139 @@ body.train-sheet-live{overflow:hidden;}
 }
 #home-settings-body .set-ver-btn:focus-visible{outline:3px solid #fff;outline-offset:2px;}
 
+/* ═══════════ fix262: HOME SHOP BODY (vp-shop-plan-v1 §5.1) ═══════════
+   THE SHEET IS KEYED, THERE IS NO SECOND SHEET. Two sheets on one tab means
+   two things that can both be open; one sheet with one key means exactly one
+   body is ever on screen, and that mutual exclusion is the hard lockout — the
+   same shape #rider-sheet already uses for its five sections.
+
+   Driven by a single data-key attribute written once per open in
+   homeSheetSet(), so settings-showing and shop-showing can never disagree.
+   The existing `#home-settings-body{display:flex}` rule above is UNTOUCHED:
+   it stays the default, and the keyed rules below only ever hide it. Do not
+   reorder — the [data-key="shop"] override must follow the base rule. */
+#home-sheet[data-key="shop"] #home-settings-body{display:none;}
+#home-shop-body{display:none;flex-direction:column;gap:.55rem;}
+#home-sheet[data-key="shop"] #home-shop-body{display:flex;}
+
+/* The VP readout. It lives in the sheet bar and NOWHERE ELSE (plan §5.4): the
+   painted home banner has three recesses and a fourth slot would sit on paint.
+   Hidden unless the shop is the open section, so the Settings header is
+   byte-identical to what fix257 shipped. */
+#home-sheet-vp{display:none;}
+#home-sheet[data-key="shop"] #home-sheet-vp{
+  display:inline-flex;align-items:center;gap:5px;
+  margin-left:auto;
+  padding:0 10px;min-height:28px;
+  border:1px solid var(--border);border-radius:999px;
+  background:var(--bg);color:var(--txt);
+  font-size:12px;font-weight:800;letter-spacing:.02em;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Stock rows. Same .set-row shell language as the settings sheet — card, one
+   border, one shadow — so the two sections of this sheet read as one screen.
+   Scoped under #home-shop-body throughout so none of it can reach another
+   tab's cards, per the fix206/fix222 rule. */
+#home-shop-body .shop-tier{
+  font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:#123;opacity:.75;margin:.35rem 0 -.1rem .15rem;
+}
+#home-shop-body .shop-row{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:14px;
+  box-shadow:var(--shadow-md);
+  padding:.6rem .7rem;
+}
+#home-shop-body .shop-row-main{flex:1 1 auto;min-width:0;}
+#home-shop-body .shop-row-name{
+  font-size:13px;font-weight:700;color:var(--txt);line-height:1.3;
+}
+#home-shop-body .shop-row-note{
+  font-size:11px;color:var(--txt-dim,var(--txt));opacity:.85;line-height:1.4;margin-top:2px;
+}
+#home-shop-body .shop-row-locked{
+  font-size:11px;font-weight:700;color:var(--txt-dim,var(--txt));line-height:1.4;margin-top:2px;
+}
+#home-shop-body .shop-buy{
+  flex:0 0 auto;min-height:44px;padding:0 14px;
+  border:1px solid var(--border);border-radius:999px;
+  background:transparent;color:var(--txt);
+  font-size:12px;font-weight:800;
+  font-variant-numeric:tabular-nums;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+/* fix262 rendered EVERY button with this attribute set. From fix263 it is
+   conditional — set on stock that is not yet live, gated behind lifetimeVP, or
+   simply unaffordable. The rule is unchanged: an inert control that looks live
+   is the bug it exists to prevent. The disabled attribute stays COSMETIC —
+   buyVP() re-checks every condition, because a hand-fired onclick must still
+   be refused (the sponsorSwitchOpen() precedent). */
+#home-shop-body .shop-buy[disabled]{
+  opacity:.45;cursor:default;
+}
+/* fix263: the armed half of the two-tap confirm. Green, matching .tsx-start.armed
+   and .ucx-start.armed, so a player who has learned the arm on the training card
+   and the race card reads it here without being taught it a third time. */
+#home-shop-body .shop-buy.armed{
+  background:var(--green-txt);color:#fff;border-color:var(--green-txt);
+}
+/* fix263: the USE control, and it is deliberately NOT a .shop-buy. Buying and
+   spending a held item are different actions with different consequences, and a
+   second button wearing the first one's class would invite a shared style change
+   that silently moved both. */
+#home-shop-body .shop-use{
+  flex:0 0 auto;min-height:44px;padding:0 12px;margin-left:6px;
+  border:1px solid var(--green-txt);border-radius:999px;
+  background:transparent;color:var(--green-txt);
+  font-size:12px;font-weight:800;
+  font-variant-numeric:tabular-nums;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+#home-shop-body .shop-use[disabled]{opacity:.45;cursor:default;}
+#home-shop-body .shop-use.armed{background:var(--green-txt);color:#fff;}
+#home-shop-body .shop-use:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+/* fix263: "you are holding N of these". A fact about the shelf, sat with the
+   name rather than on the button, so the button label is only ever the price. */
+#home-shop-body .shop-row-held{
+  font-size:11px;font-weight:800;color:var(--green-txt);
+  margin-top:2px;
+}
+#home-shop-body .shop-buy:not([disabled]):active{transform:scale(.97);}
+@media (prefers-reduced-motion: no-preference){
+  #home-shop-body .shop-buy{transition:transform .12s ease;}
+}
+#home-shop-body .shop-buy:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+/* fix264: the early-order picker. A sub-list INSIDE the stock row's card rather
+   than a second sheet — plan §5.1's reasoning about #home-sheet applies at this
+   scale too: two things that can both be open is the state that needs a hard
+   lockout, and one expander that lives inside the row it belongs to cannot get
+   into that state. Scoped under #home-shop-body like everything above it. */
+#home-shop-body .shop-early{
+  width:100%;
+  border-top:1px dashed var(--border);
+  margin-top:.5rem;padding-top:.5rem;
+  display:flex;flex-direction:column;gap:6px;
+}
+#home-shop-body .shop-early-row{
+  display:flex;align-items:center;gap:8px;
+}
+#home-shop-body .shop-early-main{flex:1 1 auto;min-width:0;}
+#home-shop-body .shop-early-name{
+  font-size:12px;font-weight:700;color:var(--txt);line-height:1.3;
+}
+#home-shop-body .shop-early-sub{
+  font-size:11px;color:var(--txt-dim,var(--txt));opacity:.85;line-height:1.4;
+}
+/* The row wraps so the picker sits UNDER the name and the price button rather
+   than beside them — .shop-row is a flex row and an un-wrapped child here would
+   squeeze the name column to nothing on a 360px screen. */
+#home-shop-body .shop-row.has-early{flex-wrap:wrap;}
+
 /* ═══════════ fix170: HOME HUB ═══════════
    The art is load-bearing. It carries the background, the nine icon circles,
    their captions, the top banner plate and the bottom bar chrome. Nothing is
@@ -8889,7 +9022,16 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
              because a button that says "coming soon" and opens a live sheet is
              a worse bug than a dead button. -->
         <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="12" style="--hx:72.82%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Settings" onclick="homeHubGo2Settings()"></button>
-        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="13" style="--hx:83.55%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Shop, coming soon" onclick="homeComingSoon('Shop')"></button>
+        <!-- fix262: hotspot 13 wired, exactly the way fix212 moved PLAY and
+             fix257 moved hotspot 12. Tombstoned (fix136 form) — the fix170
+             destination:
+               aria-label="Shop, coming soon" onclick="homeComingSoon('Shop')"
+             GEOMETRY IS UNTOUCHED: --hx/--hy/--hw/--hh and data-hot are
+             byte-identical, so nothing that addresses this hotspot by index is
+             affected. The aria-label moves in the SAME edit as the destination,
+             because a button that says "coming soon" and opens a live sheet is
+             a worse bug than a dead button. -->
+        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="13" style="--hx:83.55%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Shop" onclick="homeHubGo2Shop()"></button>
         <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="14" style="--hx:93.95%;--hy:87.59%;--hw:10.5%;--hh:5.24%" aria-label="Profile" onclick="homeGo('rider')"></button>
 
         <div id="home-toast"></div>
@@ -8901,14 +9043,24 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
          popup (z-index 1750) still paints over it — the existing
          non-dismissable lockout is what stops hotspot 12 being tapped while a
          reward is pending, and no new guard is added here (settings plan v1
-         §3.4). The title is a constant: one section, one sheet, so unlike the
-         rider/race sheets there is no key to disambiguate. -->
+         §3.4).
+         fix262 (vp-shop-plan-v1 §5.1): the sheet GAINS A KEY and a second body.
+         Tombstoned (fix136 form) — the fix257 shell was:
+           <div class="home-sheet-title">Settings</div>
+         and there was no #home-shop-body and no #home-sheet-vp. The title is no
+         longer a constant because this sheet now has two sections; it is
+         written by homeSheetSet() from the key, the same way #rider-sheet's
+         title is. A SECOND SHEET WAS NOT BUILT ON PURPOSE: two sheets on one
+         tab means two things that can both be open, and one keyed sheet is the
+         hard lockout that makes this pattern safe. -->
     <div id="home-sheet">
       <div class="home-sheet-bar">
         <button class="home-sheet-back" aria-label="Back to home" onclick="homeHubBack()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Home</button>
-        <div class="home-sheet-title">Settings</div>
+        <div class="home-sheet-title" id="home-sheet-title">Settings</div>
+        <div id="home-sheet-vp" aria-live="polite"></div>
       </div>
       <div id="home-settings-body"></div>
+      <div id="home-shop-body"></div>
     </div>
     <!-- fix173: morning "start your day" collect ritual. Lives on the hub
          because fix171 made the hub the landing screen — the card used to be a
@@ -12332,6 +12484,17 @@ const KITS = [
 function prestigeLevel(){ return state.seasonsCompleted||0; }
 function itemPrestigeLocked(item){
   if(item.relicUnlockId && state.relics && state.relics.has(item.relicUnlockId)) return false;
+  // fix264 (vp-shop-plan-v1 §3.4 bound 2): the early order buys OWNERSHIP ONLY
+  // and never its own equip check. This function stays THE single source of
+  // truth for gating, and it gains exactly ONE clause to do it — the same shape
+  // as the relic_heirloom_frame override on the line above, which is the
+  // precedent. The purchase path adds an id to state.earlyOrders and nothing
+  // else; every gate read in the file inherits it from here for free.
+  //
+  // The `state.earlyOrders &&` guard is not decoration: this function is called
+  // from the force-unequip block in loadGame(), and a save written before
+  // fix264 reaches that block with the field not yet restored.
+  if(state.earlyOrders && state.earlyOrders.has(item.id)) return false;
   return (item.minPrestige||0) > prestigeLevel();
 }
 
@@ -13273,6 +13436,23 @@ const KIT_COLORS = [
   {id:'titanium', hex:'#6f7478', label:'Titanium Grey'},
   {id:'voltage',  hex:'#d4e600', label:'Voltage Yellow'},
   {id:'graphite', hex:'#2f3437', label:'Training Graphite'},
+  // fix265 (vp-shop-plan-v1 §3.5) — THE FOUR SHOP COLOURS. Registry 1 of 2.
+  // These ids are also SHOP_STOCK ids, and that is deliberate: the shop line
+  // and the swatch are the same thing, so one id means there is no mapping
+  // table between them to fall out of step. The `shopcol_` prefix is what
+  // guarantees no collision with a LIFETIME_GOALS colorId — plan §3.5's
+  // requirement, made a property of the naming scheme rather than a hand check.
+  //
+  // Everything downstream is already data-driven off this array: the three
+  // swatch rows in renderKitShop(), kitColorHexFor(), the race-setup dot and
+  // the recolour engine all read it, so a colour added here needs no further
+  // edit to be equippable on kit, helmet or frame. The ONE thing that is not
+  // derived is the unlock, and that is the point — these arrive only by
+  // redeeming VP, so they are absent from LIFETIME_GOALS and from ACHIEVEMENTS.
+  {id:'shopcol_slate',  hex:'#4a5560', label:'Slate Grey'},
+  {id:'shopcol_copper', hex:'#a55c26', label:'Copper'},
+  {id:'shopcol_indigo', hex:'#2e2a6b', label:'Indigo'},
+  {id:'shopcol_ivory',  hex:'#e8e2d0', label:'Ivory'},
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -13538,6 +13718,38 @@ const state = {
   // ceiling in wsAwardMG. Both need ?? guards in loadGame (the tourProgress
   // lesson) — a save from fix177 or earlier carries neither.
   workshop: { mg:0, tuning:{}, tuningTarget:'bike:starter', mgWindowStart:0, mgWindowEarned:0 },
+  // fix261 (vp-shop-plan-v1 §1.1) — VICTORY POINTS. A career currency earned by
+  // racing and NEVER bought with cash (plan §0 rule 1). The vp / lifetimeVP
+  // split is deliberately the same shape as money / lifetimeMoney above:
+  // spending moves `vp` and never touches `lifetimeVP`, which is the career
+  // score and the gate for tiered stock.
+  //
+  // EVERY FIELD BELOW IS ABSENT FROM handlePrestige()'s RESET LIST BY DESIGN.
+  // See the warning block in that function. VP surviving prestige is the entire
+  // point of the currency.
+  vp: 0,             // spendable balance
+  lifetimeVP: 0,     // never decremented — career score
+  vpLedger: [],      // {ts,delta,reason}, capped at VP_LEDGER_CAP (§1.4)
+  vpDayStart: 0,     // ms timestamp of the current emission window (§2.3)
+  vpDayEarned: 0,    // VP emitted inside that window
+  vpIntroSeen: false,// one-shot "VP starts today" notice (§1.5) — NOT a backfill
+  shopPurchases: {},   // itemId -> count (fix262+ stock)
+  // fix264 (§3.4): gear ids pulled one season forward by an early order. A Set
+  // for boughtUpgrades'/relics' reason — the membership test is the whole API,
+  // and Set semantics make a double-purchase a no-op rather than a second
+  // charge. Absent from handlePrestige()'s reset list like every field above.
+  earlyOrders: new Set(),
+  shopConsumables: {}, // itemId -> count held (fix263+)
+  // fix263: the ONE armed-consumable flag. Perfect day is the only Tier 1 item
+  // whose effect lands somewhere other than the tap that spends it — the other
+  // three resolve immediately — so it needs a place to wait. Deliberately a
+  // boolean and not a count: a second Perfect day cannot be armed on top of an
+  // armed one (shopUse() refuses), so there is nothing for a number to hold that
+  // the count in shopConsumables is not already holding.
+  //
+  // Absent from handlePrestige()'s reset list like every other field above it,
+  // for the same reason: it was paid for.
+  perfectDayArmed: false,
 };
 const D = { sponsorPerSec:0, sessionMult:1, legacyPrizeMult:1, trainingBoostPct:0, raceDayPct:0, accessoryWatts:0 };
 
@@ -13757,6 +13969,239 @@ function addXP(attrId, amount){
 }
 
 function earnMoney(n){ state.money+=n; state.seasonMoney+=n; state.lifetimeMoney+=n; }
+
+// ═══════════ fix261: VICTORY POINTS (vp-shop-plan-v1 §1, §2) ═════════════
+// awardVP() is the SINGLE MUTATION POINT for state.vp and state.lifetimeVP.
+// Nothing else in this file may increment either — the same discipline as
+// wsAwardMG(), earnMoney(), carbBase() and workshopMaxLevel(). It is also the
+// only place the daily window is rolled, so no call site can bypass the
+// ceiling by forgetting about it.
+//
+// A FAUCET CAN BE RAISED, NEVER LOWERED (plan §0 rule 3). Every VP emitted
+// before the price table is settled is one that cannot be taken back without
+// breaking saves. When in doubt, emit less.
+//
+// Window keyed off a stored timestamp rather than a calendar day, matching
+// wsMgWindowTick's reasoning: a day gate would be frozen by isClockRewound()
+// and a rewound clock would lock the faucet shut forever.
+const VP_WINDOW_MS  = 24 * 60 * 60 * 1000;
+// ─── fix266 (vp-shop-plan-v1 §6 fix266, §8 q2) — THE BALANCE PASS ──────────
+// The UNTRUSTED marker is gone because the number was MEASURED, off this
+// file's own shipped constants (DAILY_ENERGY 100, MAX_ENERGY_CAP 150,
+// maxEnergy +10 per prestige, the seven category energyCosts) rather than
+// re-estimated off the plan's table. The same discipline the painted hubs use
+// for calibration rects: measure the thing itself, never eyeball the source.
+//
+// MEASURED — absolute category-race wins available in one day, whole day's
+// energy spent on racing and every single one won:
+//     uncat 5→7 · cat5 4→6 · cat4 3→5 · cat3 2→4 · cat2/cat1/pro 2→3
+// (first figure season 1, second season 6+ where maxEnergy is at its 150 cap.)
+// So the GRINDABLE faucet is already bounded at 7 VP/day by ENERGY, which was
+// always the real limiter. 12 never bound it and never will.
+//
+// MEASURED — what 12 actually clipped:
+//     GT final stage won + GC champion   = 12   (exactly at it, no headroom —
+//                                                any category win earlier that
+//                                                day pushed the GC award into
+//                                                the clip)
+//     season rollover, 5 × season 8      = 40   → banked 12
+//     season rollover, 5 × season 12     = 60   → banked 12
+// A player winning a Grand Tour outright was losing the award for it. The
+// ceiling was silently eating the two emissions that are the LEAST grindable
+// in the game: one is once per five stages, the other once per season.
+//
+// THE FIX IS THE SCOPE, NOT THE NUMBER. §2.3 states the ceiling's purpose
+// outright — "not primarily an anti-cheat measure, it is an anti-GRIND
+// measure" — and a grind ceiling belongs on the grindable source only. 12 is
+// kept exactly as shipped (§0 rule 3 forbids lowering a faucet, and raising it
+// would be treating the symptom), and it now applies to category race wins
+// alone. Uncapped awards do NOT consume the window either: letting a Tour win
+// eat a day's room would re-create the clip one step along.
+//
+// DEFAULT IS CAPPED. The list below is of EXEMPT prefixes, so a race site
+// added by a later fix and forgotten about here arrives capped — the safe
+// direction. Do not invert this into a list of capped reasons.
+const VP_WINDOW_CAP = 12;   // MEASURED (fix266): a backstop above the 7/day
+                            // energy-bound peak, on grindable reasons only.
+const VP_UNCAPPED_PREFIXES = ['gt_stage_win', 'calendar_win', 'gc_tier_', 'season_'];
+function vpReasonIsCapped(reason){
+  const r = String(reason || '');
+  return !VP_UNCAPPED_PREFIXES.some(p => r.indexOf(p) === 0);
+}
+const VP_LEDGER_CAP = 60;   // same cap discipline as ftpHistory
+
+// fix261: declared EMPTY here on purpose. The load block below rebuilds
+// shopPurchases / shopConsumables by iterating this registry rather than the
+// saved keys, so stock declared in fix262 arrives at 0 on every old save
+// automatically and a retired item's key is dropped rather than lingering.
+// Doing that now means fix262 adds stock and needs no migration edit at all.
+// fix262 (vp-shop-plan-v1 §3): ALL STOCK IS DECLARED HERE NOW, in one go, and
+// every line of it is INERT — buyVP() refuses unconditionally in this fix and
+// every button renders disabled. Declaring the whole table at once is the
+// point: the load block above rebuilds shopPurchases / shopConsumables by
+// iterating this registry, so every id below arrives at 0 on every existing
+// save the moment this fix loads, and fix263-265 turn stock on WITHOUT a
+// further migration edit. Adding ids later, one fix at a time, would mean four
+// more migrations and four more chances to get one wrong.
+//
+// `kind` is load-bearing: the load block filters `kind === 'consumable'` for
+// shopConsumables. Do not rename it and do not invent a fifth kind without
+// editing that filter in the same edit.
+//   consumable — held in shopConsumables, decremented at a use site (fix263)
+//   persistent — repeat-priced, counted in shopPurchases (fix264)
+//   gated      — one-shot per target, counted in shopPurchases (fix264)
+//   identity   — one-shot cosmetic (fix265)
+//
+// `gate` is a lifetimeVP requirement, NOT a vp price check — lifetimeVP is the
+// career score and is never decremented, so a gate can never be un-met by
+// spending. `mult`/`max` are read by the repeat pricing in fix264 and are
+// inert until then.
+//
+// COSMETIC IDS ARE DELIBERATELY PREFIXED `shopcol_` / `shoptitle_`. Plan §3.5
+// requires that no id here collides with a colorId or titleId in
+// LIFETIME_GOALS; the prefix makes that a property of the naming scheme rather
+// than something that has to be re-checked by hand every time a goal is added.
+// ═══ fix266 (vp-shop-plan-v1 §6 fix266) — THE PRICE PASS ═════════════════
+// PRICES ONLY. Not one emission number moved downward in this fix, and none
+// ever may (§0 rule 3). The season-yield figures below were MEASURED off this
+// file's shipped constants — maxEnergy by prestige, the seven category
+// energyCosts, calendar slots per 30-day season (s<=2 ? 1 : 2+floor((s-3)/4)),
+// five stages per Grand Tour, GC tiers 10/6/4, season bonus 5 × season —
+// against a 70% racing energy share and a 45% category win rate:
+//
+//     season  3, cat4, 10–30 days  ->  25 – 45 VP
+//     season  5, cat2, 10–30 days  ->  38 – 64 VP
+//     season  8, cat1, 10–30 days  ->  54 – 81 VP
+//     season 12, pro,  10–30 days  ->  74 – 102 VP
+//
+// §2.2 ESTIMATED 20–40 VP per season and every price below was set against
+// that. The estimate is right for season 3 and WRONG BY ROUGHLY 2x from
+// season 5 on, because it did not compound the per-day category win rate
+// across a multi-week season and it read the season bonus as a flat figure
+// when it scales with the season number. The trophy room was being emptied in
+// one mid-career season.
+//
+// Corrected upward accordingly, with the weight of the correction on the
+// PERMANENT end. Consumables are the long-tail sink and the drill pass is the
+// retention argument in §3.2 — those stay cheap on purpose and move barely at
+// all. Every old number is tombstoned inline rather than deleted.
+const SHOP_STOCK = [
+  // ── Tier 1 — consumables (live in fix263) ──────────────────────────────
+  { id:'musette',     kind:'consumable', tier:'Race day', name:'Musette',        vp:5,   // fix266: was 4
+    note:'Fills the bottles back to your day’s allowance. It does not raise the allowance — the legs are still the legs.' },
+  { id:'drill_pass',  kind:'consumable', tier:'Race day', name:'Drill pass',     vp:4,   // fix266: was 3
+    note:'Sits out one skills drill and takes the middling result. The buff lands the same as riding it.' },
+  { id:'race_reroll', kind:'consumable', tier:'Race day', name:'Second run',     vp:8,   // fix266: was 6
+    note:'Rides your last category race again. Calendar days and Grand Tour stages are ridden once and stand.' },
+  { id:'perfect_day', kind:'consumable', tier:'Race day', name:'Perfect day',    vp:10,  // fix266: was 8
+    note:'The next session on the road goes exactly the way you planned it.' },
+  // ── Tier 2 — persistence (live in fix264) ──────────────────────────────
+  // fix266: base 15 -> 25. mult (1.6) and max (10) are UNCHANGED and
+  // deliberately so: measured, 1.6^n already prices the 5th bidon at ~395 VP
+  // cumulative and the 10th out of reach entirely, so the escalation is the
+  // real cap and `max` is only the backstop. Steepening it as well would have
+  // closed the line after two.
+  { id:'extra_bidon', kind:'persistent', tier:'Kept for good', name:'Extra bidon', vp:25, mult:1.6, max:10,
+    note:'One more unit of daily energy, and it stays with you through every new season. Each one costs more than the last.' },
+  // ── Tier 3 — the gear accelerator (live in fix264, and the first thing
+  //    cut in fix266 if it flattens the curve) ────────────────────────────
+  // fix266 answers §8 q3 — DOES THE GEAR ACCELERATOR FLATTEN PRESTIGE? NO, and
+  // it is KEPT. The bound is structural, not financial: minPrestige <= level+1,
+  // one-shot per item, ownership only and never the equip check. No amount of
+  // VP buys a second rung, so the curve cannot flatten however cheap this gets
+  // — what a low price bought was every gate on the next rung at once. Repriced
+  // to sit above a whole early-career season's measured yield instead.
+  { id:'early_order', kind:'gated', tier:'Kept for good', name:'Early order', vp:65, gate:100,  // fix266: was vp:40, gate:60
+    note:'Brings one piece of kit forward by a single season. It will not skip you further up the ladder than that.' },
+  // ── Tier 4 — identity (live in fix265) ─────────────────────────────────
+  { id:'shopcol_slate',    kind:'identity', tier:'Trophy room', name:'Slate Grey kit',     vp:20 },  // fix266: was 12
+  { id:'shopcol_copper',   kind:'identity', tier:'Trophy room', name:'Copper kit',        vp:20 },  // fix266: was 12
+  { id:'shopcol_indigo',   kind:'identity', tier:'Trophy room', name:'Indigo kit',        vp:20 },  // fix266: was 12
+  { id:'shopcol_ivory',    kind:'identity', tier:'Trophy room', name:'Ivory kit',         vp:20 },  // fix266: was 12
+  // fix265: `titleText` is the words that appear on the chip, and it lives HERE
+  // rather than in a second lookup table because titleTextFor() reads it from
+  // here. LIFETIME_GOALS carries its titles' text on the reward object for the
+  // same reason; this is the same shape, one registry along.
+  { id:'shoptitle_palmares', kind:'identity', tier:'Trophy room', name:'Title: “Palmarès”', vp:40,   // fix266: was 25
+    titleText:'Palmarès',
+    note:'A list of what you have won, and the only word for it.' },
+  { id:'shoptitle_old_pro',  kind:'identity', tier:'Trophy room', name:'Title: “The Old Pro”', vp:40,   // fix266: was 25
+    titleText:'The Old Pro',
+    note:'Been round the block. Knows where the wind is before it turns.' },
+  { id:'plaque',       kind:'identity', tier:'Trophy room', name:'Hall of Fame plaque', vp:60, gate:175,  // fix266: was vp:30, gate:100
+    note:'Your name on the wall. It rides no faster.' },
+];
+
+// vpWindowTick(now) — expires the window if it has run its course, or if the
+// device clock has moved BACKWARDS past its start. Also the tolerant
+// normaliser for both fields, so any save predating them heals on first award.
+function vpWindowTick(now){
+  if(typeof state.vpDayStart !== 'number' || !isFinite(state.vpDayStart)) state.vpDayStart = 0;
+  if(typeof state.vpDayEarned !== 'number' || !isFinite(state.vpDayEarned)) state.vpDayEarned = 0;
+  if(!state.vpDayStart) return;
+  if(now < state.vpDayStart || (now - state.vpDayStart) >= VP_WINDOW_MS){
+    state.vpDayStart = 0;
+    state.vpDayEarned = 0;
+  }
+}
+
+// vpLedgerPush — the only writer is awardVP/spendVP. The ledger exists so a
+// balance complaint can be diagnosed without asking for a save file.
+function vpLedgerPush(delta, reason){
+  if(!Array.isArray(state.vpLedger)) state.vpLedger = [];
+  state.vpLedger.push({ts:Date.now(), delta, reason:String(reason||'')});
+  while(state.vpLedger.length > VP_LEDGER_CAP) state.vpLedger.shift();
+}
+
+// awardVP(n, reason) — returns the amount ACTUALLY banked (0 when capped).
+// Over the ceiling this is a no-op that writes a 'capped' ledger entry rather
+// than silently swallowing the award: the anti-GRIND measure has to be
+// visible in the log, or a future balance pass has nothing to measure.
+function awardVP(n, reason){
+  n = Math.floor(Number(n) || 0);
+  if(n <= 0) return 0;
+  const now = Date.now();
+  vpWindowTick(now);
+  // fix266: the window is still rolled here and ONLY here, so the ceiling is
+  // still impossible for a call site to bypass — what changed is which reasons
+  // it is measured against. Exempt awards skip the room check and, deliberately,
+  // do not add to vpDayEarned.
+  const capped = vpReasonIsCapped(reason);
+  let actual = n;
+  if(capped){
+    const room = VP_WINDOW_CAP - state.vpDayEarned;
+    if(room <= 0){ vpLedgerPush(0, 'capped:' + (reason||'')); return 0; }
+    actual = Math.min(n, room);
+  }
+  state.vp += actual;
+  state.lifetimeVP += actual;
+  // The window is OPENED by a capped award only. An exempt award opening it
+  // would start a 24h clock that the exempt award itself does not fill, which
+  // would quietly shorten the next day's grindable allowance.
+  if(capped){
+    if(!state.vpDayStart) state.vpDayStart = now;
+    state.vpDayEarned += actual;
+  }
+  vpLedgerPush(actual, reason);
+  saveGame();
+  return actual;
+}
+
+// spendVP(n, reason) — present in fix261 with NO CALLERS. The shop lands in
+// fix262 (inert) and fix263 (live); siting the funnel now means the spend path
+// is written once, next to the emission path it has to stay symmetrical with.
+// Returns false and mutates NOTHING when the balance is short — the caller
+// must treat false as a hard refusal, never as a partial spend.
+// lifetimeVP is DELIBERATELY not decremented: it is the career score (§1.1).
+function spendVP(n, reason){
+  n = Math.floor(Number(n) || 0);
+  if(n <= 0) return false;
+  if((state.vp || 0) < n) return false;
+  state.vp -= n;
+  vpLedgerPush(-n, reason);
+  saveGame();
+  return true;
+}
 // fix130: single funnel for every NON-ITEM energy grant (race-rhythm rebate,
 // race bonus events, and any future in-loop reward). Caps at today's
 // fatigue-adjusted allocation rather than state.maxEnergy, closing the two
@@ -14636,6 +15081,15 @@ function completeRace(){
   incrementSponsorProgress('prize_money', rd.result.prize);
   if(rd.result.position<=3){ state.totalPodiums++; markTaskProgress('podium_race'); incrementSponsorProgress('podiums',1); }
   if(rd.result.position===1){ markTaskProgress('win_race'); if(rt) state.raceWinsByType[rt.id]=(state.raceWinsByType[rt.id]||0)+1; state.winsSincePrestige=(state.winsSincePrestige||0)+1; incrementSponsorProgress('win_races',1); }
+  // fix261 (vp-shop-plan-v1 §2.2) — CATEGORY race win only, 1 VP.
+  // THE CLUB EXCLUSION IS LOAD-BEARING, and the fix133 comment above is the
+  // precedent: club races have no cooldown, cost 3 energy and run a 0.6x field
+  // you usually win. They pay no category points and no series points; they pay
+  // no VP either, or the optimal play becomes a club-race treadmill.
+  // !isCalEvent excludes both one-day events and Grand Tour stages, which are
+  // paid at their own rates in their own branches below — this guard inherits
+  // the existing gtStage / isCalEvent structure rather than re-deriving it.
+  if(rd.result.position===1 && !isClub && !isCalEvent) awardVP(1, 'race_win');
   // Phase 3B — streak-ended toast, only when a real streak (≥3) was just broken.
   if(streakBrokeAt>=3 && state.streak.podium===0){
     setTimeout(()=>showToast(`Streak ended at ${streakBrokeAt} — start a new one`),300);
@@ -14675,6 +15129,9 @@ function completeRace(){
     // than up there, so the 'gtstages' track means stage wins specifically
     // and not "wins that happened to be in a stage race".
     if(rd.result.position===1) state.gtStageWins=(state.gtStageWins||0)+1;
+    // fix261 (§2.2) — Grand Tour STAGE win, 2 VP. Sited on the same guard as
+    // the gtStageWins counter directly above, so the two can never disagree.
+    if(rd.result.position===1) awardVP(2, 'gt_stage_win');
     // Record this stage's result and GC points into the tour's running progress.
     const tp=state.calendar.tourProgress[rd.calendarEventId];
     tp.stageResults.push({stageIndex:rd.stageIndex, position:rd.result.position, fieldSize:rd.result.fieldSize, prize:rd.result.prize, gcPoints:rd.result.gcPoints, ts:Date.now()});
@@ -14700,6 +15157,14 @@ function completeRace(){
       // Champion and 1 is Podium; anything looser would make the track say
       // "podiums" while counting finishes.
       if(tierIdx<=1) state.gcPodiums=(state.gcPodiums||0)+1;
+      // fix261 (§2.2) — GC finish: Champion 10, Podium 6, third tier 4.
+      // Read off tierIdx, which GC_TIERS orders best-first, so the table cannot
+      // drift from the tier labels the ceremony shows. Anything below the third
+      // tier pays nothing.
+      {
+        const _vpGC = [10, 6, 4][tierIdx];
+        if(_vpGC) awardVP(_vpGC, 'gc_tier_' + tierIdx);
+      }
       // Capstone half 1 — Grand Tour "won" means GC Champion, the same
       // tierIdx===0 test the relic award below uses. Set semantics, so
       // winning the same Tour twice in a season is correctly still one entry.
@@ -14732,6 +15197,11 @@ function completeRace(){
     // race can never double-count into calendarWins.
     if(rd.result.position===1){
       state.calendarWins=(state.calendarWins||0)+1;
+      // fix261 (§2.2) — ONE-DAY calendar event win, 3 VP. This branch is the
+      // `else if(isCalEvent)` arm, so a Grand Tour stage takes the branch above
+      // and can never double-count here — the same reason fix197 sited
+      // calendarWins on this exact line.
+      awardVP(3, 'calendar_win');
       // Capstone half 2 — any one of the four national championships.
       if(PERFECT_SEASON_NATIONALS.includes(rd.calendarEventId)) state.seasonAchievements.nationalsWon=true;
     }
@@ -15977,6 +16447,18 @@ function handlePrestige(){
   // touched here or anywhere else in this function — Grand Tour relics are
   // permanent career rewards that survive every prestige, unlike FTP,
   // category and sponsorship below. Do not add relic resets to this function.
+  // fix261 (vp-shop-plan-v1 §1.2): the same instruction, for Victory Points.
+  // state.vp, state.lifetimeVP, state.vpLedger, state.vpDayStart,
+  // state.vpDayEarned, state.shopPurchases and state.shopConsumables are
+  // DELIBERATELY absent from the reset list below and must stay that way.
+  // DO NOT ADD VP RESETS TO THIS FUNCTION. VP surviving prestige is the entire
+  // point of the currency — reset it and the shop's persistent stock becomes
+  // worthless and the economy is dead.
+  // fix264 (§3.3, §3.4): state.earlyOrders joins that list, and the
+  // maxEnergy line further down is NOT to be adjusted for purchased bidons.
+  // They live inside state.maxEnergy already, so `maxEnergy + 10` carries them
+  // through untouched; subtracting them first, or adding them back after,
+  // would both be ways of double-counting a thing that was already correct.
   if(state.seasonMoney<prestigeThreshold()) return;
   // FIX 4: Block prestige during active session or race to prevent energy/XP loss
   if(state.raceActive||state.session.active){ showToast(`${icn('warning')} Finish current activity first`); return; }
@@ -16033,6 +16515,11 @@ function handlePrestige(){
     terminatedAt:0, lateralCooldownUntil:0,
   };
   updateSponsorBadge();
+  // fix261 (§2.2) — season-completed emission, 5 x the NEW season number.
+  // A read-only addition: it sits AFTER the reset block, touches nothing in it,
+  // and uses the already-incremented state.season. It is a single awardVP call
+  // and must never grow into a reset.
+  awardVP(5 * state.season, 'season_' + state.season);
   checkAchievements(); checkLifetimeGoals(); updateActivityDots(); recalc(); updateUI(); saveGame();
   showToast(`${icn('trophy')} Season ${state.season} begins! FTP reset · Prize ×${next}`);
 }
@@ -17531,7 +18018,11 @@ function hubGo(tab){
   // would leave the sheet mounted behind the tab just opened, and it would then
   // be the thing the player lands on the next time they come home. Null-safe
   // and idempotent, so this is an eighth no-op in the common case.
-  homeSheetSet(false);
+  // fix262: the second argument is the key, nulled here for the same reason
+  // homeHubBack() nulls it — a hub-to-hub tap made from inside the Shop must
+  // not leave 'shop' latched on a closed sheet (plan §5.3). One edit, inside
+  // the existing line's function.
+  homeSheetSet(false, null);
   showTab(tab);
 }
 
@@ -17588,18 +18079,37 @@ function homeHideToast(){
 // sponsorHubGo() and skillsHubGo2Sheet(): render first, then open. The six rows
 // paint while the sheet is still display:none, so the player never sees a frame
 // of a stale toggle state before the fresh one lands.
+// fix262: the name, the signature and the onclick string are BYTE-IDENTICAL to
+// what fix257 shipped (plan §5.1). Only the key is passed on, so hotspot 12's
+// markup is untouched by this fix and by every fix after it in the series.
 function homeHubGo2Settings(){
   renderSettings();
-  homeSheetSet(true);
+  homeSheetSet(true, 'settings');
+}
+
+// fix262 (vp-shop-plan-v1 §5.2): ORDER MATTERS, exactly as in riderHubGo(),
+// trainHubGo(), calHubGo(), sponsorHubGo(), skillsHubGo2Sheet() and
+// homeHubGo2Settings() — render first, open second. The stock and the VP
+// readout paint while the sheet is still display:none, so no frame of a stale
+// balance is ever visible.
+function homeHubGo2Shop(){
+  renderShop();
+  homeSheetSet(true, 'shop');
 }
 
 // Back from the sheet to the hub. Deliberately NOT history.back() — opening the
 // sheet pushed nothing, so there is no entry to unwind and calling back() here
 // would exit the tab entirely. Same reasoning as riderHubBack(), trainHubBack(),
-// calHubBack(), sponsorHubBack() and skillsHubBack(). No key is nulled because
-// this sheet has no key: one section, and .home-sheet-title is a constant.
+// calHubBack(), sponsorHubBack() and skillsHubBack().
+//
+// fix262: the key is nulled on the way out, matching riderHubBack(). Tombstoned
+// (fix136 form) — the fix257 body was `homeSheetSet(false);` and the comment
+// above it read "No key is nulled because this sheet has no key: one section,
+// and .home-sheet-title is a constant." Both stopped being true when the Shop
+// became the second section. Leaving the key set on close would mean the next
+// open flashed the previous section's body before the new key landed.
 function homeHubBack(){
-  homeSheetSet(false);
+  homeSheetSet(false, null);
 }
 
 // THE single funnel for whether the sheet is showing, mirroring riderSheetSet(),
@@ -17613,12 +18123,29 @@ function homeHubBack(){
 // Idempotent and safe to call when the Home tab is not showing: toggle() with an
 // explicit second argument sets rather than flips, so a stray call — hubGo()'s,
 // for instance — can never invert the sheet.
-function homeSheetSet(open){
+//
+// fix262: gains a key, one of 'settings' | 'shop' (plan §5.1). The key is
+// written to data-key on #home-sheet and the CSS pair keyed off it is what
+// shows exactly one body — a SECOND DOM write, but still one attribute, so the
+// two bodies can no more disagree than the stage and the sheet can. An unknown
+// or missing key falls back to 'settings', which is what every pre-fix262
+// caller passed implicitly; a key is never trusted to be one of the two.
+const HOME_SHEET_KEYS = { settings:'Settings', shop:'The Trophy Room' };
+function homeSheetSet(open, key){
   const tab=document.getElementById('tab-home');
   if(tab) tab.classList.toggle('home-sheet-open', !!open);
   const sheet=document.getElementById('home-sheet');
   if(!sheet) return;
-  if(!open){ sheet.style.top=''; return; }
+  if(!open){
+    // The key is dropped on close, never left behind — see homeHubBack().
+    sheet.removeAttribute('data-key');
+    sheet.style.top='';
+    return;
+  }
+  const k = HOME_SHEET_KEYS[key] ? key : 'settings';
+  sheet.setAttribute('data-key', k);
+  const ttl=document.getElementById('home-sheet-title');
+  if(ttl) ttl.textContent = HOME_SHEET_KEYS[k];
   // The measured-header branch, KEPT VERBATIM even though 'home' is in HUB_TABS
   // and .game-header is therefore hidden here. It costs one null-ish check per
   // open and it means the file has ONE sheet pattern rather than six-and-a-bit;
@@ -17711,6 +18238,576 @@ function renderSettings(){
   if(_setVerCache === null) readCacheVersion();
 }
 
+// ═══════════ fix263: THE SHOP, TRADING (vp-shop-plan-v1 §3.2, §6) ═══════
+// fix262 shipped this whole section INERT — every button disabled, buyVP()
+// refusing unconditionally. Tombstoned rather than deleted (fix136 form): the
+// fix262 header read "THE SHOP, INERT", the notice row read "The shelves are
+// stocked / Nothing is being handed over just yet", and buyVP()'s body was a
+// single console.warn() with no state path at all. All three stopped being
+// true the moment Tier 1 went live.
+//
+// WHAT IS LIVE IN THIS FIX: the four `kind:'consumable'` items and nothing
+// else. Tier 2 and 3 (persistent / gated) land in fix264 and Tier 4 (identity)
+// in fix265; until then those rows still render, still show their price and
+// their gate, and still render disabled — shopKindIsLive() is the single test
+// and it is the only line those two fixes have to touch here.
+//
+// RENDER-ONLY still holds for renderShop(): nothing in it writes to state. The
+// writes live in buyVP() and shopUse(), which call renderShop() afterwards.
+//
+// THE DISABLED ATTRIBUTE IS COSMETIC. Every condition it encodes — live kind,
+// lifetimeVP gate, affordability, held count, per-item precondition — is
+// re-checked inside buyVP() / shopUse(), because a hand-fired onclick must
+// still be refused. Same reasoning sponsorSwitchOpen() applies to its five
+// refusal states, and it matters more here than there: this one moves currency.
+const SHOP_ARM_MS = 4000;   // matches TSX_ARM_MS — one arm window in this file
+
+// The two-tap arms. Module variables rather than a class on the button, for
+// buildTrainSheetSession()'s reason: renderShop() rebuilds #home-shop-body
+// wholesale, so an arm held in the DOM would be wiped by the repaint the arm
+// itself triggers. Buying and using get SEPARATE arms on purpose — an arm to
+// buy a Musette must never be spendable as an arm to drink one.
+let _shopBuyArmId = null,  _shopBuyArmAt = 0;
+let _shopUseArmId = null,  _shopUseArmAt = 0;
+// fix264: the early-order picker's open/closed state. A module variable for the
+// arms' reason — renderShop() rebuilds #home-shop-body wholesale, so anything
+// held in the DOM is wiped by the repaint. Deliberately NOT in state: it is a
+// view flag, it means nothing across a reload, and putting it in the save would
+// put it in the payload and the load guards for no gain.
+let _shopEarlyOpen = false;
+
+// fix263: THE single test for whether a tier trades yet. fix264 adds
+// 'persistent' and 'gated'; fix265 adds 'identity'. One line, one place.
+// fix264: tombstone of the fix263 line, which read:
+//   function shopKindIsLive(kind){ return kind === 'consumable'; }
+// Two kinds added, nothing else in this section had to know about it — which
+// was the point of siting the test here in the first place.
+// fix265: 'identity' added — the last kind, and the whole shelf now trades.
+// Tombstone of fix264's line:
+//   return kind === 'consumable' || kind === 'persistent' || kind === 'gated';
+function shopKindIsLive(kind){
+  return kind === 'consumable' || kind === 'persistent'
+      || kind === 'gated'      || kind === 'identity';
+}
+
+// fix265: shopOwned(it) — is this identity line already had? Deliberately reads
+// the EXISTING pools rather than keeping a second record: a colour is owned iff
+// it is in unlockedKitColors, a title iff it is in unlockedTitles. Those two
+// Sets are already saved, already loaded, already read by the swatch row and
+// the chip row, and a parallel count in shopPurchases would be a second owner
+// of the same fact — the four-registry defect in miniature.
+//
+// The plaque is the exception and uses shopPurchases, because it unlocks no
+// existing pool: there is nothing else in the file that knows about it.
+function shopOwned(it){
+  if(!it || it.kind !== 'identity') return false;
+  if(it.id === 'plaque') return shopBought('plaque') > 0;
+  if(it.titleText) return state.unlockedTitles.has(it.id);
+  return state.unlockedKitColors.has(it.id);
+}
+
+// fix265: THE title-text lookup, and it is one function because there are now
+// TWO places a title can come from. renderTitleSelector() previously scanned
+// LIFETIME_GOALS inline, which would have printed a shop title's raw id
+// ('shoptitle_palmares') on the chip — the exact silent-failure shape the
+// fix197 KIT_COLORS comment warns about. Scans goals first so nothing about
+// the existing titles changes, then the shop, then falls back to the id.
+function titleTextFor(tid){
+  for(const track of LIFETIME_GOALS) for(const tier of track.tiers)
+    if(tier.reward.type === 'title' && tier.reward.titleId === tid) return tier.reward.titleText;
+  const it = SHOP_STOCK.find(x => x.id === tid && x.titleText);
+  if(it) return it.titleText;
+  return tid;
+}
+
+function shopHeld(id){
+  const c = state.shopConsumables || {};
+  return Math.max(0, Math.floor(Number(c[id]) || 0));
+}
+
+// fix264: how many times a NON-consumable line has been bought. Reads
+// shopPurchases, which the load block already rebuilds from SHOP_STOCK, so an
+// id declared in fix262 and switched on here needs no migration.
+function shopBought(id){
+  const p = state.shopPurchases || {};
+  return Math.max(0, Math.floor(Number(p[id]) || 0));
+}
+
+// shopPrice(it) — THE price. Every read of a price goes through this, so the
+// button label, the refusal string and spendVP() can never disagree about what
+// a thing costs, which is the same reasoning shopBuyRefusal() is one function.
+// Repeat pricing is `vp * mult^bought`, rounded, and it is deliberately
+// computed from shopPurchases rather than stored: a stored price is a second
+// place the truth can live and a save-editing surface on top of that.
+function shopPrice(it){
+  if(!it) return 0;
+  const base = Math.max(0, Math.floor(Number(it.vp) || 0));
+  if(it.kind !== 'persistent' || !it.mult) return base;
+  return Math.round(base * Math.pow(it.mult, shopBought(it.id)));
+}
+
+// shopGearFind(id) — the one lookup across all four gear registries. Every id
+// in BIKES / TT_BIKES / WHEELS / KITS is unique across the four (checked when
+// this landed), so a flat scan is correct and a per-registry prefix would only
+// be a second thing to keep in step with the registries themselves.
+function shopGearFind(id){
+  return BIKES.find(x=>x.id===id) || TT_BIKES.find(x=>x.id===id)
+      || WHEELS.find(x=>x.id===id) || KITS.find(x=>x.id===id) || null;
+}
+
+// shopGearLabel(item) — how a gear item is NAMED on screen. BIKES and TT_BIKES
+// carry brand/model and NO `name` key; WHEELS and KITS carry `name` and no
+// brand. Reading `.name` off all four would print "undefined" on every bike in
+// the picker, which is the whole reason this is one helper and not an inline
+// property read. The expression is copied verbatim from the idiom already used
+// at the race-setup row and the equip toasts — same label, same everywhere.
+function shopGearLabel(it){
+  if(!it) return '';
+  if(it.model) return (it.brand ? it.brand + ' ' : '') + it.model;
+  return it.name || it.id;
+}
+
+// shopEarlyEligible() — what an early order may be spent on RIGHT NOW.
+// PURE READ, and it is the single definition of "eligible": the renderer lists
+// exactly this and buyVP() re-derives from exactly this, because a disabled
+// attribute is cosmetic and a hand-fired onclick must still be refused.
+//
+// §3.4 bound 1: minPrestige <= prestigeLevel() + 1. You may pull ONE season
+// forward and never skip the ladder. Anything already unlocked — by prestige,
+// by a relic, or by an earlier early order — falls out through
+// itemPrestigeLocked() rather than through a second rule here.
+function shopEarlyEligible(){
+  const lvl = prestigeLevel();
+  const out = [];
+  const scan = (list, label) => list.forEach(it=>{
+    if(!itemPrestigeLocked(it)) return;
+    if((it.minPrestige||0) > lvl + 1) return;
+    out.push({item:it, label:label});
+  });
+  scan(BIKES,'Road bike'); scan(TT_BIKES,'TT bike');
+  scan(WHEELS,'Wheels');   scan(KITS,'Kit');
+  return out;
+}
+
+// shopBuyRefusal(it) — returns the player-facing reason this cannot be bought
+// right now, or '' when it can. ONE function read by both the renderer (to set
+// disabled and to write the note) and by buyVP() (to refuse), so the button and
+// the refusal can never disagree about why. PURE READ.
+// fix264: gains a second argument. `target` is the gear id an early order is
+// being spent on, '' for every other line and for the early-order ROW itself
+// (whose control is an expander, not a purchase). Order of checks is
+// deliberate: live kind, career gate, then AVAILABILITY, then affordability —
+// so a player at the ten-bidon ceiling is told they are at the ceiling rather
+// than told a price they cannot meet for a thing they cannot have.
+function shopBuyRefusal(it, target){
+  if(!it) return 'That is not on the shelf.';
+  if(!shopKindIsLive(it.kind)) return 'Not being handed over just yet.';
+  const life = Math.max(0, Math.floor(Number(state.lifetimeVP) || 0));
+  if(it.gate && life < it.gate) return `Career ${it.gate} VP needed — you have ${life}.`;
+  target = target ? String(target) : '';
+
+  if(it.kind === 'persistent'){
+    if(it.max && shopBought(it.id) >= it.max) return `You are carrying all ${it.max}.`;
+    // §3.3: MAX_ENERGY_CAP is a HARD ceiling and the clamp belongs in the
+    // purchase path, because the prestige path (+10 per season) and this one
+    // can now both push toward it. Refused here rather than silently sold and
+    // clamped to nothing — a bidon bought for no energy is a paid-for nothing.
+    if(it.id === 'extra_bidon' && (state.maxEnergy||0) >= MAX_ENERGY_CAP) return 'Your legs are already at the ceiling.';
+  }
+
+  if(it.kind === 'gated'){
+    const elig = shopEarlyEligible();
+    if(!elig.length) return 'Nothing is close enough to bring forward yet.';
+    if(target){
+      const hit = elig.find(e => e.item.id === target);
+      // Re-derived from shopEarlyEligible(), never trusted from the onclick.
+      if(!hit) return 'That one is not a season away.';
+    }
+  }
+
+  // fix265: identity stock is one-shot, and "one-shot" is checked against the
+  // pool that actually holds it, not against a count of taps.
+  if(it.kind === 'identity' && shopOwned(it)) return 'Already yours.';
+
+  const vp    = Math.max(0, Math.floor(Number(state.vp) || 0));
+  const price = shopPrice(it);
+  if(vp < price) return `That is ${price} VP and you have ${vp} banked.`;
+  return '';
+}
+
+// shopUseRefusal(id) — the same shape, for spending a held item. Every branch
+// is a REAL precondition: an item used in a moment where it can do nothing is a
+// paid-for thing destroyed for no return, which is the worst outcome the shop
+// can produce. PURE READ.
+function shopUseRefusal(id){
+  if(shopHeld(id) <= 0) return 'You are not carrying one.';
+  if(id === 'musette'){
+    if(state.energy >= state.maxEnergy) return 'The bottles are already full.';
+    return '';
+  }
+  if(id === 'perfect_day'){
+    if(state.perfectDayArmed) return 'One is already set aside for your next session.';
+    if(state.session.active) return 'Set this aside before you roll out, not during.';
+    return '';
+  }
+  if(id === 'race_reroll'){
+    const r = state.lastRaceResult;
+    // §3.6, and the guard is here as well as in the render: category races only.
+    // A Grand Tour stage or a calendar day is ridden once and stands, because a
+    // second run at a GC-scoring stage would mean re-running tp.gcPoints and
+    // possibly the relic award.
+    if(!r) return 'You have not raced yet.';
+    if(r.isCalEvent) return 'Calendar days and Grand Tour stages are ridden once and stand.';
+    if(r.isClub) return 'Club races are always there — you do not need this for one.';
+    const cd = (state.raceCooldowns || {})[r.raceTypeId] || 0;
+    if(cd <= Date.now()) return 'You can already go again — save it for when you cannot.';
+    return '';
+  }
+  if(id === 'drill_pass'){
+    // Deliberately refused HERE and used on the drill card instead: the pass has
+    // to name which of the four drills it is sitting out, and the shop sheet is
+    // the one place in the game that does not know.
+    return 'Use this on the drill itself, over in Skills.';
+  }
+  return 'Nothing to do with that yet.';
+}
+
+function renderShop(){
+  const body=document.getElementById('home-shop-body');
+  if(!body) return;
+  const vp   = Math.max(0, Math.floor(Number(state.vp) || 0));
+  const life = Math.max(0, Math.floor(Number(state.lifetimeVP) || 0));
+  const now  = Date.now();
+
+  const readout=document.getElementById('home-sheet-vp');
+  if(readout) readout.textContent = vp + ' VP';
+
+  let html = `<div class="set-row">
+      <div class="set-row-lbl">Victory Points <button class="info-btn" onclick="openInfo('vp')">ⓘ</button></div>
+      <div class="set-ver">
+        <div class="set-ver-val">Banked ${vp}<br>Career ${life}${shopBought('plaque')>0?'<br>🏆 Hall of Fame':''}</div>
+      </div>
+    </div>`;
+
+  // fix263: the notice row now says what is and is not open, rather than
+  // fix262's "nothing is being handed over just yet". Kept as a row rather than
+  // dropped, because the shelves below still hold three tiers that do not trade
+  // and a player deserves to be told that before they tap one.
+  html += `<div class="set-row">
+      <div class="set-row-lbl">The Trophy Room <button class="info-btn" onclick="openInfo('shop')">ⓘ</button></div>
+      <div class="shop-row-note">Everything on these shelves is over the counter.</div>
+    </div>`;
+
+  let tier='';
+  SHOP_STOCK.forEach(it=>{
+    if(it.tier && it.tier!==tier){
+      tier=it.tier;
+      html += `<div class="shop-tier">${tier}</div>`;
+    }
+    // The gate is shown, never hidden. A locked shelf the player can see is a
+    // goal; a shelf that does not exist until they qualify is a surprise, and
+    // the whole point of a career score is that it is something to aim at.
+    const refusal = shopBuyRefusal(it, '');
+    const lockLine = refusal
+      ? `<div class="shop-row-locked">${refusal}</div>`
+      : '';
+    const note = it.note ? `<div class="shop-row-note">${it.note}</div>` : '';
+
+    // Held count and the USE control, consumables only. A held item with no
+    // route to spending it would be the same paid-for-nothing defect the
+    // refusal strings above exist to prevent.
+    const held = (it.kind === 'consumable') ? shopHeld(it.id) : 0;
+    const heldLine = held > 0 ? `<div class="shop-row-held">Carrying ${held}</div>` : '';
+    let useBtn = '';
+    if(held > 0){
+      const useRef  = shopUseRefusal(it.id);
+      const useArmed = (_shopUseArmId === it.id) && (now - _shopUseArmAt) < SHOP_ARM_MS;
+      // The Drill pass is the one held item with no button here at all — its
+      // refusal is not a "not now", it is "not on this screen", and a disabled
+      // button would read as the former.
+      if(it.id !== 'drill_pass'){
+        useBtn = `<button class="shop-use${useArmed?' armed':''}"${useRef?' disabled aria-disabled="true"':''} onclick="shopUse('${it.id}')">${useArmed?'Sure?':'Use'}</button>`;
+      }
+    }
+
+    // fix264: the price on the button is shopPrice(it), NOT it.vp. The bidon's
+    // price climbs with every one bought and the label has to climb with it —
+    // a stale price on a live button is the one defect that would let a player
+    // tap agreeing to one number and be charged another.
+    const price = shopPrice(it);
+    const owned = (it.kind === 'persistent') ? shopBought(it.id) : 0;
+    // fix265: identity lines say "In the cabinet" rather than a count — one is
+    // all there is, and "Carrying 1" would read as the start of a collection.
+    const ownedLine = (it.kind === 'identity' && shopOwned(it))
+      ? `<div class="shop-row-held">In the cabinet</div>`
+      : (owned > 0 ? `<div class="shop-row-held">Carrying ${owned}${it.max?' of '+it.max:''}</div>` : '');
+
+    // The early order's control is an EXPANDER, not a purchase: this line has no
+    // single thing to sell, it has a shelf of them, and the tap that opens a
+    // list must not be the first tap of a two-tap confirm.
+    const isEarly = (it.kind === 'gated');
+    const buyArmed = (_shopBuyArmId === it.id) && (now - _shopBuyArmAt) < SHOP_ARM_MS;
+    const mainBtn = isEarly
+      ? `<button class="shop-buy"${refusal?' disabled aria-disabled="true"':''} onclick="shopEarlyToggle()">${_shopEarlyOpen && !refusal ? 'Close' : price + ' VP'}</button>`
+      : `<button class="shop-buy${buyArmed?' armed':''}"${refusal?' disabled aria-disabled="true"':''} onclick="buyVP('${it.id}')">${buyArmed?'Sure?':price + ' VP'}</button>`;
+
+    let earlyList = '';
+    if(isEarly && _shopEarlyOpen && !refusal){
+      const rows = shopEarlyEligible().map(e=>{
+        const armed = (_shopBuyArmId === it.id + '|' + e.item.id) && (now - _shopBuyArmAt) < SHOP_ARM_MS;
+        return `<div class="shop-early-row">
+            <div class="shop-early-main">
+              <div class="shop-early-name">${shopGearLabel(e.item)}</div>
+              <div class="shop-early-sub">${e.label} · normally Prestige ${e.item.minPrestige||0}</div>
+            </div>
+            <button class="shop-use${armed?' armed':''}" onclick="buyVP('${it.id}','${e.item.id}')">${armed?'Sure?':price + ' VP'}</button>
+          </div>`;
+      }).join('');
+      earlyList = `<div class="shop-early">${rows}</div>`;
+    }
+
+    html += `<div class="shop-row${earlyList?' has-early':''}">
+        <div class="shop-row-main">
+          <div class="shop-row-name">${it.name}</div>
+          ${note}${heldLine}${ownedLine}${lockLine}
+        </div>
+        ${mainBtn}
+        ${useBtn}
+        ${earlyList}
+      </div>`;
+  });
+
+  body.innerHTML = html;
+}
+
+// fix264: opens and closes the early-order picker. Closing DISARMS, because an
+// arm the player can no longer see is an arm they have forgotten they set, and
+// this one moves 40 VP.
+function shopEarlyToggle(){
+  _shopEarlyOpen = !_shopEarlyOpen;
+  if(!_shopEarlyOpen){ _shopBuyArmId = null; _shopBuyArmAt = 0; }
+  renderShop();
+}
+
+// buyVP(id, target) — TWO-TAP CONFIRM, never confirm(). First tap arms and repaints;
+// second tap inside the window spends. A tap on a DIFFERENT row re-arms for that
+// row rather than firing it, so an arm can never be spent on stock the player
+// did not arm — tsxStartTap()'s rule, and the reason it is worth copying is that
+// this one moves currency rather than energy.
+//
+// Returns false for every path that did not complete a purchase, including the
+// arming tap. That contract was written in fix262 and every call site was built
+// against it.
+//
+// spendVP() is THE funnel and is not bypassed: the balance check inside it is
+// the last word, and this function treats a false return as a hard refusal that
+// grants nothing. Two checks of the same thing on purpose — shopBuyRefusal()
+// so the player is told why, spendVP() so the state cannot move if they are not.
+// fix264: `target` is the gear id an early order is spent on, and it is
+// undefined for every other line — the fix263 call sites and their onclick
+// strings are unchanged. Tombstone of the fix263 signature: `function buyVP(id)`.
+//
+// The arm key is `id|target` for a targeted buy, so an arm to bring a Dogma
+// forward can never be spent on a Colnago. Same rule as the buy/use arms being
+// separate, applied one level down.
+function buyVP(id, target){
+  const it = SHOP_STOCK.find(s => s.id === id) || null;
+  if(!it){ console.warn('buyVP: no such stock', id); return false; }
+  target = target ? String(target) : '';
+  const armKey = target ? (id + '|' + target) : id;
+
+  const refusal = shopBuyRefusal(it, target);
+  if(refusal){
+    // Not silent. The button is disabled in this case, so arriving here means
+    // something fired it that the player did not — but if the balance moved
+    // between paint and tap, the player DID and is owed the reason.
+    showToast(`${icn('star')} ${refusal}`);
+    _shopBuyArmId = null; _shopBuyArmAt = 0;
+    renderShop();
+    return false;
+  }
+
+  const now = Date.now();
+  if(!(_shopBuyArmId === armKey && (now - _shopBuyArmAt) < SHOP_ARM_MS)){
+    _shopBuyArmId = armKey; _shopBuyArmAt = now;
+    renderShop();
+    // Disarm on its own so a player who taps once and wanders off does not come
+    // back to a live spend button. Guarded on the timestamp so a SECOND arm
+    // started inside this window is not disarmed by the first one's timer —
+    // settingsUpdateTap()'s guard, for settingsUpdateTap()'s reason.
+    setTimeout(()=>{
+      if(_shopBuyArmId === armKey && (Date.now() - _shopBuyArmAt) >= SHOP_ARM_MS){
+        _shopBuyArmId = null; _shopBuyArmAt = 0; renderShop();
+      }
+    }, SHOP_ARM_MS + 60);
+    return false;
+  }
+
+  // Second tap — spend. Price read ONCE, before anything increments, because
+  // shopPrice() reads shopPurchases and the persistent line raises its own
+  // price by being bought.
+  _shopBuyArmId = null; _shopBuyArmAt = 0;
+  const price = shopPrice(it);
+  if(!spendVP(price, 'buy:' + it.id + (target ? ':' + target : ''))){
+    // Belt and braces. shopBuyRefusal() already checked the balance; this is the
+    // funnel refusing on its own account, and nothing is granted when it does.
+    showToast(`${icn('star')} Not enough banked.`);
+    renderShop();
+    return false;
+  }
+  // fix264: the grant, branched by kind. Consumables are fix263's path,
+  // unchanged. The two new branches write shopPurchases rather than
+  // shopConsumables — a persistent thing is not carried, it is had.
+  if(it.kind === 'consumable'){
+    if(!state.shopConsumables) state.shopConsumables = {};
+    state.shopConsumables[it.id] = shopHeld(it.id) + 1;
+    saveGame();
+    showToast(`${icn('gift')} ${it.name} — in the bag`);
+    renderShop();
+    return true;
+  }
+
+  if(!state.shopPurchases) state.shopPurchases = {};
+
+  if(it.id === 'extra_bidon'){
+    // §3.3: +1 maxEnergy, permanent, and CLAMPED at MAX_ENERGY_CAP. The clamp
+    // is belt-and-braces against shopBuyRefusal()'s ceiling check — it cannot
+    // be reached from the button, and it is here because handlePrestige()'s
+    // +10 and this +1 now both push at the same number.
+    //
+    // handlePrestige() is NOT edited and MUST NOT BE (§3.3): purchased bidons
+    // live inside state.maxEnergy, and that function's
+    // `state.maxEnergy = state.maxEnergy + 10` carries them through a new
+    // season untouched. There is nothing to add there and adding it would
+    // double-count.
+    state.shopPurchases[it.id] = shopBought(it.id) + 1;
+    state.maxEnergy = Math.min(MAX_ENERGY_CAP, (state.maxEnergy||0) + 1);
+    saveGame();
+    showToast(`${icn('bolt')} Extra bidon — ${state.maxEnergy} energy a day, for good`);
+    renderShop(); updateHeader(); renderHomeBanner();
+    return true;
+  }
+
+  if(it.id === 'early_order'){
+    // §3.4 bound 2: OWNERSHIP ONLY. The whole effect is this one Set add;
+    // itemPrestigeLocked() does the rest, and nothing here touches an equip
+    // slot, a price, or the gear registries.
+    if(!(state.earlyOrders instanceof Set)) state.earlyOrders = new Set(state.earlyOrders || []);
+    state.earlyOrders.add(target);
+    state.shopPurchases[it.id] = shopBought(it.id) + 1;
+    const g = shopGearFind(target);
+    saveGame();
+    showToast(`${icn('gift')} ${g ? shopGearLabel(g) : 'Early order'} — brought forward a season`);
+    renderShop();
+    // The Gear tab is NOT repainted from here. It is rebuilt wholesale by
+    // renderGearTab() on every switch to it, and calling that renderer from the
+    // Home tab would write four gear sections' DOM for a screen the player is
+    // not looking at — the render-only discipline cuts both ways.
+    return true;
+  }
+
+  if(it.kind === 'identity'){
+    // Three shapes, one branch. Each writes the pool that already owns that
+    // fact and nothing else — no parallel bookkeeping, so the swatch row and
+    // the chip row light up from the same Sets they already read.
+    if(it.id === 'plaque'){
+      state.shopPurchases[it.id] = shopBought(it.id) + 1;
+    } else if(it.titleText){
+      state.unlockedTitles.add(it.id);
+      // Matches collectGoalTierReward()'s behaviour exactly: the FIRST title a
+      // player ever holds is auto-equipped, because a title earned and not worn
+      // reads as a title that did not arrive.
+      if(!state.equippedTitle) state.equippedTitle = it.id;
+    } else {
+      state.unlockedKitColors.add(it.id);
+    }
+    saveGame();
+    showToast(`${icn('gift')} ${it.name} — yours`);
+    renderShop();
+    return true;
+  }
+
+  // Nothing left to grant. shopKindIsLive() and the branches above should have
+  // caught every id in SHOP_STOCK, so arriving here is a bug — and a bug must
+  // not cost the player their VP. Refunded through the ledger, not silently.
+  console.warn('buyVP: no grant branch', it.id);
+  state.vp += price;
+  vpLedgerPush(price, 'refund:' + it.id);
+  saveGame();
+  renderShop();
+  return false;
+}
+
+// shopUse(id) — spending a held consumable. Two-tap for the same reason buying
+// is: it is irreversible, and there is no un-drinking a Musette.
+//
+// ORDER: refuse, arm, then apply-and-decrement in that order, and the decrement
+// happens in the SAME statement run as the effect so the two cannot come apart.
+// Returns false on every path that did not consume an item.
+function shopUse(id){
+  const it = SHOP_STOCK.find(s => s.id === id) || null;
+  if(!it || it.kind !== 'consumable'){ console.warn('shopUse: not a consumable', id); return false; }
+
+  const refusal = shopUseRefusal(id);
+  if(refusal){
+    showToast(`${icn('star')} ${refusal}`);
+    _shopUseArmId = null; _shopUseArmAt = 0;
+    renderShop();
+    return false;
+  }
+
+  const now = Date.now();
+  if(!(_shopUseArmId === id && (now - _shopUseArmAt) < SHOP_ARM_MS)){
+    _shopUseArmId = id; _shopUseArmAt = now;
+    renderShop();
+    setTimeout(()=>{
+      if(_shopUseArmId === id && (Date.now() - _shopUseArmAt) >= SHOP_ARM_MS){
+        _shopUseArmId = null; _shopUseArmAt = 0; renderShop();
+      }
+    }, SHOP_ARM_MS + 60);
+    return false;
+  }
+
+  _shopUseArmId = null; _shopUseArmAt = 0;
+  let msg = '';
+  if(id === 'musette'){
+    // Fills to state.maxEnergy and NOT past it. energySpentToday is deliberately
+    // untouched (plan §3.2) — fatigue is still real, and this refills the bottles
+    // rather than undoing the day. It is also NOT routed through
+    // grantRegenEnergy(), for the reason that helper's own comment gives: energy
+    // ITEMS are allowed above today's allocation, because exceeding it is
+    // exactly what was paid for.
+    const before = state.energy;
+    state.energy = state.maxEnergy;
+    msg = `${icn('bolt')} Bottles full — ${Math.round(state.energy - before)} energy back`;
+  } else if(id === 'perfect_day'){
+    // Sets the flag and nothing else. The effect lands at the crit roll in
+    // gameTick(), which is the single place a session's multiplier is decided.
+    state.perfectDayArmed = true;
+    msg = `${icn('star')} Set aside — your next session will go exactly to plan`;
+  } else if(id === 'race_reroll'){
+    // Clears the cooldown on the race type you last rode, so you can go straight
+    // back out. It does NOT unwind the result that has already been banked: the
+    // prize, the category points, the series score, the streak and the VP were
+    // all credited by completeRace() and there is no rollback path for any of
+    // them that would not risk the save.
+    const r = state.lastRaceResult;
+    delete state.raceCooldowns[r.raceTypeId];
+    msg = `${icn('bike')} ${r.raceTypeName} — the road is open again`;
+  } else {
+    console.warn('shopUse: no effect branch', id);
+    return false;
+  }
+  state.shopConsumables[id] = shopHeld(id) - 1;
+  saveGame();
+  renderShop();
+  // Repaint whatever the effect actually changed. Guarded on currentTab inside
+  // each renderer, so this costs a comparison from the home tab.
+  updateHeader(); renderHomeBanner();
+  showToast(msg);
+  return true;
+}
+
 // ═══════════ fix260: VERSION READOUT + UPDATE ═══════════════════════════
 // This row exists because stale cache is the most common deployment failure in
 // this project (see the service-worker tombstone list). Being able to ask a
@@ -17729,7 +18826,7 @@ function renderSettings(){
 // failure mode this row is here to expose. The service worker is NOT edited to
 // support this (settings plan v1 §0.6 permits only the CACHE_VERSION bump):
 // no message channel, no handler, nothing to keep in sync.
-const SETTINGS_BUILD = 'fix260';
+const SETTINGS_BUILD = 'fix266';
 let _setVerCache = null;   // null = not read yet, '' = unreadable, else the string
 let _setVerReading = false;
 let _setVerMsg = '';
@@ -24128,6 +25225,16 @@ function renderRiderSkillsHub(){
     const locked=b.active;
     const stateTxt=locked?(b.consumeOnRace?'Banked for your next race':`Running — ${rsFormatLeft(b.msLeft)} left`):'Ready';
     const note=locked?`<div class="rs-lock-note">${rsLockCopy(g.id)}</div>`:'';
+    // fix263: the Drill pass control. APPENDED after the existing start button
+    // (see the template below) so nothing above it moves and the fix155 lockout
+    // render is untouched. Rendered only when a pass is actually held — a
+    // permanently-disabled second button on every card would be noise on four
+    // cards for every player who has never bought one.
+    const dpHeld=shopHeld('drill_pass');
+    const dpArmed=(_dpArmId===g.id)&&(Date.now()-_dpArmAt)<SHOP_ARM_MS;
+    const dpBtn=(dpHeld>0)
+      ? `<button class="rs-game-btn" ${locked?'disabled':''} onclick="useDrillPass('${g.id}')">${locked?`Pass held (${dpHeld})`:(dpArmed?'✓ Tap again to sit this one out':`Use drill pass (${dpHeld})`)}</button>`
+      : '';
     return `<div class="rs-game-card${locked?' locked':''}">
       <div class="rs-game-title">${icn(g.icon)} ${g.name}</div>
       <div class="rs-game-desc">${g.desc}</div>
@@ -24142,8 +25249,88 @@ function renderRiderSkillsHub(){
       <div class="rs-game-meta"><span>${bestTxt}</span><span>${stateTxt}</span></div>
       ${note}
       <button class="rs-game-btn" ${locked?'disabled':''} onclick="startRiderSkillGame('${g.id}')">${locked?'Not yet':'Start drill'}</button>
+      ${dpBtn}
     </div>`;
   }).join('');
+}
+
+// ── fix263: the Drill pass use site (vp-shop-plan-v1 §3.2) ──────────────
+// The pass sits out one drill and takes the middling result. It is used HERE
+// and not in the shop, because it has to name which of the four drills it is
+// skipping and the shop sheet is the one screen that does not know.
+//
+// WHY THIS ITEM EXISTS, restated from the plan so it is not later "tidied away":
+// Feed Zone Scramble is fun the first thirty times. A player on their three
+// hundredth is a retention leak, and this turns that leak into a VP sink.
+//
+// THE LOCKOUT IS NOT BYPASSED. rsIsLocked() is the single source of truth for
+// whether a drill can be run, and a pass is a way of finishing a drill, not a
+// way of running one you are already carrying the reward for. Stacking a second
+// buff on an unspent one is exactly what the keyed buff map exists to prevent.
+let _dpArmId = null, _dpArmAt = 0;
+
+// The median result, per drill. A FUNCTION rather than a lookup object because
+// FZ_BUFF_MULT / SL_BUFF_PCT / WT_BUFF_WATTS and the BT constants are all
+// declared BELOW this point in the file — an object literal evaluated at module
+// load would hit the temporal dead zone, a function body evaluated at call time
+// does not. Magnitudes are read from the constants that grant them in play, so
+// the pass and the drill can never drift apart.
+//
+// fz / sl / wt grant a FIXED magnitude on a win, so their median IS their win.
+// bt's magnitude scales 5 + round(pct*15); 17 is the value at 8/10 caught,
+// which is the middle of the 6/10-to-10/10 winning band, not the top of it.
+function shopDrillMedian(gameId){
+  if(gameId==='fz') return {buff:'fz_regen', mag:FZ_BUFF_MULT,  ms:FZ_BUFF_MS};
+  if(gameId==='sl') return {buff:'sl_xp',    mag:SL_BUFF_PCT,   ms:SL_BUFF_MS};
+  if(gameId==='wt') return {buff:'wt_aero',  mag:WT_BUFF_WATTS, ms:null};
+  if(gameId==='bt') return {buff:'bt_hype',  mag:17,            ms:BT_HYPE_MS};
+  return null;
+}
+
+// Two-tap, never confirm(). Its own arm pair rather than the shop's, because
+// this renderer is a different node with a different rebuild cadence and a
+// shared arm would let a tap here disarm a half-armed purchase over there.
+function useDrillPass(gameId){
+  const g = RS_GAMES.find(x=>x.id===gameId);
+  if(!g){ console.warn('useDrillPass: no such drill', gameId); return false; }
+  // Every condition the disabled attribute encodes, re-checked — the attribute
+  // is cosmetic and a hand-fired onclick must still be refused.
+  if(shopHeld('drill_pass') <= 0){
+    showToast(`${icn('star')} You are not carrying a drill pass.`);
+    _dpArmId=null; _dpArmAt=0; renderRiderSkillsHub(); return false;
+  }
+  if(rsIsLocked(gameId)){
+    // rsCanStart() toasts the lock copy itself, so the reason is never silent.
+    rsCanStart(gameId);
+    _dpArmId=null; _dpArmAt=0; renderRiderSkillsHub(); return false;
+  }
+  const med = shopDrillMedian(gameId);
+  if(!med){ console.warn('useDrillPass: no median for', gameId); return false; }
+
+  const now = Date.now();
+  if(!(_dpArmId===gameId && (now-_dpArmAt)<SHOP_ARM_MS)){
+    _dpArmId=gameId; _dpArmAt=now;
+    renderRiderSkillsHub();
+    setTimeout(()=>{
+      if(_dpArmId===gameId && (Date.now()-_dpArmAt)>=SHOP_ARM_MS){
+        _dpArmId=null; _dpArmAt=0; renderRiderSkillsHub();
+      }
+    }, SHOP_ARM_MS + 60);
+    return false;
+  }
+
+  _dpArmId=null; _dpArmAt=0;
+  // Decrement FIRST, then grant. grantBuff() saves, recalcs and toasts, so it is
+  // the last thing that runs and the save it performs already carries the spent
+  // pass — the two can never come apart across a reload.
+  state.shopConsumables['drill_pass'] = shopHeld('drill_pass') - 1;
+  // lastPlayed is stamped so the pass reads as a ridden drill everywhere that
+  // field is displayed. bestScores is deliberately NOT touched: a pass is not a
+  // performance and must never write a personal best.
+  try{ rsStore().lastPlayed[gameId] = Date.now(); }catch(e){ console.warn('useDrillPass: lastPlayed stamp failed', e); }
+  grantBuff(med.buff, med.mag, med.ms);
+  renderRiderSkillsHub();
+  return true;
 }
 
 // ── fix254: painted-hub drill state ─────────────────────────────────────
@@ -27280,9 +28467,12 @@ function renderTitleSelector(){
   const wrap=document.getElementById('lifetime-title-area');
   if(state.unlockedTitles.size===0){ wrap.innerHTML=''; return; }
   const chips=[...state.unlockedTitles].map(tid=>{
-    let text=tid;
-    for(const track of LIFETIME_GOALS) for(const tier of track.tiers)
-      if(tier.reward.type==='title' && tier.reward.titleId===tid) text=tier.reward.titleText;
+    // fix265: was an inline scan of LIFETIME_GOALS, which is now only half the
+    // sources — a redeemed shop title would have rendered its raw id. Tombstone:
+    //   let text=tid;
+    //   for(const track of LIFETIME_GOALS) for(const tier of track.tiers)
+    //     if(tier.reward.type==='title' && tier.reward.titleId===tid) text=tier.reward.titleText;
+    const text=titleTextFor(tid);
     const active=state.equippedTitle===tid;
     return `<button class="title-chip${active?' active':''}" onclick="equipTitle(${active?'null':`'${tid}'`})">${icn('crown')} ${text}</button>`;
   }).join('');
@@ -28081,6 +29271,19 @@ function saveGame(){
       // fix257: appended at the end of the payload, before lastSavedAt. A plain
       // object of primitives, so unlike the Sets above it needs no spread.
       settings:state.settings,
+      // fix261 (§1.1): appended after settings, before lastSavedAt. Plain
+      // numbers, one array and two plain objects — no Sets, so no spread.
+      vp:state.vp, lifetimeVP:state.lifetimeVP, vpLedger:state.vpLedger,
+      vpDayStart:state.vpDayStart, vpDayEarned:state.vpDayEarned,
+      vpIntroSeen:state.vpIntroSeen,
+      shopPurchases:state.shopPurchases, shopConsumables:state.shopConsumables,
+      // fix264 (§3.4): a Set, so it spreads like relics and boughtUpgrades do
+      // above rather than being written as an object.
+      earlyOrders:[...state.earlyOrders],
+      // fix263: appended after the two shop objects, before lastSavedAt. A
+      // plain boolean. An armed Perfect day that did not survive a reload would
+      // be a paid-for item silently destroyed by closing the tab.
+      perfectDayArmed:state.perfectDayArmed,
       lastSavedAt:Date.now(),
     }));
   }catch(e){ console.warn('[CIM] Save failed:',e); }
@@ -28132,6 +29335,16 @@ function loadGame(){
     // Sets, same fallback pattern as earnedAchievements below.
     state.relics = new Set(d.relics || []);
     state.uncollectedRelics = new Set(d.uncollectedRelics || []);
+    // fix264 (vp-shop-plan-v1 §3.4 bound 3): RESTORED HERE, NOT WITH THE REST OF
+    // THE VP BLOCK, and this placement is the whole of the point. The bench
+    // check immediately below reads itemPrestigeLocked(), itemPrestigeLocked()
+    // now reads state.earlyOrders, and a gate reading a stale empty Set would
+    // bench a legitimately unlocked bike on EVERY SINGLE LOAD. This is exactly
+    // the fix123 defect described in the relics comment above, and it is
+    // restored on the line after relics for exactly the same reason.
+    //
+    // Do not move this down to the vp block. It reads as if it belongs there.
+    state.earlyOrders = new Set(Array.isArray(d.earlyOrders) ? d.earlyOrders : []);
     // fix118: force-unequip anything above the player's current prestige level.
     // Ownership is untouched — only the equip slot resets to the starter
     // default (TT bike has no starter, so it resets to null/empty).
@@ -28211,6 +29424,61 @@ function loadGame(){
       state.settings.reduceMotion = !!state.settings.reduceMotion;
       state.settings.sound = !!state.settings.sound;
     }
+    // fix261 (vp-shop-plan-v1 §1.3): THE tourProgress LESSON AGAIN. Every VP
+    // field gets its own `??`, and the two shop objects are rebuilt by
+    // iterating SHOP_STOCK rather than the saved keys — so stock added in a
+    // later fix arrives at 0 on every old save with no migration edit, and a
+    // retired item's key is dropped rather than lingering forever.
+    //
+    // NO RETROACTIVE BACKFILL (§1.5). A returning player with 400 lifetime wins
+    // arrives here with 0 VP, and that is CORRECT. Backfilling from
+    // raceWinsByType / calendarWins / gtStageWins would emit hundreds of VP in
+    // one load event, empty the shop on day one, and be unrevertable under
+    // §0 rule 3. Do not add a backfill to this block.
+    state.vp          = d.vp          ?? 0;
+    state.lifetimeVP  = d.lifetimeVP  ?? 0;
+    state.vpLedger    = Array.isArray(d.vpLedger) ? d.vpLedger : [];
+    state.vpDayStart  = d.vpDayStart  ?? 0;
+    state.vpDayEarned = d.vpDayEarned ?? 0;
+    state.vpIntroSeen = d.vpIntroSeen ?? false;
+    {
+      const _sp = d.shopPurchases || {};
+      state.shopPurchases = {};
+      SHOP_STOCK.forEach(it => { state.shopPurchases[it.id] = _sp[it.id] ?? 0; });
+    }
+    {
+      const _sc = d.shopConsumables || {};
+      state.shopConsumables = {};
+      SHOP_STOCK.filter(it => it.kind === 'consumable')
+                .forEach(it => { state.shopConsumables[it.id] = _sc[it.id] ?? 0; });
+    }
+    // fix263: per-sub-key, as above. Its own `??` line, never folded into the
+    // block before it — the tourProgress lesson.
+    state.perfectDayArmed = d.perfectDayArmed ?? false;
+    // fix263: CLAMP, DO NOT TRUST — the same reasoning as the vp / lifetimeVP
+    // clamp below, extended to the held counts now that they are spendable. A
+    // hand-edited save is the obvious attack surface, and every one of these
+    // numbers is read by a use path that grants something real.
+    Object.keys(state.shopConsumables).forEach(k => {
+      state.shopConsumables[k] = Math.max(0, Math.floor(Number(state.shopConsumables[k]) || 0));
+    });
+    // fix264: shopPurchases gets the same clamp now that it is spendable — it
+    // feeds shopPrice(), so a hand-edited negative count would not just be a
+    // wrong number on screen, it would make the bidon cheaper the more of them
+    // you claimed to own.
+    Object.keys(state.shopPurchases).forEach(k => {
+      state.shopPurchases[k] = Math.max(0, Math.floor(Number(state.shopPurchases[k]) || 0));
+    });
+    state.perfectDayArmed = !!state.perfectDayArmed;
+    // CLAMP, DO NOT TRUST. A hand-edited save is the obvious attack surface on
+    // a currency, and every read of these two feeds a purchase gate from fix263
+    // on. vp can never exceed lifetimeVP, because lifetimeVP is the monotonic
+    // record of everything vp was ever credited.
+    state.vp         = Math.max(0, Math.floor(Number(state.vp) || 0));
+    state.lifetimeVP = Math.max(0, Math.floor(Number(state.lifetimeVP) || 0));
+    if(state.vp > state.lifetimeVP) state.vp = state.lifetimeVP;
+    if(typeof state.vpDayStart  !== 'number' || !isFinite(state.vpDayStart))  state.vpDayStart  = 0;
+    if(typeof state.vpDayEarned !== 'number' || !isFinite(state.vpDayEarned)) state.vpDayEarned = 0;
     // Fallback for saves predating this field: default to the player's lifetime
     // win count so an existing player with an active sponsor doesn't suddenly
     // find themselves locked out just from loading an old save.
@@ -28533,7 +29801,26 @@ function gameTick(){
       // CRITICAL SESSION: 15% chance the whole session pays out at 2× XP.
       // Rolled once here, the instant the timer finishes — never re-rolled on
       // render — so the player can't refresh/reopen their way to a better roll.
-      const isCritical = Math.random() < 0.15;
+      let isCritical = Math.random() < 0.15;
+      // fix263 (vp-shop-plan-v1 §3.2) — Perfect day. "Maximum XP for its type"
+      // is 2x, which is exactly what a critical session already pays, so this
+      // FORCES THE ROLL rather than inventing a second multiplier. One number,
+      // one owner: if the crit rate or its multiplier is ever retuned, this item
+      // moves with it and cannot drift out of sync.
+      //
+      // Sited HERE because this is the single place a session's multiplier is
+      // decided, and the roll happens once, the instant the timer finishes,
+      // never on render — so the flag is spent exactly once and cannot be
+      // refreshed back into existence.
+      //
+      // Read AFTER the natural roll and DELIBERATELY NOT SPENT when that roll
+      // already came up critical: a session that was going to pay 2x anyway
+      // gains nothing from the item, and burning it there would be taking 8 VP
+      // for no effect. It simply stays armed for the next session instead.
+      if(state.perfectDayArmed && !isCritical){
+        state.perfectDayArmed = false;
+        isCritical = true;
+      }
       if(isCritical) sessMult *= 2;
       state.session.awaitingCollection=true;
       state.session.isCritical=isCritical;
@@ -28770,6 +30057,16 @@ if(state._prestigeGearBenched){
   showToast(`${icn('lock')} Some equipment is beyond your current standing — reverted to basics`);
   state._prestigeGearBenched=false;
 }
+// fix261 (vp-shop-plan-v1 §1.5): the one-shot notice that replaces a backfill.
+// Gated on onboarding.done so a brand-new player meets the tutorial first and
+// still gets this on a later load — the flag is set only when the notice is
+// actually shown, never merely because boot ran. Delayed so it queues behind
+// the gear-benched toast above rather than racing it.
+if(!state.vpIntroSeen && state.onboarding && state.onboarding.done){
+  state.vpIntroSeen = true;
+  saveGame();
+  setTimeout(()=>showToast(`${icn('trophy')} Victory Points start counting from today — every race win banks one`), 900);
+}
 // fix61: restore the player's chosen jersey colour on the rider sprites.
 // Default is the CSS fallback teal rider, so nothing to do in that case.
 // The recolour engine (window._rcRecolorRiderSheets) lives in a later
@@ -28964,6 +30261,22 @@ const INFO_TEXTS = {
   seriesStandings: {
     title: 'The Spring Series',
     body: ()=>`A running league across ${SERIES_LEN} category races. Every finish scores — ten for the win, sliding down to one for scraping home — and your rival is on the same sheet, scoring against you every time either of you pins a number on.<br><br>When the last round is ridden the sheet pays out on your final placing, then rolls straight into a fresh series with the same faces and the points back to zero. Club races don't feature: the league is decided on the road.`
+  },
+  // fix261 (vp-shop-plan-v1 §4): PALMARES, NOT A GEM STORE. Both entries follow
+  // the fix52 in-world voice rules — no "currency", no "purchase", no
+  // "balance". Victory Points are banked and redeemed. The shop entry is
+  // written now, in the same voice, so fix262's sheet inherits it rather than
+  // inventing a second tone.
+  vp: {
+    title: 'Victory Points',
+    body: ()=>`Wins are the only thing that bank a Victory Point. Take a category race and that is one in the book; a day on a Grand Tour stage is worth two, a one-day classic three, and a Tour won outright is worth ten on its own.<br><br>
+      They are yours for good. A new season strips your form, your standing and your sponsor — it never touches these. This is the palmarès, and it only ever grows.<br><br>
+      Club racing banks nothing, and there is a limit to how much one day of category racing can add — a Tour or a season's end is never held back by it. The board rewards a career, not an afternoon.`
+  },
+  shop: {
+    title: 'The Trophy Room',
+    body: ()=>`Where a season's results turn into something you keep. Victory Points are redeemed here and nowhere else — and there is no way to come by them other than winning.<br><br>
+      Nothing on these shelves rides the bike for you. There is no power to be had here, and no shortcut up the categories — what is here buys you time, an extra bottle on the bars, a piece of kit a season before the calendar would give it to you, and your name on things.`
   },
   // fix54: rider scene
   rider_scene: {
