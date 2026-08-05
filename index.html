@@ -6347,6 +6347,57 @@ body.train-sheet-live{overflow:hidden;}
      SWITCH SPONSOR   x 426 - 602   y 1205 - 1268   ->  x 66.15% - 93.48%
                                                         y 84.38% - 88.80%
                                     painted centre 79.81% / 86.59%
+                                    ^^^ SUPERSEDED BY fix255 — see below. Left
+                                    in place, not deleted, because the prose
+                                    from here to the collision audit argues from
+                                    these numbers and would be unreadable
+                                    without them.
+
+   ═══ fix255: SWITCH SPONSOR RE-MEASURED ════════════════════════════════
+   The fix220 row above is wrong in Y by 14.5% of canvas. Its box spanned
+   83.20% - 88.80%, which on the shipped raster is the ACCEPTED CONTRACT plate
+   and the SETTINGS / SHOP / PROFILE strip — not the pill. Because its X was
+   very nearly right, the symptom was a button that looked correct and did
+   nothing, rather than one visibly offset.
+
+   Re-measured on assets/sponsor-bg.jpg as shipped (640x1422; a uniform 0.8333
+   scale of the 768x1707 canvas — aspect 0.4501 vs 0.4499 — so pixel fractions
+   convert straight to canvas percentages, with NO crop term). Edges read off
+   the plate's own dark outline stroke in the luminance profile, per the
+   standing rule: measured, never estimated.
+
+     row profile, x 436-592 : outline minima at y  990-991 and y 1060-1061
+     col profile, y 1000-1052: outline minima at x  445-446 and x  579-580
+
+     SWITCH SPONSOR   x 445 - 580   y  990 - 1061   ->  x 69.53% - 90.62%
+                                                        y 69.62% - 74.61%
+                                    painted centre 80.08% / 72.12%
+                                    painted size   21.09% x 4.99%
+
+   Corroboration that the raster, not the reader, is the thing that moved: the
+   two painted chevrons flanking the pill measure x 61.56% - 67.97% and
+   x 92.50% - 98.59%, both at y 70.53% - 75.53% — i.e. they share the pill's
+   rows, exactly as they are drawn. BACK was re-checked and still measures where
+   fix220 says it does, so this is NOT a global Y shift and data-hot 2 is left
+   alone.
+
+   --hh:5.60% IS UNCHANGED and is still grown UPWARD ONLY, for fix220's reason
+   and by fix220's arithmetic: the painted pill is 4.99% of canvas = 43.3 CSS px
+   on a 390px-wide phone, still under the 44px target. Bottom edge pinned at the
+   painted 74.61%, so the box spans 69.01% - 74.61% and --hy is the 71.81%
+   centre.
+
+   --hw IS REDUCED, 27.30% -> 21.10%, to the painted extents. The old width was
+   inherited from the old wrong position where nothing sat beside it; at the
+   true position a 27.30% box centred on 80.08% would span 66.43% - 93.73% and
+   swallow BOTH painted chevrons. Those chevrons are decoration that must stay
+   decoration (see the note below), and a hit box over them is exactly the
+   "control that does nothing" this block warns against. No touch-target cost:
+   21.09% of canvas width is 82 CSS px on a 390px phone, well clear of 44.
+
+   Crop survival, judged at the box TOP per the convention below: 69.01% is
+   visible while 0.44991/A > 0.3802, i.e. A < 1.1834 — every phone aspect in
+   portrait and landscape, and strictly safer than the old 83.20% top.
 
    BACK lands within 0.07% of fix218's predicted 11.39% / 17.58% — the band
    split it argued for holds, and BACK keeps the crossover the other six hubs
@@ -6374,12 +6425,26 @@ body.train-sheet-live{overflow:hidden;}
    ═══ COLLISION AUDIT (plan v2 §5.4) ════════════════════════════════════
    Boxes as (x0-x1, y0-y1), from --hx/--hy/--hw/--hh:
 
-     1 SWITCH    66.15% - 93.45%   83.20% - 88.80%
+     1 SWITCH    69.53% - 90.63%   69.01% - 74.61%   <- fix255; was
+                                                        66.15% - 93.45% /
+                                                        83.20% - 88.80%
      2 BACK       1.34% - 21.34%   14.76% - 20.26%
      3 CONTRACT  30.00% - 44.70%   66.75% - 81.05%
 
-   1 vs 2: disjoint in both axes.  1 vs 3: x disjoint (44.70 < 66.15).
-   2 vs 3: disjoint in both axes.  Three hotspots, three pairs, no intersection.
+   1 vs 2: disjoint in both axes.  2 vs 3: disjoint in both axes.
+   1 vs 3: RE-RUN FOR fix255, because the pair now overlaps in Y where it did
+   not before (69.01-74.61 sits inside 66.75-81.05). X still separates them and
+   by more than before: 44.70 < 69.53, a 24.83% gutter against the old 21.45%.
+   Three hotspots, three pairs, no intersection — but note that this pair is now
+   held apart on ONE axis only, so any future widening of CONTRACT must re-check
+   here rather than assume the old two-axis slack.
+
+   Slot re-check for fix255: #sponsor-slot-name (x 8.50%-36.00%, y 82.60%-
+   85.30%) and #sponsor-slot-obj (x 56.00%-95.00%, y 30.80%-41.80%) are both
+   disjoint from the new SWITCH box in Y, so the "shares the plaque's rows"
+   argument below no longer applies to this hotspot — it is kept as written
+   because it still describes the fix220 geometry the rest of that paragraph
+   reasons about.
 
    Slots are pointer-events:none and are exempt from the hotspot pass, but are
    checked against the hotspots for VISUAL overlap, and against each other:
@@ -10375,7 +10440,15 @@ body.home-open{overflow:hidden;}
              objective, signing, upgrading or terminating. The fix219 fallback
              (making the plaque itself the hotspot) was NOT needed — the painted
              sheet boxes cleanly, as the measurements in the CSS show. -->
-        <button class="hub-hot hub-hot-rect sponsor-hot" data-hot="1" style="--hx:79.80%;--hy:86.00%;--hw:27.30%;--hh:5.60%" aria-label="Switch sponsor" onclick="sponsorSwitchOpen()"></button>
+        <!-- fix255: --hy and --hw RE-MEASURED. fix220's box (--hx:79.80%;
+             --hy:86.00%;--hw:27.30%) put this hotspot 14.5% of canvas BELOW the
+             painted pill, over the ACCEPTED CONTRACT plate and the SETTINGS /
+             SHOP / PROFILE strip. --hx was very nearly right (79.80 vs the
+             measured 80.08), which is why the miss read as a dead button rather
+             than a shifted one. See the fix255 sub-block in the CSS above for
+             the measurement. --hh:5.60% is UNCHANGED and still grown upward
+             only. -->
+        <button class="hub-hot hub-hot-rect sponsor-hot" data-hot="1" style="--hx:80.08%;--hy:71.81%;--hw:21.10%;--hh:5.60%" aria-label="Switch sponsor" onclick="sponsorSwitchOpen()"></button>
         <button class="hub-hot hub-hot-rect sponsor-hot" data-hot="2" style="--hx:11.34%;--hy:17.51%;--hw:20%;--hh:5.50%" aria-label="Back to home" onclick="hubGo('home')"></button>
         <button class="hub-hot hub-hot-rect sponsor-hot" data-hot="3" style="--hx:37.35%;--hy:73.90%;--hw:14.70%;--hh:14.30%" aria-label="Open the sponsor contract" onclick="sponsorHubGo()"></button>
         <!-- The informational pill. A child of #sponsor-art rather than of
