@@ -566,7 +566,10 @@
 // './index.html' is precached under a filename that never changes between
 // fixes, so without a new key a returning player keeps the fix253 document and
 // the painted medallions never report a running drill.
-const CACHE_VERSION = 'cim-v3.8.61';   // fix254: skills hub per-medallion drill countdown (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.63';   // fix257: Settings sheet state + shell (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.64';   // fix258: reduced motion + race pace wired live (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.65';   // fix259: screen dimmer + number format (HTML only, no asset change)
+const CACHE_VERSION = 'cim-v3.8.66';   // fix260: version readout + Help & Info cog (HTML only, no asset change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
