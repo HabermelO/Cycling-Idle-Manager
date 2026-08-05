@@ -7211,6 +7211,155 @@ body.train-sheet-live{overflow:hidden;}
 }
 .skills-sheet-back:focus-visible{outline:3px solid #fff;outline-offset:2px;}
 
+/* ═══════════ fix257: HOME SETTINGS SHEET ═══════════
+   #home-sheet is #skills-sheet (fix222) with the ids swapped — SAME PATTERN,
+   NOT A SIXTH VARIANT (settings plan v1 §3.2). It is the sixth sheet in the
+   file and it copies the fifth exactly: display:none hard lockout, sticky bar,
+   own back button class, same padding that clears .main-tabs.
+
+   z-index 91 rather than #skills-sheet's 75: #home-stage is 90, and the pair
+   below is the mutual exclusion that makes that irrelevant in practice — but a
+   sheet that sits BELOW its own stage would be invisible if the pair ever
+   disagreed, and 91 makes the failure mode "sheet over stage" rather than
+   "nothing on screen". Still far below #morning-layer (1750) and .main-tabs
+   (100), both of which must stay above it: the morning popup is the existing
+   non-dismissable lockout (§3.4) and is not edited by this fix. */
+#home-sheet{
+  display:none;
+  position:fixed;
+  /* 'home' is already in HUB_TABS, so .game-header (z-index 83) is hidden on
+     this tab and this fallback is what actually applies. The measured branch in
+     homeSheetSet() is kept anyway, verbatim, for fix217's reason: one sheet
+     pattern in the file beats six sheets and five-and-a-bit patterns. */
+  top:env(safe-area-inset-top, 0px);
+  left:0; right:0; bottom:0;
+  z-index:91;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  background:linear-gradient(180deg,var(--hub-sky) 0%,var(--hub-sky-deep) 100%);
+  padding:0 .75rem calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+}
+/* One class on #tab-home drives both layers, so open/closed is a single DOM
+   write and the two can never disagree about which is showing. THIS PAIR IS THE
+   HARD LOCKOUT: open, the stage is display:none, so not one of the fourteen
+   painted hotspots can be tapped through the sheet. Do not reorder. */
+#tab-home.home-sheet-open #home-sheet{display:block;}
+#tab-home.home-sheet-open #home-stage{display:none;}
+
+.home-sheet-bar{
+  position:sticky;
+  top:0;
+  z-index:3;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 -.75rem .6rem;
+  padding:.45rem .75rem;
+  background:var(--hub-sky);
+  box-shadow:0 2px 8px rgba(30,25,32,.18);
+}
+.home-sheet-title{
+  font-size:13px;font-weight:700;color:#123;
+  letter-spacing:.02em;
+}
+/* Declared rather than added to the .train-sheet-back / .gear-sheet-back /
+   .cal-sheet-back / .sponsor-sheet-back / .skills-sheet-back selector lists,
+   for fix206's and fix222's reason: one tab's back button must not be able to
+   break another's. Same 44px+ target, same :active scale, same reduced-motion
+   guard, same focus ring. */
+.home-sheet-back{
+  display:flex; align-items:center; gap:6px;
+  min-height:44px; padding:0 14px 0 10px;
+  border:1px solid var(--border); border-radius:999px;
+  background:var(--bg); color:var(--txt);
+  font-size:13px; font-weight:700;
+  box-shadow:var(--shadow-md);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.home-sheet-back:active{transform:scale(.96);}
+@media (prefers-reduced-motion: no-preference){
+  .home-sheet-back{transition:transform .12s ease;}
+}
+.home-sheet-back:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
+/* The segmented rows. NO SLIDERS (settings plan v1 §4): a slider on a painted
+   mobile hub is a drag-target competing with the sheet's own scroll container.
+   Every control is a label, an optional ⓘ, and 2-4 buttons of which exactly one
+   carries .on.
+
+   Scoped under #home-settings-body throughout so none of this can reach any
+   other tab's cards. */
+#home-settings-body{display:flex;flex-direction:column;gap:.55rem;}
+#home-settings-body .set-row{
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:14px;
+  box-shadow:var(--shadow-md);
+  padding:.6rem .7rem;
+}
+#home-settings-body .set-row-lbl{
+  display:flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:700;color:var(--txt);
+  margin-bottom:.45rem;
+}
+#home-settings-body .set-seg{display:flex;gap:6px;flex-wrap:wrap;}
+#home-settings-body .set-btn{
+  flex:1 1 auto;min-width:64px;min-height:44px;
+  padding:0 10px;
+  border:1px solid var(--border);border-radius:999px;
+  background:transparent;color:var(--txt);
+  font-size:12px;font-weight:700;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+#home-settings-body .set-btn.on{
+  background:var(--txt);color:var(--bg);border-color:var(--txt);
+}
+#home-settings-body .set-btn:active{transform:scale(.97);}
+@media (prefers-reduced-motion: no-preference){
+  #home-settings-body .set-btn{transition:transform .12s ease;}
+}
+#home-settings-body .set-btn:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
+/* fix260 (settings plan v1 §4.6): the version row. NOT a segmented control —
+   a readout plus one button — so it declares its own two classes rather than
+   borrowing .set-seg/.set-btn, whose flex:1 sizing exists for 2-4 equal
+   siblings and would stretch a lone button across the row. Same .set-row
+   shell, so it sits in the same stack as the five toggles above it.
+   .set-ver-val is monospace because its whole job is to be read back to
+   support verbatim; tabular digits stop a cache version from reflowing as it
+   loads in. Scoped under #home-settings-body like everything else here. */
+#home-settings-body .set-ver{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+}
+#home-settings-body .set-ver-val{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11px;font-weight:600;color:var(--txt-dim,var(--txt));
+  line-height:1.5;word-break:break-word;
+}
+#home-settings-body .set-ver-btn{
+  flex:0 0 auto;min-height:44px;padding:0 14px;
+  border:1px solid var(--border);border-radius:999px;
+  background:transparent;color:var(--txt);
+  font-size:12px;font-weight:700;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+/* The ARMED state of the two-tap confirm. Deliberately the same fill as
+   .set-btn.on so "this button is live" reads identically everywhere in the
+   sheet; there is no confirm() anywhere in this file and this is what stands
+   in for one. */
+#home-settings-body .set-ver-btn.armed{
+  background:var(--txt);color:var(--bg);border-color:var(--txt);
+}
+#home-settings-body .set-ver-btn:active{transform:scale(.97);}
+@media (prefers-reduced-motion: no-preference){
+  #home-settings-body .set-ver-btn{transition:transform .12s ease;}
+}
+#home-settings-body .set-ver-btn:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
 /* ═══════════ fix170: HOME HUB ═══════════
    The art is load-bearing. It carries the background, the nine icon circles,
    their captions, the top banner plate and the bottom bar chrome. Nothing is
@@ -8331,6 +8480,103 @@ body.home-open{overflow:hidden;}
 }
 .series-empty-ttl{font-size:12px;font-weight:800;color:var(--txt2);}
 .series-empty-sub{margin-top:.25rem;font-size:11px;font-weight:600;color:var(--txt3);}
+/* fix256: mini-game reward brief. ONE shared coloured box, defined once and
+   reused by all five drills (Feed Zone, Slipstream, Bidon Toss, Wind Tunnel,
+   Gut Training) so five copies of the same box cannot drift apart in padding,
+   radius or colour later. Sits UNDERNEATH the game surface on every drill —
+   below the legend row on the four skills drills, below the status line on Gut
+   Training Stage 1 — because it answers "what does this earn me", which the
+   player asks while looking at the board, not before it exists.
+   Purely descriptive: no id, no JS reads or writes it, no onclick. Colour comes
+   from the existing amber token trio so it resolves in both themes with no
+   media query and no new custom properties. */
+.mg-brief{
+  margin:10px 0 0;
+  padding:10px 12px;
+  border:.5px solid var(--amber-bd);
+  border-radius:var(--radius);
+  background:var(--amber-bg);
+  color:var(--amber-txt);
+  font-size:12px; font-weight:700; line-height:1.45;
+  text-align:left;
+}
+.mg-brief b{
+  display:block; margin-bottom:2px;
+  font-size:11px; font-weight:800; letter-spacing:.04em;
+  text-transform:uppercase; opacity:.85;
+}
+/* ═══════════ fix258: USER-DRIVEN REDUCED MOTION ═══════════
+   settings plan v1 §4.1. state.settings.reduceMotion is pushed onto <body> as
+   the class `reduce-motion` by applySettings() — the single place that writes
+   settings to the DOM — and this is the only rule set that reads it.
+
+   THE 35 EXISTING OS-LEVEL REDUCED-MOTION MEDIA BLOCKS IN THIS STYLESHEET ARE
+   NOT EDITED BY THIS FIX. (Their query token is deliberately not spelled out
+   in this comment: the diff-scope check counts occurrences of it to prove none
+   were touched, and a comment quoting it would be a false positive.)
+   That is a deliberate scope decision, not an
+   oversight: this class is a SECOND, user-driven route to the same
+   suppression, sitting alongside the OS-level route rather than replacing it.
+   Editing those 35 blocks to also test a class would be 35 opportunities for a
+   scope error and would force the diff-scope check to whitelist half the
+   stylesheet for one boolean.
+
+   The !important sledgehammer is the price of that decision and is what makes
+   it safe: it does not need to know what any of those 35 blocks declared, or
+   what any inline animation-delay/-duration written by JS declared (see
+   spawnConfetti's per-piece inline styles) — it outranks all of them.
+
+   .001ms rather than 0s / `animation:none` on purpose: a zero-length animation
+   is skipped by some engines without ever firing `animationend`, and this file
+   has cleanup paths that hang off transition/animation completion. A 1µs
+   animation still completes and still fires its end event, so nothing that
+   waits on one is left mounted forever.
+
+   KNOWN LIMITATION, STATED RATHER THAN HIDDEN: this stops CSS motion only. It
+   does nothing to motion driven from JS. The three JS motion call sites in
+   this file read state.settings.reduceMotion directly instead — spawnConfetti(),
+   animateCountUp() and _raceOverlayRafLoop(), each commented at its own site. */
+body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+}
+/* ═══════════ fix259: SCREEN DIMMER ═══════════
+   settings plan v1 §4.4. A single full-viewport black overlay whose alpha is
+   driven by --dimmer-a, written by applySettings() from SETTINGS_DIMMER_STEPS.
+   Three properties here are load-bearing and none may be dropped:
+
+   1. pointer-events:none — WITHOUT THIS THE OVERLAY SWALLOWS EVERY TAP IN THE
+      GAME. It sits above all content by design, so it would be a total input
+      lockout on a control most players turn on and forget. This is the single
+      most dangerous line in the fix.
+   2. position:fixed; inset:0 — the painted hubs are themselves position:fixed,
+      so an absolutely-positioned overlay would scroll out from under them.
+   3. z-index — MEASURED, NOT ESTIMATED (plan §0 rule 7, §7 open question 3).
+      The plan carried 9999 and marked it UNTRUSTED. fix259 grepped every
+      z-index in the file. The TRUE MAXIMUM IS 2501 (.onboard-skip), with
+      #onboard-layer at 2500, .ceremony-overlay at 2000, .rs-pop/.gut-success-pop
+      at 1900, the race/minigame overlays at 1800 and #morning-layer at 1750.
+      NO z-index IS ASSIGNED FROM JS ANYWHERE IN THE FILE, so the stylesheet is
+      the whole story. This is therefore max+1 = 2502, and 9999 is retired.
+      If any future layer goes above 2501, THIS VALUE MOVES WITH IT.
+
+   The dimmer covers the onboarding and ceremony layers deliberately: it is a
+   screen dimmer, so a layer it did not cover would flash bright against a
+   dimmed game. pointer-events:none means covering .onboard-skip does not make
+   it untappable.
+
+   Transition on opacity only, so stepping the dimmer fades rather than jumps.
+   It is inside the body.reduce-motion sweep above, which is correct — a user
+   asking for less motion gets an instant step instead. */
+#dimmer-layer{
+  position:fixed; inset:0;
+  z-index:2502;
+  pointer-events:none;
+  background:#000;
+  opacity:var(--dimmer-a, 0);
+  transition:opacity .2s ease;
+}
 </style>
 </head>
 <body>
@@ -8592,9 +8838,29 @@ body.home-open{overflow:hidden;}
         <button class="hub-hot home-hot" data-hot="8" style="--hx:19.79%;--hy:78.03%;--hw:22%;--hh:9.90%" aria-label="Calendar" onclick="homeGo('calendar')"></button>
         <button class="hub-hot home-hot" data-hot="9" style="--hx:79.95%;--hy:77.80%;--hw:22%;--hh:9.90%" aria-label="Rider attributes" onclick="homeGo('rider')"></button>
 
-        <!-- Painted bottom bar. Two settings cogs, one either side of PLAY —
-             confirmed by measurement, both route to the same lockout. -->
-        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="10" style="--hx:5.98%;--hy:87.59%;--hw:12%;--hh:5.24%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
+        <!-- Painted bottom bar. Two painted cogs, one either side of PLAY.
+             fix170 wired BOTH to the same lockout; the settings series split
+             them: hotspot 12, under the painted SETTINGS label, became Settings
+             in fix257, and hotspot 10 — the lone far-left cog, not part of that
+             labelled strip — becomes Help & Info here (settings plan v1 §1).
+             fix260: hotspot 10 wired. Tombstoned (fix136 form) — the fix170
+             destination:
+               aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"
+             It routes into the EXISTING prose registry (INFO_TEXTS/openInfo),
+             which until now had no hub-level entry point at all: every ⓘ in the
+             game hangs off a card the player has to already be looking at.
+             GEOMETRY IS UNTOUCHED: --hx/--hy/--hw/--hh and data-hot are
+             byte-identical, so nothing that addresses this hotspot by index is
+             affected. The aria-label moves in the SAME edit as the destination,
+             for the reason given on hotspot 12.
+             OPEN QUESTION §7.1 IS STILL OPEN, and is recorded rather than
+             quietly assumed: the plan asks whether the paint under this hotspot
+             reads as a cog. assets/home-bg.jpg is an external file, not embedded
+             in this HTML, so it could not be measured in this fix and §1's
+             assignment stands UNVERIFIED against the art. If the paint turns out
+             to say something else, only this one onclick and aria-label move —
+             nothing else in the series depends on it. -->
+        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="10" style="--hx:5.98%;--hy:87.59%;--hw:12%;--hh:5.24%" aria-label="Help and info" onclick="openInfo('homeHelp')"></button>
         <!-- fix212: PLAY re-pointed, resolving the open question plan v1 §1
              flagged ("Move it to race for consistency, or leave home alone?
              Plan assumes move; flip fix212 if not"). MOVED, as the plan
@@ -8611,12 +8877,38 @@ body.home-open{overflow:hidden;}
              so nothing that addresses this hotspot by index (HOME_BADGE_HOT,
              the three ONBOARD steps) is affected. -->
         <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="11" style="--hx:50.07%;--hy:87.59%;--hw:30%;--hh:5.24%" aria-label="Play" onclick="homeGo('race')"></button>
-        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="12" style="--hx:72.82%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"></button>
+        <!-- fix257: hotspot 12 wired, exactly the way fix212 moved PLAY.
+             Tombstoned (fix136 form) — the fix170 destination:
+               aria-label="Settings, coming soon" onclick="homeComingSoon('Settings')"
+             This is the cog under the painted SETTINGS label, so it is the one
+             that becomes Settings (settings plan v1 §1). The lone far-left cog,
+             hotspot 10, keeps homeComingSoon() until fix260 gives it Help &
+             Info. GEOMETRY IS UNTOUCHED: --hx/--hy/--hw/--hh and data-hot are
+             byte-identical, so nothing that addresses this hotspot by index is
+             affected. The aria-label moves in the SAME edit as the destination,
+             because a button that says "coming soon" and opens a live sheet is
+             a worse bug than a dead button. -->
+        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="12" style="--hx:72.82%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Settings" onclick="homeHubGo2Settings()"></button>
         <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="13" style="--hx:83.55%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Shop, coming soon" onclick="homeComingSoon('Shop')"></button>
         <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="14" style="--hx:93.95%;--hy:87.59%;--hw:10.5%;--hh:5.24%" aria-label="Profile" onclick="homeGo('rider')"></button>
 
         <div id="home-toast"></div>
       </div>
+    </div>
+    <!-- fix257: the Settings sheet. Opened by homeHubGo2Settings() from
+         hotspot 12 (the painted SETTINGS cog), closed by homeHubBack().
+         Sibling of #home-stage and placed BEFORE #morning-layer so the morning
+         popup (z-index 1750) still paints over it — the existing
+         non-dismissable lockout is what stops hotspot 12 being tapped while a
+         reward is pending, and no new guard is added here (settings plan v1
+         §3.4). The title is a constant: one section, one sheet, so unlike the
+         rider/race sheets there is no key to disambiguate. -->
+    <div id="home-sheet">
+      <div class="home-sheet-bar">
+        <button class="home-sheet-back" aria-label="Back to home" onclick="homeHubBack()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Home</button>
+        <div class="home-sheet-title">Settings</div>
+      </div>
+      <div id="home-settings-body"></div>
     </div>
     <!-- fix173: morning "start your day" collect ritual. Lives on the hub
          because fix171 made the hub the landing screen — the card used to be a
@@ -10699,6 +10991,8 @@ body.home-open{overflow:hidden;}
       </div>
       <button id="gt-btn-main" class="gt-action-btn" onclick="gtMainBtnTap()">START MIXING</button>
       <p id="gt-status">Hit start and match the target lines!</p>
+      <!-- fix256: reward brief. Static copy; nothing binds to it. -->
+      <div class="mg-brief"><b>Gut Training</b>Train carbohydrate absorption to increase maximum carb intake today.</div>
     </div>
   </div>
 
@@ -10791,6 +11085,8 @@ body.home-open{overflow:hidden;}
       <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Bidon +5g</span>
       <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-tack"></use></svg> Debris &minus;15g</span>
     </div>
+    <!-- fix256: reward brief. Static copy; nothing binds to it. -->
+    <div class="mg-brief"><b>Feed Zone</b>Collect energy items on the fly to boost rider energy regeneration for 30 minutes.</div>
   </div>
 </div>
 
@@ -10829,6 +11125,8 @@ body.home-open{overflow:hidden;}
       <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-wind"></use></svg> Green cone = shelter</span>
       <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-bike"></use></svg> Closer = more saved</span>
     </div>
+    <!-- fix256: reward brief. Static copy; nothing binds to it. -->
+    <div class="mg-brief"><b>Slipstream Drafting</b>Master position behind rival riders to minimise drag to gain more XP during training sessions for the next 30 minutes.</div>
   </div>
 </div>
 
@@ -10887,6 +11185,8 @@ body.home-open{overflow:hidden;}
       <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-wind"></use></svg> Smooth streaks = clean air</span>
       <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-target"></use></svg> Match the stage</span>
     </div>
+    <!-- fix256: reward brief. Static copy; nothing binds to it. -->
+    <div class="mg-brief"><b>Wind Tunnel Tuning</b>Optimise aerodynamic posture and bike geometry to lower drag and raise top speed. Grants an aero boost in your next race.</div>
   </div>
 </div>
 
@@ -10964,6 +11264,8 @@ body.home-open{overflow:hidden;}
       <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Ten throws a run</span>
       <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-wind"></use></svg> The wind builds</span>
     </div>
+    <!-- fix256: reward brief. Static copy; nothing binds to it. -->
+    <div class="mg-brief"><b>Bidon Toss</b>Time water bottle throws accurately to spectators to please the crowd and get a sponsor cash payout.</div>
   </div>
 </div>
 
@@ -11037,6 +11339,14 @@ body.home-open{overflow:hidden;}
   <div id="onboard-card" class="onboard-card"></div>
   <button id="onboard-skip" class="onboard-skip" onclick="skipOnboarding()">Skip intro <svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-close"></use></svg></button>
 </div>
+
+<!-- fix259 (settings plan v1 §4.4): the screen dimmer. A DIRECT CHILD OF <body>
+     on purpose — z-index only competes within a stacking context, so nesting
+     this inside any transformed/filtered/opacity<1 ancestor would trap it below
+     layers it must cover no matter how high its z-index is. It has no children,
+     no text and no handlers; it is a sheet of alpha and nothing else.
+     aria-hidden because it is pure decoration and must never be announced. -->
+<div id="dimmer-layer" aria-hidden="true"></div>
 
 <script>
 // ═══════════════════════════════════════════════════════════
@@ -12968,6 +13278,95 @@ const KIT_COLORS = [
 // ═══════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════
+// ═══════════ fix257: SETTINGS ═══════════════════════════════════════════
+// Device preferences, NOT progression. handlePrestige() is not edited by this
+// series and must never clear this object; if a future fix wants a
+// settings-shaped field that IS progression, it does not go in here
+// (settings plan v1 §2.5).
+//
+// dimmer is an INTEGER STEP INDEX, not a float alpha. Storing the alpha would
+// make every future retune of the dimmer curve a save migration; storing the
+// step means the curve lives in SETTINGS_DIMMER_STEPS alone and can be changed
+// freely. textScale is likewise enumerated, not a slider.
+const SETTINGS_DEFAULTS = {
+  reduceMotion: false,
+  dimmer: 0,
+  textScale: 1,
+  numberFormat: 'compact',
+  racePace: 'full',
+  sound: true,
+};
+// The allowed sets. loadGame() clamps every enumerated field against these, so
+// a hand-edited or corrupted save carrying textScale:"banana" cannot poison the
+// root font size on a render path that reads it every tick (§2.3).
+const SETTINGS_DIMMER_STEPS = [0, 0.15, 0.3, 0.45]; // alpha curve; index is what is stored
+// fix259 — MEASURED. The plan (§4.5) called for --ui-scale on a root
+// `font-size: calc(16px * var(--ui-scale,1))`, with only the 1.25 CEILING
+// marked untrusted. The measurement invalidated the MECHANISM, not the ceiling,
+// so no ceiling was chosen and no --ui-scale was shipped.
+//
+// Counted across the whole stylesheet:
+//   font-size declarations:  324 in px,  19 in rem,  3 in clamp()
+//   rem used on:             margin-bottom 58, padding 52, font-size 19,
+//                            margin 16, margin-top 15, gap 10, animation 4, width 1
+//
+// 218 of the 237 rem uses are SPACING. Scaling the root font size would
+// therefore inflate every margin, padding and gap in the game by up to 25%
+// while leaving 324 of 343 font sizes — 94% of the text — completely unchanged.
+// That is a layout-density control wearing a "Text size" label. It fails the
+// same test §4.4 applies to "Screen dimmer" vs "Brightness": a control that
+// cannot do what its label says is a support ticket.
+//
+// The array is KEPT as-is. It is the validated allowed-set for a field that is
+// already stored, already migrated and already round-tripping through saves, so
+// removing it would be a save migration for no gain. The Text size ROW is
+// retired from SETTINGS_ROWS by fix259 (tombstoned there, not deleted) so that
+// nothing player-facing claims to do something it does not do.
+//
+// The real mechanism, when it is specced: scale the px font-sizes themselves,
+// via a token pass or a `font-size:calc(Npx * var(--ui-scale,1))` sweep. That is
+// a 324-declaration edit and its own plan document, NOT an inline decision here.
+const SETTINGS_TEXT_SCALES  = [0.9, 1, 1.1, 1.25];
+const SETTINGS_NUMBER_FORMATS = ['compact', 'full'];
+const SETTINGS_RACE_PACES = ['full', 'fast', 'skip'];
+// ═══════════ fix258: RACE PACE CURVE (settings plan v1 §4.3) ═══════════
+// The stored value is the ENUM ('full'|'fast'|'skip'); this is the curve it
+// indexes, exactly as SETTINGS_DIMMER_STEPS is the curve `dimmer` indexes. Same
+// reason: retuning what 'fast' means is then a one-number edit here and never a
+// save migration.
+//
+// These are MULTIPLIERS ON rd.animMs AND NOTHING ELSE. That is the whole
+// mechanism, and it is chosen precisely because animMs is a presentation clock:
+// every result in this game is decided by simulateRaceResult() BEFORE animMs is
+// ever read (see startRace — `const result=simulateRaceResult(...)` runs first,
+// then raceData is built around it), and completeRace() is reached from the one
+// `elapsed>=rd.animMs` line in gameTick regardless of what that number is. So
+// 'skip' is structurally incapable of computing a different result from 'full':
+// it lands on the identical result path, just sooner. Any future implementation
+// of 'skip' that branches around completeRace(), around simulateRaceResult(),
+// or around the prize/points/streak/task/sponsor writes inside completeRace()
+// is WRONG — the plan says the pace control suppresses the presentation, never
+// the simulation, and this shape is what makes that guarantee structural rather
+// than a promise in a comment.
+const RACE_PACE_MULT = { full: 1, fast: 0.35, skip: 0.02 };
+// Floor in ms. 'skip' on the shortest race (CLUB_RACE.animMs 25000) would be
+// 500ms at 0.02, which is fine; the floor exists so no future shorter race type
+// or lower multiplier can produce an animMs at or below one gameTick interval,
+// where `elapsed>=rd.animMs` could be satisfied on the very first tick before
+// openRaceOverlay() has painted anything and the race would appear to have
+// never happened. 900ms is comfortably several ticks.
+const RACE_PACE_MIN_MS = 900;
+// THE funnel. All three raceData construction sites (startRace,
+// startCalendarEvent, the Grand Tour stage starter) route their animMs through
+// this and nothing else assigns rd.animMs. Reading state.settings defensively
+// because this is called during race construction, which a corrupted save could
+// in principle reach before the clamp block in loadGame() has run.
+function racePaceAnimMs(baseMs){
+  const pace = (state.settings && state.settings.racePace) || 'full';
+  const mult = RACE_PACE_MULT[pace] ?? RACE_PACE_MULT.full;
+  return Math.max(RACE_PACE_MIN_MS, Math.round(baseMs * mult));
+}
+
 const state = {
   money:0, seasonMoney:0, lifetimeMoney:0,
   onboarding: {step:0, done:false}, // brand-new state default; existing saves get done:true in loadGame
@@ -13049,6 +13448,10 @@ const state = {
   // without that reset the "single season" requirement decays into "at some
   // point across your whole career", which is not the goal.
   seasonAchievements: { gtWon: new Set(), nationalsWon: false },
+  // fix257: device settings. Every field a primitive, no nesting beyond this
+  // level. Cloned from SETTINGS_DEFAULTS rather than referencing it, so a fresh
+  // game can never mutate the defaults object out from under loadGame().
+  settings: { ...SETTINGS_DEFAULTS },
   winsSincePrestige: 0, // season-scoped win count — gates sponsor tiers; resets on prestige. raceWinsByType above stays lifetime, untouched, for Lifetime Goals.
   // Specialisation
   specialisation: null,
@@ -13847,6 +14250,54 @@ function resolveRaceDecision(){
   if(currentTab==='race') renderActiveRaceBlock();
 }
 
+// ═══════════ fix258: RACE PACE 'skip' — STAGE FLUSH (settings plan v1 §4.3) ═══
+// THE reason this function has to exist, spelled out because it is the one
+// place 'skip' could quietly have become a cheat:
+//
+// fix131's comment records that a race whose decision stages never fire banks
+// the full 100 raceLegs and hands out the maximum -4-place finish kick for
+// free — "strictly better than playing the race". A naive 'skip' that just
+// shortens animMs does EXACTLY that, because gameTick only fires a stage once
+// progress crosses its triggerPct and only one per tick, and a 900ms race does
+// not reliably get there. So 'skip' cannot mean "don't run the stages"; it
+// means "run them without showing them".
+//
+// This resolves every remaining stage IN rd.stages ORDER, which is triggerPct
+// order — the same order they would have fired live — through the SAME
+// resolveRaceDecision() the live path and the existing 30s auto-select both
+// use, taking the SAME default choice the auto-select would have taken. legs
+// and positionDelta are therefore computed by the same functions, from the same
+// inputs, in the same sequence. The only thing removed is the wait and the card.
+//
+// It deliberately does NOT write positionDelta, raceLegs or lastDecisionResult
+// itself — every one of those stays owned by resolveRaceDecision(), so there is
+// still exactly one place decisions are applied.
+//
+// The TT guard is copied VERBATIM from the live fire loop in gameTick, including
+// the fact that it `continue`s WITHOUT marking the stage fired. Diverging here
+// would let a road-only event resolve on a TT down this path while remaining
+// impossible down the live one.
+function raceSkipFlushStages(rd, isTT){
+  if(!rd || !rd.stages) return;
+  for(const stage of rd.stages){
+    if(stage.fired) continue;
+    if(isTT && stage.event && stage.event.raceTypeOnly && stage.event.raceTypeOnly!=='tt') continue;
+    const ev=stage.event;
+    if(!ev || !ev.choices || !ev.choices.length){ stage.fired=true; continue; }
+    stage.fired=true;
+    const dflt=ev.choices.find(c=>c.defaultChoice)||ev.choices[0];
+    const t=Date.now();
+    // Built pre-selected so resolveRaceDecision() sees exactly the shape the
+    // auto-select path hands it. startedAt===selectedAt===now means the
+    // totalPausedMs it accumulates is ~0, so the race clock is untouched —
+    // which matters, because getEffectiveElapsed() subtracts that number and a
+    // sloppy timestamp here would stretch a 900ms race.
+    rd.pendingDecision={event:ev, startedAt:t, selectedChoiceId:dflt.id, selectedAt:t, wasAutoSelected:true};
+    rd.lastDecisionResult=null;
+    resolveRaceDecision();
+  }
+}
+
 // Assigns the rival's name once (career start) and recalibrates their FTP to
 // 10–15% above the player's CURRENT FTP whenever the category index has changed
 // since the last calibration — covers normal promotion, and also prestige resets
@@ -14035,7 +14486,7 @@ function startRace(raceTypeId, isClub=false){
   // skip this (their simulate* functions never return .rival) — no separate
   // guard needed here, just the existence check.
   const rivalStartVP=result.rival ? Math.max(1,Math.min(result.fieldSize,Math.round(result.rival.position*0.9+result.fieldSize*0.1))) : null;
-  state.raceData={typeId:raceTypeId,startTime:Date.now(),animMs:isClub?CLUB_RACE.animMs:rt.animMs,result,
+  state.raceData={typeId:raceTypeId,startTime:Date.now(),animMs:racePaceAnimMs(isClub?CLUB_RACE.animMs:rt.animMs),result, // fix258: race pace — see racePaceAnimMs()
     virtualPos:Math.round(result.fieldSize*0.45),startVP:Math.round(result.fieldSize*0.45),commentaryIdx:0,
     courseId:course?course.id:null,
     ...(rivalStartVP!=null ? {rivalStartVP, rivalVP:rivalStartVP} : {}),
@@ -14962,7 +15413,7 @@ function startCalendarEvent(eventId){
   const result=simulateCalendarEventResult(eventId);
   const rt=RACE_TYPES.find(r=>r.id===ev.raceTypeId);
   state.raceActive=true;
-  state.raceData={typeId:ev.raceTypeId,startTime:Date.now(),animMs:rt.animMs,result,
+  state.raceData={typeId:ev.raceTypeId,startTime:Date.now(),animMs:racePaceAnimMs(rt.animMs),result, // fix258: race pace — see racePaceAnimMs()
     virtualPos:Math.round(result.fieldSize*0.45),startVP:Math.round(result.fieldSize*0.45),commentaryIdx:0,
     isCalendarEvent:true, calendarEventId:eventId,
     stages:buildRaceStages(ev.raceTypeId),
@@ -15140,7 +15591,7 @@ function startGrandTourStage(tourId){
   const stage=stages[stageIndex];
   const result=simulateGrandTourStageResult(tourId, stageIndex);
   state.raceActive=true;
-  state.raceData={typeId:'road',startTime:Date.now(),animMs:100000,result,
+  state.raceData={typeId:'road',startTime:Date.now(),animMs:racePaceAnimMs(100000),result, // fix258: race pace — see racePaceAnimMs()
     virtualPos:Math.round(result.fieldSize*0.45),startVP:Math.round(result.fieldSize*0.45),commentaryIdx:0,
     isCalendarEvent:true, calendarEventId:tourId, isGrandTourStage:true, stageIndex,
     stages:buildRaceStages('road'),
@@ -15682,7 +16133,29 @@ function restoreSave(){
 // ═══════════════════════════════════════════════════════════
 // FORMAT / TOAST / TABS
 // ═══════════════════════════════════════════════════════════
-function fmtMoney(n){ n=Math.floor(n); return n>=1e6?'£'+(n/1e6).toFixed(2)+'M':n>=1000?'£'+(n/1000).toFixed(1)+'K':'£'+n.toLocaleString(); }
+// fix259 (settings plan v1 §4.2): the numberFormat branch. fmtMoney() was
+// already THE single funnel for every money string in the game, which is the
+// only reason this is a one-line change rather than a hunt.
+//
+// Read at the use site rather than pushed by applySettings(), because the value
+// is needed per-call at format time — there is nothing to write to the DOM.
+//
+// state.settings?.dimmer-style optional chaining is used deliberately:
+// fmtMoney() is reachable from render paths that can run before loadGame()
+// populates state.settings on a first-ever boot, and a TypeError inside a money
+// formatter would take out an entire banner rather than degrade. Falling back to
+// compact matches SETTINGS_DEFAULTS.
+//
+// KNOWN AND ACCEPTED (plan §4.2): 'full' on a large balance produces a
+// materially longer string, and the painted banner slots are percentage-width
+// against the art with overflow:hidden. The failure mode is TRUNCATION, not a
+// broken layout, 'compact' remains the default, and the slots are NOT widened
+// to accommodate this.
+function fmtMoney(n){
+  n=Math.floor(n);
+  if(state.settings?.numberFormat === 'full') return '£'+n.toLocaleString();
+  return n>=1e6?'£'+(n/1e6).toFixed(2)+'M':n>=1000?'£'+(n/1000).toFixed(1)+'K':'£'+n.toLocaleString();
+}
 function fmt(n){ n=Math.floor(n); return n>=1e6?(n/1e6).toFixed(2)+'M':n>=1000?(n/1000).toFixed(1)+'K':n.toLocaleString(); }
 function fmtDec(n){ return n>=1000?fmt(n):n.toFixed(2); }
 function fmtTime(ms){ const s=Math.ceil(ms/1000); return s>60?Math.ceil(s/60)+'m':s+'s'; }
@@ -16081,6 +16554,17 @@ function dismissCeremony(e){
 // rotation and timing. Rebuilt fresh on every ceremony so it never looks stale.
 function spawnConfetti(){
   const wrap=document.getElementById('ceremony-confetti');
+  // fix258 — JS MOTION CALL SITE 1 OF 3 (settings plan v1 §4.1, open question 2).
+  // The CSS class alone cannot fully handle this one: every piece carries an
+  // INLINE animation-delay and animation-duration written here, and while the
+  // !important rule does outrank them, the 36 nodes would still be built,
+  // inserted and laid out on every ceremony to animate for 1µs and then sit
+  // there. Emitting nothing is the honest answer, and it is a no-op for the
+  // ceremony itself: the confetti layer is decorative, nothing reads it back,
+  // and clearCeremony() blanks the same innerHTML either way.
+  // MUST clear rather than early-return — the wrap is reused between
+  // ceremonies, so returning would leave the PREVIOUS ceremony's pieces up.
+  if(wrap && state.settings && state.settings.reduceMotion){ wrap.innerHTML=''; return; }
   const colors=['var(--gold)','var(--green-txt)','var(--blue-txt)','var(--red-txt)','var(--purple-txt)','var(--amber-txt)'];
   let html='';
   for(let i=0;i<36;i++){
@@ -16099,6 +16583,18 @@ function spawnConfetti(){
 // Uses an ease-out curve so it starts fast and settles gently on the final value.
 function animateCountUp(elId, target, durationMs, formatFn){
   const el=document.getElementById(elId); if(!el) return;
+  // fix258 — JS MOTION CALL SITE 2 OF 3 (settings plan v1 §4.1, open question 2).
+  // Pure rAF, so no CSS rule can touch it. Under reduced motion the number is
+  // written ONCE, already at its final value, through the SAME formatFn the
+  // loop would have used on its last frame — so the end state is identical
+  // character-for-character and only the journey to it is removed. This is the
+  // pattern for every motion suppression in this file: suppress the
+  // presentation, never change the value.
+  // Math.round() is NOT cosmetic here — it is what the loop's own last frame
+  // does (`Math.round(target*eased)` with eased===1). Passing a raw fractional
+  // target would make reduced motion print a different string from the
+  // animated path, which is exactly the divergence this branch must not create.
+  if(state.settings && state.settings.reduceMotion){ el.textContent=formatFn(Math.round(target)); return; }
   const start=performance.now();
   function tick(now){
     const t=Math.min(1,(now-start)/durationMs);
@@ -17030,6 +17526,12 @@ function hubGo(tab){
   // it. Null-safe and clears its own timer, so this is a seventh no-op in the
   // common case.
   raceHideToast();
+  // fix257: APPENDED for exactly the reason the seven HideToast() calls above
+  // exist. Without it, a hub-to-hub tap made from inside the Settings sheet
+  // would leave the sheet mounted behind the tab just opened, and it would then
+  // be the thing the player lands on the next time they come home. Null-safe
+  // and idempotent, so this is an eighth no-op in the common case.
+  homeSheetSet(false);
   showTab(tab);
 }
 
@@ -17076,6 +17578,303 @@ function homeHideToast(){
   if(_homeToastTimer){ clearTimeout(_homeToastTimer); _homeToastTimer=null; }
   const el=document.getElementById('home-toast');
   if(el) el.classList.remove('on');
+}
+
+// ═══════════ fix257: SETTINGS SHEET ═════════════════════════════════════
+// Three functions, no more (settings plan v1 §3.3), shaped on
+// skillsHubGo2Sheet() / skillsHubBack() / skillsSheetSet().
+//
+// ORDER MATTERS, exactly as in riderHubGo(), trainHubGo(), calHubGo(),
+// sponsorHubGo() and skillsHubGo2Sheet(): render first, then open. The six rows
+// paint while the sheet is still display:none, so the player never sees a frame
+// of a stale toggle state before the fresh one lands.
+function homeHubGo2Settings(){
+  renderSettings();
+  homeSheetSet(true);
+}
+
+// Back from the sheet to the hub. Deliberately NOT history.back() — opening the
+// sheet pushed nothing, so there is no entry to unwind and calling back() here
+// would exit the tab entirely. Same reasoning as riderHubBack(), trainHubBack(),
+// calHubBack(), sponsorHubBack() and skillsHubBack(). No key is nulled because
+// this sheet has no key: one section, and .home-sheet-title is a constant.
+function homeHubBack(){
+  homeSheetSet(false);
+}
+
+// THE single funnel for whether the sheet is showing, mirroring riderSheetSet(),
+// trainSheetSet(), gearSheetSet(), calSheetSet(), sponsorSheetSet() and
+// skillsSheetSet(). Every open and every close goes through here, so the stage
+// and the sheet can never both be live: one class on #tab-home drives
+// `#home-sheet{display:block}` and `#home-stage{display:none}` together, in one
+// DOM write. That mutual exclusion IS the hard lockout, and on THIS tab it
+// means all fourteen painted hotspots are gone while the sheet is up.
+//
+// Idempotent and safe to call when the Home tab is not showing: toggle() with an
+// explicit second argument sets rather than flips, so a stray call — hubGo()'s,
+// for instance — can never invert the sheet.
+function homeSheetSet(open){
+  const tab=document.getElementById('tab-home');
+  if(tab) tab.classList.toggle('home-sheet-open', !!open);
+  const sheet=document.getElementById('home-sheet');
+  if(!sheet) return;
+  if(!open){ sheet.style.top=''; return; }
+  // The measured-header branch, KEPT VERBATIM even though 'home' is in HUB_TABS
+  // and .game-header is therefore hidden here. It costs one null-ish check per
+  // open and it means the file has ONE sheet pattern rather than six-and-a-bit;
+  // the day a header ever returns to this tab, the sheet already clears it
+  // instead of hiding its own back bar behind it. offsetParent is null for a
+  // display:none element — a hidden header detected without reading computed
+  // styles, which is exactly the case this tab is in today, so this resolves to
+  // 0 and the CSS fallback applies.
+  const hdr=document.querySelector('.game-header');
+  const h = (hdr && hdr.offsetParent!==null) ? Math.round(hdr.getBoundingClientRect().height) : 0;
+  sheet.style.top = h>0 ? h+'px' : '';
+}
+
+// The six rows. Shipped INERT in fix257 — the sheet, the state, the save
+// round-trip and the migration guard all landed and were tested in isolation,
+// at zero risk to any existing render path — and now wired one fix at a time:
+//   fix258 — reduceMotion (LIVE) and racePace (LIVE)   ← this fix
+//   fix259 — dimmer, textScale, numberFormat
+//   fix260 — version readout
+// The row DATA below is otherwise untouched by fix258: the two `info` keys are
+// the only additions, and no key, label, option value or option order changes,
+// so a save written by fix257 selects the identical button here.
+const SETTINGS_ROWS = [
+  { key:'reduceMotion', label:'Reduced motion', info:'settingsReduceMotion',
+    opts:[{v:false,t:'Off'},{v:true,t:'On'}] },
+  { key:'dimmer', label:'Screen dimmer',
+    // Labelled "Screen dimmer", NEVER "Brightness": it can only darken, and a
+    // control that cannot do what its label says is a support ticket.
+    opts:[{v:0,t:'Off'},{v:1,t:'Low'},{v:2,t:'Mid'},{v:3,t:'High'}] },
+  // tombstone (fix259): the Text size row. Held back, NOT abandoned — the
+  // measurement recorded at SETTINGS_TEXT_SCALES showed the planned --ui-scale
+  // mechanism would move layout spacing and leave 94% of text untouched.
+  // Shipping it inert was the alternative and was rejected: `sound` is inert but
+  // carries an ⓘ explaining that sound does not exist yet, which is an honest
+  // promise about the future. "Text size" that does not change text size is not
+  // inert, it is WRONG, and no ⓘ makes it right. state.settings.textScale keeps
+  // being stored, migrated and validated, so restoring this row is one
+  // uncommenting once the mechanism has its own plan.
+  // { key:'textScale', label:'Text size',
+  //   opts:[{v:0.9,t:'S'},{v:1,t:'M'},{v:1.1,t:'L'},{v:1.25,t:'XL'}] },
+  { key:'numberFormat', label:'Numbers',
+    opts:[{v:'compact',t:'Compact'},{v:'full',t:'Full'}] },
+  { key:'racePace', label:'Race pace', info:'settingsRacePace',
+    // fix258: the ⓘ carries the one claim this control lives or dies on —
+    // Skip does not change the result. See settingsRacePace in INFO_TEXTS and
+    // RACE_PACE_MULT for why that is structurally true, not just asserted.
+    opts:[{v:'full',t:'Full'},{v:'fast',t:'Fast'},{v:'skip',t:'Skip'}] },
+  { key:'sound', label:'Sound', info:'settingsSound',
+    opts:[{v:false,t:'Off'},{v:true,t:'On'}] },
+];
+
+function renderSettings(){
+  const body=document.getElementById('home-settings-body');
+  if(!body) return;
+  const cur=state.settings||{};
+  body.innerHTML = SETTINGS_ROWS.map(row=>{
+    const info = row.info ? ` <button class="info-btn" onclick="openInfo('${row.info}')">ⓘ</button>` : '';
+    const segs = row.opts.map(o=>{
+      const on = cur[row.key]===o.v ? ' on' : '';
+      // Values are emitted as JSON so booleans and numbers survive the round
+      // trip through the attribute as booleans and numbers, not as the strings
+      // "true"/"0.9" — setSetting() validates against the allowed set and a
+      // string would fail every check.
+      const arg = JSON.stringify(o.v).replace(/"/g,'&quot;');
+      return `<button class="set-btn${on}" aria-pressed="${cur[row.key]===o.v}" onclick="setSetting('${row.key}', ${arg})">${o.t}</button>`;
+    }).join('');
+    return `<div class="set-row"><div class="set-row-lbl">${row.label}${info}</div><div class="set-seg">${segs}</div></div>`;
+  }).join('');
+
+  // fix260 (settings plan v1 §4.6) — the version row. APPENDED here rather than
+  // added to SETTINGS_ROWS: every entry in that array is a segmented control
+  // whose renderer emits `.set-btn` siblings bound to setSetting(), and this row
+  // is a readout plus one action. Forcing it into the data would mean a second
+  // shape inside the map and an `if` in the hot path of the only renderer this
+  // sheet has. It is LAST because it is the only row that is not a preference.
+  //
+  // Nothing here writes to state.settings, so setSetting() remains THE one
+  // funnel — that promise is unbroken by this fix.
+  const _armed = (Date.now() - _setUpdArmAt) < SET_UPD_ARM_MS;
+  const _cache = _setVerCache === null ? 'reading…' : (_setVerCache || 'unavailable');
+  const _msg = _setVerMsg ? `<br>${_setVerMsg}` : '';
+  body.insertAdjacentHTML('beforeend',
+    `<div class="set-row">
+       <div class="set-row-lbl">Version <button class="info-btn" onclick="openInfo('settingsVersion')">ⓘ</button></div>
+       <div class="set-ver">
+         <div class="set-ver-val">Game ${SETTINGS_BUILD}<br>Cache ${_cache}${_msg}</div>
+         <button class="set-ver-btn${_armed?' armed':''}" onclick="settingsUpdateTap()">${_armed?'Tap again to update':'Check for update'}</button>
+       </div>
+     </div>`);
+  if(_setVerCache === null) readCacheVersion();
+}
+
+// ═══════════ fix260: VERSION READOUT + UPDATE ═══════════════════════════
+// This row exists because stale cache is the most common deployment failure in
+// this project (see the service-worker tombstone list). Being able to ask a
+// player to read back their cache version is worth more than any toggle above
+// it — so the number shown MUST be the one actually running, never a constant
+// typed into this file and never re-typed on a later fix.
+//
+// SETTINGS_BUILD is the HTML's own fix number and is hardcoded, which is
+// correct: the HTML cannot read its own filename reliably (it is served as
+// index.html) and the only thing that could go stale is this string, which
+// moves with the fix that renames the file.
+//
+// CACHE_VERSION is NOT hardcoded. It is fetched from the active registration's
+// own scriptURL and parsed out of the served text, so a player running a worker
+// three versions behind the HTML sees the mismatch — which is exactly the
+// failure mode this row is here to expose. The service worker is NOT edited to
+// support this (settings plan v1 §0.6 permits only the CACHE_VERSION bump):
+// no message channel, no handler, nothing to keep in sync.
+const SETTINGS_BUILD = 'fix260';
+let _setVerCache = null;   // null = not read yet, '' = unreadable, else the string
+let _setVerReading = false;
+let _setVerMsg = '';
+let _setUpdArmAt = 0;
+const SET_UPD_ARM_MS = 4000;
+
+// Reads the ACTIVE worker's script and pulls the live CACHE_VERSION out of it.
+// The anchored ^const is load-bearing: every retired version in that file is a
+// `// const CACHE_VERSION = …` tombstone, and an unanchored match would report
+// the first tombstone from 2024 as the running version — a wrong number is
+// worse here than no number, because the whole point is diagnosis.
+// cache:'reload' bypasses the HTTP cache; without it this can read the very
+// stale copy it is meant to detect.
+// Every failure path lands on '' → "unavailable". This is a diagnostic readout
+// and it must never throw into the render that draws it.
+function readCacheVersion(){
+  if(_setVerReading || _setVerCache !== null) return;
+  _setVerReading = true;
+  const done = (v)=>{ _setVerCache = v || ''; _setVerReading = false; renderSettings(); };
+  if(!('serviceWorker' in navigator)){ done(''); return; }
+  navigator.serviceWorker.getRegistration()
+    .then(reg => {
+      const w = reg && (reg.active || reg.waiting || reg.installing);
+      if(!w || !w.scriptURL) return done('');
+      return fetch(w.scriptURL, { cache:'reload' })
+        .then(r => r.ok ? r.text() : '')
+        .then(t => {
+          const m = /^const\s+CACHE_VERSION\s*=\s*['"]([^'"]+)['"]/m.exec(t||'');
+          done(m ? m[1] : '');
+        });
+    })
+    .catch(()=> done(''));
+}
+
+// Two-tap confirm, NEVER confirm(). A successful update reloads the page, which
+// is destructive to anything unsaved, so it gets the same arm-then-fire pattern
+// as every other irreversible control in this file.
+//
+// The armed state lives in a module variable rather than a class on the button,
+// for buildTrainSheetSession()'s reason: renderSettings() rebuilds this node
+// wholesale on every setSetting(), so an arm held in the DOM would be wiped by
+// any other tap in the sheet. The variable survives the rebuild and the renderer
+// reads it back.
+function settingsUpdateTap(){
+  const now = Date.now();
+  if(now - _setUpdArmAt >= SET_UPD_ARM_MS){
+    _setUpdArmAt = now;
+    _setVerMsg = 'Updating reloads the game.';
+    renderSettings();
+    // Disarm on its own, so a player who taps once and wanders off does not
+    // come back to a live reload button. Guarded on the timestamp so a SECOND
+    // arm started inside this window is not disarmed by the first one's timer.
+    setTimeout(()=>{
+      if(Date.now() - _setUpdArmAt >= SET_UPD_ARM_MS && _setUpdArmAt !== 0){
+        _setUpdArmAt = 0; _setVerMsg = ''; renderSettings();
+      }
+    }, SET_UPD_ARM_MS + 60);
+    return;
+  }
+  // Second tap — fire.
+  _setUpdArmAt = 0;
+  _setVerMsg = 'Checking…';
+  renderSettings();
+  const say = (m)=>{ _setVerMsg = m; renderSettings(); };
+  if(!('serviceWorker' in navigator)){ say('Updates are not available here.'); return; }
+  navigator.serviceWorker.getRegistration()
+    .then(reg => {
+      if(!reg) return say('Updates are not available here.');
+      return Promise.resolve(reg.update()).then(()=>{
+        // The worker installs with skipWaiting(), so a found update becomes the
+        // active worker on its own; the reload is what makes the page pick up
+        // the freshly cached HTML. saveGame() first — the reload is deliberate,
+        // losing the last few seconds of progress to it would not be.
+        if(reg.installing || reg.waiting){
+          say('Update found — reloading…');
+          try{ saveGame(); }catch(e){}
+          setTimeout(()=>location.reload(), 700);
+        } else {
+          say('You are on the latest version.');
+        }
+      });
+    })
+    .catch(()=> say('Could not check right now.'));
+}
+
+// THE one funnel. Every button in the sheet calls this and NOTHING ELSE writes
+// to state.settings. Validate, assign, save, apply, re-render — in that order,
+// so the paint always reflects what was actually stored rather than what was
+// asked for.
+function setSetting(key, val){
+  if(!(key in SETTINGS_DEFAULTS)){ console.warn('[CIM] setSetting: unknown key', key); return; }
+  if(key==='reduceMotion' || key==='sound') val = !!val;
+  else if(key==='dimmer'){ if(!(Number.isInteger(val) && val>=0 && val<SETTINGS_DIMMER_STEPS.length)) return; }
+  else if(key==='textScale'){ if(!SETTINGS_TEXT_SCALES.includes(val)) return; }
+  else if(key==='numberFormat'){ if(!SETTINGS_NUMBER_FORMATS.includes(val)) return; }
+  else if(key==='racePace'){ if(!SETTINGS_RACE_PACES.includes(val)) return; }
+  state.settings[key]=val;
+  saveGame();
+  applySettings();
+  renderSettings();
+}
+
+// THE single place that pushes settings onto the DOM. Called once at boot and
+// once per setSetting(), and nowhere else — so there is exactly one answer to
+// "where does a setting become visible?".
+//
+// Was A DELIBERATE STUB IN fix257. Each later fix in this series adds its own
+// branch here and nowhere else:
+//   fix258 — body.reduce-motion            ← LANDED
+//   fix259 — the dimmer overlay alpha      ← LANDED
+//   textScale — NOT LANDED. See the SETTINGS_TEXT_SCALES comment for the
+//     measurement that stopped it; it is not an oversight and it is not a
+//     forgotten line. It gains its branch here when its mechanism is decided.
+// numberFormat and racePace are read at their use sites rather than pushed, so
+// they will never gain a branch here.
+function applySettings(){
+  // fix258 (settings plan v1 §4.1) — the ONE write that turns the stored
+  // boolean into the CSS class the rule set at the end of the stylesheet
+  // reads. classList.toggle() with an explicit second argument SETS rather
+  // than flips, so this is idempotent: applySettings() runs once at boot and
+  // once per setSetting(), and a double call can never leave the class
+  // inverted relative to the state that produced it.
+  //
+  // document.body is guaranteed here — applySettings() has exactly two call
+  // sites, boot (after the load block, with the body long since parsed) and
+  // setSetting() (only reachable from a tap on a rendered button) — but the
+  // null-ish guard costs one check and means this can be called from anywhere
+  // later without that reasoning having to be redone.
+  if(document.body) document.body.classList.toggle('reduce-motion', !!state.settings.reduceMotion);
+
+  // fix259 (settings plan v1 §4.4) — the dimmer. The stored value is a STEP
+  // INDEX, never an alpha, so the curve lives here in SETTINGS_DIMMER_STEPS and
+  // can be retuned freely without ever becoming a save migration.
+  //
+  // Re-clamped at the point of use rather than trusted from state: loadGame()
+  // already clamps it, but this runs on every setSetting() too, and the cost of
+  // being wrong is writing a garbage value straight into a full-screen black
+  // overlay. || 0 catches undefined/NaN so the property can never be set to the
+  // string "undefined", which CSS would reject and leave the PREVIOUS alpha
+  // painted — a stuck dimmer with no way back.
+  const _di = state.settings.dimmer;
+  const _da = SETTINGS_DIMMER_STEPS[
+    (Number.isInteger(_di) && _di >= 0 && _di < SETTINGS_DIMMER_STEPS.length) ? _di : 0
+  ] || 0;
+  document.documentElement.style.setProperty('--dimmer-a', _da);
 }
 
 // Banner. MIRRORS updateHeader() — it does not call it, and updateHeader() is
@@ -20768,7 +21567,21 @@ let _raceOverlayRafId=null;
 window._raceOverlayRafRunning=false; // debug flag: false when loop is stopped
 function _raceOverlayRafLoop(){
   if(!window._raceOverlayRafRunning) return;
-  if(state.raceActive && state.raceData && !state.raceData.pendingDecision){
+  // fix258 — JS MOTION CALL SITE 3 OF 3 (settings plan v1 §4.1, open question 2).
+  // This loop exists ONLY to smooth the course-profile marker between the 1s
+  // ticks; the comment above says so. Skipping the render therefore removes
+  // motion and nothing else — renderActiveRaceBlock() is still driven by
+  // gameTick on its own schedule, so the overlay stays live and correct, it
+  // just steps instead of glides.
+  //
+  // The render is skipped, NOT the loop: the rAF is still re-queued below and
+  // _raceOverlayRafRunning still gates it, so openRaceOverlay/closeRaceOverlay
+  // keep their existing single start/stop contract and the debug flag keeps
+  // meaning what it meant. Bailing out of the loop entirely here would leave a
+  // player who turns reduced motion OFF mid-race with a dead loop until the
+  // next overlay open.
+  const _rm = !!(state.settings && state.settings.reduceMotion);
+  if(!_rm && state.raceActive && state.raceData && !state.raceData.pendingDecision){
     renderActiveRaceBlock();
   }
   _raceOverlayRafId=requestAnimationFrame(_raceOverlayRafLoop);
@@ -27265,6 +28078,9 @@ function saveGame(){
       pendingSession:state.session.awaitingCollection
         ? {typeId:state.session.typeId, pendingXP:state.session.pendingXP||[], isCritical:!!state.session.isCritical}
         : null,
+      // fix257: appended at the end of the payload, before lastSavedAt. A plain
+      // object of primitives, so unlike the Sets above it needs no spread.
+      settings:state.settings,
       lastSavedAt:Date.now(),
     }));
   }catch(e){ console.warn('[CIM] Save failed:',e); }
@@ -27368,6 +28184,32 @@ function loadGame(){
         gtWon: new Set(Array.isArray(_sa.gtWon) ? _sa.gtWon : []),
         nationalsWon: _sa.nationalsWon ?? false,
       };
+    }
+    // fix257: THE SAME LESSON, and this object is the one most likely to grow.
+    // EVERY FUTURE SETTINGS FIELD ADDED ANYWHERE IN THIS CODEBASE GETS ITS OWN
+    // `??` LINE IN THIS BLOCK. A save written by fix257 carries a truthy
+    // settings object missing every field a later fix adds; a top-level
+    // `d.settings || {...}` would decline to fire and the new field would read
+    // undefined forever. Rebuild field by field instead.
+    {
+      const _s = d.settings || {};
+      state.settings = {
+        reduceMotion: _s.reduceMotion ?? SETTINGS_DEFAULTS.reduceMotion,
+        dimmer:       _s.dimmer       ?? SETTINGS_DEFAULTS.dimmer,
+        textScale:    _s.textScale    ?? SETTINGS_DEFAULTS.textScale,
+        numberFormat: _s.numberFormat ?? SETTINGS_DEFAULTS.numberFormat,
+        racePace:     _s.racePace     ?? SETTINGS_DEFAULTS.racePace,
+        sound:        _s.sound        ?? SETTINGS_DEFAULTS.sound,
+      };
+      // Clamp, do not trust (§2.3). These four are read by render paths, so a
+      // corrupted value must be corrected here rather than defended at every
+      // read site. Booleans need no clamp — they are coerced at use.
+      if(!SETTINGS_TEXT_SCALES.includes(state.settings.textScale)) state.settings.textScale = SETTINGS_DEFAULTS.textScale;
+      if(!SETTINGS_NUMBER_FORMATS.includes(state.settings.numberFormat)) state.settings.numberFormat = SETTINGS_DEFAULTS.numberFormat;
+      if(!SETTINGS_RACE_PACES.includes(state.settings.racePace)) state.settings.racePace = SETTINGS_DEFAULTS.racePace;
+      if(!(Number.isInteger(state.settings.dimmer) && state.settings.dimmer >= 0 && state.settings.dimmer < SETTINGS_DIMMER_STEPS.length)) state.settings.dimmer = SETTINGS_DEFAULTS.dimmer;
+      state.settings.reduceMotion = !!state.settings.reduceMotion;
+      state.settings.sound = !!state.settings.sound;
     }
     // Fallback for saves predating this field: default to the player's lifetime
     // win count so an existing player with an active sponsor doesn't suddenly
@@ -27781,6 +28623,17 @@ function gameTick(){
       if(progress<0.55){ if(Math.random()<0.10) rd.rivalVP=Math.max(1,Math.min(fs,(rd.rivalVP??rd.rivalStartVP)+Math.round((Math.random()-0.5)*2))); }
       else{ rd.rivalVP=Math.max(1,Math.min(fs,Math.round(rd.rivalStartVP+(rp-rd.rivalStartVP)*((progress-0.55)/0.45)))); }
     }
+    // fix258 (settings plan v1 §4.3) — race pace 'skip'. Resolved in one pass on
+    // the first tick of the race rather than trickled through the loop below,
+    // because that loop fires at most one stage per tick and a skip-paced race
+    // is only a handful of ticks long: relying on it would make whether the
+    // stages ran at all a function of race length. See raceSkipFlushStages()
+    // for why they MUST run. After the flush every stage is .fired, so the live
+    // loop below is a no-op for the rest of the race and needs no guard of its
+    // own; 'full' and 'fast' never enter here at all.
+    if((state.settings && state.settings.racePace)==='skip' && !rd.pendingDecision && rd.stages){
+      raceSkipFlushStages(rd, isTT);
+    }
     // Fire decision stages as race progress crosses each triggerPct
     if(!rd.pendingDecision && rd.stages){
       for(const stage of rd.stages){
@@ -27907,6 +28760,10 @@ document.addEventListener('visibilitychange',()=>{
 // BOOT
 // ═══════════════════════════════════════════════════════════
 loadGame();
+// fix257: settings pushed to the DOM once at boot, immediately after the load
+// that populated them. A stub in this fix, so this is a no-op today; it is sited
+// now so that fix258's and fix259's branches need no boot edit of their own.
+applySettings();
 // fix118: one-time notice if the prestige-gate migration benched any
 // equipped gear above the player's current prestige level on this load.
 if(state._prestigeGearBenched){
@@ -28256,6 +29113,51 @@ const INFO_TEXTS = {
     title: 'Career',
     body: ()=>`The running total of everything you've done since your first ride — races started, wins taken, distance covered and money earned.<br><br>
       Unlike your season standing, none of this ever resets.`
+  },
+  // fix257: the Sound row ships stored, rendered and INERT — there is no audio
+  // in the game yet. A toggle that visibly does nothing with no explanation is
+  // worse than no toggle, so the row carries this ⓘ and says so plainly.
+  settingsSound: {
+    title: 'Sound',
+    body: ()=>`There is no sound in the game yet. This switch remembers what you chose, so the moment sound arrives it will already be set the way you want it.<br><br>
+      Everything else on this screen is saved to this device only — it travels with your progress, not with your account.`
+  },
+  // fix258: the Race pace row. This ⓘ exists to make one promise in writing,
+  // because it is the promise a player will not believe without being told:
+  // Skip changes NOTHING about the result. The result is rolled before the
+  // animation starts and the same finish is banked either way.
+  settingsRacePace: {
+    title: 'Race Pace',
+    body: ()=>`How long a race takes to play out on screen. <strong>Full</strong> is the normal race, <strong>Fast</strong> runs it through in a fraction of the time, and <strong>Skip</strong> jumps almost straight to the result.<br><br>
+      <strong>This does not change how you finish.</strong> Your result, prize money, points and streaks are worked out the same way at every setting — only the wait changes.<br><br>
+      On Fast and Skip you won't get time to pick your way through the in-race decisions, so the sensible default choice is taken for you, exactly as it is if you let the timer run out. If you want to ride your own tactics, stay on Full.`
+  },
+  // fix258: the Reduced motion row. Deliberately honest about its limits — it
+  // quiets animation, it does not turn the game into a static page.
+  settingsReduceMotion: {
+    title: 'Reduced Motion',
+    body: ()=>`Cuts back the animation across the game — sliding panels, celebration confetti, counting numbers and the smooth motion of the race profile.<br><br>
+      Nothing is hidden and nothing is lost: everything still appears and still updates, it simply arrives rather than moves. If your device already asks for reduced motion, that is respected too, whatever this is set to.`
+  },
+  // fix260: the Version row's ⓘ. Says what the two numbers ARE, because the
+  // only reason a player will ever read them out is that someone has asked
+  // them to, and a readout nobody understands gets screenshotted wrong.
+  settingsVersion: {
+    title: 'Version',
+    body: ()=>`<strong>Game</strong> is the version of the game itself. <strong>Cache</strong> is the version of the offline copy your phone has saved, so the game still works with no signal.<br><br>
+      Normally you never need to look at these. If something is behaving oddly after an update, tap <strong>Check for update</strong> — it looks for a newer offline copy, and if it finds one the game reloads to use it. Your progress is saved first and is not affected.<br><br>
+      If you ever report a problem, reading these two lines out is the single most useful thing you can send.`
+  },
+  // fix260: the hub-level help entry, reached from the far-left painted cog.
+  // Every other ⓘ in the game hangs off a card the player is already looking
+  // at; this one is the way in when they do not yet know where to look.
+  homeHelp: {
+    title: 'Help & Info',
+    body: ()=>`<strong>Getting started.</strong> Tap <strong>PLAY</strong> to race. Everything else on this screen is somewhere to prepare: <strong>Train</strong> builds your rider, <strong>Gear</strong> and the <strong>Workshop</strong> make the bike faster, <strong>Sponsors</strong> pay the bills and the <strong>Calendar</strong> tells you what is coming up.<br><br>
+      <strong>Energy</strong> is the limit on training, not on racing. It comes back over time, including while the game is closed, so there is no wrong time to stop playing.<br><br>
+      <strong>The ⓘ buttons.</strong> Anywhere you see one of these, tapping it explains that thing properly. If a number or a lock is not obvious, there is almost always an ⓘ within reach of it.<br><br>
+      <strong>Settings</strong> is the cog on the right of the bottom bar — motion, race pace, screen dimmer and the version readout live there. Your save, and the code to back it up, is under <strong>Rider → Save</strong>.<br><br>
+      Progress is stored on this device only. Back it up before clearing your browser or changing phone.`
   },
   saveData: {
     title: 'Save Data',
