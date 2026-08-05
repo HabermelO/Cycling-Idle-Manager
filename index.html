@@ -7493,6 +7493,157 @@ body.train-sheet-live{overflow:hidden;}
    squeeze the name column to nothing on a 360px screen. */
 #home-shop-body .shop-row.has-early{flex-wrap:wrap;}
 
+/* ═══════════ fix267: PROFILE — THE THIRD SHEET KEY ═══════════
+   profile-plan-v1 §1.1 / §5 fix267. Profile is a third KEY on the existing
+   #home-sheet, not a fourth surface: one sheet, one data-key, exactly one body
+   visible, which is the same hard lockout fix262 established when the Shop
+   became the second section.
+
+   ORDER MATTERS, for the identical reason the fix262 block above states: the
+   base `#home-settings-body{display:flex}` rule is UNTOUCHED and both
+   [data-key="profile"] overrides must FOLLOW it, so nothing here may be moved
+   above that rule in a future reorder. #home-shop-body's base rule is already
+   display:none, so it needs no profile override — the one below is written
+   anyway, explicitly, because a reader should not have to go and check which
+   of the two bodies defaults closed.
+
+   PROFILE DOES NOT DUPLICATE RIDER -> CAREER (plan §0 rule 1). Nothing here
+   touches #stats-grid, #relic-shelf-area or #rider-section-career, and every
+   selector is scoped under #home-profile-body so none of it can reach another
+   tab's cards — the fix206/fix222 rule. */
+#home-sheet[data-key="profile"] #home-settings-body{display:none;}
+#home-sheet[data-key="profile"] #home-shop-body{display:none;}
+#home-profile-body{display:none;flex-direction:column;gap:.55rem;}
+#home-sheet[data-key="profile"] #home-profile-body{display:flex;}
+
+/* The identity hero. A two-layer composition mirroring .rider-hero-bg /
+   .rider-hero-rider (fix163) — opaque scene, then the front-on rider — but with
+   ITS OWN class names rather than a second element carrying the rider-tab
+   classes, so a later edit to the Rider hero cannot silently reshape this one.
+   The rider layer reads --sheet-rider-front, the SAME var the Rider and Race
+   heroes read, so this recolours from the existing fix139-149 pass. NO NEW
+   SHEET IS ADDED and none of the four registries (_rcSheetSources,
+   RC_SHEET_NAMES, RC_VAR_NAMES, RC149_SHEETS) is touched — plan §3.1. */
+#home-profile-body .profile-hero{
+  position:relative;height:190px;overflow:hidden;border-radius:var(--radius-lg);
+  border:1px solid var(--border);background:var(--bg3);
+}
+#home-profile-body .profile-hero-bg{position:absolute;inset:0;
+  background:url(assets/race-hero-bg.jpg) center/cover no-repeat;}
+#home-profile-body .profile-hero-rider{position:absolute;left:0;right:0;bottom:0;height:96%;
+  background:var(--sheet-rider-front, url(assets/rider-front.png)) bottom center/contain no-repeat;}
+
+/* Name / title / category, stacked under the hero. .set-row is reused as the
+   card shell, same as #home-shop-body's rows, so all three sections of this
+   sheet read as one screen. */
+#home-profile-body .profile-name{
+  font-size:18px;font-weight:800;color:var(--txt);line-height:1.25;
+  overflow-wrap:anywhere;
+}
+#home-profile-body .profile-name.unnamed{opacity:.7;font-style:italic;}
+#home-profile-body .profile-title{
+  font-size:12px;font-weight:700;color:var(--txt-dim,var(--txt));opacity:.9;
+  line-height:1.4;margin-top:2px;
+}
+#home-profile-body .profile-cat{
+  display:inline-flex;align-items:center;gap:5px;margin-top:6px;
+  padding:0 10px;min-height:26px;
+  border:1px solid var(--border);border-radius:999px;
+  background:var(--bg);color:var(--txt);
+  font-size:12px;font-weight:800;letter-spacing:.02em;
+}
+
+/* fix268 (profile-plan-v1 §2.3): the inline editor. A real <input> and a Save
+   button, never prompt(). 16px on the input is not a style choice — anything
+   under 16px makes iOS Safari zoom the viewport on focus, and on a hub whose
+   layout is pinned to painted art that zoom does not cleanly come back. */
+#home-profile-body .profile-name-edit{
+  display:flex;align-items:center;gap:8px;margin-top:8px;
+}
+#home-profile-body .profile-name-input{
+  flex:1 1 auto;min-width:0;
+  padding:0 10px;min-height:34px;
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:var(--bg);color:var(--txt);
+  font-size:16px;font-weight:700;font-family:inherit;
+}
+#home-profile-body .profile-name-input:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+#home-profile-body .profile-name-save{
+  flex:0 0 auto;
+  padding:0 14px;min-height:34px;
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:var(--bg3);color:var(--txt);
+  font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;
+}
+#home-profile-body .profile-name-save:active{transform:scale(.97);}
+@media (prefers-reduced-motion:no-preference){
+  #home-profile-body .profile-name-save{transition:transform .12s ease;}
+}
+#home-profile-body .profile-name-save:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
+/* SIX TILES, AND SIX IS A CEILING (plan §3.2). Two columns, because a third
+   column puts "£123.45M" on two lines at 360px. */
+#home-profile-body .profile-tiles{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+}
+#home-profile-body .profile-tile{
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:var(--bg);padding:.5rem .6rem;min-width:0;
+}
+#home-profile-body .profile-tile-lbl{
+  font-size:11px;font-weight:700;color:var(--txt-dim,var(--txt));opacity:.85;
+  line-height:1.3;
+}
+#home-profile-body .profile-tile-val{
+  font-size:15px;font-weight:800;color:var(--txt);line-height:1.35;
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
+}
+
+/* fix269 (profile-plan-v1 §3.3): the relic strip. IDENTITY, NOT INVENTORY —
+   icons only, no names, no effect labels, no collect ceremony. .ach-grid /
+   .ach-card are deliberately NOT reused here: those carry the shelf's full
+   card language and reusing them would make this read as a second shelf. Every
+   selector below is scoped under #home-profile-body and NOTHING here carries an
+   id, so no node in this surface can collide with #relic-shelf-area or with any
+   other id in the document — the fix222 duplicate-id defect is impossible by
+   construction rather than by care. renderRelicShelf() is not called from here
+   and #rider-section-career is untouched. */
+#home-profile-body .profile-relics{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;
+}
+#home-profile-body .profile-relic{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:36px;height:36px;flex:0 0 auto;
+  border:1px solid var(--border);border-radius:999px;
+  background:var(--bg);color:var(--purple-txt,var(--txt));
+}
+/* Unowned relics are silhouettes, the same locked language the shelf uses —
+   the shape of what is missing is part of the identity. */
+#home-profile-body .profile-relic.locked{
+  color:var(--txt-dim,var(--txt));opacity:.4;
+}
+#home-profile-body .profile-relic svg{width:18px;height:18px;display:block;}
+#home-profile-body .profile-relics-count{
+  font-size:12px;font-weight:800;color:var(--txt-dim,var(--txt));opacity:.9;
+  font-variant-numeric:tabular-nums;
+}
+
+/* The Career link. A LINK, NOT A RE-RENDER (plan §3.2): it leaves this surface
+   for the tab that owns the full picture rather than growing a seventh tile. */
+#home-profile-body .profile-career-link{
+  display:block;width:100%;margin-top:2px;
+  padding:.55rem .6rem;min-height:40px;
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:var(--bg);color:var(--txt);
+  font-size:13px;font-weight:800;font-family:inherit;text-align:center;
+  cursor:pointer;
+}
+#home-profile-body .profile-career-link:active{transform:scale(.99);}
+@media (prefers-reduced-motion:no-preference){
+  #home-profile-body .profile-career-link{transition:transform .12s ease;}
+}
+#home-profile-body .profile-career-link:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+
 /* ═══════════ fix170: HOME HUB ═══════════
    The art is load-bearing. It carries the background, the nine icon circles,
    their captions, the top banner plate and the bottom bar chrome. Nothing is
@@ -9032,7 +9183,20 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
              because a button that says "coming soon" and opens a live sheet is
              a worse bug than a dead button. -->
         <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="13" style="--hx:83.55%;--hy:87.59%;--hw:10%;--hh:5.24%" aria-label="Shop" onclick="homeHubGo2Shop()"></button>
-        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="14" style="--hx:93.95%;--hy:87.59%;--hw:10.5%;--hh:5.24%" aria-label="Profile" onclick="homeGo('rider')"></button>
+        <!-- fix267: hotspot 14 wired, exactly the way fix212 moved PLAY and
+             fix257/fix262 moved hotspots 12 and 13. Tombstoned (fix136 form) —
+             the fix170 destination:
+               onclick="homeGo('rider')"
+             GEOMETRY IS UNTOUCHED: --hx/--hy/--hw/--hh and data-hot are
+             byte-identical, so nothing that addresses this hotspot by index is
+             affected. The aria-label does NOT move with it — it already said
+             "Profile" and was already correct (plan §1.2).
+             THIS IS A RE-ROUTE, NOT A LOCKOUT: the hub carries a SECOND
+             homeGo('rider') route — hotspot 9, aria-label "Rider attributes",
+             verified byte-identical by
+             this fix's diff-scope check, so the Rider tab is not stranded. The
+             moment that stops being true this edit becomes a lockout. -->
+        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="14" style="--hx:93.95%;--hy:87.59%;--hw:10.5%;--hh:5.24%" aria-label="Profile" onclick="homeHubGo2Profile()"></button>
 
         <div id="home-toast"></div>
       </div>
@@ -9061,6 +9225,13 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
       </div>
       <div id="home-settings-body"></div>
       <div id="home-shop-body"></div>
+      <!-- fix267 (profile-plan-v1 §1.1): the THIRD body, joining settings and
+           shop under the one keyed sheet. A third SHEET was not built, for the
+           same reason fix262 gave for not building a second: two sheets on one
+           tab means two things that can both be open, and one keyed sheet is
+           the hard lockout that makes this pattern safe. Written by
+           renderProfile() before the sheet is opened, never after. -->
+      <div id="home-profile-body"></div>
     </div>
     <!-- fix173: morning "start your day" collect ritual. Lives on the hub
          because fix171 made the hub the landing screen — the card used to be a
@@ -13600,6 +13771,13 @@ const state = {
   uncollectedGoalTiers: new Set(),  // earned but not yet tapped-to-collect (same pattern as achievements)
   unlockedTitles: new Set(),        // title ids earned via top-tier Lifetime Goals
   equippedTitle: null,              // currently displayed title id, or null
+  // fix268 (profile-plan-v1 §2.1): the ONLY new state field in the profile
+  // series. `null` means "not yet named" and renders as the Unnamed Rider
+  // prompt — deliberately NOT defaulted to a generated name, because an empty
+  // slot invites the player to fill it and a pre-filled one invites them to
+  // ignore it. NOT RESET BY PRESTIGE: absent from handlePrestige()'s reset
+  // list, alongside relics and the VP fields.
+  riderName: null,                  // string (1-18 chars, sanitised), or null
   totalRaces: 0, totalPodiums: 0,
   raceWinsByType: {crit:0, road:0, tt:0, hill:0},
   // fix197 — lifetime counters backing the expansion Lifetime Goal tracks.
@@ -18097,6 +18275,221 @@ function homeHubGo2Shop(){
   homeSheetSet(true, 'shop');
 }
 
+// fix267 (profile-plan-v1 §1.1 / §5): mirrors homeHubGo2Shop() EXACTLY. ORDER
+// MATTERS, the same as in riderHubGo(), trainHubGo(), calHubGo(),
+// sponsorHubGo(), skillsHubGo2Sheet(), homeHubGo2Settings() and
+// homeHubGo2Shop() — render first, open second — so the card paints while the
+// sheet is still display:none and no frame of a stale stat is ever visible.
+// homeHubBack() and the homeSheetSet(false, null) inside hubGo() are UNTOUCHED:
+// both close by the key-agnostic path and already cover this third key.
+function homeHubGo2Profile(){
+  renderProfile();
+  homeSheetSet(true, 'profile');
+}
+
+// fix269 (profile-plan-v1 §3.2 / §5): the Career link. A LINK, NOT A RE-RENDER
+// — Profile does not grow a seventh tile and does not learn to draw #stats-grid;
+// it hands the player to the tab that already owns the full picture.
+//
+// hubGo() FIRST, unchanged and uncalled-into: its existing homeSheetSet(false,
+// null) closes this sheet and drops the key on the way out, so the ordering here
+// is the one the whole hub already uses and nothing about hubGo() is edited.
+// riderHubGo() is then CALLED, not edited (plan §1.3) — it is the single funnel
+// every Rider medallion goes through, so this route inherits its unknown-section
+// guard and its fix189 race lockout for free. 'career' is a member of
+// RIDER_SECTIONS, which is untouched by this series; if that ever stops being
+// true, riderHubGo() warns and refuses rather than opening a dead section.
+function profileGoCareer(){
+  hubGo('rider');
+  riderHubGo('career');
+}
+
+// ═══════════ fix268: THE RIDER NAME ═════════════════════════════════════
+// profile-plan-v1 §2. riderName is the FIRST genuinely free-text field in this
+// codebase and it ends up in a save file, a shared image and — from fix270 — a
+// canvas. Every rule below applies at the WRITE site, in one funnel, because a
+// read-site check is one forgotten render away from being no check at all.
+const RIDER_NAME_MAX = 18;
+
+// THE sanitiser. Called by setRiderName() and by loadGame()'s guard, and by
+// nothing else — both of those are write sites and there are no others.
+//   - trim, and collapse internal whitespace runs to a single space
+//   - strip control characters and zero-width characters (the zero-width set is
+//     what lets a name look empty on the card and read as something else in a
+//     screenshot, and it survives a naive trim untouched)
+//   - hard cap at RIDER_NAME_MAX AFTER trimming
+//   - empty after all that -> null, never '', so "not yet named" has exactly
+//     one representation and the card never has to test for two
+function sanitiseRiderName(raw){
+  let s = String(raw == null ? '' : raw);
+  s = s.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');   // control chars
+  s = s.replace(/[\u200B-\u200F\u2028\u2029\u2060\uFEFF]/g, ''); // zero-width / bidi / separators
+  s = s.replace(/\s+/g, ' ').trim();
+  if(s.length > RIDER_NAME_MAX) s = s.slice(0, RIDER_NAME_MAX).trim();
+  return s.length ? s : null;
+}
+
+// THE SINGLE MUTATION POINT for state.riderName, the same shape as awardVP()
+// for vp and wsAwardMG() for workshop MG.
+//
+// The cap is enforced HERE as well as by maxlength on the input, and that is not
+// belt-and-braces for its own sake: a maxlength attribute is cosmetic, and a
+// hand-fired handler must still be refused — the same reasoning
+// sponsorSwitchOpen() applies to its refusal states.
+//
+// NO TWO-TAP CONFIRM, deliberately (§2.3). That pattern is for irreversible
+// actions; renaming is not one, and applying it here would train the player to
+// double-tap harmless things until they double-tap prestige without reading it.
+// NO prompt(): banned by the project rules, and silently suppressed in an iOS
+// PWA exactly like confirm() — the failure that drove the two-tap pattern in the
+// first place. The editor is a real inline <input>.
+function setRiderName(raw){
+  if(raw === undefined){
+    const el = document.getElementById('profile-name-input');
+    raw = el ? el.value : '';
+  }
+  const clean = sanitiseRiderName(raw);
+  if(clean === state.riderName){
+    // Nothing moved. Say so rather than saving and claiming a change — and
+    // still re-render, so a cap-trimmed or whitespace-only edit visibly snaps
+    // back to what is actually stored instead of leaving the input lying.
+    renderProfile();
+    showToast('Name unchanged');
+    return;
+  }
+  state.riderName = clean;
+  saveGame();
+  renderProfile();
+  // The name is NEVER passed to showToast(): showToast writes innerHTML, which
+  // is the one path in this file that would turn a hostile name back into
+  // markup after all the work above. A constant string carries no name.
+  showToast(clean ? 'Rider name saved' : 'Rider name cleared');
+}
+
+// ═══════════ fix267: THE PROFILE CARD ═══════════════════════════════════
+// PROFILE READS; IT DOES NOT COMPUTE (plan §0 rule 2). Every value below comes
+// out of an existing field or an existing getter — state.seasonsCompleted,
+// state.highestCategoryReached, state.raceWinsByType, state.gcPodiums,
+// state.lifetimeMoney via fmtMoney(), state.lifetimeVP, state.equippedTitle via
+// titleTextFor(), RACE_CATEGORIES[state.raceCategory]. NO NEW DERIVED-STAT
+// FUNCTION IS CREATED, here or anywhere in this series.
+//
+// ZERO NEW STATE (plan §5 fix267). state.riderName does not exist yet; the name
+// line renders its unnamed placeholder and carries no editor, so this whole
+// surface can be eyeballed on device before a single save field moves and a
+// rendering mistake cannot also be a migration mistake. The editor is fix268.
+//
+// PROFILE DOES NOT DUPLICATE RIDER -> CAREER (plan §0 rule 1). Six tiles is a
+// CEILING, not a starting point: #stats-grid in Rider -> Career is the full
+// picture, renderStats() is not edited by this fix or any fix in this series,
+// and renderRelicShelf() is NOT called from here — a second #relic-shelf-area
+// node would make the existing renderer write to whichever one the document
+// resolved first, which is the exact defect the fix222 tombstone documents.
+// The relic strip and the Career link are fix269, deliberately their own diff.
+//
+// fix269 (fix136 tombstone form): that last sentence has now been overtaken —
+// the strip and the link landed in this function in fix269. Everything it
+// asserted still holds: renderRelicShelf() is STILL not called from here,
+// #relic-shelf-area is STILL not duplicated (nothing added carries an id at
+// all), renderStats() and #rider-section-career are STILL unedited, and the
+// link is a route via hubGo()/riderHubGo() rather than a second renderer.
+function renderProfile(){
+  const body=document.getElementById('home-profile-body');
+  if(!body) return;
+
+  // Clamped and floored on read, the same way renderShop() treats vp — a
+  // corrupt or hand-edited save must print a number, never 'NaN' or '-3'.
+  const seasons = Math.max(0, Math.floor(Number(state.seasonsCompleted) || 0));
+  const gcPods  = Math.max(0, Math.floor(Number(state.gcPodiums) || 0));
+  const life    = Math.max(0, Math.floor(Number(state.lifetimeVP) || 0));
+  const wins    = Object.values(state.raceWinsByType || {})
+                    .reduce((a,b)=>a + (Math.max(0, Math.floor(Number(b) || 0))), 0);
+
+  // Both category reads are index lookups into RACE_CATEGORIES and both are
+  // bounds-checked before indexing. An out-of-range index here would throw
+  // inside a render that runs BEFORE the sheet opens, which would leave the
+  // player on the hub with a dead hotspot and no error they can see.
+  const catIdx  = Math.min(RACE_CATEGORIES.length-1, Math.max(0, Math.floor(Number(state.raceCategory) || 0)));
+  const bestIdx = Math.min(RACE_CATEGORIES.length-1, Math.max(0, Math.floor(Number(state.highestCategoryReached) || 0)));
+  const cat  = RACE_CATEGORIES[catIdx];
+  const best = RACE_CATEGORIES[bestIdx];
+
+  // The equipped title is DISPLAYED, never picked (plan §3.1 / §7 q3).
+  // setEquippedTitle()/equipTitle() already has a home, and a second caller
+  // means two surfaces can disagree about what is selected.
+  const tid = state.equippedTitle;
+  // fix269 (plan §3.3): the relic strip. READ-ONLY and ICONS ONLY — identity,
+  // not inventory. RELICS is iterated rather than state.relics, so the unowned
+  // ones show as silhouettes in a fixed order and the strip cannot reorder
+  // itself as relics land. state.relics is a Set everywhere it is written, but
+  // it is guarded here anyway: this render runs BEFORE the sheet opens, and a
+  // throw would leave the player on the hub with a dead hotspot and no error
+  // they can see — the same reasoning the category clamps above carry.
+  //
+  // renderRelicShelf() IS NOT CALLED and no node here carries an id, so there is
+  // no second #relic-shelf-area for the existing renderer to resolve to. That is
+  // the fix222 defect and this fix is split out from fix268 precisely so this
+  // one property gets its own diff-scope check.
+  const relicSet   = (state.relics instanceof Set) ? state.relics : new Set();
+  const relicsOwned = RELICS.reduce((n,r)=>n + (relicSet.has(r.id) ? 1 : 0), 0);
+  const relicIcons = RELICS.map(r=>{
+    const done = relicSet.has(r.id);
+    // The label is a constant from the RELICS registry — never state, never the
+    // rider name, so nothing free-text reaches this interpolation.
+    const lbl = done ? r.name : 'Relic not yet won';
+    return `<span class="profile-relic${done?'':' locked'}" role="img" aria-label="${lbl}" title="${lbl}">${icn(done ? r.icon : 'lock')}</span>`;
+  }).join('');
+
+  const titleLine = (tid && state.unlockedTitles && state.unlockedTitles.has(tid))
+    ? `<div class="profile-title">${titleTextFor(tid)}</div>`
+    : `<div class="profile-title">No title equipped</div>`;
+
+  body.innerHTML = `<div class="profile-hero">
+      <div class="profile-hero-bg"></div>
+      <div class="profile-hero-rider"></div>
+    </div>
+    <div class="set-row">
+      <div class="profile-name${state.riderName ? '' : ' unnamed'}" id="profile-name"></div>
+      ${titleLine}
+      <div class="profile-cat">${cat.name}</div>
+      <div class="profile-name-edit">
+        <input type="text" id="profile-name-input" class="profile-name-input"
+               maxlength="${RIDER_NAME_MAX}" placeholder="Name your rider"
+               aria-label="Rider name" autocomplete="off" spellcheck="false">
+        <button class="profile-name-save" onclick="setRiderName()">Save</button>
+      </div>
+    </div>
+    <div class="profile-tiles">
+      <div class="profile-tile"><div class="profile-tile-lbl">Seasons completed</div><div class="profile-tile-val">${seasons}</div></div>
+      <div class="profile-tile"><div class="profile-tile-lbl">Highest category</div><div class="profile-tile-val">${best.shortName}</div></div>
+      <div class="profile-tile"><div class="profile-tile-lbl">Wins</div><div class="profile-tile-val">${wins}</div></div>
+      <div class="profile-tile"><div class="profile-tile-lbl">GC podiums</div><div class="profile-tile-val">${gcPods}</div></div>
+      <div class="profile-tile"><div class="profile-tile-lbl">Lifetime earnings</div><div class="profile-tile-val">${fmtMoney(Math.max(0, Math.floor(Number(state.lifetimeMoney) || 0)))}</div></div>
+      <div class="profile-tile"><div class="profile-tile-lbl">Lifetime VP</div><div class="profile-tile-val">${life}</div></div>
+    </div>
+    <div class="set-row">
+      <div class="profile-tile-lbl">Grand Tour relics</div>
+      <div class="profile-relics">
+        ${relicIcons}
+        <span class="profile-relics-count">${relicsOwned} / ${RELICS.length}</span>
+      </div>
+    </div>
+    <button class="profile-career-link" onclick="profileGoCareer()">Full career record →</button>`;
+
+  // fix268 (§2.2): THE NAME IS NEVER INTERPOLATED INTO THE TEMPLATE ABOVE. Both
+  // live read sites are written here, after the innerHTML, as properties:
+  // textContent on the card and .value on the input. A name containing
+  // <img onerror=...> written through innerHTML is a self-XSS in a file whose
+  // save is pasteable from a text box someone else handed you — and
+  // restoreSave() makes that a real path. The third read site named in §2.2 is
+  // the share canvas, which does not exist until fix270; fillText() is a
+  // property write of the same kind and the rule carries to it unchanged.
+  const nameEl = document.getElementById('profile-name');
+  if(nameEl) nameEl.textContent = state.riderName || 'Unnamed Rider';
+  const inputEl = document.getElementById('profile-name-input');
+  if(inputEl) inputEl.value = state.riderName || '';
+}
+
 // Back from the sheet to the hub. Deliberately NOT history.back() — opening the
 // sheet pushed nothing, so there is no entry to unwind and calling back() here
 // would exit the tab entirely. Same reasoning as riderHubBack(), trainHubBack(),
@@ -18130,7 +18523,11 @@ function homeHubBack(){
 // two bodies can no more disagree than the stage and the sheet can. An unknown
 // or missing key falls back to 'settings', which is what every pre-fix262
 // caller passed implicitly; a key is never trusted to be one of the two.
-const HOME_SHEET_KEYS = { settings:'Settings', shop:'The Trophy Room' };
+// fix267 (profile-plan-v1 §1.1): 'profile' is the third key. The fallback in
+// homeSheetSet() below is UNCHANGED and still 'settings' — a key is never
+// trusted to be one of the three, and adding a key must not widen what an
+// unknown key resolves to.
+const HOME_SHEET_KEYS = { settings:'Settings', shop:'The Trophy Room', profile:'Profile' };
 function homeSheetSet(open, key){
   const tab=document.getElementById('tab-home');
   if(tab) tab.classList.toggle('home-sheet-open', !!open);
@@ -29227,6 +29624,7 @@ function saveGame(){
       uncollectedGoalTiers:[...state.uncollectedGoalTiers],
       unlockedTitles:[...state.unlockedTitles],
       equippedTitle:state.equippedTitle,
+      riderName:state.riderName,                     // fix268
       totalRaces:state.totalRaces, totalPodiums:state.totalPodiums,
       raceWinsByType:state.raceWinsByType,
       // fix197 — new lifetime counters. seasonAchievements.gtWon is a Set and
@@ -29370,6 +29768,19 @@ function loadGame(){
     state.uncollectedGoalTiers = new Set(d.uncollectedGoalTiers || []);
     state.unlockedTitles       = new Set(d.unlockedTitles || []);
     state.equippedTitle        = d.equippedTitle || null;
+    // fix268 (profile-plan-v1 §2.1). Its own guard, per the tourProgress lesson
+    // — a save written by fix267 or earlier carries no riderName at all and
+    // must land on null, not undefined, or the three read sites print
+    // "undefined" as a name.
+    //
+    // RE-SANITISED ON THE WAY IN, through the SAME funnel the editor uses.
+    // §2.2 puts sanitisation at the write site, and this IS a write site: a
+    // save is not a trusted source. restoreSave() means a hostile save is a
+    // real path, not a theoretical one, and a name that only got cleaned when
+    // typed would arrive uncleaned when pasted. Belt and braces with the
+    // textContent rule below, deliberately — either alone would be enough,
+    // and neither alone is what this field gets.
+    state.riderName = (typeof d.riderName === 'string') ? sanitiseRiderName(d.riderName) : null;
     state.totalRaces    = d.totalRaces    || 0;
     state.totalPodiums  = d.totalPodiums  || 0;
     state.raceWinsByType= d.raceWinsByType|| {crit:0,road:0,tt:0,hill:0};
