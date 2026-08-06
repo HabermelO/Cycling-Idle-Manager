@@ -949,6 +949,30 @@ button{font-family:inherit;cursor:pointer;}
 .race-run-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
 .race-run-name{flex:1;font-size:16px;font-weight:700;color:var(--red-txt);}
 .race-run-timer{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--red-txt);}
+/* ═══ fix272: Race Shape chip (race unsolving plan §fix272) ═══════════════
+   Presentation only. The chip prints the shape's NAME and FLAVOUR LINE and
+   nothing else — never an intensity number, never a multiplier, never a
+   direction. That is the entire point of the shape system (plan §2.1: it
+   exists to restore hidden information), so any future edit that adds a
+   magnitude here undoes fix271 as well as this fix.
+
+   PLACEMENT: its own row directly BENEATH .race-run-head, not inside it.
+   The plan asked for a chip "beside the course name", but that row is a
+   three-item flex — icon / name / 20px timer — inside a full-bleed overlay
+   on a ~360px screen, and a Grand Tour head name is already long enough to
+   wrap ("Tour de France — Stage 14: Mont Ventoux"). A fourth item would
+   squeeze the name to a couple of characters. Beneath it reads as the same
+   header block and costs the name nothing.
+
+   The negative top margin eats .race-run-head's 10px bottom margin so the
+   two rows sit as one unit rather than drifting apart. */
+.race-shape-chip{display:flex;align-items:center;gap:7px;margin:-6px 0 10px;
+  padding:.4rem .55rem;border-radius:var(--radius);
+  border:1px solid var(--border);background:rgba(0,0,0,.14);}
+.race-shape-ico{font-size:15px;line-height:1;color:var(--amber-txt);flex:0 0 auto;}
+.race-shape-body{flex:1;min-width:0;}
+.race-shape-name{font-size:12.5px;font-weight:700;color:var(--amber-txt);}
+.race-shape-flav{font-size:11px;color:var(--txt3);line-height:1.3;}
 .race-progress-wrap{height:8px;border-radius:4px;background:rgba(0,0,0,.18);margin-bottom:10px;overflow:hidden;}
 .race-progress-bar{height:100%;border-radius:4px;background:var(--red-txt);transition:width .1s linear;position:relative;overflow:hidden;}
 @media (prefers-reduced-motion: no-preference){
@@ -10261,6 +10285,18 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
       <textarea id="restore-code" placeholder="Paste code" style="width:100%;min-height:64px;font-size:11px;font-family:monospace;color:var(--txt);background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.5rem;resize:vertical"></textarea>
       <button id="restore-btn" class="danger-btn" style="width:100%;margin-top:.6rem" onclick="restoreSave()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-return"></use></svg> Restore From Code</button>
     </div>
+    <!-- fix270 (plan §4): race telemetry row. Diagnostic instrumentation, sited
+         in Save Data because that is already the "your data, in text form"
+         surface and it needs no new section. Deliberately minimal: one button,
+         no textarea, NO NEW id ATTRIBUTE on this surface (the fix222
+         duplicate-id defect class), and no rendered record count — 'save' is
+         static markup with no renderer, and adding one for a dev counter would
+         be a new render path to maintain. copyRaceTelemetry() reports the count
+         in its toast instead. -->
+    <div class="hub-plate" style="margin-top:.9rem">
+      <div class="set-row-lbl">Race telemetry (dev) <button class="info-btn" onclick="openInfo('raceTelemetry')">ⓘ</button></div>
+      <button class="gear-nav-btn" style="width:100%;margin-top:.5rem" onclick="copyRaceTelemetry()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-clipboard"></use></svg> Copy Race Telemetry</button>
+    </div>
     <div style="text-align:center;margin-top:1rem">
       <button class="gear-nav-btn" onclick="replayOnboarding()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-graduate"></use></svg> Replay Tutorial</button>
     </div>
@@ -11718,6 +11754,381 @@ const WEATHER_CONDITIONS = [
 // Intensity: 0=mild (×0.5), 1=moderate (×1.0), 2=strong (×1.5)
 const WEATHER_INTENSITY_LABELS = ['Mild','Moderate','Strong'];
 const WEATHER_INTENSITY_MULTS  = [0.5, 1.0, 1.5];
+
+// ═══════════ fix271: RACE SHAPE ENGINE (race-unsolving-plan §2.1 / §4) ══════
+// THE PROBLEM (plan §1.1): the race decision layer is solvable. Every choice
+// prints its exact legs cost, every deltaFn is deterministic, and the finish
+// kick converts legs→places at a published linear rate. Given those three, one
+// choice per stage is arithmetically correct in EVERY race, forever, which is
+// exactly the "samey" complaint.
+//
+// THE FIX: roll one hidden Race Shape per race and post-process deltaFn's
+// return value through it. The correct answer now changes per race and the
+// player cannot compute BY HOW MUCH — the information the solve depended on is
+// gone, without touching a single one of the 128 choices.
+//
+// Sited next to WEATHER deliberately: the shape roll is weather-biased and the
+// two are read together. Note this file's function declarations hoist, so the
+// hash32/hashStr/mulberry32 helpers used below (defined ~L14790) are available
+// by the time any of this is CALLED (race start, a user action) even though
+// they appear later in source order.
+//
+// SCOPE OF THIS FIX (plan §4, "explicitly not in this fix"): the delta wrapper
+// only. No UI (fix272) and NO legs-cost modification (fix273) — costMod is
+// authored below but is deliberately never called yet, so this diff stays
+// auditable and fix272 can be a pure-presentation diff. That means `attrition`
+// is behaviourally inert until fix273 arms it; that is intended, not a bug.
+
+// Post-shape delta clamp (plan §5 risk register: "shape modifiers make some
+// deltas absurd"). MEASURED from the shipped decision table, not estimated:
+// every literal appearing in a deltaFn return sits in [-5,+4]. A shaped delta
+// is clamped back into that same band so no shape can produce a swing the raw
+// data never produces. The extreme -5 gains get clipped under nervous_bunch
+// ×1.4; that is accepted — the great majority of the table is -3..+3, where
+// the multiplier lands in full.
+const RACE_SHAPE_DELTA_MIN = -5;
+const RACE_SHAPE_DELTA_MAX = 4;
+
+// intensity 1-3 → magnitude scale. Applied as a lerp toward/away from 1.0
+// (shapeLerp below) so intensity 1 is a muted version of the same shape rather
+// than a different one.
+const RACE_SHAPE_INTENSITY_SCALE = [0.6, 1.0, 1.4];
+function shapeLerp(mult, k){ return 1 + (mult-1)*k; }
+
+// Aggression bands (plan §2.1). raceLegsConst IS the commitment level already
+// (plan §1.3: 128 choices, costs 0-56, 37 of them zero) so nothing needs
+// tagging in the data. choiceAggression() below is the SINGLE SOURCE OF TRUTH
+// for this axis — nothing else may reimplement these thresholds.
+const RACE_AGGRESSION_MEASURED_MAX  = 19;
+const RACE_AGGRESSION_COMMITTED_MAX = 39;
+
+// Each entry: {id, name, icon, flavour, weight, deltaMod, costMod}.
+// `name` + `flavour` are what fix272 will surface. The MAGNITUDES ARE NEVER
+// SHOWN — that is the entire point (plan §2.1: restores hidden information).
+// ctx passed to the mods: {aggression, triggerPct, k, rnd}.
+// neutral is index 0 and is the documented fallback for raceShapeFor().
+const RACE_SHAPES = [
+  {id:'neutral', name:'Steady Day', icon:'flag', weight:35,
+   flavour:"Nothing unusual in the bunch.",
+   deltaMod:(d)=>d, costMod:(v)=>v},
+
+  {id:'nervous_bunch', name:'Nervous Bunch', icon:'chart-up', weight:12,
+   flavour:"Everyone's fighting for position today.",
+   // Committed/all-in efforts count for more (in BOTH directions — a bad
+   // aggressive call is punished harder too). Sitting in is actively worse.
+   deltaMod:(d,c)=> (c.aggression==='committed'||c.aggression==='allin') ? d*shapeLerp(1.4,c.k)
+                  : c.aggression==='shelter' ? d + Math.round(1*c.k)
+                  : d,
+   costMod:(v)=>v},
+
+  // fix272 ICON CORRECTION: was icon:'flame', which is not a symbol in the
+  // sprite sheet (the fire glyph is #icn-fire). Harmless while fix271 kept the
+  // shape invisible; the moment this fix prints icn(shape.icon) it would have
+  // rendered an empty <use href="#icn-flame">. Same for 'clock' below. These
+  // two string edits are in this fix's diff because this is the fix that makes
+  // them visible — the roster data itself is otherwise untouched.
+  {id:'attrition', name:'War of Attrition', icon:'fire', weight:12,
+   flavour:"This is going to be a long, grinding day.",
+   // Cost-only shape — INERT until fix273 arms costMod. Kept in the roster now
+   // so the weighted roll, the save shape and fix272's UI all ship against the
+   // final 7-entry table rather than being reshuffled a fix later.
+   deltaMod:(d)=>d, costMod:(v,c)=>v*shapeLerp(1.3,c.k)},
+
+  {id:'tailwind', name:'Tailwind Day', icon:'wind', weight:11,
+   flavour:"The bunch is flying — nobody's suffering yet.",
+   // Cheap efforts, but everyone else is fresh too, so ground is harder to make.
+   deltaMod:(d,c)=>d*shapeLerp(0.7,c.k), costMod:(v,c)=>v*shapeLerp(0.75,c.k)},
+
+  {id:'sketchy', name:'Sketchy Roads', icon:'rain', weight:10,
+   flavour:"Wet lines, gravel in the corners, nobody's comfortable.",
+   // Adds noise rather than bias — the mean is unchanged, the variance is not,
+   // which is what makes a solved line stop being reliably correct.
+   deltaMod:(d,c)=> d + Math.round((c.rnd()*2-1)*2*c.k), costMod:(v)=>v},
+
+  // fix272 ICON CORRECTION: was icon:'clock' — see the note on attrition above.
+  // #icn-stopwatch is the sprite sheet's timing glyph.
+  {id:'patient', name:'Patient Peloton', icon:'stopwatch', weight:10,
+   flavour:"Nothing's sticking. The bunch reels in everything.",
+   // Early aggression is wasted; a late move is the one that counts.
+   deltaMod:(d,c)=> (c.aggression!=='committed'&&c.aggression!=='allin') ? d
+                  : c.triggerPct<0.6  ? d*shapeLerp(0.4,c.k)
+                  : c.triggerPct>=0.8 ? d*shapeLerp(1.3,c.k)
+                  : d,
+   costMod:(v)=>v},
+
+  {id:'full_gas', name:'Full Gas From The Gun', icon:'bolt', weight:10,
+   flavour:"It's been flat out since kilometre zero.",
+   // Exact inverse of patient — get in the early move or the race is gone.
+   deltaMod:(d,c)=> (c.aggression!=='committed'&&c.aggression!=='allin') ? d
+                  : c.triggerPct<0.6  ? d*shapeLerp(1.3,c.k)
+                  : c.triggerPct>=0.8 ? d*shapeLerp(0.4,c.k)
+                  : d,
+   costMod:(v)=>v},
+];
+
+// Weather biases the roll via weight MULTIPLIERS, not a hard mapping — rain
+// makes Sketchy Roads likely, never certain, so weather stays a hint rather
+// than a second published rule the player can solve against.
+const RACE_SHAPE_WEATHER_BIAS = {
+  rainy:    {sketchy:2.5, nervous_bunch:1.3, tailwind:0.6},
+  windy:    {attrition:2.2, nervous_bunch:1.4, tailwind:1.3},
+  hot:      {attrition:1.8, full_gas:0.7},
+  cold:     {attrition:1.4, sketchy:1.3, full_gas:0.8},
+  sunny:    {tailwind:1.4, full_gas:1.2, sketchy:0.7},
+  overcast: {full_gas:1.3, patient:1.2},
+};
+
+// The aggression classifier. SINGLE SOURCE OF TRUTH (plan §4) — fix273's
+// effectiveLegsCost and fix276's affordability test both read this, and
+// neither may re-derive the bands.
+function choiceAggression(choice){
+  const cost = (choice && Number.isFinite(choice.raceLegsConst)) ? choice.raceLegsConst : 0;
+  if(cost <= 0) return 'shelter';
+  if(cost <= RACE_AGGRESSION_MEASURED_MAX)  return 'measured';
+  if(cost <= RACE_AGGRESSION_COMMITTED_MAX) return 'committed';
+  return 'allin';
+}
+
+// Weighted, weather-biased, SEEDED pick. Returns the small {id,intensity}
+// record that gets stored on rd (rd round-trips wholesale through
+// saveGame/loadGame, so this needs no save touch point of its own — plan §1.5).
+//
+// Seeded rather than plain Math.random so the roll is reproducible from the
+// race's own start time: a player who reloads mid-race cannot reroll into a
+// friendlier shape. (The stored rd.shape already prevents that; the seed makes
+// it true by construction as well as by storage.)
+//
+// SIGNATURE NOTE: the plan wrote rollRaceShape(rd, weatherId), but all three
+// call sites roll INSIDE the rd object literal, so rd does not exist yet.
+// Takes the seed key directly instead.
+function rollRaceShape(seedKey, weatherId){
+  const rng = mulberry32(hash32(hashStr(String(seedKey||'')) >>> 0) | 0);
+  const bias = RACE_SHAPE_WEATHER_BIAS[weatherId] || {};
+  const weights = RACE_SHAPES.map(s => Math.max(0, s.weight * (bias[s.id] || 1)));
+  const total = weights.reduce((a,b)=>a+b, 0);
+  let idx = 0;
+  if(total > 0){
+    let r = rng() * total;
+    for(let i=0;i<weights.length;i++){ idx = i; r -= weights[i]; if(r <= 0) break; }
+  }
+  const id = RACE_SHAPES[idx].id;
+  // A Steady Day has no magnitude to scale, so it is always intensity 1 —
+  // keeps the stored record from implying variation that does not exist.
+  const intensity = (id === 'neutral') ? 1 : 1 + Math.floor(rng()*3);
+  return {id, intensity};
+}
+
+// THE ACCESSOR. Every read of a race's shape goes through here, so a race that
+// was already in progress when this fix landed (no rd.shape) degrades to a
+// Steady Day instead of throwing. Render-safe: reads only, never rolls,
+// caches or writes.
+function raceShapeFor(rd){
+  const neutral = RACE_SHAPES[0];
+  const s = rd && rd.shape;
+  const def = (s && s.id) ? (RACE_SHAPES.find(x => x.id === s.id) || neutral) : neutral;
+  const intensity = (def.id === 'neutral') ? 1
+    : Math.max(1, Math.min(3, Math.round((s && s.intensity) || 1)));
+  return {def, id:def.id, name:def.name, icon:def.icon, flavour:def.flavour, intensity};
+}
+
+// triggerPct for the event currently being resolved. Read off the event itself
+// (buildStagesFromEvents copies ev.triggerPct onto the stage, so both carry it),
+// with a stage-list lookup as backstop and a mid-race 0.5 as the final fallback
+// for any event that is not in rd.stages — which is exactly what fix276's
+// synthetic empty-tank event will be.
+function raceStageTriggerPct(ev, rd){
+  if(ev && Number.isFinite(ev.triggerPct)) return ev.triggerPct;
+  if(rd && Array.isArray(rd.stages)){
+    const st = rd.stages.find(s => s && s.event === ev);
+    if(st && Number.isFinite(st.triggerPct)) return st.triggerPct;
+  }
+  return 0.5;
+}
+
+// The wrapper. Takes deltaFn's RAW return and re-shapes it. deltaFn signatures
+// are untouched and all 128 choices are unchanged — this is a pure
+// post-processing step applied at the one funnel (resolveRaceDecision), which
+// is why it covers the 'skip' pace path and the 30s auto-select for free
+// (plan §1.4, the fix258 lesson).
+function applyShapeToDelta(delta, choice, ev, rd){
+  const raw = Number.isFinite(delta) ? delta : 0;
+  const shape = raceShapeFor(rd);
+  if(shape.id === 'neutral' || typeof shape.def.deltaMod !== 'function') return raw;
+  const ctx = {
+    aggression: choiceAggression(choice),
+    triggerPct: raceStageTriggerPct(ev, rd),
+    k: RACE_SHAPE_INTENSITY_SCALE[shape.intensity-1] ?? 1.0,
+    rnd: Math.random,
+  };
+  let out = shape.def.deltaMod(raw, ctx);
+  if(!Number.isFinite(out)) out = raw;
+  // Integer: the result card renders the delta directly as a place count.
+  out = Math.round(out);
+  return Math.max(RACE_SHAPE_DELTA_MIN, Math.min(RACE_SHAPE_DELTA_MAX, out));
+}
+
+// ═══ fix273 — THE SHARED LEGS-COST FUNNEL (race unsolving plan §fix273) ═══
+// Arms the costMod half of RACE_SHAPES (`attrition` ×1.3, `tailwind` ×0.75).
+// Both of them were inert from fix271 to here; nothing else in the roster has
+// a non-identity costMod, so this fix's behavioural surface is exactly those
+// two shapes.
+//
+// THIS IS THE MANDATORY SINGLE FUNNEL. Exactly two callers:
+//   1. resolveRaceDecision()  — the subtraction that spends the legs
+//   2. the decision-btn-legs render — the number the player is shown
+// Neither may compute a shaped cost independently. If they ever diverged the
+// UI would lie about the price of a choice, which is the one failure mode the
+// plan's risk register calls out for this fix (§5).
+//
+// fix276 will add a THIRD caller — resolveEventForLegs()'s affordability test —
+// which is why the floor/rounding behaviour below has to be right now rather
+// than later: an off-by-one here becomes an off-by-one in whether the Empty
+// Tank fires at all.
+//
+// `ev` is optional but BOTH live callers pass it, so triggerPct is identical
+// on both sides. It is threaded through for costMods that may want lateness
+// (none in the current roster) and so that the ctx shape matches
+// applyShapeToDelta's exactly — one ctx contract, not two.
+function effectiveLegsCost(choice, rd, ev){
+  const base = (choice && Number.isFinite(choice.raceLegsConst)) ? choice.raceLegsConst : 0;
+  // A free choice stays free, in every shape. Sitting in the bunch costs
+  // nothing by definition, and a shape that invented a cost for it would break
+  // the "No cost" tag and hand fix276 a race with no affordable option at all
+  // on stages that currently always have one.
+  if(base <= 0) return 0;
+  const shape = raceShapeFor(rd);
+  if(shape.id === 'neutral' || typeof shape.def.costMod !== 'function') return base;
+  const ctx = {
+    aggression: choiceAggression(choice),
+    triggerPct: raceStageTriggerPct(ev, rd),
+    k: RACE_SHAPE_INTENSITY_SCALE[shape.intensity-1] ?? 1.0,
+    rnd: Math.random,
+  };
+  let out = shape.def.costMod(base, ctx);
+  if(!Number.isFinite(out)) return base;
+  out = Math.round(out);
+  // Floor of 1: a costed choice never rounds down to free. Tailwind at
+  // intensity 3 is ×0.65 on a cost of 1, which rounds to 0 and would silently
+  // reclassify an effort as shelter.
+  //
+  // DELIBERATELY NO UPPER CLAMP. Attrition at intensity 3 pushes a 56-leg
+  // all-in to ~80, which can exceed the legs the player holds. That is the
+  // intended consequence (plan §fix276: "a shape's cost modifier can itself
+  // push the player into the empty tank — which is correct and desirable").
+  // Capping it here would quietly defuse the mechanic fix276 is built on.
+  return Math.max(1, out);
+}
+
+// ═══════════ fix276: EMPTY THE TANK (race-unsolving plan §2.3, §4) ═══════════
+// Closes §1.2: `Math.max(0, legs - cost)` in resolveRaceDecision() silently made
+// an unaffordable choice CHEAPER when the tank was empty, so the most aggressive
+// option was free at exactly the moment it should have been ruinous. 18 of 20
+// final-stage decisions have no zero-cost option, so that discount was being
+// handed out constantly.
+//
+// THE SINGLE SHARED RESOLVER. Exactly two callers, and that is the whole point:
+//   1. the gameTick live fire loop
+//   2. raceSkipFlushStages()  ('skip' race pace)
+// Both substitute at the moment they build rd.pendingDecision, so the live and
+// skipped paths cannot diverge on WHEN the tank empties. This is the fix258
+// lesson applied forward — a parallel implementation here would let 'skip'
+// quietly dodge the punishment, which is the same class of bug fix258 exists to
+// prevent.
+//
+// Affordability is measured with effectiveLegsCost() (fix273), NOT raw
+// raceLegsConst, so a shape's costMod can itself push the player into the empty
+// tank. Per plan §fix276 that is "correct and desirable": `attrition` at
+// intensity 3 raising a 56-leg all-in to ~80 is exactly the race that should be
+// able to break someone.
+//
+// ── REGRESSION RISK: the highest in this plan (plan §5) ────────────────────
+// The synthetic event is BUILT FRESH PER FIRE and never written back into
+// stage.event, so COURSES stays pristine across a save/reload mid-decision. It
+// is handed to pendingDecision and dies with the decision. Note rd (and
+// therefore rd.pendingDecision.event) round-trips wholesale through
+// saveGame/loadGame as plain JSON — deltaFn does NOT survive that trip, which
+// is already true of every real event and is why resolveRaceDecision() guards
+// with `choice.deltaFn?...:0`. A reload mid-empty-tank therefore resolves to a
+// +0 delta rather than throwing. Same behaviour as a reload mid-any-decision.
+//
+// ── Why the choice id is 'empty_tank_forced' and not 'empty_tank' ──────────
+// COURSES.hill.cobbled_wall's `summit_church` stage already ships a REAL,
+// player-chosen choice with id 'empty_tank' (raceLegsConst:48). fix270's
+// telemetry records rd.telemetryChoices.push(choice.id), and fix277's headline
+// tuning target is the empty-tank TRIGGER RATE (10-20% of races). Reusing the
+// id would fold every legitimate cobbled-wall pick into that number and tune
+// the balance pass against a corrupted signal. The onclick is still
+// makeRaceDecision('...') — the argument changes, the handler does not, so the
+// audit surface does not grow.
+//
+// ── KNOWN, ACCEPTED: tailwind leaves residual legs ─────────────────────────
+// raceLegsConst is set to `legs` so the clamp in resolveRaceDecision() is a
+// no-op rather than a hidden discount. But that cost still passes through
+// effectiveLegsCost(), and `tailwind`'s costMod is v*shapeLerp(0.75,k) — so on
+// a tailwind race the charge is round(legs*0.75) and the player finishes the
+// "empty the tank" beat holding ~25% of their legs, which then feeds
+// finishKickFor(). Accepted as-shipped for fix276: suppressing it needs a
+// synthetic early-out inside effectiveLegsCost(), which is outside this fix's
+// planned region. Logged here so fix277 reads the trigger-rate telemetry
+// knowing tailwind races under-punish.
+function resolveEventForLegs(ev, rd){
+  if(!ev || !Array.isArray(ev.choices) || !ev.choices.length) return ev;
+  if(!rd) return ev;
+  const legs = Number.isFinite(rd.raceLegs) ? rd.raceLegs : 0;
+  // Cheapest option actually available, priced exactly as the player will be
+  // charged and exactly as the decision card will print it.
+  let minCost = Infinity;
+  for(const c of ev.choices){
+    const cost = effectiveLegsCost(c, rd, ev);
+    if(cost < minCost) minCost = cost;
+  }
+  // Affordable — including every stage that still offers a free choice, where
+  // minCost is 0 and this can never trigger. Hand back the untouched original.
+  if(!Number.isFinite(minCost) || legs >= minCost) return ev;
+
+  const shortfall = minCost - legs;
+  // Copied off the ORIGINAL event so raceStageTriggerPct() resolves by its
+  // first branch. It matches stages by `s.event === ev` identity, and the
+  // synthetic object is deliberately not in rd.stages, so without this it would
+  // fall through to its 0.5 default and both the lateness term below and
+  // applyShapeToDelta() would misprice a final-stage blowout as a mid-race one.
+  const triggerPct = raceStageTriggerPct(ev, rd);
+
+  return {
+    id:'empty_tank',
+    // Inherited so the TT lockout in both fire loops keeps behaving identically
+    // whether or not the tank emptied.
+    raceTypeOnly: ev.raceTypeOnly,
+    triggerPct,
+    synthetic:true,
+    headline:'🩸 Nothing left in the legs',
+    situation:'You have nothing left to give. All you can do is empty whatever is in there and hang on to the line.',
+    // Exactly ONE choice, which is the hard lockout in this project's house
+    // style: there is structurally no alternative to lock out. The 30s
+    // auto-select (`choices.find(c=>c.defaultChoice)||choices[0]`) and
+    // raceSkipFlushStages()'s identical default lookup both land here by
+    // construction rather than by branch. No two-tap confirm: this is a forced
+    // action, not a destructive one, and it already has a timer and one button.
+    choices:[{
+      id:'empty_tank_forced',
+      label:'🩸 Give everything you have left',
+      detail:'You cannot follow any move. This will cost you places.',
+      raceLegsConst: legs,
+      defaultChoice:true,
+      deltaFn:(l, spec)=>{
+        // POSITIVE delta = places LOST (see resolveRaceDecision's deltaStr).
+        let d = 2;
+        d += (shortfall >= 20) ? 2 : (shortfall >= 10) ? 1 : 0;
+        d += (triggerPct >= 0.8) ? 1 : 0;   // dying on the final stage hurts most
+        // Spec softening — a rouleur's diesel and a climber's economy hold on
+        // marginally better. Floored at +2 so this stays punishing: the plan's
+        // band is +2 to +5, never a free ride.
+        if(spec==='rouleur' || spec==='climber') d -= 1;
+        return Math.max(2, Math.min(5, d));
+      },
+    }],
+  };
+}
 
 function getDailyWeather(){
   const dayKey=getDayKey();
@@ -13799,6 +14210,13 @@ const state = {
   // level. Cloned from SETTINGS_DEFAULTS rather than referencing it, so a fresh
   // game can never mutate the defaults object out from under loadGame().
   settings: { ...SETTINGS_DEFAULTS },
+  // fix270: race telemetry ring buffer (plan §4). Diagnostic only — never read
+  // by any game logic, never shown as a number to the player. Hard-capped at
+  // RACE_TELEMETRY_MAX by raceTelemetryPush(), which is the only writer.
+  // DELIBERATELY absent from handlePrestige()'s reset list: a career spanning
+  // several seasons is exactly the sample the fix277 balance pass needs, and
+  // wiping it on prestige would silently shorten every window to one season.
+  raceTelemetry: [],
   winsSincePrestige: 0, // season-scoped win count — gates sponsor tiers; resets on prestige. raceWinsByType above stays lifetime, untouched, for Lifetime Goals.
   // Specialisation
   specialisation: null,
@@ -14819,6 +15237,227 @@ function getGrandTourStage(rd){
   return stages ? (stages[rd.stageIndex]||null) : null;
 }
 
+// ═══ fix274 — FINISH TERRAIN CLASSIFIER (race unsolving plan §2.2) ═══
+//
+// Answers one question: what does the LAST part of this course look like?
+// 'summit' | 'drag' | 'sprint'.
+//
+// SHIPPED WITH ZERO CALLERS, DELIBERATELY. fix275 is the first consumer
+// (finishKickFor() picks its divisor and cap off this class). Splitting the
+// classification out into its own fix means a misclassified course shows up as
+// a wrong line in finishTerrainAudit() — inspectable, free, reversible — rather
+// than as a finish kick that is quietly wrong on one course out of sixteen.
+//
+// The class is NEVER SHOWN to the player and must not become a label. The
+// player already sees the elevation profile on the race card and in the race
+// overlay (buildCourseProfileSVG); reading "that finish goes uphill" off the
+// picture is exactly the skill this is meant to reward. Printing the word
+// would re-publish what §2.2 is trying to hide.
+//
+// ── Why the rule is not the plan's original one ──────────────────────────
+// Plan §2.2 spec'd a single test: mean of the last quarter minus the mean of
+// the quarter before it, > +8 => summit. Run over all 16 COURSES entries and
+// all 15 Grand Tour stages, that rule MISCLASSIFIES on both ends, and both
+// failures are structural rather than one-off:
+//
+//   * SATURATION. 'Alpine Hill Climb' (tt) climbs 18 -> 98 and finishes at the
+//     top of the scale; because it is already pinned near 100 for the whole
+//     last half, its quarter-over-quarter rise is only +6.3 and it classified
+//     'drag'. Same for 'The Cobbled Wall' (+3.0) and Monte Zoncolan (+4.0).
+//     Three genuine summit finishes, all reading as drags, purely because the
+//     0-100 profile scale has a ceiling and they hit it early.
+//   * SAWTOOTH. The crit circuits and the flat sprinters' stages are drawn as
+//     small zigzags with a mild upward trend, so they all posted rises in the
+//     +2 to +6 band and classified 'drag'. Nothing in the game was classifying
+//     'sprint' at all — including the velodrome finish the plan names as its
+//     own worked example of a sprint.
+//
+// So the rule takes TWO measurements, not one:
+//   rise   — quarter-over-quarter change, as spec'd. "Is it going up?"
+//   finish — mean of the last 3 points. "Is it high?"
+// and reads them together. A summit finish is high, however flat the last few
+// hundred metres are; a sprint finish is low, however much the profile wiggles
+// on the way to the line.
+//
+// Thresholds are MEASURED against the shipped profile arrays, not estimated —
+// see the audit table reproduced under finishTerrainAudit() below. They are
+// balance constants and fix277 may move them; anything reading this class must
+// go through finishTerrainFor() so that a retune is one edit.
+const FINISH_TERRAIN_THRESHOLDS = {
+  summitFinish: 80,   // finish mean at/above this is a summit whatever the rise
+  climbingRise: 8,    // rise above this, with some altitude under it, is a summit
+  climbingFinish: 55, // ...that altitude floor. Keeps a rising urban prologue a drag.
+  sprintFinish: 45,   // finish mean below this can still be a sprint...
+  sprintRise: 6.5,    // ...provided the run-in is not a real drag. Flat sprinters'
+                      // stages measure +5.67, the Mega-Breakaway Chase +8.67.
+};
+
+// Pure: takes the profile array, returns the class. Split from finishTerrainFor
+// so the audit can feed it arrays directly without fabricating an `rd`.
+function classifyFinishTerrain(profile){
+  if(!Array.isArray(profile) || profile.length < 4) return 'drag';
+  const p = profile.map(v=>Number(v)).filter(v=>Number.isFinite(v));
+  if(p.length < 4) return 'drag';
+  const q = Math.max(1, Math.round(p.length/4));
+  const mean = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+  const rise = mean(p.slice(-q)) - mean(p.slice(-2*q, -q));
+  const finish = mean(p.slice(-3));
+  const T = FINISH_TERRAIN_THRESHOLDS;
+  if(finish >= T.summitFinish) return 'summit';
+  if(rise > T.climbingRise && finish >= T.climbingFinish) return 'summit';
+  if(finish < T.sprintFinish && rise <= T.sprintRise) return 'sprint';
+  return 'drag';
+}
+
+// The accessor. EVERY read goes through here (the raceShapeFor() convention),
+// so that the "no profile at all" fallback lives in one place.
+//
+// Grand Tour stages are tested FIRST and win outright: a GT stage is flagged
+// isCalendarEvent, so getRaceCourse() already returns null for it, but the
+// ordering is written explicitly to match profileSrc in renderActiveRaceBlock —
+// the class must describe the same curve the player is looking at.
+//
+// Plain calendar events have no profile of their own (they render the base
+// RACE_TYPES shape) and fall back to 'drag', per plan §2.2. 'drag' is the
+// middle class, so a wrong fallback is never the extreme case.
+function finishTerrainFor(rd){
+  const gt = getGrandTourStage(rd);
+  if(gt && Array.isArray(gt.profile) && gt.profile.length) return classifyFinishTerrain(gt.profile);
+  const course = getRaceCourse(rd);
+  if(course && Array.isArray(course.profile) && course.profile.length) return classifyFinishTerrain(course.profile);
+  return 'drag';
+}
+
+// Dev-console audit. Console-only by design: no UI, no button, no onclick, so
+// it adds nothing to the handler audit and cannot be reached by a player.
+// Run finishTerrainAudit() in the console to reprint the table below.
+//
+// MEASURED 2026-08 against this file's COURSES and GRAND_TOUR_STAGES:
+//
+//   road  The Cobbled Classic        rise  +0.67  fin  41.3  sprint  (velodrome)
+//   road  The Rolling Ardennes       rise -25.00  fin  21.7  sprint  (descent to line)
+//   road  The Crosswind Epic         rise  +1.50  fin  27.0  sprint
+//   road  The Mega-Breakaway Chase   rise  +8.67  fin  42.7  drag
+//   crit  The Wet City Circuit       rise  +2.67  fin  38.7  sprint
+//   crit  The Twilight Race          rise  +4.00  fin  31.3  sprint
+//   crit  The 4-Corner Power Square  rise  +2.00  fin  41.3  sprint
+//   crit  The Uphill Finish Circuit  rise +10.00  fin  60.7  summit
+//   hill  The Cobbled Wall           rise  +3.00  fin  98.7  summit  (saturated)
+//   hill  The High Altitude Pass     rise +21.83  fin  96.3  summit
+//   hill  The Stepped Climb          rise +14.67  fin  99.3  summit
+//   hill  The Goat Track             rise +20.17  fin  91.7  summit
+//   tt    Urban City Prologue        rise +10.67  fin  54.0  drag    (rises, but low)
+//   tt    Estuary Coastline TT       rise  +6.83  fin  47.0  drag
+//   tt    Alpine Hill Climb          rise  +6.33  fin  95.3  summit  (saturated)
+//   tt    Rolling Countryside TT     rise  +4.00  fin  36.7  sprint
+//
+//   All three Grand Tours: sprinters' stages and the closing circuits -> sprint,
+//   the two ITT stages -> sprint, every high-mountain stage -> summit. No GT
+//   stage classifies drag, which is correct: they are authored as either flat
+//   or mountainous, with nothing in between.
+//
+// Totals: 7 sprint / 3 drag / 6 summit across COURSES (16 rows), and
+// 10 sprint / 0 drag / 5 summit across the 15 GT stages. No class is empty and
+// none dominates — which is the property fix275's divisor table needs.
+function finishTerrainAudit(){
+  const rows=[];
+  Object.keys(COURSES).forEach(typeId=>{
+    (COURSES[typeId]||[]).forEach(c=>{
+      rows.push({src:typeId, name:c.name, cls:classifyFinishTerrain(c.profile)});
+    });
+  });
+  Object.keys(GRAND_TOUR_STAGES).forEach(tourId=>{
+    (GRAND_TOUR_STAGES[tourId]||[]).forEach(s=>{
+      rows.push({src:tourId, name:s.name+' — '+s.place, cls:classifyFinishTerrain(s.profile)});
+    });
+  });
+  console.table(rows);
+  return rows;
+}
+
+// ═══ fix275 — NONLINEAR HIDDEN FINISH KICK (race unsolving plan §2.2) ═══
+//
+// THE PROBLEM. The retired line was `Math.floor(legs/25)`: linear, terrain-
+// blind, and its rate was inferable from two races. Combined with printed leg
+// costs it made the whole decision layer a hoarding sum — spend nothing until
+// you can afford exactly the choice that leaves a multiple of 25 behind.
+//
+// THE REPLACEMENT. kick = floor( legs^0.85 / divisor ) * shape, clamped [0,cap],
+// with divisor and cap taken off finishTerrainFor() (fix274). Two properties
+// the old line did not have:
+//   * DIMINISHING. The exponent is below 1, so the last 25 legs are worth less
+//     than the first 25. Hoarding still helps; hoarding is no longer optimal.
+//   * TERRAIN-DEPENDENT. Legs left at the bottom of a summit finish buy almost
+//     nothing; the same legs into a flat run-in buy a sprint. This is the skill
+//     the profile SVG on screen is meant to reward — the player can SEE which
+//     kind of finish it is, and can never compute the rate.
+//
+// THE RATE IS NEVER PUBLISHED. No UI reads these constants, and the result card
+// shows the kick only AFTER the fact, as an outcome. INFO_TEXTS.results states
+// the relationship qualitatively and says the figures are withheld on purpose.
+//
+// DIVISORS ARE NOT THE PLAN'S PRINTED ONES, deliberately. Plan §2.2's table
+// (40/28/18) and its own worked example ("~2 places on a summit, ~5 on a flat
+// sprint from 100 legs") do not agree: 100^0.85 = 50.1, so 50.1/18 = 2.78 which
+// FLOORS TO 2, not 5, and the sprint cap of 5 would be unreachable at any legs
+// value. The divisors below are solved back from the plan's stated INTENT — the
+// worked example, which is the design — rather than copied from a table that
+// contradicts it. MEASURED against the curve, kick by legs remaining:
+//
+//   legs      25    50    75   100
+//   summit     0     1     1     2   (divisor 25, cap 2)
+//   drag       0     1     2     3   (divisor 16, cap 3)
+//   sprint     1     2     3     5   (divisor 10, cap 5)
+//
+// Balance constants; fix277 may move them against telemetry. Nothing outside
+// finishKickFor() may read them.
+const FINISH_KICK_EXP = 0.85;
+const FINISH_KICK_TERRAIN = {
+  summit: {divisor:25, cap:2},
+  drag:   {divisor:16, cap:3},
+  sprint: {divisor:10, cap:5},
+};
+// The shape's final multiplier (plan §2.2). Only two shapes touch the kick, and
+// both for a stated in-world reason: a nervous bunch is strung out and gappy at
+// the line so fresh legs tell, a tailwind day has everyone arriving fresh so
+// they tell less. Every other shape is absent and therefore ×1 — an absent key
+// is the neutral case, so this table never needs a full roster.
+const FINISH_KICK_SHAPE_MOD = { nervous_bunch: 1.25, tailwind: 0.7 };
+
+// THE ONLY PLACE THE KICK IS COMPUTED (the effectiveLegsCost convention).
+// Read-only: takes rd, returns a number, writes nothing — safe to call from a
+// render if one ever needs to, though nothing does and nothing should.
+function finishKickFor(rd){
+  const legs = Math.max(0, Number(rd && rd.raceLegs) || 0);
+  if(legs <= 0) return 0;
+  const t = FINISH_KICK_TERRAIN[finishTerrainFor(rd)] || FINISH_KICK_TERRAIN.drag;
+  const shape = raceShapeFor(rd);
+  const mod = FINISH_KICK_SHAPE_MOD[shape.id];
+  const k = RACE_SHAPE_INTENSITY_SCALE[shape.intensity-1] ?? 1.0;
+  const mult = (typeof mod === 'number') ? shapeLerp(mod, k) : 1;
+  const raw = (Math.pow(legs, FINISH_KICK_EXP) / t.divisor) * mult;
+  if(!Number.isFinite(raw)) return 0;
+  return Math.max(0, Math.min(t.cap, Math.floor(raw)));
+}
+
+// Dev-console audit, same console-only contract as finishTerrainAudit(): no UI,
+// no button, no onclick, unreachable by a player. Prints the curve for each
+// terrain class so a fix277 retune can be checked without playing 40 races.
+function finishKickAudit(){
+  const rows=[];
+  ['summit','drag','sprint'].forEach(cls=>{
+    const row={terrain:cls};
+    [0,10,25,40,50,60,75,90,100].forEach(l=>{
+      const t=FINISH_KICK_TERRAIN[cls];
+      const v=l<=0?0:Math.max(0,Math.min(t.cap,Math.floor(Math.pow(l,FINISH_KICK_EXP)/t.divisor)));
+      row['legs'+l]=v;
+    });
+    rows.push(row);
+  });
+  console.table(rows);
+  return rows;
+}
+
 // Called when the player taps a choice button in the decision card.
 // Race Legs are reduced immediately; positionDelta accumulates.
 // Phase 1 — called immediately when player taps a choice button.
@@ -14844,8 +15483,25 @@ function resolveRaceDecision(){
   const choice=event.choices.find(c=>c.id===selectedChoiceId); if(!choice) return;
   const legs=rd.raceLegs;
   const spec=state.specialisation;
-  rd.raceLegs=Math.max(0, legs-choice.raceLegsConst);
-  const delta=choice.deltaFn?choice.deltaFn(legs,spec):0;
+  // RETIRED fix273 — raw, unshaped legs cost. The printed cost and the applied
+  // cost were the same number by virtue of both reading choice.raceLegsConst
+  // directly, which meant `attrition` and `tailwind` could not modify price at
+  // all without the UI lying. Replaced by effectiveLegsCost(), the shared
+  // funnel the render at decision-btn-legs also calls.
+  // rd.raceLegs=Math.max(0, legs-choice.raceLegsConst);
+  const legsCost=effectiveLegsCost(choice, rd, event);
+  rd.raceLegs=Math.max(0, legs-legsCost);
+  // fix271 (plan §4) — Race Shape post-processing. This is the ONLY behavioural
+  // edit the shape engine makes. It sits here rather than in makeRaceDecision()
+  // because this is the sole decision funnel: the live tap, the 30s auto-select
+  // and raceSkipFlushStages() all route through it, so the 'skip' pace path is
+  // shaped identically with no parallel implementation (§1.4, the fix258 lesson).
+  // RETIRED fix271 — unshaped delta. Solvable: deterministic deltaFn + printed
+  // legs cost meant one choice per stage was arithmetically correct in every
+  // race. Replaced by applyShapeToDelta(), whose magnitudes are never displayed.
+  // const delta=choice.deltaFn?choice.deltaFn(legs,spec):0;
+  const rawDelta=choice.deltaFn?choice.deltaFn(legs,spec):0;
+  const delta=applyShapeToDelta(rawDelta, choice, event, rd);
   rd.positionDelta=(rd.positionDelta||0)+delta;
   const legsLeft=rd.raceLegs;
   const legsCol=legsLeft>60?'var(--green-txt)':legsLeft>30?'var(--amber-txt)':'var(--red-txt)';
@@ -14855,6 +15511,25 @@ function resolveRaceDecision(){
       ?`<span style="color:var(--red-txt)">${icn('chart-down')} ${delta} position${delta!==1?'s':''} lost</span>`
       :`<span style="color:var(--txt3)">↔️ No position change</span>`;
   rd.lastDecisionResult={label:choice.label,deltaStr,legsLeft,legsCol,autoSelected:!!rd.pendingDecision?.wasAutoSelected};
+  // fix270 (plan §4) — telemetry capture. This is the ONLY behavioural line this
+  // fix adds outside completeRace(), and it exists because chosenIds[] cannot be
+  // reconstructed after the fact: nothing else records WHICH choice was taken.
+  //
+  // Sited here rather than in makeRaceDecision() deliberately. This function is
+  // the sole decision funnel (§1.4) and is what raceSkipFlushStages() and the
+  // 30s auto-select both route through, so the 'skip' pace path is covered with
+  // no parallel implementation — the fix258 lesson. makeRaceDecision() is the
+  // live-tap path only and would silently miss both.
+  //
+  // Fields are lazily created on rd rather than initialised in startRace() ×3,
+  // so a race already in progress when this fix lands records from its next
+  // decision onward instead of throwing. rd round-trips wholesale through
+  // saveGame/loadGame, so these need no save touch point of their own — and
+  // they die with rd when the race completes, which is correct: the aggregate
+  // is what gets kept, in state.raceTelemetry.
+  if(!Array.isArray(rd.telemetryChoices)) rd.telemetryChoices=[];
+  rd.telemetryChoices.push(choice.id);
+  if(rd.pendingDecision.wasAutoSelected) rd.telemetryAutoCount=(rd.telemetryAutoCount||0)+1;
   // Accumulate full decision time (from card shown to resolution) into totalPausedMs
   rd.totalPausedMs=(rd.totalPausedMs||0)+(Date.now()-rd.pendingDecision.startedAt);
   rd.pendingDecision=null;
@@ -14894,7 +15569,20 @@ function raceSkipFlushStages(rd, isTT){
   for(const stage of rd.stages){
     if(stage.fired) continue;
     if(isTT && stage.event && stage.event.raceTypeOnly && stage.event.raceTypeOnly!=='tt') continue;
-    const ev=stage.event;
+    // fix276 — Empty The Tank, 'skip' path. Substituted HERE, before the
+    // default-choice lookup below, so the lookup runs against whichever event
+    // will actually be resolved. Substituting after it would pick a default off
+    // the original event and hand resolveRaceDecision() an id its event does not
+    // contain — `choices.find(...)` would return undefined and the function
+    // would return early, silently skipping the stage entirely and banking the
+    // legs. That is precisely the "strictly better than playing the race"
+    // failure this function was written to prevent.
+    //
+    // Note this reads rd.raceLegs as it stands at THIS point in the flush, and
+    // the loop resolves stages in triggerPct order through resolveRaceDecision(),
+    // so legs deplete across iterations exactly as they would live. A skipped
+    // race can therefore empty the tank at the same stage a played one would.
+    const ev=resolveEventForLegs(stage.event, rd);
     if(!ev || !ev.choices || !ev.choices.length){ stage.fired=true; continue; }
     stage.fired=true;
     const dflt=ev.choices.find(c=>c.defaultChoice)||ev.choices[0];
@@ -15098,7 +15786,13 @@ function startRace(raceTypeId, isClub=false){
   // skip this (their simulate* functions never return .rival) — no separate
   // guard needed here, just the existence check.
   const rivalStartVP=result.rival ? Math.max(1,Math.min(result.fieldSize,Math.round(result.rival.position*0.9+result.fieldSize*0.1))) : null;
-  state.raceData={typeId:raceTypeId,startTime:Date.now(),animMs:racePaceAnimMs(isClub?CLUB_RACE.animMs:rt.animMs),result, // fix258: race pace — see racePaceAnimMs()
+  // fix271 — Race Shape roll. startTime is hoisted so the shape seed and the
+  // stored startTime are the same number: the shape is reproducible from the
+  // race's own identity, and a mid-race reload cannot reroll a friendlier one.
+  const raceStartTime=Date.now();
+  const raceShape=rollRaceShape(raceStartTime+'|'+raceTypeId+'|'+(course?course.id:'none'), getDailyWeather().condition.id);
+  state.raceData={typeId:raceTypeId,startTime:raceStartTime,animMs:racePaceAnimMs(isClub?CLUB_RACE.animMs:rt.animMs),result, // fix258: race pace — see racePaceAnimMs()
+    shape:raceShape,     // fix271: {id,intensity} — read only via raceShapeFor()
     virtualPos:Math.round(result.fieldSize*0.45),startVP:Math.round(result.fieldSize*0.45),commentaryIdx:0,
     courseId:course?course.id:null,
     ...(rivalStartVP!=null ? {rivalStartVP, rivalVP:rivalStartVP} : {}),
@@ -15148,6 +15842,80 @@ function rollRaceBonus(rd, prizeTable){
   return '';
 }
 
+// ═══════════ fix270: RACE TELEMETRY RING BUFFER (race-unsolving-plan §4) ═════
+// The Council's precondition for the whole fix270→277 plan: "too easy" and
+// "samey" are currently VIBES. This fix makes them measurable so fix277 tunes
+// against real numbers instead of feel. It is deliberately INSTRUMENTATION
+// ONLY — nothing here changes a single race outcome. If you delete every line
+// added by this fix the game plays identically.
+//
+// THE GATE (plan §4, fix270): do not start fix271 until ~30 races of this data
+// have been read and the two diagnostic questions answered:
+//   1. Does one choice id dominate its stage across nearly every race?
+//      → decision-table problem → the shape plan is correctly aimed.
+//   2. Does finalPos correlate only weakly with positionDelta?
+//      → PROGRESSION-CURVE problem → pause fix271+ entirely. The race layer
+//        would be theatre and nothing in fixes 271-277 would matter.
+//
+// Storage: a plain array on the save object, hard-capped.
+//
+// MEASURED, not estimated. The plan (§4) projected ~200 bytes/record for ~40KB
+// at the cap. A record with a realistic 5-entry chosenIds[] serialises to ~353
+// bytes, so a FULL buffer is ~69KB, not 40KB. Still comfortably inside a ~5MB
+// localStorage budget alongside the rest of the save, so the cap stands at 200
+// — but the number in this comment is the one that was actually measured, and
+// if RACE_TELEMETRY_MAX is ever raised, raise it against 353 and not 200.
+const RACE_TELEMETRY_MAX = 200;
+
+// Append one record and trim to the cap. Newest LAST (append order), so a
+// straight read of the dump is chronological — the opposite of raceHistory,
+// which unshifts because it feeds a "most recent first" UI list. This one has
+// no UI list; it is read as a time series, so time order is the useful order.
+//
+// Wrapped defensively at the call site rather than here: this must never be
+// able to abort completeRace(), per the fix116 trailing-work rule.
+function raceTelemetryPush(rec){
+  if(!rec) return;
+  if(!Array.isArray(state.raceTelemetry)) state.raceTelemetry = [];
+  state.raceTelemetry.push(rec);
+  // Trim from the FRONT, so the cap drops the oldest race rather than refusing
+  // the newest. splice() rather than a while/shift loop so a save that somehow
+  // arrives over-cap (hand-edited backup code) is corrected in one call.
+  if(state.raceTelemetry.length > RACE_TELEMETRY_MAX){
+    state.raceTelemetry.splice(0, state.raceTelemetry.length - RACE_TELEMETRY_MAX);
+  }
+}
+
+// Returns the buffer as a JSON string for the Copy button. No parsing, no
+// charts, no aggregation — analysis happens off-device. Deliberately returns a
+// STRING and not an object so the only consumer cannot accidentally hand a live
+// reference to state.raceTelemetry to something that might mutate it.
+function raceTelemetryDump(){
+  try{
+    return JSON.stringify(Array.isArray(state.raceTelemetry) ? state.raceTelemetry : []);
+  }catch(e){ return '[]'; }
+}
+
+// Rider ▸ Save row handler. Mirrors backupSave()'s best-effort clipboard
+// pattern verbatim, including the reason: Android WebViews often reject
+// writeText(). Unlike backupSave() there is NO textarea fallback here, and that
+// is intentional — this is a dev diagnostic, not a save the player could lose,
+// and adding a box would mean adding an id to this surface (the fix222
+// duplicate-id defect class). If the clipboard refuses, the toast says so and
+// the player has lost nothing.
+function copyRaceTelemetry(){
+  const n = Array.isArray(state.raceTelemetry) ? state.raceTelemetry.length : 0;
+  if(n === 0){ showToast(`${icn('warning')} No races recorded yet`); return; }
+  const code = raceTelemetryDump();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(code)
+      .then(()=>showToast(`${icn('check-circle')} ${n} race${n!==1?'s':''} copied`))
+      .catch(()=>showToast(`${icn('warning')} Clipboard refused — try again`));
+  } else {
+    showToast(`${icn('warning')} Clipboard unavailable on this device`);
+  }
+}
+
 function completeRace(){
   try{ navigator.vibrate?.(30); }catch(e){}
   const rd=state.raceData, cat=RACE_CATEGORIES[state.raceCategory];
@@ -15160,14 +15928,27 @@ function completeRace(){
   // Clamped so decisions can't push you past 1st, and are meaningful but not all-powerful.
   // The cap (±40% of field) means a great set of decisions can swing ~8 places in a field
   // of 20, and a poor set can cost ~8 — significant but not the entire race.
-  // Race Retention Phase 3A — unspent legs convert to a finish kick. Every 25
-  // saved legs (0-100 scale) shaves a place off the finish, up to 4 places.
+  // Race Retention Phase 3A — unspent legs convert to a finish kick.
   // Applied BEFORE the ±40%-of-field clamp below, same as any other decision shift.
-  const kick = Math.floor((rd.raceLegs||0) / 25);
+  //
+  // RETIRED fix275 — linear published rate. Solvable: the player could compute
+  // exactly how many legs to hoard, and the rate was the same into a summit
+  // finish as into a velodrome. Replaced by finishKickFor(), which is
+  // terrain-dependent (fix274's classifier), diminishing, shape-modified and
+  // never displayed. The sign convention is unchanged — a bigger kick is a
+  // better finish, so it is SUBTRACTED from positionDelta.
+  // const kick = Math.floor((rd.raceLegs||0) / 25);
+  const kick = finishKickFor(rd);
   rd.positionDelta = (rd.positionDelta||0) - kick;
   const rawDelta = rd.positionDelta || 0;
   const maxShift = Math.max(2, Math.floor(rd.result.fieldSize * 0.40));
   const clampedDelta = Math.max(-maxShift, Math.min(maxShift, rawDelta));
+  // fix270: the UNADJUSTED simulate result, captured here because rd.result.position
+  // is overwritten with finalPos further down. This is diagnostic question 2's
+  // independent variable — without it, "does finalPos track positionDelta or does
+  // it just track the sim?" cannot be answered from the dump. Read-only capture,
+  // no behaviour change.
+  const basePos = rd.result.position;
   const finalPos = Math.max(1, Math.min(rd.result.fieldSize, rd.result.position + clampedDelta));
   // Race Retention Phase 3B — hot streak (podium chain). Club races count too.
   // Updated here, before the prize calc below, so this race's own multiplier
@@ -15426,6 +16207,48 @@ function completeRace(){
   // fix116 rule: this is trailing work and must not be able to abort the result
   // screen below it.
   try{ consumeRaceBuffs(); }catch(e){}
+  // fix270 (plan §4) — THE telemetry hook. Exactly one call, sited here because:
+  //   * finalPos, kick and clampedDelta are all known and none change below;
+  //   * it is BEFORE the saveGame() on the next line, so the record persists
+  //     with the same write that persists the result — no second save;
+  //   * it is inside the same trailing-work band as consumeRaceBuffs() above and
+  //     carries the same try/catch, per the fix116 rule: instrumentation must
+  //     never be able to abort the result screen.
+  // completeRace() is the sole resolution funnel for category, club, calendar
+  // and Grand Tour stage races alike, so this single call covers every race
+  // type with no per-type branch — the same property fix154 relies on.
+  try{
+    const _wx = getDailyWeather();
+    raceTelemetryPush({
+      ts: Date.now(),
+      typeId: rd.typeId,
+      courseId: rd.courseId || null,
+      // Kind, not just category index: a club race and a category race at the
+      // same index are different populations and must be separable in the dump.
+      kind: gtStage ? 'gt' : isCalEvent ? 'calendar' : isClub ? 'club' : 'category',
+      category: state.raceCategory,
+      fieldSize: rd.result.fieldSize,
+      basePos,                       // pre-decision sim result
+      positionDelta: clampedDelta,   // POST-clamp — the shift actually applied
+      rawDelta,                      // pre-clamp, so clamp saturation is visible
+      kick,
+      finalPos,
+      legsAtFinish: rd.raceLegs || 0,
+      // Written by resolveRaceDecision(), which is the sole decision funnel and
+      // is what raceSkipFlushStages() routes through — so the 'skip' pace path
+      // is instrumented for free, exactly as fix258 intended.
+      chosenIds: Array.isArray(rd.telemetryChoices) ? rd.telemetryChoices.slice() : [],
+      autoSelectedCount: rd.telemetryAutoCount || 0,
+      riderFTP: getRiderStats().ftp,
+      // No single "rider level" exists in this codebase, so this is the sum of
+      // attribute levels — the closest honest scalar for progression depth, and
+      // the one diagnostic question 2 needs to control for.
+      riderLevel: ATTR_ORDER.reduce((n,a)=>n+(state.attributes[a]?.level||0), 0),
+      weatherId: _wx.condition.id,
+      weatherIntensity: _wx.intensity,
+      racePaceSetting: (state.settings && state.settings.racePace) || 'full',
+    });
+  }catch(e){ console.warn('[CIM] telemetry push failed:', e); }
   updateActivityDots(); checkCategoryPromotion(); checkAchievements(); checkLifetimeGoals(); updateSponsorBadge(); updateCalendarBadge(); recalc(); saveGame();
   // The full-screen win ceremony already communicates position + prize, so the
   // small bottom toast is suppressed for 1st place to avoid showing the same
@@ -16050,7 +16873,11 @@ function startCalendarEvent(eventId){
   const result=simulateCalendarEventResult(eventId);
   const rt=RACE_TYPES.find(r=>r.id===ev.raceTypeId);
   state.raceActive=true;
-  state.raceData={typeId:ev.raceTypeId,startTime:Date.now(),animMs:racePaceAnimMs(rt.animMs),result, // fix258: race pace — see racePaceAnimMs()
+  // fix271 — Race Shape roll (see startRace for the hoisted-startTime rationale).
+  const raceStartTime=Date.now();
+  const raceShape=rollRaceShape(raceStartTime+'|cal|'+eventId, getDailyWeather().condition.id);
+  state.raceData={typeId:ev.raceTypeId,startTime:raceStartTime,animMs:racePaceAnimMs(rt.animMs),result, // fix258: race pace — see racePaceAnimMs()
+    shape:raceShape,     // fix271: {id,intensity} — read only via raceShapeFor()
     virtualPos:Math.round(result.fieldSize*0.45),startVP:Math.round(result.fieldSize*0.45),commentaryIdx:0,
     isCalendarEvent:true, calendarEventId:eventId,
     stages:buildRaceStages(ev.raceTypeId),
@@ -16228,7 +17055,12 @@ function startGrandTourStage(tourId){
   const stage=stages[stageIndex];
   const result=simulateGrandTourStageResult(tourId, stageIndex);
   state.raceActive=true;
-  state.raceData={typeId:'road',startTime:Date.now(),animMs:racePaceAnimMs(100000),result, // fix258: race pace — see racePaceAnimMs()
+  // fix271 — Race Shape roll. Stage index is in the seed so consecutive stages
+  // of the same tour get independent shapes rather than a repeated one.
+  const raceStartTime=Date.now();
+  const raceShape=rollRaceShape(raceStartTime+'|gt|'+tourId+'|'+stageIndex, getDailyWeather().condition.id);
+  state.raceData={typeId:'road',startTime:raceStartTime,animMs:racePaceAnimMs(100000),result, // fix258: race pace — see racePaceAnimMs()
+    shape:raceShape,     // fix271: {id,intensity} — read only via raceShapeFor()
     virtualPos:Math.round(result.fieldSize*0.45),startVP:Math.round(result.fieldSize*0.45),commentaryIdx:0,
     isCalendarEvent:true, calendarEventId:tourId, isGrandTourStage:true, stageIndex,
     stages:buildRaceStages('road'),
@@ -23387,6 +24219,30 @@ function renderActiveRaceBlock(){
     headName=`${course.name} — ${RACE_CATEGORIES[state.raceCategory].shortName}`;
   }
 
+  // fix272 — Race Shape chip (race unsolving plan §fix272). RENDER-ONLY: this
+  // reads the shape through raceShapeFor(rd) and does nothing else. It must
+  // never roll, cache or write — raceShapeFor is a pure accessor and rd.shape
+  // was written once, at race start, by fix271's three startRace paths.
+  //
+  // A race that was already running when fix271/fix272 landed has no rd.shape;
+  // raceShapeFor returns the Steady Day entry for that case, so this renders a
+  // truthful neutral chip rather than throwing or printing "undefined".
+  //
+  // The neutral shape is NOT suppressed. Showing "Steady Day — nothing unusual
+  // in the bunch" is information: it tells the player this race is not one of
+  // the awkward ones, and a chip that only appears sometimes would teach them
+  // to read its mere presence as a warning, which is a magnitude leak by the
+  // back door.
+  const shape=raceShapeFor(rd);
+  const shapeChipHtml=`<div class="race-shape-chip">
+      <span class="race-shape-ico">${icn(shape.icon)}</span>
+      <div class="race-shape-body">
+        <div class="race-shape-name">${shape.name}</div>
+        <div class="race-shape-flav">${shape.flavour}</div>
+      </div>
+      <button type="button" class="info-btn" onclick="openInfo('raceShape')">ⓘ</button>
+    </div>`;
+
   // Stage decision trigger points — now drawn as flags directly on the course
   // profile SVG (see buildCourseProfileSVG) rather than as pips on a plain bar.
   // Terrain shape and colour come from the rolled course when present; calendar
@@ -23490,9 +24346,17 @@ function renderActiveRaceBlock(){
         <div class="decision-timer-text">Auto in ${timerSec}s</div>
       </div>`;
     const choicesHtml=event.choices.map(c=>{
-      const legsAfter=Math.max(0,legs-c.raceLegsConst);
-      const legsTag=c.raceLegsConst>0
-        ? `<span class="decision-btn-legs" style="color:${legsAfter<20?'var(--red-txt)':'var(--amber-txt)'}">${icn('fire')} -${c.raceLegsConst} legs</span>`
+      // fix273 — the cost shown MUST be the cost charged. Both this line and
+      // the subtraction in resolveRaceDecision() call effectiveLegsCost(), and
+      // `event` is passed on both sides so the ctx (and therefore the result)
+      // is identical. Render-only: effectiveLegsCost is pure and raceShapeFor
+      // is a read-only accessor, so nothing here writes state.
+      // RETIRED fix273 — raw cost read straight off the choice.
+      // const legsAfter=Math.max(0,legs-c.raceLegsConst);
+      const cCost=effectiveLegsCost(c, rd, event);
+      const legsAfter=Math.max(0,legs-cCost);
+      const legsTag=cCost>0
+        ? `<span class="decision-btn-legs" style="color:${legsAfter<20?'var(--red-txt)':'var(--amber-txt)'}">${icn('fire')} -${cCost} legs</span>`
         : `<span class="decision-btn-legs" style="color:var(--green-txt)">${icn('fire')} No cost</span>`;
       const isSelected=rd.pendingDecision.selectedChoiceId===c.id;
       const selectedStyle=isSelected
@@ -23563,6 +24427,7 @@ function renderActiveRaceBlock(){
     ${decisionOverlayHtml}
     ${tickerHtml}
     <div class="race-run-head"><span style="font-size:18px">${icn(headIcon)}</span><span class="race-run-name">${headName}</span><span class="race-run-timer${isFinalSprint?' sprint-gold':''}">${remaining}s</span></div>
+    ${shapeChipHtml}
     <div class="race-peloton-wrap" id="race-peloton-wrap"></div>
     <div class="course-minimap-wrap">${courseMiniMapSvg}</div>
     <div class="course-profile-wrap${isFinalSprint?' sprint-shake':''}">${courseProfileSvg}</div>
@@ -23994,6 +24859,21 @@ function buildUciRaceCard(rt, now){
     <div class="ucx-sub">${rt.desc}</div>
     <div class="ucx-meta">${chips}</div>
     ${course?`<div class="ucx-row"><span>${icn(course.icon)} Today's course</span><span class="ucx-row-v">${course.name}</span></div>`:''}
+    <!-- fix272 — Race Shape, pre-race. DELIBERATELY NOT THE SHAPE'S NAME.
+         The plan asked this card to print the shape so the player knows it
+         before committing, but fix271 seeds rollRaceShape() on raceStartTime,
+         which does not exist until startRace() runs — so at the moment this
+         card paints there is no shape to name, and naming one here would mean
+         either rolling a second, different shape (a lie) or moving the roll
+         earlier (a logic change, and this fix is presentation only).
+         Moving the roll is also not obviously wanted: an hourly-stable,
+         pre-published shape lets a player sit out an unfavourable hour and
+         re-enter on a good one, which is the reroll fix271's seeding exists
+         to prevent. That call is MSK's and belongs in its own fix.
+         What this row does instead is teach that the mechanic exists and
+         route to the explainer, so the chip mid-race is recognised rather
+         than met cold. -->
+    <div class="ucx-row"><span>${icn('flag')} Race shape <button class="info-btn" onclick="openInfo('raceShape')">ⓘ</button></span><span class="ucx-row-v" style="color:var(--txt3);font-weight:600">Read it on the road</span></div>
     <div class="ucx-row"><span>${icn('gear')} Equipment bonus</span><span class="ucx-row-v" style="color:${equipBonus>0?'var(--green-txt)':equipBonus<0?'var(--red-txt)':'var(--txt2)'}">${equipBonus>0?'+':''}${equipBonus}w</span></div>
     ${showWeightBadge?`<div class="ucx-row"><span>${icn('scale')} Rider weight</span><span class="ucx-row-v" style="color:${weightPct>0?'var(--green-txt)':'var(--red-txt)'}">${weightPct>0?'+':''}${weightPct}%</span></div>`:''}
     <p class="ucx-lbl" style="margin-top:.85rem">What this race asks of you</p>
@@ -29686,6 +30566,11 @@ function saveGame(){
       // plain boolean. An armed Perfect day that did not survive a reload would
       // be a paid-for item silently destroyed by closing the tab.
       perfectDayArmed:state.perfectDayArmed,
+      // fix270 (§4): appended after perfectDayArmed, before lastSavedAt. A plain
+      // array of flat objects — no Sets, so no spread needed. Written by
+      // reference like raceHistory above; raceTelemetryPush() is the only writer
+      // and it caps the length, so this cannot grow the payload without bound.
+      raceTelemetry:state.raceTelemetry,
       lastSavedAt:Date.now(),
     }));
   }catch(e){ console.warn('[CIM] Save failed:',e); }
@@ -29812,6 +30697,19 @@ function loadGame(){
         gtWon: new Set(Array.isArray(_sa.gtWon) ? _sa.gtWon : []),
         nationalsWon: _sa.nationalsWon ?? false,
       };
+    }
+    // fix270 (§4): per-sub-key guard, the tourProgress lesson again. This one is
+    // a bare array rather than an object, so the guard is a type check and not a
+    // field-by-field rebuild — but the principle is identical: never trust the
+    // saved shape. `?? []` alone would accept a string or an object written by a
+    // corrupted/hand-edited backup code and hand it to raceTelemetryPush(),
+    // which calls .push() on it. Array.isArray() closes that.
+    // Records themselves are NOT validated field by field: nothing in the game
+    // reads them, so a malformed record can only ever produce a malformed line
+    // in the dump, which is a reading problem and not a crash.
+    state.raceTelemetry = Array.isArray(d.raceTelemetry) ? d.raceTelemetry : [];
+    if(state.raceTelemetry.length > RACE_TELEMETRY_MAX){
+      state.raceTelemetry.splice(0, state.raceTelemetry.length - RACE_TELEMETRY_MAX);
     }
     // fix257: THE SAME LESSON, and this object is the one most likely to grow.
     // EVERY FUTURE SETTINGS FIELD ADDED ANYWHERE IN THIS CODEBASE GETS ITS OWN
@@ -30348,7 +31246,16 @@ function gameTick(){
         if(isTT && stage.event && stage.event.raceTypeOnly && stage.event.raceTypeOnly!=='tt') continue;
         if(!stage.fired && progress>=stage.triggerPct){
           stage.fired=true;
-          rd.pendingDecision={event:stage.event, startedAt:Date.now()};
+          // fix276 — Empty The Tank, live-fire path. resolveEventForLegs()
+          // returns stage.event UNCHANGED whenever any choice is affordable, so
+          // this is a no-op on the overwhelming majority of stages. When nothing
+          // is affordable it returns a fresh synthetic single-choice event.
+          //
+          // stage.fired is set ABOVE and stage.event is NOT reassigned — the
+          // synthetic object goes straight into pendingDecision and never
+          // touches COURSES. The existing navigator.vibrate?.(30) below fires
+          // for it unchanged and does the emotional work.
+          rd.pendingDecision={event:resolveEventForLegs(stage.event, rd), startedAt:Date.now()};
           rd.lastDecisionResult=null; // clear any previous result card
           try{ navigator.vibrate?.(30); }catch(e){}
           break; // one decision at a time
@@ -30808,6 +31715,8 @@ const INFO_TEXTS = {
     title: 'Race Result',
     body: ()=>`Gold, silver, and bronze badges mark a podium finish (top 3) — any other position shows a plain rank badge.<br><br>
       A gold bonus pill means a sponsor or race organiser threw in a surprise extra reward. A finish-kick pill means you saved legs and gained places late on.<br><br>
+      What those saved legs are worth depends on the road under them. Arrive at a flat run-in with something in reserve and you can come off the wheels and take several places; arrive at the foot of a summit finish with the same legs and you will claw back one or two at most, because everyone left is climbing. Holding more back always helps, but the last legs you save are worth less than the first — there is no amount you can bank that wins the race on its own.<br><br>
+      <strong>The exchange rate is not printed anywhere, on purpose.</strong> The course profile is on screen before you start and while you race; read it, judge how much to spend on the way, and find out at the line.<br><br>
       Calendar events don't count toward category points or race cooldowns — they're one-off races on the calendar, not part of normal progression.`
   },
   // fix180: topics for the Rider tab headers. These carry the wording that used
@@ -30891,6 +31800,32 @@ const INFO_TEXTS = {
     title: 'Save Data',
     body: ()=>`Your progress is stored only on this device. Back it up before you clear your browser or move to a new phone.<br><br>
       Tap <strong>Back Up Save</strong>, then tap the code to select it and copy it somewhere safe. To bring it back, paste that code into the lower box and tap <strong>Restore From Code</strong>.`
+  },
+  // fix270: the ⓘ for the Race telemetry row. Says plainly what is recorded and
+  // that it never leaves the device, because a button labelled "(dev)" that
+  // copies data is exactly the kind of thing a player is right to be wary of.
+  raceTelemetry: {
+    title: 'Race Telemetry',
+    body: ()=>`A rolling record of your last ${RACE_TELEMETRY_MAX} race results, kept so the race system can be balanced against what actually happens rather than guesswork.<br><br>
+      Each row notes the race type and course, the field size, where the simulation placed you, how far your decisions moved that, which choices you took, and how many legs you finished with.<br><br>
+      <strong>It stays on this device.</strong> Nothing is sent anywhere. The Copy button puts it on your clipboard and does nothing else — it is there so it can be shared deliberately, never automatically.<br><br>
+      It affects nothing in the game. Racing with this row ignored forever changes precisely nothing about how your races play out.`
+  },
+  // fix272: the ⓘ beside the shape chip and on the pre-race card (race
+  // unsolving plan §fix272). Two hard rules on this copy:
+  //   1. NO MAGNITUDES. No multipliers, no percentages, no intensity value, no
+  //      "about twice as much". The last paragraph says outright that the
+  //      numbers are withheld on purpose — a player who knows the withholding
+  //      is deliberate reads it as a mechanic, not as missing UI, and stops
+  //      hunting for a number that is never coming.
+  //   2. fix52 in-world voice, and its banned-word list applies — no "rolled",
+  //      no "modifier", no "multiplier", no talk of how it is coded.
+  raceShape: {
+    title: 'How The Race Is Going',
+    body: ()=>`No two race days are the same. One morning the bunch is calm and the moves go clear; the next everyone is on edge, or the wind is quartering, or the road is greasy and nobody wants to lead into a corner.<br><br>
+      Every race you enter takes on a character of its own, and you will see it named at the top of the screen once you are on the road — <em>Nervous Bunch</em>, <em>War of Attrition</em>, <em>Patient Peloton</em> and the rest, each with a line telling you how it feels out there.<br><br>
+      It changes what your choices are worth. On a nervous day a committed effort counts for more and sitting in counts for less. On a patient day an early attack gets reeled straight back in and the late move is the one that sticks. On a fast day nobody is suffering, so ground is hard to take from anyone.<br><br>
+      <strong>You are told which day it is. You are never told by how much.</strong> That is on purpose. Read the name, read the road, and back your judgement — if the exact figures were printed here there would be nothing left to judge.`
   }
 };
 
