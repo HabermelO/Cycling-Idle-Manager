@@ -591,7 +591,64 @@
 // nav locked out, carb intake in Gear > Energy, workshop cap modal on the tap
 // that reaches the cap) would sit in the repo and never reach an installed PWA.
 // No asset added, removed or re-encoded this stage: HTML only.
-const CACHE_VERSION = 'cim-v3.8.77';   // fix269: PLAY retired on 3 hubs, gear sub-nav lockout, carb intake in Energy, workshop cap modal on cap-reach (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.75';   // fix269: PLAY retired on 3 hubs, gear sub-nav lockout, carb intake in Energy, workshop cap modal on cap-reach (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.76';   // fix270: race telemetry ring buffer — instrumentation only, no gameplay change (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.77';   // fix271: Race Shape engine — roll/store/delta funnel, no UI yet (HTML only, no asset change)
+// fix272: MANDATORY bump for the reason fix186 spells out above — './index.html'
+// is in STATIC_ASSETS and the deployed HTML filename never changes, so without
+// this every installed PWA keeps serving the fix271 shell. On THIS stage that
+// failure is the whole stage: fix271 shipped the Race Shape engine live but
+// invisible, so an unbumped cache leaves the shapes still silently bending
+// every race outcome with nothing on screen to explain why — the exact
+// "unfair rather than dramatic" risk §5 logs, caused by the deploy rather than
+// the design. STATIC_ASSETS is UNCHANGED: HTML only, no asset added, removed
+// or re-encoded this stage.
+// const CACHE_VERSION = 'cim-v3.8.78';   // fix272: Race Shape surfacing — chip, pre-race row, INFO_TEXTS.raceShape (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.79';   // fix273: effectiveLegsCost shared funnel — arms costMod for attrition/tailwind (HTML only, no asset change)
+//
+// fix274 adds finishTerrainFor()/classifyFinishTerrain()/finishTerrainAudit()
+// and nothing calls them, so for once the stale-cache failure mode is not a
+// broken screen — it is worse in a quieter way. An installed PWA left on the
+// fix273 shell has NO finishTerrainAudit() in its console, and the whole point
+// of shipping this fix alone is that the audit table gets eyeballed on a real
+// device BEFORE fix275 welds the finish kick to it. Skip the bump and the
+// verification step silently cannot run; the natural reading is "the classifier
+// didn't land" and the natural response is to go and re-write a function that
+// is already correct and already deployed. Same shape of trap as fix204/fix207,
+// one layer further in.
+//
+// STATIC_ASSETS is UNCHANGED: HTML only, no asset added, removed or re-encoded
+// this stage. The bump is mandatory regardless, for the fix186 reason —
+// './index.html' is in STATIC_ASSETS and the deployed HTML filename never
+// changes between fixes.
+// const CACHE_VERSION = 'cim-v3.8.80';   // fix274: finish terrain classifier — pure addition, zero callers until fix275
+//
+// fix275 welds the finish kick to fix274's classifier: the linear legs/25 line
+// is tombstoned and finishKickFor() takes over. This is the first stage of the
+// series where a stale cache changes RESULTS rather than pixels — an installed
+// PWA left on the fix274 shell keeps handing out the old published linear kick,
+// so two devices on the same save finish the same race in different places and
+// the telemetry fix277 tunes against is polluted with a mix of both curves.
+// Mandatory regardless for the fix186 reason: './index.html' is in
+// STATIC_ASSETS and the deployed HTML filename never changes between fixes.
+//
+// STATIC_ASSETS is UNCHANGED: HTML only, no asset added, removed or re-encoded.
+// const CACHE_VERSION = 'cim-v3.8.81';   // fix275: nonlinear terrain-dependent hidden finish kick (HTML only, no asset change)
+//
+// fix276: MANDATORY bump for the reason fix186 spells out above — './index.html'
+// is in STATIC_ASSETS and the deployed HTML filename never changes, so an
+// installed PWA left on the fix275 shell keeps the OLD gameTick fire loop and
+// the OLD raceSkipFlushStages, neither of which calls resolveEventForLegs().
+// The stale-cache failure mode here is silent and favours the player: every
+// unaffordable choice keeps getting the `Math.max(0, legs - cost)` discount
+// (§1.2), so the aggressive option stays free at exactly the moment fix276
+// makes it ruinous. Worse, that device still WRITES fix270 telemetry, so its
+// races land in state.raceTelemetry with a 0% empty-tank trigger rate and drag
+// fix277's balance pass toward "the punishment never lands and fix276 was
+// decorative" — a tuning conclusion drawn from a deployment fault rather than
+// the design. STATIC_ASSETS is UNCHANGED: HTML only, no asset added, removed or
+// re-encoded this stage.
+const CACHE_VERSION = 'cim-v3.8.82';   // fix276: Empty The Tank — shared resolveEventForLegs resolver on both fire paths (HTML only, no asset change)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
