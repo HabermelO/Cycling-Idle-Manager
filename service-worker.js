@@ -648,7 +648,15 @@
 // decorative" — a tuning conclusion drawn from a deployment fault rather than
 // the design. STATIC_ASSETS is UNCHANGED: HTML only, no asset added, removed or
 // re-encoded this stage.
-const CACHE_VERSION = 'cim-v3.8.82';   // fix276: Empty The Tank — shared resolveEventForLegs resolver on both fire paths (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.82';   // fix276: Empty The Tank — shared resolveEventForLegs resolver on both fire paths (HTML only, no asset change)
+
+// fix278: race stage asset cut — EIGHT new files, so STATIC_ASSETS gains eight
+// entries below and this bump is mandatory twice over: the new art must be
+// precached, and index.html itself changed (the LAZY_ASSET_GROUPS.racestage
+// group). Without the bump an already-installed PWA keeps serving the fix276
+// HTML, which has no 'racestage' group at all, and every later stage in this
+// series lands on a device that cannot resolve its own art.
+const CACHE_VERSION = 'cim-v3.8.83';   // fix278: race stage art (NEW assets: race-shell.png, race-win-{road,tt,hill,crit}.jpg, pedal-sheet.png, racer-static.png, tt-static.png)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
@@ -785,6 +793,31 @@ const STATIC_ASSETS = [
   // stayed precached deliberately because 'raceHero' was still in
   // RC_SHEET_NAMES. fix169 retired it, so that entry is now tombstoned too.
   './assets/race-hero-bg.jpg',
+  // fix278: the live race stage art (race-vis-overhaul-plan-v2 §5, stage 1 of
+  // 12). APPENDED, never inserted. All eight are bound lazily via
+  // lazyLoadAssetGroup('racestage') — which nothing calls until fix279 — so
+  // none is fetched on page load, but every one must be precached here or a
+  // race started offline paints an empty stage.
+  //
+  // ALL FOUR WINDOWS ARE PRECACHED even though only one is applied per race.
+  // That is the deliberate opposite of the lazy-fetch behaviour: at runtime the
+  // browser downloads only the window fix281 applies, but a player offline may
+  // enter ANY of the four race types, and a missing window is a blank band in
+  // the middle of the screen. Install-time cost is paid once on a connection
+  // the install already required.
+  //
+  // cache.addAll() is all-or-nothing at install — one wrong filename rejects
+  // the install promise and the SW never activates — so all eight names were
+  // checked against the encoded files on disk, not against the plan. The plan
+  // and the shipped files disagree on nothing here, but the check is the point.
+  './assets/race-shell.png',
+  './assets/race-win-road.jpg',
+  './assets/race-win-tt.jpg',
+  './assets/race-win-hill.jpg',
+  './assets/race-win-crit.jpg',
+  './assets/pedal-sheet.png',
+  './assets/racer-static.png',
+  './assets/tt-static.png',
 ];
 
 // ── Install: pre-cache everything ───────────────────────────
