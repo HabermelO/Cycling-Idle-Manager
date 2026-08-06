@@ -589,6 +589,145 @@
      PWA keeps serving the old white-backdrop sheet from cache indefinitely
      and the bug survives the deploy. -->
 
+<!-- ═══════════ fix278: RACE STAGE ASSET CUT ═══════════
+     Stage one of twelve for the race visualisation overhaul (race-vis-overhaul
+     -plan-v2 §5). ASSETS AND REGISTRIES ONLY — NO BEHAVIOUR CHANGE. Nothing in
+     this file reads the eight new assets yet; the stage markup is fix279, the
+     number slots fix280, the race-type→window mapping fix281. This stage exists
+     so that every later stage is a pure code stage with its art already on disk
+     and already precached.
+
+     The ONLY live edit is the 'racestage' group APPENDED to LAZY_ASSET_GROUPS.
+     Nothing calls lazyLoadAssetGroup('racestage') yet — that call arrives with
+     the markup in fix279. An unreferenced group is inert: lazyLoadAssetGroup()
+     is only ever entered by name.
+
+     ═══ 1. SHELL ASSUMPTION — RE-VERIFIED, NOT INHERITED ═══════════════════
+     Plan §1.1 licenses the one-shell-plus-four-windows split on the claim that
+     all four scenes differ ONLY inside rows 250–907, and §1.1 itself demands
+     the pairwise diff be re-run rather than assumed. It was re-run:
+
+       road-tt   mean|Δ| 27.07     tt-hill   23.78
+       road-hill        27.37      tt-crit   33.99
+       road-crit        27.46      hill-crit 30.87
+
+     A naive per-row test flags Road as differing across rows 17–1094, which
+     looks like the shell assumption breaking. It is not. OUTSIDE the band Road
+     differs from the other three by mean 1.01 (max 52, p99 9.00) while the
+     three .jpeg siblings differ from each other by 0.06 — Road is the one
+     source supplied as .jpg and carries its own recompression noise floor.
+     Inside the band the same pairs differ by 43–62. That is a two-order-of
+     -magnitude separation, and it is encoding noise, not content. THE SHELL
+     ASSUMPTION HOLDS.
+
+     Band edges were then MEASURED off the four-scene per-pixel spread rather
+     than copied from the plan: rows 250–907 exactly (rowmean spread 7.91 at
+     249, 57.35 at 250; 10.85 at 907, 4.86 at 908), full width 0–895. The
+     plan's numbers were correct.
+
+     ═══ 2. SEAM ═══════════════════════════════════════════════════════════
+     The hole is cut 1px OUTSIDE the measured band (rows 249–908) and the window
+     crop 2px outside the hole (rows 247–910, height 664). The shell's painted
+     edge therefore overlaps the art on both sides and no seam can show, and —
+     the point of doing it this way round — every OPAQUE shell row is taken only
+     from rows where all four scenes agree. Shell RGB is the per-pixel MEDIAN of
+     all four so residual encoding noise averages out.
+
+     Window rect for fix279, MEASURED, superseding plan §2's 20.76% / 54.65%
+     (which describe the un-oversized 250/658 band):
+         top    247/1204 = 20.5150%
+         height 664/1204 = 55.1495%
+         left 0%, width 100%
+     ACCEPTANCE TEST RUN: shell composited over each window reproduces that
+     scene's original at mean|Δ| 1.50–1.97 — JPEG noise level, i.e. the split is
+     lossless in every way that shows.
+
+     ═══ 3. ALPHA — PLAN §3.1 RULE 3 WAS WRONG AND IS CORRECTED ═════════════
+     Plan §3.1 rule 3 classifies a component as background if it touches the
+     border OR ITS BBOX contains no pixel with saturation > 0.20. Implemented
+     exactly as written, it FAILS on precisely the regions it exists to catch:
+     the wheels came out 96.8–100% opaque. A spoke gap's bbox always contains
+     the spokes crossing it, so every enclosed gap scored as foreground. The
+     bbox test is too coarse — this is the fix168 lesson resurfacing one level
+     up, and a border flood would have failed the same way.
+
+     CORRECTED RULE 3: the backdrop is an off-white GRADIENT, so fit it (least
+     -squares quadratic per channel over the border-touching background), then
+     an enclosed candidate component is background if its mean colour matches
+     the fitted backdrop AT ITS OWN LOCATION within ±6. A spoke gap and the
+     top-tube/seat-tube/leg triangle show the backdrop through them and match;
+     an enclosed highlight on the rider does not. Measured after correction,
+     inside the Hough-fitted wheel circles:
+
+         alpha==0  86.5–88.2%   feather 1–254  11.8–13.5%   alpha==255  0.00–0.02%
+
+     Genuine misclassification is 0.02%. The 12% is the mandated 1px feather
+     carrying partial alpha, which is the anti-halo behaviour, not error. Plan
+     §3.1's "<8% opaque" assertion PASSES read as solid error and fails read as
+     alpha>0 — recording both so the next stage does not re-litigate it.
+
+     TT FRONT WHEEL IS 100% OPAQUE AND THAT IS CORRECT: 0.0% of that disc is
+     background-candidate because it is a solid DISC WHEEL. Verified visually
+     before accepting. Do not "fix" it.
+
+     ═══ 4. RGB EDGE BLEED — added, not in the plan ═════════════════════════
+     Feathered pixels keep their original OFF-WHITE backdrop RGB, so partial
+     alpha blends WHITE into whatever sits behind the sprite — the exact halo
+     the §3.1 feather step is meant to remove. Composited over saturated blue,
+     53.1% of edge pixels read bright. Fixed by replacing the RGB of every
+     non-solid pixel with its nearest solid pixel's colour (distance transform),
+     so alpha blends the SUBJECT. Re-measured: 53.07%→4.92% (racer), 48.67%→
+     3.24% (tt), 35.31%→11.55% (sheet; the residue there is genuinely light
+     -coloured art at the silhouette edge, not backdrop).
+
+     ═══ 5. SHEET GRID — RE-EMITTED UNIFORM, SUPERSEDES PLAN §1.4 ═══════════
+     Source grid is IRREGULAR. Measured content spans:
+         cols  0–149 · 152–301 · 303–453 · 455–605 · 607–757
+         rows 46–218 · 315–488 · 584–758 · 856–1028
+     Plan §1.4's idealised x=round(col*151.75), y=46+row*270 is off by up to 2px
+     (col 2 lands 303 not 304; row 3 lands 856 not 886). Two pixels of per-frame
+     registration error in a steps() loop reads as jitter, which is the one
+     defect a pedal animation cannot carry.
+
+     So the 19 frames are RE-EMITTED on an exact uniform 151×175 grid, and —
+     since they are being repacked anyway — into a SINGLE ROW. This retires the
+     two-axis frame address entirely. Plan §1.4's cell/col/row arithmetic is
+     SUPERSEDED; the whole address is now:
+
+         frame n  ->  background-position-x = -(n * 151)px      n = 0..18
+
+     Cell (0,0) empty CONFIRMED and 19 usable frames CONFIRMED; per-cell ink
+     mass is 10128–10627 (4.8% spread), so no frame was lost in export. That
+     closes the export half of plan §8 open question 1. The LOOP-CLOSURE half
+     (does frame 18 → 0 join cleanly at the crank) is still open and still
+     belongs to fix284.
+
+     ═══ 6. SPRITE SCALE — normalised, and it had to be ═════════════════════
+     Measured rider bbox: sheet frames 150×174, but racer-static 785×849 and
+     tt-static 785×776 — the statics are 5.2× the sheet's scale. Shipped as cut,
+     the rider would have changed size between TT (static) and road/hill/crit
+     (sheet). All three are therefore emitted into ONE 151×175 sprite box,
+     scaled to rider width 150 and BOTTOM-ALIGNED so the wheel contact line sits
+     on the box floor in every asset.
+         racer-static  rider 150×162, 13px top pad
+         tt-static     rider 150×148, 27px top pad
+     fix282 consequently measures ONE rect per scene, not one per sprite, and
+     the §3.5 {src,frames,...} descriptor needs no per-asset scale field.
+
+     ═══ 7. BUDGET ═════════════════════════════════════════════════════════
+       race-shell.png  110.4 KB      pedal-sheet.png  179.1 KB
+       racer-static.png 11.1 KB      tt-static.png     10.8 KB
+       race-win-road    102.1 · tt 111.2 · hill 114.7 · crit 114.0 KB
+     Windows sit in line with home-bg.jpg (99.6 KB at 910K px) at 595K px each.
+     Setting a CSS var does NOT fetch — lazyLoadAssetGroup() only calls
+     setProperty — so registering all four windows costs nothing and only the
+     window fix281 actually applies is downloaded. Worst case for one race is
+     426.0 KB, paid once, lazily, and never on cold start.
+
+     Service worker CACHE_VERSION bumped to cim-v3.8.83 and all EIGHT files
+     appended to STATIC_ASSETS. cache.addAll() is all-or-nothing at install, so
+     every filename was checked against the encoded files on disk. -->
+
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -18627,6 +18766,47 @@ const LAZY_ASSET_GROUPS = {
     '--sheet-rt-road': 'assets/rt-road.jpg',
     '--sheet-rt-tt':   'assets/rt-tt.jpg',
     '--sheet-rt-hill': 'assets/rt-hill.jpg'
+  },
+  // fix278: the live race stage art (race-vis-overhaul-plan-v2 §5, stage 1 of
+  // 12). APPENDED, never inserted, like every group above it.
+  //
+  // NOTHING CALLS lazyLoadAssetGroup('racestage') YET. That call arrives with
+  // the stage markup in fix279. This is deliberate and it is why fix278 is a
+  // no-behaviour-change stage: the group is inert until named, because
+  // lazyLoadAssetGroup() is only ever entered by group name, and an unset
+  // --sheet-* var simply renders no background rather than a broken tab (see
+  // the per-var try/catch in the binder below).
+  //
+  // NOT folded into 'race' (the hub backdrop) and NOT into 'racetypes' (the UCI
+  // sub-tab banners): both of those are paid on entering a TAB, and this group
+  // is paid on entering a RACE. A player who browses the Race tab and never
+  // starts one must not be billed 426 KB for art they never see. Same lifetime
+  // argument that kept 'racetypes' out of 'race' at fix240.
+  //
+  // ALL FOUR WINDOWS ARE REGISTERED HERE AND THAT IS FREE. lazyLoadAssetGroup()
+  // only ever calls setProperty(var, 'url(...)'), and setting a custom property
+  // does not fetch — the fetch happens when the var is APPLIED to a rendered
+  // element's background-image. fix281 applies exactly one window per race
+  // type, so exactly one of these four is ever downloaded in a given race.
+  // Registering all four here keeps that mapping a pure lookup in fix281
+  // instead of a fifth lazy group per type.
+  //
+  // KEYED BY RACE_TYPES id — 'crit'/'road'/'tt'/'hill' — matching the
+  // 'racetypes' group above, so fix281's mapping is keyed BY RACE_TYPES rather
+  // than duplicating it.
+  //
+  // Geometry the later stages need is in the fix278 header comment at the top
+  // of this file, not repeated here: window rect 20.5150% / 55.1495%, sprite
+  // box 151x175 bottom-aligned, frame address -(n*151)px for n = 0..18.
+  racestage: {
+    '--sheet-race-shell':    'assets/race-shell.png',
+    '--sheet-race-win-road': 'assets/race-win-road.jpg',
+    '--sheet-race-win-tt':   'assets/race-win-tt.jpg',
+    '--sheet-race-win-hill': 'assets/race-win-hill.jpg',
+    '--sheet-race-win-crit': 'assets/race-win-crit.jpg',
+    '--sheet-race-pedal':    'assets/pedal-sheet.png',
+    '--sheet-race-static':   'assets/racer-static.png',
+    '--sheet-race-tt':       'assets/tt-static.png'
   }
 };
 const _lazyGroupsLoaded = {};
