@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<!-- fix250: BIDON TOSS —  THE THROW ACTUALLY THROWS, AND THE WIND IS VISIBLE.
+<!-- fix250: BIDON TOSS — THE THROW ACTUALLY THROWS, AND THE WIND IS VISIBLE.
      Bug report: the upward swipe did nothing on a touch screen, and the wind
-     was a grey "-5" sharing a 13px row with two counters..
+     was a grey "-5" sharing a 13px row with two counters.
 
      ROOT CAUSE OF THE DEAD SWIPE — one CSS declaration. #bt-canvas carried
      `touch-action:manipulation`, which still permits PANNING, and its ancestor
@@ -728,6 +728,822 @@
      appended to STATIC_ASSETS. cache.addAll() is all-or-nothing at install, so
      every filename was checked against the encoded files on disk. -->
 
+<!-- ═══════════ fix279: RACE STAGE SHELL MARKUP + CALIBRATION ═══════════
+     Stage two of twelve for the race visualisation overhaul (race-vis-overhaul
+     -plan-v2 §5). MARKUP, CSS AND ONE MOUNT LINE — BEHIND A DEBUG FLAG. The
+     three SVG builders (buildCourseProfileSVG, buildPelotonStripSVG,
+     buildCourseMiniMapSVG) are BYTE-UNTOUCHED and remain the shipping race
+     surface; they are tombstoned at fix286 and not before.
+
+     ═══ WHAT SHIPS ═══════════════════════════════════════════════════════
+       1. CSS block after .race-overlay-continue-btn — the .race-stage box,
+          the four-plane layer stack, the four number slots, the bubble and
+          the calibration overlay.
+       2. renderRaceStage(rd) + raceStageDebugToggle(), both immediately above
+          renderActiveRaceBlock().
+       3. TWO lines inside renderActiveRaceBlock(): one const, one template
+          interpolation after ${shapeChipHtml}. Nothing else in that function
+          is touched, and the fix17 result-mode early return at its top is
+          exactly where it was (plan §2.2).
+
+     ═══ WHAT A PLAYER SEES: NOTHING ═══════════════════════════════════════
+     renderRaceStage() returns '' unless _raceStageDebug is true, and the only
+     way to set it is calling raceStageDebugToggle() from the console. There is
+     no button, no setting and no persisted key. The template interpolates an
+     empty string, so the rendered race screen is identical to fix278's.
+
+     ═══ NAME COLLISION — FOUND, NOT ASSUMED AWAY ══════════════════════════
+     Plan §2.1 names this surface .race-stage. The id #race-stage AND the class
+     .race-debug are BOTH already taken by the painted Race HUB (fix229-232).
+     Grepped before typing. Resolution: this surface takes NO id at all (which
+     plan §2.1 required anyway, per the fix222 duplicate-id defect class) and
+     its debug class is .race-stage-debug. raceDebugToggle() and
+     raceStageDebugToggle() therefore address disjoint node sets and neither
+     can paint a grid over the other's art. .race-stage-row / .race-stage-pip
+     (Grand Tour stage list) are unrelated classes and are not matched by any
+     selector added here.
+
+     ═══ GEOMETRY ═════════════════════════════════════════════════════════
+     Every number is MEASURED and every one is a percentage of the 896x1204
+     stage box, never of the viewport. The art window uses the fix278 header's
+     MEASURED 20.5150% / 55.1495%, which supersedes plan §2's 20.76% / 54.65%
+     (those describe the un-oversized band, not the 2px-oversized crop that
+     actually shipped). The slots use plan §1.2's single normalised rect —
+     w175 h111 y976, x = 35 + n*217.7 — not four separate rects; the four
+     measured rows in §1.2 are the evidence FOR that uniformity. Derivation and
+     the cross-check back against the measured x0 column are in the CSS block.
+
+     ═══ THE FLAG IS A VARIABLE, NOT A CLASS ══════════════════════════════
+     renderActiveRaceBlock() rebuilds its whole subtree via innerHTML on every
+     tick, so a class toggled onto a live node would survive one frame. The
+     flag is module-level, the same place the two-tap arm states live.
+
+     ═══ FIRST CALLER OF lazyLoadAssetGroup('racestage') ══════════════════
+     fix278 appended the group and left it deliberately inert so this stage
+     could wire it in one line. The call sits inside raceStageDebugToggle() on
+     the way ON, so the 426 KB is paid only by someone who opened the console.
+     Setting the vars does not fetch; this stage APPLIES exactly one of the
+     eight, --sheet-race-shell, so the four windows stay undownloaded until
+     fix281 maps one to a race type.
+
+     ═══ VERIFICATION (plan §7) ═══════════════════════════════════════════
+       node --check on every inline script block, extracted individually   PASS
+         (the word 'script' is written plain here on purpose: a literal tag
+          inside a comment is invisible to the browser but it DOES break a
+          naive block extractor, and the audit script is one)
+       onclick-handler audit — every onclick resolves to a defined global  PASS
+         (this stage adds NO onclick and NO markup with a handler)
+       duplicate-id scan across the whole document                          PASS
+         (this stage adds no id attributes at all)
+       diff scope — CSS ~1341, renderActiveRaceBlock region only            PASS
+       service worker CACHE_VERSION bumped 3.8.83 -> 3.8.84                 PASS
+       STATIC_ASSETS unchanged: this stage adds NO assets, it reads the
+         eight fix278 already precached                                     PASS
+
+     ═══ WHAT THIS STAGE DELIBERATELY DOES NOT SHIP ═══════════════════════
+     No window image (fix281), no sprite markup (fix282), no slot text
+     (fix280), no commentary funnel (fix285). .race-stage-rider is a dead
+     selector for three stages ON PURPOSE — written with the rest of the layer
+     stack so fix282 adds markup only and cannot land the sprite on the wrong
+     plane. Per plan §9 there is NO #race-stage-sheet and there will not be
+     one: the race stage IS the race screen.
+
+     Service worker CACHE_VERSION bumped to cim-v3.8.84. No filename changed,
+     so STATIC_ASSETS needs no edit — but without the bump every installed PWA
+     keeps serving the fix278 HTML from cache and this stage never lands. -->
+
+<!-- ═══════════ fix280: RACE STAGE NUMBER SLOTS, WIRED ═══════════════════
+     Stage three of twelve for the race visualisation overhaul (race-vis-
+     overhaul-plan-v2 §5, §4.1, §4.2). TEXT INTO FOUR EXISTING BOXES. The three
+     SVG builders remain BYTE-UNTOUCHED and remain the shipping race surface;
+     they are tombstoned at fix286 and not before. NO RACE LOGIC IS TOUCHED —
+     startRace(), completeRace(), effectiveLegsCost() and the fix270-277 Race
+     Shape work are all out of scope for this whole series (plan §0).
+
+     ═══ WHAT SHIPS ═══════════════════════════════════════════════════════
+       1. renderRaceStage() — four slot reads and the values interpolated into
+          the four divs fix279 left empty. Same function, same signature, same
+          single return. Nothing else in the function changed.
+       2. CSS, two rules inside the fix279 .race-stage block: a font-size on
+          .race-stage-slot, and the debug ::after index moved out of the flex
+          flow. No new selector, no new class, no new id.
+
+     ═══ WHAT A PLAYER SEES: STILL NOTHING ════════════════════════════════
+     renderRaceStage() still returns '' unless _raceStageDebug is true, and the
+     only way to set it is raceStageDebugToggle() from the console. No button,
+     no setting, no persisted key. The shipped race screen is unchanged.
+
+     ═══ SLOT CONTENTS (plan §4.1) ════════════════════════════════════════
+       1 green  race legs REMAINING, integer 0-100
+       2 amber  position, ordinal
+       3 blue   progress, integer %
+       4 red    rival position, ordinal — EM-DASH when there is no rival
+                (plan §4.2: not blank, not 0; a painted box with nothing in it
+                 reads as a bug and '0' would read as a position)
+
+     ═══ RENDER-ONLY, PROVED NOT ASSUMED (plan §2.3) ═══════════════════════
+     Every one of the four values is a field read or pure arithmetic on one.
+     The only function call added is getEffectiveElapsed(rd, now), which is
+     three field reads and two subtractions and writes nothing — checked at its
+     definition before it was called, not assumed from its name. ordinal() is
+     the existing pure formatter. This function still writes no state.
+
+     Progress is DERIVED here rather than passed in: widening the signature is
+     the one thing the plan's call-it-don't-edit-it rule exists to avoid, and
+     because both call sites read the same rd fields inside one frame the stage
+     and the SVG surface below it cannot disagree during the side-by-side.
+
+     ═══ THE RIVAL GUARD IS COPIED, NOT INVENTED ═══════════════════════════
+     `!rd.isCalendarEvent && rd.rivalStartVP != null` is character-for-character
+     the guard renderActiveRaceBlock() already uses to build rivalData. It is
+     duplicated rather than shared because rivalData is a local computed BELOW
+     this call, and hoisting it would be an edit outside this stage's declared
+     scope. fix285 unifies them if its funnel needs to.
+
+     ═══ fix260 NUMBER FORMAT: DELIBERATELY NOT APPLIED ════════════════════
+     fmt() only diverges from a plain integer above 1,000 and every value here
+     is bounded well below that. Routing them through it would add a call that
+     provably cannot change any output while implying these values can get
+     large. Reasoned and recorded rather than silently skipped.
+
+     ═══ VERIFICATION (plan §7) ═══════════════════════════════════════════
+       node --check on every inline script block, extracted individually   PASS
+       onclick-handler audit — every onclick resolves to a defined global  PASS
+         (this stage adds NO onclick and NO markup with a handler)
+       duplicate-id scan across the whole document                          PASS
+         (this stage adds no id attributes at all)
+       diff scope — .race-stage CSS block + renderRaceStage() only          PASS
+       service worker CACHE_VERSION bumped 3.8.84 -> 3.8.85                 PASS
+       STATIC_ASSETS unchanged: this stage adds no assets                   PASS
+
+     ═══ WHAT THIS STAGE DELIBERATELY DOES NOT SHIP ═══════════════════════
+     No window image (fix281) — the art band is still a flat --bg3 box and that
+     IS the expected appearance. No sprite (fix282-284). NO BUBBLE TEXT: the
+     commentary funnel is fix285 and routing a line in here early would give
+     fix272's shape flavour a second home to be found in.
+
+     Service worker CACHE_VERSION bumped to cim-v3.8.85. No filename changed,
+     so STATIC_ASSETS needs no edit — but without the bump every installed PWA
+     keeps serving the fix279 HTML from cache and this stage never lands. -->
+
+<!-- ═══════════ fix281: RACE-TYPE → WINDOW MAPPING ═══════════════════════
+     Stage four of twelve for the race visualisation overhaul (race-vis-overhaul
+     -plan-v2 §5). ONE LOOKUP AND FOUR CSS RULES — STILL BEHIND THE DEBUG FLAG.
+     The three SVG builders (buildCourseProfileSVG, buildPelotonStripSVG,
+     buildCourseMiniMapSVG) remain BYTE-UNTOUCHED and remain the shipping race
+     surface; they are tombstoned at fix286 and not before.
+
+     ═══ WHAT SHIPS ═══════════════════════════════════════════════════════
+       1. RACE_STAGE_WINDOWS + raceStageWindowClass(rd), immediately above
+          renderRaceStage(). The single source of truth for "which of the four
+          windows does this race paint".
+       2. renderRaceStage() — the .race-stage-art div gains that one class.
+          Same function, same signature, same call site, same early return.
+       3. CSS, four rules appended inside the fix279 .race-stage block: one
+          background-image binding per window class.
+
+     Nothing else in the file is touched. renderRaceStage() still returns ''
+     unless _raceStageDebug is true, and the only way to set it is
+     raceStageDebugToggle() from the console. No button, no setting, no save
+     key. FOR A PLAYER THIS STAGE IS STILL A NO-OP; for a developer with the
+     flag on, the flat --bg3 band fix279 and fix280 left in the middle of the
+     screen finally paints the scene for the race actually being ridden.
+
+     ═══ WHY A CLASS AND NOT AN INLINE style= ═════════════════════════════
+     The obvious implementation is `style="background-image:var(--sheet-race-
+     win-${key})"` on the art div. Rejected. It puts an asset binding in the
+     markup string while the other three planes bind theirs in the CSS block —
+     so a future re-cut of the art would have to be chased in two places, and
+     the layer stack's §2.1 comment would stop describing the whole stack. A
+     modifier class keeps EVERY --sheet-* reference in this surface inside the
+     one CSS block, which is where fix286's cutover audit will look.
+
+     It also keeps the markup free of interpolated CSS entirely, which is the
+     same reason the four slots are .s1-.s4 rather than carrying inline left
+     percentages.
+
+     ═══ THE MAP IS KEYED BY RACE_TYPES id, NOT DERIVED FROM IT ═══════════
+     'w-' + rd.typeId would work today and is one line shorter. It is not what
+     ships, because a typeId with no matching CSS rule renders NO background —
+     i.e. the failure mode of a future fifth race type is a silent flat box in
+     the middle of the race screen, discovered by a player. An explicit map
+     turns that into a lookup miss with a named fallback.
+
+     FALLBACK IS 'road', NOT ''. Road is the generic scene and is the id the
+     club race already hardcodes (state.raceData typeId:'road' at the club-race
+     start). A race that somehow arrives with an unknown type paints a plausible
+     road scene rather than a hole. Plan §4.2's rule for the number slots — a
+     painted box with nothing in it reads as a bug — applies with more force to
+     a box that is 55% of the screen.
+
+     ═══ WHY A FUNNEL FOR WHAT IS CURRENTLY ONE CALLER ════════════════════
+     raceStageWindowClass() has exactly one call site this stage. It exists as a
+     named function anyway because fix282 needs the SAME dispatch on the same
+     input for the sprite — the plan's §3.3 "expect four different rects", and
+     the TT scene is also the one that takes tt-static.png rather than the pedal
+     sheet (fix284's `animated:false`). Two independent switch statements on
+     rd.typeId is precisely how the window and the sprite come to disagree about
+     which race is being ridden. Same single-source-of-truth discipline as
+     effectiveLegsCost(): one function, called by everything that needs it.
+
+     It takes rd rather than a typeId string for the same reason: fix282 calls
+     it with the same object renderRaceStage() already has, and a signature that
+     never needs widening is a signature no later stage edits.
+
+     ═══ NO GRAND TOUR / CALENDAR SPECIAL CASE, AND THAT IS CHECKED ═══════
+     Every race start funnel writes a real RACE_TYPES id into state.raceData:
+       startRace()            typeId: raceTypeId  (the four ids)
+       startCalendarEvent()   typeId: ev.raceTypeId
+       club race              typeId: 'road'
+     Grand Tour TT stages reuse typeId:'tt' — the same fact the fix145 rider
+     still and the fix281-unrelated bubble [TIME_DIFF] branch already rely on
+     (`rd.typeId==='tt'`, three existing call sites). So a GT mountain stage
+     paints the hill window and a GT TT stage paints the TT window with no
+     branch here at all. The caller ALSO already resolves
+     RACE_TYPES.find(r=>r.id===rd.typeId) and returns early when it misses, so
+     by the time this function runs the id is known good — the fallback is
+     belt-and-braces for a future caller, not cover for this one.
+
+     ═══ FETCH BUDGET — ONE WINDOW PER RACE, AS fix278 PROMISED ═══════════
+     lazyLoadAssetGroup('racestage') sets all eight custom properties and
+     setProperty does not fetch. The browser fetches a var only when it is
+     APPLIED to a rendered element's background-image. This stage applies
+     exactly one window class at a time, so a road race downloads
+     race-win-road.jpg (102.1 KB) and never the other three. Four races of
+     different types in one session cost 442.0 KB total, once, from cache
+     thereafter. That is the behaviour the fix278 header predicted; it is now
+     true rather than promised.
+
+     A window swap MID-RACE cannot happen: rd.typeId is written once at start
+     and never mutated, so the class is stable for the life of the race even
+     though renderRaceStage() reruns every tick.
+
+     ═══ VERIFICATION (plan §7) ═══════════════════════════════════════════
+       node --check on every inline script block, extracted individually   PASS
+       onclick-handler audit — every onclick resolves to a defined global  PASS
+         (this stage adds NO onclick and NO markup with a handler)
+       duplicate-id scan across the whole document                          PASS
+         (this stage adds no id attributes at all)
+       diff scope — .race-stage CSS block + renderRaceStage() and the map
+         immediately above it, only                                        PASS
+       service worker CACHE_VERSION bumped 3.8.85 -> 3.8.86                 PASS
+       STATIC_ASSETS unchanged: all four windows shipped at fix278          PASS
+
+     ═══ WHAT THIS STAGE DELIBERATELY DOES NOT SHIP ═══════════════════════
+     No sprite: .race-stage-rider is still a dead selector and stays one until
+     fix282 measures its per-scene rect against a composite. No x motion
+     (fix283), no steps() animation (fix284), NO BUBBLE TEXT — the commentary
+     funnel is fix285 and routing a line in early would give fix272's shape
+     flavour a second home to be found in.
+
+     Plan §8 open question 2 (does the painted pack need to change with
+     position?) is NOT answered here and does not need to be: the pack is inside
+     the window art, and this stage only chooses which window. Option (a) —
+     accept it, the pack is scenery — remains assumed and remains flaggable at
+     the fix286 cutover.
+
+     Service worker CACHE_VERSION bumped to cim-v3.8.86. No filename changed,
+     so STATIC_ASSETS needs no edit — but without the bump every installed PWA
+     keeps serving the fix280 HTML from cache and this stage never lands. -->
+
+<!-- ═══════════ fix282: PLAYER SPRITE MOUNTED, MEASURED PER-SCENE RECT ══════
+     race-vis-overhaul-plan-v2 §5, stage 5 of 12. Replaces plan §3.3's UNTRUSTED
+     sprite rect with measured values and answers plan §8 open question 3.
+
+     Three edits, all inside the declared regions:
+       1. CSS — the .race-stage-rider rule inside the fix279 .race-stage block
+          goes from a one-line dead selector to the base rect plus four scene
+          modifiers, and one debug outline rule joins the existing debug set.
+       2. renderRaceStage() — raceStageWindowClass(rd) hoisted to one const and
+          one <div class="race-stage-rider"> added between the art and the
+          shell, matching the fix279 layer list's DOM order.
+       3. service-worker CACHE_VERSION 3.8.86 -> 3.8.87.
+
+     Nothing else is touched. NO NEW ASSETS: pedal-sheet.png and tt-static.png
+     both shipped at fix278 and are already in STATIC_ASSETS and in the
+     'racestage' lazy group, so this stage BINDS files rather than adding any.
+     renderRaceStage() still returns '' unless _raceStageDebug is true and the
+     only way to set that is raceStageDebugToggle() from the console — no
+     button, no setting, no save field. The shipped race screen is unchanged.
+
+     ═══ 1. THE MEASUREMENT — CONTENT CLASSIFICATION, NOT EDGE ENERGY ════════
+     Plan §3.3 requires the rect be derived per scene by compositing the cut
+     sprite over each window and asserting the wheel contact points sit on the
+     painted road surface within ±4px. Done, in source space (896x1204), which
+     is the space fix278 §2 measured the band edges in — NOT in the cropped
+     window files, so no crop arithmetic is inherited.
+
+     Road-surface mask: saturation < 0.20 AND value > 0.10. Per column across
+     the sprite footprint x298-598, take the deepest road row; then the MEDIAN
+     of those 300 answers. Median and not max because painted pack riders
+     occlude the road in some columns and occlusion only ever pulls a column's
+     answer UP — a max would happily chase a gap between two painted wheels and
+     land the rider under a bike.
+
+         scene   contact row   footprint agreement
+         road       834        median == p75 == p90 (max 849, one gap column)
+         tt         898        all 300 columns identical
+         hill       898        all 300 columns identical
+         crit       896        all 300 columns identical
+
+     Three of four are FLAT to the pixel across the whole footprint, so the ±4px
+     assertion is not merely met there, it is exact. Road is the one with any
+     spread and its median is stable across three quantiles.
+
+     ═══ 2. PLAN §1.3 IS WRONG FOR THE ROAD SCENE — RECORDED, NOT PATCHED ════
+     Plan §1.3 ran a Sobel edge-magnitude row profile, found road, hill and crit
+     all agreeing on a quietest 90-row band at y806-896, and wrote: "That
+     consistency is the useful result: one foreground band serves all three."
+
+     Measured by CONTENT, that consistency is an artefact. In the road scene the
+     tarmac ENDS at y834; rows ~840-897 are grass verge with spectator heads
+     along the bottom edge. The band is quiet there because grass has low edge
+     energy, not because it is clear road. A sprite placed on the shared 806-896
+     band would have stood the road rider in a hedge, and — because the band is
+     genuinely clear road in the other three — it would have looked correct in
+     three of four screenshots.
+
+     This is exactly the failure mode §3.3's "expect four different rects" and
+     "publish the estimates labelled untrusted, then replace with measured
+     values" exist to catch, and it is the second time in this series a plan
+     number has survived review and failed measurement (fix278 §3, plan §3.1
+     rule 3). THE FOUR bottom VALUES ARE NOT TO BE RE-UNIFIED. If a future
+     stage finds itself writing one shared contact line, this paragraph is the
+     thing to read first.
+
+     ═══ 3. SIZE — THE TWO-PLANE RULE SETS IT, NOT THE ASSET ════════════════
+     fix278 §6 normalised all three sprites into a 151x175 box. Rendered at that
+     native size the sprite is SMALLER than the painted pack — measured, painted
+     bikes run ~200 source px long on ~87px wheels — which inverts the depth
+     §1.3 demands. Composites were built at 240 and at 300 source px wide over
+     all four scenes and read side by side:
+
+         240  reads as an eighth rider joining the painted pack. The precise
+              defect §1.3 calls "a compositing error, not a game".
+         300  unambiguously nearer the camera; occlusion of the painted pack
+              reads as depth. TAKEN.
+
+     Rendered width 300/896 = 33.4821%, height by aspect-ratio:151/175. The
+     sprite occludes part of the painted pack in road, hill and crit and that is
+     the intended behaviour of the two-plane rule — the foreground plane is in
+     front. Plan §8 open question 2 (should the painted pack change with
+     position?) is still option (a), still assumed, still flaggable at fix286.
+
+     ═══ 4. PLAN §8 OPEN QUESTION 3 — ANSWERED AND CLOSED: NO ROTATION ══════
+     "Does the hill sprite need a slight rotation, or is a level rider on a
+     slanted road acceptable? Decide in fix282 with the composite in front of
+     you." Decided with the composite in front of me: NO ROTATION, and the
+     measurement is the argument rather than taste. The hill contact row is 898
+     in every one of the 300 footprint columns — the near edge of the hill road
+     is FLAT. The gradient is a mid-band perspective feature the painted pack
+     sits on; the foreground plane is level. Rotating the sprite would tilt it
+     against a level contact line, i.e. introduce the defect the question was
+     worried about rather than remove it. Closed. Do not reopen without
+     re-running the per-column measurement.
+
+     ═══ 5. WHAT THIS STAGE DELIBERATELY DOES NOT SHIP ═══════════════════════
+     NO X MOTION. left is a fixed centred 33.2589% and the sprite does not move.
+     Plan §3.4's position-driven x and its ease constant are fix283, and left is
+     the only line fix283 needs to touch.
+
+     NO ANIMATION. Road, hill and crit bind the pedal sheet at FRAME 0 via
+     background-size:1900% 100% and background-position:0. The frame address is
+     NOT generalised here — frame 0 is position 0 in both the plan §1.4 form and
+     the percentage form, so this stage commits to neither and fix284 still owns
+     the single generator, unrenegotiated. Binding the sheet now rather than
+     racer-static.png is what keeps fix284 to one concern: it adds the steps()
+     run and the prefers-reduced-motion gate and swaps no asset, so the rider
+     cannot visibly change pose at the animation stage.
+
+     NO BUBBLE TEXT. Still fix285.
+
+     ═══ 6. LOOSE END CREATED HERE, ON PURPOSE, WITH AN OWNER ═══════════════
+     --sheet-race-static / assets/racer-static.png is now registered in the
+     'racestage' lazy group, precached in STATIC_ASSETS, and bound by NO CSS
+     rule. Left that way rather than retired in this stage because fix284 has a
+     legitimate use for it — the prefers-reduced-motion still — and retiring an
+     asset one stage before the stage that wants it is how a file gets cut twice.
+     IF fix284 holds sheet frame 0 under reduced motion instead, then fix286's
+     cutover retires it from LAZY_ASSET_GROUPS and STATIC_ASSETS together, in
+     one edit. It must not still be unresolved past fix286.
+
+     ═══ 7. VERIFICATION HARNESS (plan §7) ══════════════════════════════════
+       node --check on every inline script block, extracted individually    PASS
+       onclick-handler audit — every onclick="fn(...)" resolves to a global PASS
+         (this stage adds no onclick attributes and no interactive nodes;
+          .race-stage-rider is pointer-events:none)
+       duplicate-id scan across the whole document                          PASS
+         (this stage adds no id attributes at all — plan §2.1)
+       diff scope — .race-stage CSS block + renderRaceStage() only          PASS
+       service worker CACHE_VERSION bumped 3.8.86 -> 3.8.87                 PASS
+       STATIC_ASSETS unchanged: both sprite files shipped at fix278         PASS
+       set-difference STATIC_ASSETS vs assets/ — unchanged, fix278 clean    PASS
+
+     Service worker CACHE_VERSION bumped to cim-v3.8.87. No filename changed,
+     so STATIC_ASSETS needs no edit — but without the bump every installed PWA
+     keeps serving the fix281 HTML from cache and this stage never lands. -->
+
+<!-- ═══════════ fix283: POSITION-DRIVEN SPRITE X + EASE CONSTANT ════════════
+     race-vis-overhaul-plan-v2 §5, stage 6 of 12. Replaces plan §3.4's UNTRUSTED
+     ease constant with a derived one, and fix282's fixed centred left with a
+     mapping from race position.
+
+     Three edits, all inside the declared regions:
+       1. CSS — the .race-stage-rider comment gains a superseding paragraph.
+          NO DECLARATION CHANGES: left:33.2589% stays exactly as fix282 wrote
+          it, now serving as the mid-field fallback (see below).
+       2. renderRaceStage() and immediately above it — RACE_STAGE_RIDER_X,
+          raceStageRiderX(), three module-level smoother variables, one hoisted
+          clock read, and an inline style on the rider div.
+       3. service-worker CACHE_VERSION 3.8.87 -> 3.8.88.
+
+     No new assets. No markup node added or removed. No id attributes (plan
+     §2.1). renderRaceStage() still returns '' unless _raceStageDebug is true,
+     set only by raceStageDebugToggle() from the console, so the shipped race
+     screen is unchanged for the sixth stage running.
+
+     ═══ 1. WHY fix282's CSS left NEEDED NO EDIT AFTER ALL ══════════════════
+     fix282 predicted "left is the only line fix283 needs to touch". It turned
+     out to need zero lines touched, for a reason worth recording: the travel
+     range derived here is SYMMETRIC about 33.2589%, so fix282's centred value
+     is already the mid-field position. The inline style overrides it every
+     frame; the declaration survives as the fallback, and the best possible
+     fallback for a position is mid-field. Had the range come out asymmetric,
+     that line would have had to move — the prediction was right about the
+     dependency and wrong only about the arithmetic.
+
+     ═══ 2. THE TRAVEL RANGE — TWO CONSTRAINTS, NO FREE PARAMETER ══════════
+     X_MIN = 4.375%, X_MAX = 62.1429%.
+
+     The upper limit comes from the window: fix278 §2 measured the art band as
+     the full 896px frame width, and the shell was re-measured over rows
+     250-907 for this stage — 8 non-white pixels in the whole band, i.e. no
+     horizontal chrome intrudes and the sprite's hard limit is [0, 66.5179].
+
+     The inset inside that is NOT a taste call. It is buildPelotonStripSVG's
+     own strip inset, LEFT=14 of VB_W=320 = 4.375%, taken from the shipped
+     surface this stage replaces rather than invented. X_MAX is then
+     100 - 4.375 - 33.4821 (the fix282 sprite width).
+
+     Midpoint (4.375 + 62.1429)/2 = 33.2589 — fix282's value to four decimals.
+     That is the check that the range is right, and the reason the inset must
+     stay symmetric: an asymmetric one silently relocates the mid-field rider.
+
+     ═══ 3. THE MAPPING IS REUSED, NOT RE-DERIVED ══════════════════════════
+     posFrac = fieldSize <= 1 ? 1 : 1 - ((vp-1)/(fieldSize-1)), lifted verbatim
+     from buildPelotonStripSVG. 1st -> X_MAX, last -> X_MIN, which is plan
+     §3.4's mapping. Reused so the stage and the strip cannot place one rider at
+     two fractions of their band during the fix279-285 side-by-side, and because
+     the strip's fieldSize<=1 guard is a divide-by-zero a re-derivation would
+     have had to rediscover. Field sizes in this game run 6 (club) to 150.
+
+     ═══ 4. THE EASE CONSTANT — DERIVED FROM THE TICK RATE. TAU = 320ms ════
+     virtualPos is written by the 1s tick, so a place change lands at most once
+     per second and the ease must finish inside that second — otherwise two
+     consecutive changes compound and the sprite reports a position the rider
+     has already left. Exponential smoothing reaches 95% at 3*TAU, so
+     3*TAU <= 1000 gives TAU <= 333. TAU = 320 settles in 960ms, 40ms inside
+     the tick. Plan §3.4's UNTRUSTED label is discharged.
+
+     Factor is 1-exp(-dt/TAU) against real elapsed ms, so a 120Hz phone eases
+     over the same wall-clock time as a 60Hz one.
+
+     ═══ 5. THE EASE IS JS BECAUSE CSS CANNOT DO IT HERE ═══════════════════
+     `transition:left .32s` is the obvious implementation and it is a no-op on
+     this surface. _raceOverlayRafLoop() calls renderActiveRaceBlock() EVERY
+     FRAME while the overlay is open, and that rebuilds #race-overlay-body from
+     innerHTML — so every frame hands the browser a brand-new rider element that
+     has never held a different left, and a transition on a freshly inserted
+     node renders at its final value. Shipping the CSS version would have looked
+     exactly like shipping no ease, and would have looked correct in a static
+     screenshot. Recorded because it is the same class of trap as fix282 §2:
+     the plausible implementation that fails only in motion.
+
+     A stateless ease is likewise impossible — easing needs the time the
+     position last changed, rd does not carry one, and adding one would be a
+     state write from a render path (plan §2.3).
+
+     ═══ 6. WHAT IS WRITTEN, AND WHY §2.3 STILL HOLDS ══════════════════════
+     _raceStageRiderX / _raceStageRiderT / _raceStageRiderKey are module-level
+     render variables. No save field, no rd mutation, nothing else reads them, a
+     reload starts them fresh. Same category as the two-tap arm flags, and for
+     the same underlying reason: the DOM that would otherwise hold the value is
+     rebuilt every frame. Plan §2.3 forbids writing RACE state; rd is read-only
+     here, as it has been since fix279.
+
+     KEYED ON rd.startTime so the smoother cannot leak between races. Without
+     the key a player who won would open the next race in 1st and glide
+     backwards to mid-field. startTime is unique per race and survives a
+     mid-race reload, so a reload resumes the ease instead of resetting it.
+
+     ═══ 7. REDUCED MOTION — SNAP, NOT FREEZE ═════════════════════════════
+     Under state.settings.reduceMotion the sprite jumps straight to target. The
+     alternative — skipping the update — would pin the rider mid-field for the
+     entire race, which is not less motion, it is wrong information. This is the
+     SAME motion call site fix284 gates for steps(): .race-stage-rider, counted
+     ONCE. The fix258 settings list gains one entry for this sprite, not one per
+     animated property, and fix282's note that fix284 is call site 4 stands
+     unrenumbered — fix284 adds a second property to site 4, not a site 5.
+
+     Note the interaction: with reduced motion on, _raceOverlayRafLoop() already
+     skips its per-frame render, so renderRaceStage() runs on the 1s tick only.
+     The snap is therefore what the player would see regardless; it is written
+     explicitly rather than left to fall out of a 1000ms dt, so the behaviour
+     does not depend on that loop keeping its current shape.
+
+     ═══ 8. WHAT THIS STAGE DELIBERATELY DOES NOT SHIP ═════════════════════
+     NO ANIMATION. The pedal sheet is still pinned at frame 0. steps(), the
+     frame-address generator and the reduced-motion gate on the WHEELS are
+     fix284, unrenegotiated. The rider slides without pedalling this stage, and
+     that is expected, not a defect to chase.
+
+     NO BUBBLE TEXT — still fix285. NO VERTICAL motion: bottom stays the fix282
+     per-scene measured contact line and the two-plane rule is untouched.
+
+     Plan §8 open question 2 (should the painted pack move with position?) is
+     now LIVE for the first time — until this stage nothing moved, so nothing
+     could disagree with the pack. Still option (a), pack is scenery, still
+     flaggable at the fix286 cutover, and this stage is the first one where it
+     can actually be judged on a phone.
+
+     ═══ 9. VERIFICATION HARNESS (plan §7) ═════════════════════════════════
+       node --check on every inline script block, extracted individually    PASS
+       onclick-handler audit — every onclick="fn(...)" resolves to a global PASS
+         (adds no onclick attributes; .race-stage-rider is pointer-events:none)
+       duplicate-id scan across the whole document                          PASS
+         (adds no id attributes at all — plan §2.1; left is a style attr)
+       diff scope — .race-stage CSS comment + renderRaceStage() and the
+         smoother immediately above it, only                                PASS
+       service worker CACHE_VERSION bumped 3.8.87 -> 3.8.88                 PASS
+       STATIC_ASSETS unchanged: this stage adds no assets                   PASS
+
+     Service worker CACHE_VERSION bumped to cim-v3.8.88. No filename changed,
+     so STATIC_ASSETS needs no edit — but without the bump every installed PWA
+     keeps serving the fix282 HTML from cache and this stage never lands.
+
+     ═══ fix284 — RACE STAGE: PEDAL ANIMATION + REDUCED-MOTION GATE ══════════
+     Race Visualisation Overhaul plan v2 §5, stage 7 of 12. Plan §3.2 and §3.5.
+     STILL DEBUG-FLAGGED — renderRaceStage() returns '' unless _raceStageDebug
+     is true, and the only way to set it is raceStageDebugToggle() from the
+     console. No button, no setting, no save field. The shipped race screen is
+     byte-identical to fix283's for every player. Cutover is fix286.
+
+     Edits, three regions and no others:
+       1. CSS — the .race-stage-rider comment gains a superseding paragraph.
+          NO DECLARATION IN THAT BLOCK CHANGES.
+       2. renderRaceStage() and immediately above it — RACE_STAGE_PEDAL,
+          RACE_STAGE_SPRITES, raceStagePedalPos(), one hoisted `eff` const, one
+          new const in the render and one interpolation in the rider div.
+       3. This changelog block.
+
+     ═══ 1. THE PLAN'S steps() CANNOT RUN HERE ═════════════════════════════
+     Plan §3.2 specifies a CSS steps() background-position animation, "not
+     canvas, not rAF", on the argument that it runs on the compositor at zero
+     main-thread cost. The argument is right and its premise is false on this
+     surface: _raceOverlayRafLoop() rebuilds #race-overlay-body from innerHTML
+     every frame, so the rider element the animation is declared on is destroyed
+     and recreated before it can ever advance past 0%. The sprite would hold
+     frame 0 for an entire race and look exactly like shipping nothing.
+
+     This is the SAME trap fix283 hit with `transition:left`, and it is worth
+     stating plainly: on this surface, every CSS declaration that depends on an
+     element PERSISTING between frames is a no-op that screenshots correctly.
+     transition, animation, :hover-timed effects, view transitions. Do not add
+     one at fix285–289 without re-checking the innerHTML rebuild first.
+
+     ═══ 2. WHAT SHIPS INSTEAD, AND WHY IT IS NOT THE rAF WORK §3.2 FORBIDS ══
+     The frame index is computed in JS from the paused race clock and emitted as
+     an inline background-position, on the same channel and for the same reason
+     as fix283's left. §3.2's objection is to ADDING per-frame sprite work to
+     the rAF loop and converting a cheap render into a per-frame image cost.
+     Nothing is added to that loop: renderRaceStage() already runs every frame,
+     the CSS background-image is already resident and already 19 frames wide,
+     and the marginal cost of this stage is one Math.floor, one modulo and ~28
+     characters of style string. No new decode, no new node, no new loop.
+
+     ═══ 3. THE FRAME ADDRESS — ONE GENERATOR, PERCENTAGE FORM ══════════════
+     raceStagePedalPos() is the only frame arithmetic in the series (plan §1.4).
+     With background-size:1900%, frame n sits at n/(frames-1)*100%. The px form
+     the plan writes (-(n*151)px) is correct only at the asset's native width;
+     the stage is fluid up to a 420px cap, so a px offset would land between
+     frames at every other width. Percentages scale with the box.
+
+     ═══ 4. PLAN §8 OPEN QUESTION 1 — ANSWERED, MEASURED ═══════════════════
+     "Does the 19-frame loop close at 18 -> 0?" Mean |Δ| per adjacent frame pair
+     around the full cycle: interior 7.12–19.14, median 11.98; the 18→0 wrap
+     17.35. The wrap is inside the interior range and below its maximum, so it
+     is not a discontinuity — 19 frames, no sub-loop, question closed. Re-run
+     this if the strip is ever re-cut.
+
+     ═══ 5. TT — animated:false AS DATA (plan §3.5) ════════════════════════
+     RACE_STAGE_SPRITES is keyed by the scene class raceStageWindowClass()
+     already returns, so the window and the animation cannot disagree about
+     which race is on screen — the same one-lookup discipline fix282 applied to
+     sceneClass. TT is {frames:1, animated:false} and raceStagePedalPos()
+     returns '' for it, leaving tt-static.png untouched at background-size:100%.
+     A stray background-position on TT would slide the single frame off the box,
+     which is exactly why the descriptor gates the emission rather than the CSS
+     absorbing it. Arriving TT pedal art is one line here and nothing else.
+
+     The descriptor deliberately carries only frames/animated. src, cellW, cellH
+     and the origins live in the fix282 CSS modifier rules; restating them here
+     would create a second place for the sprite's geometry to be wrong.
+
+     ═══ 6. REDUCED MOTION — HOLD FRAME 0, NOT SNAP ════════════════════════
+     Mandatory per §3.2, and this is the SAME motion call site fix283 gated for
+     the x ease: .race-stage-rider, counted ONCE. The fix258 settings list gains
+     no entry — a second property on site 4, not a site 5, as fix283 predicted.
+
+     The two properties gate DIFFERENTLY and that asymmetry is the point.
+     Position is information: with motion off the sprite must still REPORT where
+     the rider is, so x snaps to target. Pedal phase is not information — no
+     player learns anything from which point of the stroke the crank is at — so
+     it holds frame 0 and does not step. Snapping the crank would be motion with
+     nothing to say for it.
+
+     ═══ 7. ONE CLOCK, PAUSED ══════════════════════════════════════════════
+     getEffectiveElapsed() is hoisted to one `eff` const. Slot 3 and the cranks
+     are now two consumers, and the fix283 rule stands: two clock reads in one
+     render is how two parts of one frame come to describe two instants. Using
+     the EFFECTIVE clock also means the rider stops pedalling while a decision
+     card is up and resumes in phase, which is the honest reading of a paused
+     race — wall time would have him pedalling through a stopped clock.
+
+     ═══ 8. WHAT THIS STAGE DELIBERATELY DOES NOT SHIP ═════════════════════
+     NO BUBBLE TEXT — still fix285. No cutover, no debug-flag removal — fix286.
+     No vertical motion, no rotation, no change to the fix282 contact lines, no
+     change to the fix283 ease. --sheet-race-static / assets/racer-static.png is
+     STILL bound by nothing: this stage holds pedal-sheet frame 0 as the
+     reduced-motion still rather than swapping asset, so fix282's open
+     consequence is unchanged and fix286 must still retire it from
+     LAZY_ASSET_GROUPS and STATIC_ASSETS together. Do not let it drift past
+     fix286.
+
+     ═══ 9. VERIFICATION HARNESS (plan §7) ═════════════════════════════════
+       node --check on every inline script block, extracted individually    PASS
+       onclick-handler audit — every onclick="fn(...)" resolves to a global PASS
+         (adds no onclick attributes; .race-stage-rider is pointer-events:none)
+       duplicate-id scan across the whole document                          PASS
+         (adds no id attributes at all — plan §2.1; both values are style attrs)
+       diff scope — .race-stage-rider CSS comment + renderRaceStage() and the
+         descriptor/generator immediately above it, only                    PASS
+       service worker CACHE_VERSION bumped 3.8.88 -> 3.8.89                 PASS
+       STATIC_ASSETS unchanged: this stage adds no assets                   PASS
+
+     Service worker CACHE_VERSION bumped to cim-v3.8.89. No filename changed, so
+     STATIC_ASSETS needs no edit — but without the bump every installed PWA
+     keeps serving the fix283 HTML from cache and this stage never lands.
+
+     ═══ fix285 — COMMENTARY FUNNEL + STAGE BUBBLE WIRED ════════════════════
+     Race Visualisation Overhaul plan v2 §5, stage 8 of 12. Plan §4.3.
+     STILL DEBUG-FLAGGED for the STAGE — renderRaceStage() returns '' unless
+     _raceStageDebug is true. But UNLIKE fix279-284 this stage does touch a
+     shipping code path: the fix71 SVG bubble now takes its text FROM THE
+     FUNNEL instead of computing its own. Output is unchanged for every player
+     — see §3 — and that is the whole point of doing it this way.
+
+     Edits, four regions and no others:
+       1. CSS — .race-stage-bubble gains type sizing/padding, and one new
+          modifier rule .race-stage-bubble.sprint-line. Both inside the fix279
+          .race-stage block. No other declaration in that block changes.
+       2. raceCommentaryLine(), NEW, immediately above renderRaceStage().
+       3. renderRaceStage() — one const, one interpolation, one class on the
+          existing .race-stage-bubble div. Same signature, same early return.
+       4. renderActiveRaceBlock() — the fix71 bubble-text resolution block
+          (bubbleSprint / bubbleBaseLine / bubbleText) replaced by one funnel
+          call; the now-unused commentarySrc const tombstoned. The change-stamp
+          write and commentaryInfo{} are UNCHANGED and stay in the caller.
+
+     ═══ 1. WHAT THE PLAN ASKS FOR HERE, AND THE ONE PART DEFERRED ══════════
+     Plan §4.3: "One function, raceCommentaryLine(rd), returns the bubble
+     string. Every producer of commentary text calls it. The existing
+     .race-commentary line and the fix71 SVG speech bubble are tombstoned."
+
+     The funnel ships. The .race-commentary div is ALREADY tombstoned — fix71
+     retired it in place (see the two retirement comments in the middleHtml
+     branch) and this stage adds the pointer to the funnel and to fix272 that
+     §4.3 asks for.
+
+     TOMBSTONING THE fix71 SVG BUBBLE IS DEFERRED TO fix286, DELIBERATELY.
+     That bubble is not a dead surface waiting to be labelled: it is THE
+     SHIPPING RACE COMMENTARY, and it stays shipping until the fix286 cutover
+     because the stage that replaces it is behind a console flag no player can
+     reach. Retiring it at fix285 would delete commentary from every live race
+     for one whole fix and hand the replacement to nobody. The series rule from
+     fix279 onward is that the SVG builders remain the shipping surface and are
+     tombstoned AT fix286 and not before; §4.3's tombstone is a fix286 line
+     item, and fix286 now has one more thing to retire. Recorded here so it
+     cannot be lost between the two.
+
+     ═══ 2. WHY THE FUNNEL DERIVES ITS OWN SOURCES ═════════════════════════
+     raceCommentaryLine(rd) takes rd and nothing else. It could have taken
+     (commentarySrc, progress, sprintFlag) from renderActiveRaceBlock, which
+     already computes all three — and then renderRaceStage() would have had to
+     recompute them to call it, which is three chances for the two surfaces to
+     disagree about which line the race is on. A funnel whose callers must
+     first agree on its inputs is not a funnel.
+
+     So it does its own getGrandTourStage/getRaceCourse/RACE_TYPES resolution,
+     character-for-character the gtStage?course?rt ladder the caller used at
+     the tombstoned commentarySrc line. Both helpers were CHECKED AT THEIR
+     DEFINITIONS (~16315) before being called from a render path, not assumed
+     from their names: both are guard-and-lookup, both return an object or
+     null, neither writes. Same check fix280 ran on getEffectiveElapsed().
+
+     ═══ 3. OUTPUT IS UNCHANGED — CLAUSE BY CLAUSE ═════════════════════════
+     The funnel is the old block moved, not rewritten. Line by line:
+       commentarySrc ladder      identical expression, rt guarded (see §4)
+       sprint condition          progress>=0.95 && <1 && !pendingDecision
+                                 && !lastDecisionResult — identical, and the
+                                 progress it tests is getEffectiveElapsed/
+                                 animMs, which is what the caller's `progress`
+                                 already was
+       sprint text               "It's flat out for the line!" verbatim
+       index fallback            src[idx] || src[src.length-1] verbatim
+       [TIME_DIFF]               same rd.typeId==='tt' guard, same
+                                 rd._ttSplitText||'—' substitution, same
+                                 single .replace (first occurrence only)
+       position clause           + (rd._posClauseText||'') verbatim
+     No new branch, no reordering, no changed default. A player on the shipped
+     SVG surface sees exactly the string fix284 gave them.
+
+     ═══ 4. THE ONE GENUINELY NEW BEHAVIOUR: THE EMPTY GUARD ═══════════════
+     The old caller did commentarySrc[rd.commentaryIdx] with rt.commentary
+     assumed present and non-empty. The funnel returns {text:'',sprint:false}
+     when the source is missing or length 0, because it now has TWO callers and
+     the second one runs on a surface where a thrown TypeError kills the whole
+     race screen rather than one text node. This cannot change shipped output:
+     every RACE_TYPES entry, every COURSES entry and every GRAND_TOUR_STAGES
+     entry carries a non-empty commentary array, so the guard is unreachable on
+     current data and exists for the race that is mid-flight across a future
+     data edit. An empty string renders an empty bubble, which is the same
+     nothing the SVG bubble already draws when commentaryInfo.text is falsy.
+
+     ═══ 5. RENDER-ONLY, AND WHERE THE STATE WRITE STAYED ══════════════════
+     raceCommentaryLine() writes nothing. The fade-in stamp
+     (rd._lastCommentaryText / rd._commentaryChangedAt) is a WRITE and it
+     STAYED IN renderActiveRaceBlock, untouched, exactly where fix71 put it.
+     Pulling it into the funnel would have made the funnel state-writing and —
+     worse — would have let renderRaceStage(), which also calls it, race the
+     caller for the stamp within a single frame: whichever ran first would
+     consume the change and the other would never animate. The stage bubble
+     therefore has NO fade-in, and gets one at fix286 from a stamp read, never
+     a stamp write.
+
+     Both callers run inside the same frame off the same rd, so the two clock
+     reads inside them land on the same commentaryIdx and cannot print two
+     different lines. commentaryIdx is advanced by gameTick, not by render.
+
+     ═══ 6. SPRINT COLOUR IS HARDCODED, NOT var(--gold) ════════════════════
+     The SVG bubble's sprint line uses fill:var(--gold). That var is
+     theme-dependent (#b8860b light, #d4a017 dark) and the painted bubble is a
+     FIXED near-white raster with fixed #1A1F2B body text — the whole reason
+     that colour is hardcoded and not var(--txt). Dark-theme gold on that white
+     bubble is roughly 2.2:1 and unreadable. The stage sprint line therefore
+     uses a fixed #8A5A00, which is ~6.6:1 on the painted bubble and reads the
+     same in both themes because the surface under it does not change with the
+     theme. Same reasoning fix279 used for the body colour; not a divergence
+     from the SVG so much as the same intent against a different backdrop.
+
+     ═══ 7. NO ESCAPING CALL, AND WHY THAT IS NOT AN OVERSIGHT ═════════════
+     The bubble is innerHTML. Every string the funnel can return is either an
+     authored literal from RACE_TYPES/COURSES/GRAND_TOUR_STAGES, the sprint
+     literal, rd._posClauseText (built by gameTick from a fixed clause table),
+     or rd._ttSplitText (built by computeTTSplit from numbers). No user text
+     reaches this funnel — riderName is not in any of these paths. If fix272's
+     shape flavour or any future producer routes free text through here, IT
+     MUST BE ESCAPED AT THAT POINT; the funnel is the correct single place to
+     add it and this note is where to look first.
+
+     ═══ 8. fix272's SHAPE FLAVOUR — STILL THE CHIP, NOT THE BUBBLE ════════
+     Plan §0.1 rules that fix272's flavour text routes through
+     raceCommentaryLine() rather than its own node. fix272 shipped ahead of
+     this stage and put its flavour in .race-shape-chip. This stage does NOT
+     move it: the funnel now exists, so the §0.1 rule has somewhere to point,
+     and the move belongs with the cutover that decides what the race screen
+     shows — not with the fix that builds the pipe. fix286 decides.
+
+     ═══ VERIFICATION (plan §7) ═══════════════════════════════════════════
+       node --check on every inline script block, extracted individually   PASS
+       onclick-handler audit — every onclick resolves to a defined global  PASS
+         (this stage adds NO onclick and NO markup with a handler)
+       duplicate-id scan across the whole document                          PASS
+         (this stage adds no id attributes at all)
+       diff scope — .race-stage-bubble CSS, raceCommentaryLine(),
+         renderRaceStage() bubble div, renderActiveRaceBlock() fix71 text
+         resolution block only                                             PASS
+       service worker CACHE_VERSION bumped 3.8.89 -> 3.8.90                 PASS
+       STATIC_ASSETS unchanged: this stage adds no assets                   PASS
+
+     ═══ WHAT THIS STAGE DELIBERATELY DOES NOT SHIP ═══════════════════════
+     No cutover — the stage is still console-only and the SVG surface is still
+     what a player sees (fix286). No fade-in on the stage bubble (§5). No
+     tombstone on the fix71 SVG bubble markup (§1). No sprite re-key (fix287).
+
+     Service worker CACHE_VERSION bumped to cim-v3.8.90. No filename changed,
+     so STATIC_ASSETS needs no edit — but without the bump every installed PWA
+     keeps serving the fix284 HTML from cache and this stage never lands. -->
+
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1341,6 +2157,308 @@ button{font-family:inherit;cursor:pointer;}
 .race-overlay-continue-btn{width:100%;padding:13px;border-radius:var(--radius-lg);border:none;cursor:pointer;
   background:var(--accent-grad);color:#fff;font-size:15px;font-weight:700;margin-top:14px;box-shadow:var(--shadow-sm);}
 .race-overlay-continue-btn:active{opacity:.85;}
+
+/* ═══════════ fix279: RACE STAGE — SHELL, LAYERS, CALIBRATION ═══════════
+   Stage two of twelve for the race visualisation overhaul (race-vis-overhaul
+   -plan-v2 §5). MARKUP + CSS ONLY, BEHIND A DEBUG FLAG. The three existing SVG
+   builders are untouched and still paint the live race; this stage renders
+   ABOVE them, only when raceStageDebugToggle() has been called from the
+   console, so a player cannot reach it and cutover stays a fix286 decision.
+
+   ═══ NAMING — WHY NOT #race-stage ══════════════════════════════════════════
+   The plan §2.1 calls this surface .race-stage. THE ID #race-stage IS ALREADY
+   TAKEN by the painted Race HUB (fix229-232, line ~9759) and .race-debug is
+   already ITS calibration class. Checked before typing, not assumed. So:
+     - this surface is a CLASS, .race-stage, with NO id anywhere (plan §2.1,
+       the fix222 duplicate-id defect class)
+     - its debug class is .race-stage-debug, NOT .race-debug, so
+       raceDebugToggle() (the hub) and raceStageDebugToggle() (this) cannot
+       reach into each other's surface
+   .race-stage-row / .race-stage-pip already exist (Grand Tour stage list) and
+   are NOT descendants of anything here — a class selector for .race-stage does
+   not match .race-stage-row, and every rule below is scoped under .race-stage.
+
+   ═══ GEOMETRY — ALL MEASURED, NONE ESTIMATED ═══════════════════════════════
+   Every number is a percentage OF THE 896x1204 STAGE BOX, never of the
+   viewport, which is what aspect-ratio:896/1204 on the root buys: one known
+   box, every child positioned in % of it, the whole thing scaling as a unit
+   (same reasoning as .sl-canvas / .wt-canvas).
+
+   ART WINDOW — from the fix278 header, which MEASURED it off the shipped cut
+   and explicitly supersedes plan §2's 20.76% / 54.65% (those describe the
+   un-oversized 250/658 band, not the 2px-oversized 247/664 crop that ships):
+       top 247/1204 = 20.5150%   height 664/1204 = 55.1495%   left 0  width 100%
+   The oversize is the seam guard — the shell's painted edge overlaps the art
+   on both sides, so no seam can show at any rendered scale.
+
+   NUMBER SLOTS — plan §1.2. The painted geometry is UNIFORM (pitch 217.7,
+   box 1 at x35, w175 h111 y976); the four measured rows in §1.2 are the
+   EVIDENCE for that single normalised rect, not four separate rects, so one
+   rule sets width/height/top and four one-line rules set left:
+       left  = (35 + n*217.7)/896  ->  3.906% · 28.203% · 52.500% · 76.797%
+       top   = 976/1204 = 81.06%   width = 175/896 = 19.53%
+       height= 111/1204 =  9.22%
+   Cross-checked back against the §1.2 measured x0 column: 252.7 vs 252,
+   470.4 vs 472, 688.1 vs 688 — worst case 1.6px on a 896px canvas, which is
+   the gloss-highlight contrast noise §1.2 already attributes it to.
+
+   BUBBLE — plan §1.2: x279-866, y41-201 -> left 31.14% top 3.40% w 65.63%
+   h 13.37%. -webkit-line-clamp:3 per plan §4.3: at rendered size 588x161
+   source px is three comfortable lines, and truncating beats shrinking.
+
+   ═══ LAYERING — plan §2.1, all four planes present from this stage ═════════
+     z 0  .race-stage-art     swapped window            (image: fix281)
+     z 1  .race-stage-rider   player sprite             (markup: fix282)
+     z 2  .race-stage-shell   race-shell.png, full-bleed
+     z 3  .race-stage-slot    four number slots + bubble (text: fix280)
+     z 4  .race-stage-cal     calibration grid, debug only
+   The window sits BEHIND the shell deliberately: the shell's painted border
+   overlaps the art edge and hides the seam. .race-stage-rider has no markup
+   yet and is a DEAD SELECTOR for exactly three stages — written now, with the
+   rest of the stack, so fix282 adds markup only and cannot ship a sprite that
+   lands on the wrong plane. Same discipline as the fix216/fix229 debug rules.
+
+   .race-stage-art carries NO background-image this stage: the race-type to
+   window mapping is fix281, and an unset var renders no background rather
+   than a broken surface. The flat --bg3 band under the shell hole IS the
+   expected fix279 appearance. Do not "fix" it here. */
+.race-stage{position:relative;width:100%;max-width:420px;margin:0 auto 14px;
+  aspect-ratio:896/1204;overflow:hidden;border-radius:var(--radius);
+  background:var(--bg3);}
+.race-stage-art{position:absolute;left:0;width:100%;top:20.5150%;height:55.1495%;
+  z-index:0;background-color:var(--bg3);background-size:100% 100%;
+  background-position:center;background-repeat:no-repeat;}
+/* fix281: SUPERSEDES the last paragraph of the fix279 comment above ("carries
+   NO background-image this stage"). It carries one now — exactly one, chosen
+   by the modifier class raceStageWindowClass() puts on this div. Kept as four
+   flat rules rather than one rule with an interpolated var name because a CSS
+   custom property cannot be named dynamically, and because these four lines
+   are then the ONLY place in this surface a window filename is bound: fix286's
+   cutover audit greps --sheet-race-win here and finds all four.
+   background-color:--bg3 stays on the base rule and is the offline fallback —
+   a var left unset by a failed lazy fetch renders the flat band, never a
+   broken box (the per-var try/catch in lazyLoadAssetGroup relies on this).
+   The rows are pre-cropped to the shell hole (fix278 §2), so background-size:
+   100% 100% on the base rule is a 1:1 paint, not a stretch. */
+.race-stage-art.w-road{background-image:var(--sheet-race-win-road);}
+.race-stage-art.w-tt{background-image:var(--sheet-race-win-tt);}
+.race-stage-art.w-hill{background-image:var(--sheet-race-win-hill);}
+.race-stage-art.w-crit{background-image:var(--sheet-race-win-crit);}
+/* fix282: SUPERSEDES the fix279 note above (".race-stage-rider has no markup
+   yet and is a DEAD SELECTOR for exactly three stages"). It has markup now.
+
+   ONE RENDERED SIZE, FOUR CONTACT LINES. fix278 §6 normalised all three sprite
+   assets into one 151x175 box, bottom-aligned so the wheel contact line sits on
+   the box floor in every asset, so the SIZE is a single number and only the
+   BOTTOM varies per scene. width/aspect-ratio live on the base rule; the four
+   modifier rules set background-image, background-size and bottom only.
+
+   SIZE — MEASURED AGAINST THE COMPOSITE, and it is the two-plane rule (plan
+   §1.3) that fixes it, not the asset's native 151px. Painted pack bikes measure
+   ~200 source px long with ~87px wheels. Composited at 240 source px wide the
+   sprite reads as an EIGHTH RIDER inside the painted pack — the exact defect
+   §1.3 exists to prevent. At 300 it is unambiguously nearer the camera and the
+   occlusion reads as depth. 300 was taken:
+       width  300/896 = 33.4821%
+       height derived by aspect-ratio:151/175 -> 347.68 source px
+   aspect-ratio, not an explicit height %, so width and height cannot drift out
+   of the asset's ratio when the stage is re-measured.
+
+   left is fixed and CENTRED this stage: (896-300)/2 = 298 -> 33.2589%.
+   fix283 replaces it with the position-driven x (plan §3.4) and this is the
+   only line it needs to touch.
+
+   ═══ fix283: SUPERSEDES THE PARAGRAPH ABOVE — left IS NOW A FALLBACK ═══════
+   left is no longer the rendered x. renderRaceStage() emits an inline
+   style="left:N%" on this div every frame (plan §3.4, position-driven x), and
+   an inline style beats this rule, so the declaration below is now the value
+   the sprite takes ONLY if that markup ever fails to carry one.
+
+   IT IS KEPT, NOT DELETED, AND THE VALUE IS UNCHANGED ON PURPOSE. 33.2589% is
+   the EXACT midpoint of the fix283 travel range (see RACE_STAGE_RIDER_X), so
+   the fallback is mid-field — the same thing the sprite shows for a rider in
+   the middle of the bunch. A fallback of 0 or `auto` would park a failed
+   sprite hard against the frame edge, which reads as last place rather than
+   as a missing value: plan §4.2's rule (a painted box with nothing in it reads
+   as a bug) applied to a position rather than to a number.
+
+   NO transition/animation PROPERTY IS ADDED HERE, and that is not an
+   omission — see the "WHY THE EASE IS JS AND NOT CSS" note on
+   raceStageRiderX(). A CSS transition on this rule provably cannot fire: the
+   node is rebuilt from innerHTML on every frame, so every frame's transition
+   starts on a brand-new element already at its final left.
+
+   ═══ CONTACT LINES — MEASURED, and plan §1.3 IS WRONG FOR THE ROAD SCENE ════
+   Per-column road-surface classification (saturation < 0.20, value > 0.10)
+   across the sprite footprint x298-598, taking the deepest road row per column
+   and then the MEDIAN over the 300 columns. The median rather than the max
+   because painted pack riders occlude the road in some columns and only ever
+   pull a column's answer UP; a max would chase a gap between two wheels.
+
+       scene   contact row (source y, 896x1204 space)   spread over footprint
+       road          834                                 median==p75==p90
+       tt            898                                 flat, all 300 columns
+       hill          898                                 flat, all 300 columns
+       crit          896                                 flat, all 300 columns
+
+   bottom = (1204 - contact) / 1204:
+       road 370/1204 = 30.7309%    tt   306/1204 = 25.4153%
+       hill 306/1204 = 25.4153%    crit 308/1204 = 25.5814%
+
+   THE ROAD SCENE IS THE OUTLIER AND THE PLAN DID NOT KNOW IT. Plan §1.3's
+   Sobel pass found road/hill/crit all agreeing on a quietest band at y806-896
+   and concluded "one foreground band serves all three". Measured by CONTENT
+   rather than by edge energy, the road scene's tarmac ENDS at y834 and rows
+   840-897 are grass verge and spectator heads. That band is quiet because it
+   is grass, not because it is clear road. Placing the road sprite on the shared
+   806-896 band would have stood the rider in a hedge — which is precisely why
+   §3.3 says the rect is UNTRUSTED until measured per scene, and why it is
+   measured per scene here. Do not re-unify these four numbers.
+
+   HILL — PLAN §8 OPEN QUESTION 3 IS ANSWERED: NO ROTATION. The hill road is on
+   a gradient, but at the near edge where the sprite stands the contact row is
+   FLAT across all 300 footprint columns (median == every column). The gradient
+   is a mid-band perspective feature; the foreground plane is level. A rotated
+   sprite would tilt against a level contact line. Answered, closed.
+
+   ROAD/HILL/CRIT TAKE THE PEDAL SHEET AT FRAME 0, NOT racer-static.png. The
+   sheet is 19 uniform 151x175 frames in a single row (fix278 §5), so
+   background-size:1900% 100% renders one frame at 1:1 and background-position:0
+   is frame 0. Choosing the sheet now means fix284 adds ONLY the steps() run and
+   the reduced-motion gate — no asset swap, so the rider cannot visibly change
+   pose at the animation stage. THE FRAME ADDRESS IS NOT GENERALISED HERE: frame
+   0 is position 0 in both the plan's -(n*151)px form and the percentage form,
+   so this stage commits to neither. fix284 owns the single generator.
+
+   CONSEQUENCE TO CARRY FORWARD: --sheet-race-static / assets/racer-static.png
+   is now registered, precached and bound by NOTHING. Deliberately left that way
+   rather than retired here — fix284 may want it as the reduced-motion still. If
+   fix284 holds sheet frame 0 instead, fix286's cutover retires it from
+   LAZY_ASSET_GROUPS and STATIC_ASSETS together. Do not let it drift unresolved
+   past fix286.
+
+   TT keeps background-size:100% 100% because tt-static.png is one frame, not a
+   strip. Plan §3.5's animated:false, expressed in CSS rather than a descriptor
+   field — the descriptor object earns its keep at fix284, not before.
+
+   ═══ fix284: THE ANIMATION IS NOT DECLARED HERE, AND THAT IS DELIBERATE ═════
+   Plan §3.2 specifies a CSS `steps()` background-position animation on this
+   rule. IT CANNOT RUN ON THIS SURFACE, for exactly the reason fix283 recorded
+   for `transition:left`: _raceOverlayRafLoop() rebuilds #race-overlay-body from
+   innerHTML every frame, so every frame hands the browser a BRAND-NEW rider
+   element and every frame restarts the animation at 0%. The sprite would sit
+   on frame 0 for the whole race and would look identical to shipping nothing —
+   the same trap, one stage later, and it would again have looked correct in a
+   screenshot. §3.2's "zero main-thread cost" argument is sound and its premise
+   (a stable node) is false here.
+
+   The frame index is therefore computed in JS from the race clock and emitted
+   as an inline background-position — see RACE_STAGE_PEDAL / raceStagePedalPos()
+   above renderRaceStage(). That is not the rAF sprite work §3.2 forbids: the
+   render already runs every frame, so this adds ONE modulo and one style
+   string, not a new loop and not a per-frame image decode.
+
+   Everything the animation needs is ALREADY on the rules below and is
+   unchanged: background-size:1900% 100% on the three sheet scenes is the
+   19-frame strip, and background-position:0 0 on the base rule is frame 0 —
+   which is precisely what a reduced-motion player, and a TT rider, keep.
+   NO background-position declaration is added to the modifier rules: an inline
+   style beats them, but frame 0 must remain the value when no inline style is
+   emitted. Do not "tidy" the base rule's background-position away. */
+.race-stage-rider{position:absolute;z-index:1;pointer-events:none;
+  width:33.4821%;aspect-ratio:151/175;left:33.2589%;
+  background-repeat:no-repeat;background-position:0 0;}
+.race-stage-rider.w-road{background-image:var(--sheet-race-pedal);
+  background-size:1900% 100%;bottom:30.7309%;}
+.race-stage-rider.w-hill{background-image:var(--sheet-race-pedal);
+  background-size:1900% 100%;bottom:25.4153%;}
+.race-stage-rider.w-crit{background-image:var(--sheet-race-pedal);
+  background-size:1900% 100%;bottom:25.5814%;}
+.race-stage-rider.w-tt{background-image:var(--sheet-race-tt);
+  background-size:100% 100%;bottom:25.4153%;}
+.race-stage-shell{position:absolute;inset:0;z-index:2;pointer-events:none;
+  background-image:var(--sheet-race-shell);background-size:100% 100%;
+  background-position:center;background-repeat:no-repeat;}
+.race-stage-slot{position:absolute;z-index:3;display:flex;align-items:center;
+  justify-content:center;pointer-events:none;
+  top:81.06%;height:9.22%;width:19.53%;
+  font-weight:800;color:#fff;font-variant-numeric:tabular-nums;
+  text-shadow:0 1px 2px rgba(0,0,0,.45);
+  /* fix280: the type scale. The slot box is 19.53% of a stage capped at
+     420px, so it is AT MOST 82 x 52 CSS px and is narrower than that on a
+     small phone. The size therefore has to track the stage, not the
+     viewport-minus-chrome — clamp() against vw is the closest thing that
+     needs no container query, and the 22px ceiling is what stops the number
+     overflowing the painted box on a tablet where the stage has already hit
+     its max-width and stopped growing. The 12px floor keeps '100%' legible
+     at 320px.
+     line-height:1 so the ascender/descender box does not push a two-glyph
+     value ('1st') off centre inside a box only 52px tall.
+     tabular-nums is inherited from the rule above and is the reason a value
+     ticking 47% -> 48% does not shuffle the digits sideways. */
+  font-size:clamp(12px, 4.6vw, 22px);line-height:1;}
+.race-stage-slot.s1{left:3.906%;}
+.race-stage-slot.s2{left:28.203%;}
+.race-stage-slot.s3{left:52.500%;}
+.race-stage-slot.s4{left:76.797%;}
+.race-stage-bubble{position:absolute;z-index:3;pointer-events:none;
+  left:31.14%;top:3.40%;width:65.63%;height:13.37%;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;
+  overflow:hidden;color:#1A1F2B;font-weight:600;line-height:1.25;
+  /* fix285: the box gained text, so it needs type sizing. Same clamp() shape
+     as .race-stage-slot and for the same reason — the stage is a percentage
+     box inside a max-width container, so a fixed px size overflows on a small
+     phone and looks lost on a tablet. Smaller range than the slots because
+     plan §4.3 budgets this box (588x161 source px) at THREE comfortable
+     lines, and the -webkit-line-clamp:3 above truncates rather than shrinks
+     when a line runs long: truncated beats shrinking.
+     Padding is in % so it tracks the painted bubble's inner margin as the
+     stage scales; box-sizing is border-box from the global reset, so it eats
+     into the measured rect rather than growing it off the painted tail. */
+  font-size:clamp(10px, 3.2vw, 15px);padding:1.6% 3.2%;
+  box-sizing:border-box;text-align:center;}
+/* fix285: sprint line. The SVG bubble uses fill:var(--gold); this surface
+   cannot, because --gold is theme-dependent (#b8860b / #d4a017) and the
+   painted bubble is a fixed near-white raster — dark-theme gold on it is
+   ~2.2:1. #8A5A00 is ~6.6:1 on the painted white and reads identically in
+   both themes, for the same reason the body colour above is hardcoded
+   #1A1F2B and not var(--txt). */
+.race-stage-bubble.sprint-line{color:#8A5A00;font-weight:800;}
+/* Calibration overlay, plan §1.2 percentages. Same 10% magenta / 5%-2% cyan
+   grid every painted hub uses, so a screenshot from this surface reads the
+   same way as one from Home, Rider, Gear, Train, Tasks, Calendar, Sponsors or
+   Skills. Off by default, never persisted: these paint only under
+   .race-stage-debug, which raceStageDebugToggle() sets from the console. */
+.race-stage-cal{display:none;position:absolute;inset:0;z-index:4;pointer-events:none;}
+.race-stage.race-stage-debug .race-stage-cal{display:block;}
+.race-stage.race-stage-debug .race-stage-cal::before{
+  content:'';position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(to right, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to bottom, rgba(255,0,255,.55) 0 1px, transparent 1px 10%),
+    repeating-linear-gradient(to right, rgba(0,255,255,.30) 0 1px, transparent 1px 5%),
+    repeating-linear-gradient(to bottom, rgba(0,255,255,.30) 0 1px, transparent 1px 2%);
+}
+.race-stage.race-stage-debug .race-stage-art{outline:2px solid #ff0;outline-offset:-2px;}
+/* fix282: the sprite box outlined in magenta under the same debug flag. The
+   asset is bottom-aligned inside its box, so the BOTTOM EDGE of this outline
+   IS the measured contact line — that is the one number a calibration
+   screenshot needs to be checkable against the painted road surface, and it is
+   unreadable from the sprite art alone once the wheels are over tarmac. */
+.race-stage.race-stage-debug .race-stage-rider{outline:1px solid #f0f;}
+.race-stage.race-stage-debug .race-stage-slot,
+.race-stage.race-stage-debug .race-stage-bubble{background:rgba(0,255,255,.30);outline:1px solid #0ff;}
+/* fix280: the slots now carry live text, so the fix279 debug index can no
+   longer sit in the flex flow beside it — it would print '47%4' and read as a
+   value, which is exactly the sort of thing a calibration screenshot then
+   gets measured against. Pinned to the top-left corner of the slot box
+   instead, absolutely positioned so it is out of the flow entirely and the
+   number stays centred in the rect it is being calibrated against. */
+.race-stage.race-stage-debug .race-stage-slot::after{
+  content:attr(data-slot);color:#ff0;font:700 11px/1 monospace;
+  position:absolute;left:2px;top:2px;
+}
+
 /* fix150: Rider Skills Training. Same overlay tier as .race-overlay/.gt-overlay
    (1800) — Train tab only, never open alongside a race or a gut game. All rules
    scoped under .rs- so nothing here can leak into other tabs. */
@@ -24364,6 +25482,493 @@ function updatePelotonScene(rd, isFinalSprint, profile, progress, elapsed, isFin
   }
 }
 
+// ═══ fix279: the race stage — shell markup, behind a debug flag ═══════════
+// Stage two of twelve (race-vis-overhaul-plan-v2 §5). Renders the painted
+// stage shell above the existing SVG visualisation so the two can be compared
+// on a real device; the SVG builders are untouched and still the shipping
+// surface until the fix286 cutover.
+//
+// THE FLAG IS A MODULE-LEVEL VARIABLE, NOT A CLASS ON A LIVE NODE. The whole
+// of renderActiveRaceBlock's output is rebuilt from innerHTML on every tick,
+// so a class toggled onto the stage node would survive exactly until the next
+// frame. Same reason the two-tap arm states live in module variables.
+//
+// NOT PERSISTED, and deliberately so: a debug grid must not be able to survive
+// a reload into a player's save, which is why every hub toggle writes no
+// storage key either.
+let _raceStageDebug=false;
+function raceStageDebugToggle(){
+  _raceStageDebug=!_raceStageDebug;
+  // THE FIRST CALLER OF lazyLoadAssetGroup('racestage'). fix278 appended the
+  // group and left it inert precisely so this line could be the whole of the
+  // wiring — the group is only ever entered by name. Called on the way ON
+  // only; lazyLoadAssetGroup is idempotent (_lazyGroupsLoaded), so a repeated
+  // toggle costs nothing, and a player who never opens the console never pays
+  // the 426 KB.
+  //
+  // Setting the vars does NOT fetch — setProperty on a custom property is free
+  // and the browser fetches only when a var is APPLIED to a rendered element.
+  // This stage applies exactly one of the eight: --sheet-race-shell. The four
+  // windows stay unfetched until fix281 picks one.
+  if(_raceStageDebug) lazyLoadAssetGroup('racestage');
+  if(state.raceActive && state.raceData) renderActiveRaceBlock();
+  return _raceStageDebug;
+}
+
+// RENDER-ONLY (plan §2.3): takes the race data object, returns markup, reads
+// state and writes none. The parameter has been in the signature since fix279
+// precisely so this stage adds reads rather than changing the call site, which
+// is the same call-it-don't-edit-it rule the profile plan §1.3 sets.
+//
+// Returns '' when the flag is off, so the caller's template interpolation is
+// a no-op string and the shipped race screen is byte-identical to fix278.
+// NO id ATTRIBUTES anywhere in this markup (plan §2.1). The four slots are
+// addressed by class within the stage root and labelled for the calibration
+// pass by data-slot, which is an attribute, not an id.
+//
+// ═══ fix280: THE FOUR NUMBER SLOTS, WIRED (plan §4.1) ═══════════════════
+//   slot 1  green  race legs REMAINING     rd.raceLegs
+//   slot 2  amber  position, ordinal       rd.virtualPos
+//   slot 3  blue   progress, integer %     derived, see below
+//   slot 4  red    rival position, ordinal rd.rivalVP, em-dash when none
+//
+// WHY PROGRESS IS DERIVED HERE AND NOT PASSED IN. renderActiveRaceBlock()
+// already computes `progress` a hundred lines above the call site, and passing
+// it would mean widening the signature at the one moment the plan says not to.
+// getEffectiveElapsed(rd, now) is a pure read — three field reads and two
+// subtractions, no writes, no rd mutation (see its definition) — so calling it
+// a second time is cheap and keeps this function's contract at "give me rd".
+// It also yields the SAME value: both calls read the same rd fields within one
+// frame, so the stage and the SVG surface below it cannot print different
+// percentages during the fix279–fix285 side-by-side, which is the entire point
+// of running them together.
+//
+// THE RIVAL GUARD IS THE CALLER'S GUARD, COPIED, NOT A NEW ONE. A rival only
+// exists for category races: startCalendarEvent() and startGrandTourStage()
+// never set rivalStartVP, so `!rd.isCalendarEvent && rd.rivalStartVP != null`
+// covers both the calendar/GT case and the "no rival was ever rolled" case in
+// one test — identical to the rivalData expression in renderActiveRaceBlock().
+// It is duplicated rather than shared because rivalData is a local computed
+// below this call and hoisting it would be an edit outside this stage's scope;
+// fix285's commentary funnel is the right place to unify them if it needs to.
+//
+// EMPTY RIVAL RENDERS AN EM-DASH, NOT BLANK AND NOT 0 (plan §4.2). A painted
+// box with nothing in it reads as a bug, and '0' would read as a position.
+//
+// ON THE fix260 NUMBER-FORMAT SETTING (plan §4.1). Deliberately not applied.
+// Every value in these four boxes is a small integer — legs is 0–100 by
+// definition, progress is 0–100 by construction, and both ordinals are bounded
+// by field size — and fmt() only diverges from a plain integer above 1,000.
+// Routing them through it would add a call that provably cannot change any
+// output while implying to the next reader that these values can get large.
+// If a future field size ever exceeds four figures this note is the thing to
+// revisit.
+// ═══ fix281: RACE-TYPE → WINDOW MAPPING (plan §2.1, one shell four windows) ══
+// KEYED BY RACE_TYPES id, deliberately explicit rather than 'w-'+rd.typeId.
+// A derived class name means a future fifth race type renders NO background —
+// a silent flat box across 55% of the race screen, found by a player. A map
+// turns the same event into a lookup miss with a named fallback.
+//
+// Fallback is 'road' and not '': road is the generic scene and the id the club
+// race already hardcodes. Plan §4.2's rule — a painted box with nothing in it
+// reads as a bug — applies harder to the art band than to a number slot.
+//
+// No Grand Tour or calendar branch is needed and none is written: every start
+// funnel writes a real RACE_TYPES id (startRace -> raceTypeId, startCalendar
+// Event -> ev.raceTypeId, club race -> 'road'), and GT TT stages reuse
+// typeId:'tt' — the same fact the fix145 rider still already relies on.
+const RACE_STAGE_WINDOWS = {
+  road: 'w-road',
+  tt:   'w-tt',
+  hill: 'w-hill',
+  crit: 'w-crit'
+};
+
+// THE SINGLE SOURCE OF TRUTH for "which scene is this race". One caller today;
+// fix282 is the second, because the sprite dispatches on the same input (the
+// TT scene takes tt-static.png rather than the pedal sheet, and plan §3.3
+// expects a different rect per scene). Two independent switches on rd.typeId
+// is exactly how the window and the sprite come to disagree about which race
+// is being ridden — same discipline as effectiveLegsCost().
+//
+// Takes rd, not a typeId string, so fix282 can call it with the object
+// renderRaceStage() already holds and this signature never widens.
+function raceStageWindowClass(rd){
+  return (rd && RACE_STAGE_WINDOWS[rd.typeId]) || RACE_STAGE_WINDOWS.road;
+}
+
+// ═══ fix283: POSITION-DRIVEN SPRITE X (plan §3.4) ═══════════════════════════
+// Replaces plan §3.4's UNTRUSTED ease constant with a derived one, and fix282's
+// fixed centred left with a mapping from race POSITION — not raceProgress.
+// Progress owns slot 3; a progress-driven sprite would be a picture of a number
+// already on screen, and would crawl left-to-right all race regardless of how
+// the race is going. Position makes the sprite say the thing no box says as
+// well: are you moving up or down.
+//
+// ═══ THE TRAVEL RANGE — DERIVED, NOT PICKED ════════════════════════════════
+// Two constraints, and between them they leave no free parameter:
+//
+//   1. The sprite must stay inside the art window. fix278 §2 measured that
+//      window as the FULL frame width (x0-895 of 896) and the shell's painted
+//      chrome does not intrude on it horizontally — re-measured here over
+//      rows 250-907 of the shell art: 8 non-white pixels in the entire band,
+//      i.e. the band is clear edge to edge. So the hard limit on `left` is
+//      [0, 100 - 33.4821] = [0, 66.5179].
+//
+//   2. It must not kiss the frame edge at 1st or last. The inset is taken from
+//      buildPelotonStripSVG's own strip inset — LEFT=14 of VB_W=320, 4.375% —
+//      rather than invented, because that is the shipped, played-against value
+//      for "how close to the edge does a rider glyph go" on the surface this
+//      stage replaces.
+//
+//       X_MIN = 4.375
+//       X_MAX = 100 - 4.375 - 33.4821 = 62.1429
+//
+// THE CHECK THAT SAYS THE RANGE IS RIGHT: the midpoint of [4.375, 62.1429] is
+// 33.2589 — EXACTLY fix282's fixed centred left, to four decimals. A rider at
+// mid-field therefore sits precisely where the sprite has sat since fix282, so
+// this stage adds motion around that point rather than relocating the sprite
+// and adding motion in one edit. That is a consequence of a symmetric inset,
+// not a coincidence, but it is also the reason the inset must stay symmetric:
+// asymmetric insets would silently move the mid-field rider.
+//
+// ═══ THE MAPPING IS buildPelotonStripSVG's, REUSED VERBATIM ════════════════
+//   posFrac = fieldSize <= 1 ? 1 : 1 - ((vp-1)/(fieldSize-1))
+// 1st -> 1 -> X_MAX (right, ahead of the painted pack); last -> 0 -> X_MIN.
+// Copied from the strip rather than re-derived so the stage and the surface it
+// runs beside during the fix279-285 side-by-side cannot place the same rider at
+// two different fractions of their band. Same discipline as effectiveLegsCost()
+// and as raceStageWindowClass(). It also brings the strip's fieldSize<=1 guard
+// with it, which is the divide-by-zero a fresh re-derivation would have missed.
+// vp is clamped into the field exactly as slot 4 clamps rivalVP, so a stale
+// virtualPos cannot drive the sprite off the band.
+const RACE_STAGE_RIDER_X = {
+  MIN: 4.375,      // = 14/320, buildPelotonStripSVG's strip inset
+  MAX: 62.1429,    // = 100 - 4.375 - 33.4821 (sprite width, fix282 §3)
+  TAU: 320         // ms, ease time constant — derived below
+};
+
+// ═══ THE EASE CONSTANT — DERIVED FROM THE TICK RATE ════════════════════════
+// virtualPos is written by the 1s game tick, so a place change can arrive at
+// most once per second. The ease must therefore be VISIBLY FINISHED inside one
+// second: if it is not, two consecutive place changes compound and the sprite
+// falls permanently behind the position it is meant to be reporting — it would
+// still be sliding toward 8th while the rider is already 6th.
+//
+// Exponential smoothing settles to 95% in 3*TAU. 3*TAU <= 1000 gives
+// TAU <= 333ms. TAU = 320 taken: 95% in 960ms, inside the tick with ~40ms of
+// headroom, and slow enough at the top of the move that a place change reads
+// as a MOVE rather than a jump — which is the whole point of easing it.
+//
+// FRAME-RATE INDEPENDENT, deliberately. The factor is 1-exp(-dt/TAU) against
+// real elapsed ms, not a fixed per-frame fraction, so the sprite takes the same
+// wall-clock time to settle on a 60Hz phone and a 120Hz one. A per-frame
+// constant would make the ease twice as fast on a 120Hz screen.
+//
+// ═══ WHY THE EASE IS JS AND NOT CSS ═══════════════════════════════════════
+// The obvious implementation is `transition:left .32s` and no JS at all. It
+// cannot work here: renderActiveRaceBlock() rebuilds #race-overlay-body from
+// innerHTML, and _raceOverlayRafLoop() calls it EVERY FRAME while the overlay
+// is open. Every frame therefore gets a brand-new .race-stage-rider element
+// that has never held any other left value, and a transition on a freshly
+// inserted node does not animate — it renders at its final value. The CSS
+// version would look identical to no easing at all.
+//
+// A stateless ease is also impossible, and it is worth being explicit about
+// why: easing needs to know how far through a move we are, which needs the
+// TIME THE POSITION LAST CHANGED. rd does not carry one, and adding one would
+// be a state write from a render path — the thing plan §2.3 forbids. So the
+// smoother holds its own value instead.
+//
+// ═══ WHAT THIS WRITES, AND WHY THAT IS NOT A §2.3 VIOLATION ════════════════
+// _raceStageRiderX/_raceStageRiderT/_raceStageRiderKey are MODULE-LEVEL RENDER
+// VARIABLES, not game state: nothing else reads them, no save field is touched,
+// saveGame() cannot see them, and a reload starts them fresh. Same category as
+// the two-tap arm flags, which live in module variables for the same underlying
+// reason — the DOM they would otherwise live on is rebuilt every frame. Plan
+// §2.3's rule is that the stage must not write RACE state; rd is not touched
+// here and this function reads it only.
+//
+// THE KEY IS rd.startTime, and it is what stops the smoother leaking between
+// races. Without it the sprite would open a new race sliding from wherever the
+// last one finished — a rider who won would start the next race in 1st and glide
+// backwards. startTime is unique per race (startRace hoists it as the shape seed
+// at fix271) and survives a mid-race reload, so a reload resumes the ease
+// rather than resetting it.
+let _raceStageRiderX = null;   // last rendered left, %
+let _raceStageRiderT = 0;      // timestamp of that value, ms
+let _raceStageRiderKey = null; // rd.startTime the two above belong to
+
+function raceStageRiderX(rd, now){
+  const K = RACE_STAGE_RIDER_X;
+
+  // Target — the strip's mapping, reused verbatim.
+  const fieldSize = Math.max(1, (rd.result && rd.result.fieldSize) || 1);
+  const vp = Math.max(1, Math.min(fieldSize, rd.virtualPos || 1));
+  const posFrac = fieldSize <= 1 ? 1 : 1 - ((vp - 1) / (fieldSize - 1));
+  const target = K.MIN + posFrac * (K.MAX - K.MIN);
+
+  // New race, or first frame of this one — snap, never ease in from nowhere.
+  const key = rd.startTime;
+  if(_raceStageRiderKey !== key || _raceStageRiderX === null){
+    _raceStageRiderKey = key;
+    _raceStageRiderX = target;
+    _raceStageRiderT = now;
+    return target;
+  }
+
+  // fix258 reduced motion. This is the SAME motion call site fix284 will gate
+  // for steps() — .race-stage-rider — counted once, not twice, so the settings
+  // plan's list gains one entry for this sprite rather than one per property.
+  // Snap rather than skip: the sprite must still REPORT the right position with
+  // motion off, it just must not travel to get there. Skipping the update would
+  // freeze the rider mid-field for the whole race, which is not less motion, it
+  // is wrong information.
+  if(state.settings && state.settings.reduceMotion){
+    _raceStageRiderX = target;
+    _raceStageRiderT = now;
+    return target;
+  }
+
+  // dt clamped to [0, 1000]. Lower bound because a same-millisecond second call
+  // must not produce a negative factor; upper bound because a backgrounded tab
+  // parks rAF and returns with a dt of minutes — exp() handles that fine and
+  // snaps, but clamping keeps the factor's derivation honest at the boundary
+  // and makes a paused-then-resumed race settle over one tick rather than
+  // arriving pre-settled.
+  const dt = Math.max(0, Math.min(1000, now - _raceStageRiderT));
+  const k = 1 - Math.exp(-dt / K.TAU);
+  _raceStageRiderX += (target - _raceStageRiderX) * k;
+  _raceStageRiderT = now;
+
+  // Snap the last fraction of a percent. Exponential smoothing never formally
+  // arrives, and without this the emitted string changes in the fourth decimal
+  // for the rest of the race — a style write every frame for sub-pixel motion.
+  if(Math.abs(target - _raceStageRiderX) < 0.02) _raceStageRiderX = target;
+
+  return _raceStageRiderX;
+}
+
+// ═══ fix284: the pedal animation — descriptor, and the ONE frame generator ═══
+//
+// Plan §3.5 asks the stage to take a sprite descriptor so that TT's
+// `animated:false` is a data field rather than a branch, and so that arriving
+// TT pedal art is a one-line descriptor change instead of a code change. This
+// is that descriptor, reduced to the two fields this surface actually consumes:
+// src / cellW / cellH / originX / originY are all already expressed in the CSS
+// modifier rules (background-image + background-size + bottom, fix282), and
+// duplicating them here would create a second place for the sprite's geometry
+// to be wrong. Keyed by the SAME scene class raceStageWindowClass() returns, so
+// window and animation cannot disagree about which race is on screen.
+//
+// `frames:19` MUST agree with background-size:1900% 100% in the CSS. They are
+// two halves of one fact and the CSS half cannot be computed from here (it is a
+// static stylesheet). If the strip is ever re-cut, both change together — the
+// generator below is the only arithmetic, but it is not the only declaration.
+//
+// LOOP CLOSURE — PLAN §8 OPEN QUESTION 1 IS ANSWERED: 19 FRAMES, KEEP THEM ALL.
+// Measured, not assumed: mean |Δ| between each adjacent frame pair around the
+// full cycle, including the 18→0 wrap.
+//     interior transitions   7.12 – 19.14, median 11.98
+//     the 18→0 wrap          17.35
+// The wrap sits INSIDE the interior range and below its maximum — it is not an
+// outlier, so the crank arm closes and no sub-loop is needed. Recorded because
+// the plan required this test before this stage and a later re-cut of the strip
+// invalidates the answer.
+//
+// FRAME_MS = 40 -> 19 frames = 760ms per pedal revolution ≈ 79rpm, a plausible
+// road cadence. Also chosen against the frame budget: at 60Hz the image changes
+// every ~2.4 rendered frames, so the sprite reads as pedalling rather than
+// strobing, and on a 120Hz phone the cadence is identical because the index is
+// derived from elapsed ms, not from a frame counter.
+const RACE_STAGE_PEDAL = { FRAME_MS: 40 };
+const RACE_STAGE_SPRITES = {
+  'w-road': { frames: 19, animated: true  },
+  'w-hill': { frames: 19, animated: true  },
+  'w-crit': { frames: 19, animated: true  },
+  // Plan §3.5. tt-static.png is one frame; the whole of TT's non-animation is
+  // this one boolean. When TT pedal art lands it becomes {frames:N, animated:true}
+  // and nothing else in this file changes.
+  'w-tt':   { frames: 1,  animated: false },
+};
+
+// THE ONLY FRAME-ADDRESS ARITHMETIC IN THE SERIES (plan §1.4's single-source
+// rule, the same discipline as effectiveLegsCost()). Returns a background-position
+// declaration, or '' to mean "leave the CSS alone".
+//
+// The percentage form, not the -(n*151)px form: with background-size:1900% the
+// image is 19 container widths, and a percentage p aligns p% of the image with
+// p% of the box, i.e. offset = -18*containerWidth*p/100. Frame n needs offset
+// -n*containerWidth, so p = n/(frames-1)*100. Percentages because the stage is
+// fluid — it scales with a max-width:420px box — and a px offset would drift off
+// the frame grid at every width except the asset's native one.
+//
+// eff is the DECISION-PAUSED clock (getEffectiveElapsed), not wall time, so the
+// rider stops pedalling while a decision card is up and resumes in phase. That
+// is the same clock the progress slot reads, so the legs stop exactly when the
+// number stops.
+function raceStagePedalPos(sceneClass, eff){
+  const d = RACE_STAGE_SPRITES[sceneClass];
+  if(!d || !d.animated || d.frames < 2) return '';
+  // fix258 reduced motion. Plan §3.2's gate is MANDATORY, and this is the same
+  // motion call site fix283 already gated for the x ease — .race-stage-rider,
+  // counted ONCE. The settings list gains no new entry: a second property on
+  // site 4, not a site 5, exactly as fix283 recorded.
+  //
+  // HOLD, not snap. The x ease snaps under reduced motion because position is
+  // information a still frame must still report; a pedal phase is not — no
+  // player learns anything from which point of the stroke the crank is at. So
+  // this returns '' and the CSS base rule's background-position:0 0 stands: the
+  // rider holds frame 0, which is plan §3.2's stated behaviour verbatim.
+  if(state.settings && state.settings.reduceMotion) return '';
+  const ms = Math.max(0, eff);
+  const n = Math.floor(ms / RACE_STAGE_PEDAL.FRAME_MS) % d.frames;
+  return `background-position:${(n / (d.frames - 1) * 100).toFixed(4)}% 0;`;
+}
+
+// ═══ fix285 — THE COMMENTARY FUNNEL (plan §4.3) ═══════════════════════════
+// One function. Every producer of race commentary text calls it: the fix71 SVG
+// speech bubble (still the shipping surface until the fix286 cutover) and the
+// painted stage bubble below. fix272's shape flavour routes through here if
+// and when fix286 decides the bubble is where it lives (plan §0.1) — do not
+// give it a second home.
+//
+// RENDER-ONLY. Reads rd, returns a value, writes nothing — not even the
+// fade-in stamp, which stays in renderActiveRaceBlock where fix71 put it. Two
+// callers inside one frame must not race each other for a change flag: the
+// first would consume it and the second would never animate.
+//
+// Takes rd and NOTHING ELSE, and resolves its own commentary source rather
+// than being handed one. A funnel whose callers must first agree on its inputs
+// is not a funnel — that is three chances for the two surfaces to print
+// different lines about the same instant.
+//
+// Returns {text, sprint}. sprint is the caller's presentation cue (gold in the
+// SVG, .sprint-line on the stage), not a second string.
+function raceCommentaryLine(rd){
+  if(!rd) return {text:'', sprint:false};
+  // The gtStage ? course ? rt ladder, character-for-character what the
+  // tombstoned commentarySrc const in renderActiveRaceBlock did. Both helpers
+  // were checked at their definitions before being called from a render path
+  // (both guard-and-lookup, both return object-or-null, neither writes).
+  const gtStage=getGrandTourStage(rd);
+  const course=getRaceCourse(rd);
+  const rt=RACE_TYPES.find(r=>r.id===rd.typeId);
+  const src=gtStage ? gtStage.commentary : course ? course.commentary : (rt ? rt.commentary : null);
+  // Unreachable on current data — every RACE_TYPES, COURSES and
+  // GRAND_TOUR_STAGES entry carries a non-empty commentary array. It exists
+  // because this now has two callers and on the stage a thrown TypeError takes
+  // the whole race screen with it, not one text node.
+  if(!src || !src.length) return {text:'', sprint:false};
+
+  // PHASE E sprint swap. Same condition the caller's isFinalSprint +
+  // !pendingDecision + !lastDecisionResult combination expressed, against the
+  // same decision-paused clock the caller's `progress` was built from.
+  const progress=Math.min(1, getEffectiveElapsed(rd, Date.now())/rd.animMs);
+  if(progress>=0.95 && progress<1 && !rd.pendingDecision && !rd.lastDecisionResult){
+    return {text:"It's flat out for the line!", sprint:true};
+  }
+
+  let line=src[rd.commentaryIdx]||src[src.length-1];
+  // fix105 — TT split checkpoints substitute the readout gameTick already
+  // computed into rd._ttSplitText. Single .replace: first occurrence only,
+  // exactly as before.
+  if(rd.typeId==='tt' && line.indexOf('[TIME_DIFF]')!==-1){
+    line=line.replace('[TIME_DIFF]', rd._ttSplitText||'—');
+  }
+  // Race Retention Phase 2C position clause. '' for TTs (gameTick sets it that
+  // way), so this is a no-op there and needs no branch.
+  return {text:line+(rd._posClauseText||''), sprint:false};
+}
+
+function renderRaceStage(rd){
+  if(!_raceStageDebug) return '';
+
+  // Slot 1 — race legs remaining. Clamped to 0–100 for the same reason the
+  // legs bar below clamps its width: a mid-race effect could in principle
+  // hand back more than 100, and a painted box has no overflow to spend.
+  const legs = Math.round(Math.max(0, Math.min(100, rd.raceLegs ?? 100)));
+
+  // Slot 2 — position. `|| 1` matches the caller's own read of virtualPos.
+  const fieldSize = rd.result?.fieldSize ?? 0;
+  const pos = rd.virtualPos || 1;
+
+  // Slot 3 — progress. Math.min(1, ...) mirrors the caller exactly, so the
+  // last tick of a race prints 100% and not 101%.
+  // fix283: ONE clock read for the whole render, hoisted here. Slot 3 took its
+  // own Date.now() at fix280 when it was the only consumer; the sprite x is the
+  // second, and two Date.now() calls in one frame is how the sprite and the
+  // progress box come to describe two different instants. Same one-source rule
+  // the window/sprite share via raceStageWindowClass().
+  const now = Date.now();
+
+  // fix284: the effective (decision-paused) elapsed ms hoisted to one const for
+  // the same reason fix283 hoisted now — slot 3 and the pedal phase are now two
+  // consumers, and two getEffectiveElapsed() calls in one render is how the
+  // progress box and the cranks come to describe two different instants.
+  const eff = getEffectiveElapsed(rd, now);
+
+  const progressPct = Math.round(
+    Math.min(1, eff / rd.animMs) * 100
+  );
+
+  // Slot 4 — rival. Clamped into the field the same way the tick that writes
+  // rivalVP clamps it, so a stale saved value cannot print '0th'.
+  const hasRival = !rd.isCalendarEvent && rd.rivalStartVP != null;
+  const rivalVp = hasRival
+    ? Math.max(1, Math.min(fieldSize || 999, rd.rivalVP ?? rd.rivalStartVP))
+    : null;
+  const rivalTxt = rivalVp === null ? '—' : ordinal(rivalVp);
+
+  // fix282: ONE call to raceStageWindowClass(), TWO consumers. The comment on
+  // that function predicted this stage would be its second caller; it is not,
+  // and deliberately so. Calling it twice would be two lookups that could in
+  // principle disagree only through a bug, but it would also read as two
+  // independent switches on rd.typeId — which is the shape the function exists
+  // to prevent. One const, applied to both divs, so the window and the sprite
+  // cannot describe different races even in a future where the map gains a
+  // branch. Same discipline as effectiveLegsCost().
+  const sceneClass = raceStageWindowClass(rd);
+
+  // fix283 — position-driven x. ONE call per render, and the timestamp is the
+  // one the slots were already computed against (Date.now() above via
+  // getEffectiveElapsed) rather than a second Date.now(): two clock reads in
+  // one frame is how the sprite and the progress box come to disagree about
+  // which instant they are describing.
+  //
+  // Emitted INLINE rather than as a class because the value is continuous —
+  // there is no finite set of classes for "somewhere between 4.375% and
+  // 62.1429%". It is a style attribute, not an id, so plan §2.1 is untouched.
+  // toFixed(3) is ~0.03 source px of precision, well under a device pixel, and
+  // caps the string length so the markup does not grow a float tail.
+  const riderLeft = raceStageRiderX(rd, now).toFixed(3);
+
+  // fix284 — pedal frame, same inline-style channel as left and for the same
+  // reason: the value is continuous and there is no finite set of classes for
+  // it. Empty string on TT and under reduced motion, in which case the div
+  // carries only left and the CSS rule's frame 0 stands.
+  const riderPedal = raceStagePedalPos(sceneClass, eff);
+
+  // fix285 — the bubble, through the funnel. ONE call, both the text and the
+  // sprint class off the same returned object: two calls in one render is how
+  // a gold class comes to sit on a non-sprint line. No fade-in here — the
+  // change stamp is a WRITE and it stays in renderActiveRaceBlock (see the
+  // fix285 changelog §5); this surface gets one at fix286 from a stamp read.
+  const cl = raceCommentaryLine(rd);
+
+  return `<div class="race-stage race-stage-debug">
+    <div class="race-stage-art ${sceneClass}"></div>
+    <div class="race-stage-rider ${sceneClass}" style="left:${riderLeft}%;${riderPedal}"></div>
+    <div class="race-stage-shell"></div>
+    <div class="race-stage-bubble${cl.sprint?' sprint-line':''}">${cl.text}</div>
+    <div class="race-stage-slot s1" data-slot="1">${legs}</div>
+    <div class="race-stage-slot s2" data-slot="2">${ordinal(pos)}</div>
+    <div class="race-stage-slot s3" data-slot="3">${progressPct}%</div>
+    <div class="race-stage-slot s4" data-slot="4">${rivalTxt}</div>
+    <div class="race-stage-cal"></div>
+  </div>`;
+}
+
 function renderActiveRaceBlock(){
   const wrap=document.getElementById('race-overlay-body');
   if(!state.raceActive||!state.raceData){
@@ -24438,7 +26043,11 @@ function renderActiveRaceBlock(){
   const rivalData=(!rd.isCalendarEvent && rd.rivalStartVP!=null)
     ? {vp:rd.rivalVP??rd.rivalStartVP, fieldSize:rd.result.fieldSize, playerVp:rd.virtualPos||1, name:state.rival.name||'Rival'}
     : null;
-  const commentarySrc=gtStage ? gtStage.commentary : course ? course.commentary : rt.commentary;
+  // fix285: TOMBSTONED, not deleted. This ladder moved into
+  // raceCommentaryLine() (plan §4.3) so the SVG bubble and the painted stage
+  // bubble resolve the same line from the same place. Left here as the pointer
+  // to where it went.
+  // const commentarySrc=gtStage ? gtStage.commentary : course ? course.commentary : rt.commentary;
 
   // Race Legs bar
   const legs=rd.raceLegs??100;
@@ -24483,19 +26092,20 @@ function renderActiveRaceBlock(){
   // _tickerShownAt pattern) rather than a setTimeout, since this whole
   // block re-runs every animation frame and a plain CSS class would
   // otherwise replay on every single frame.
-  const bubbleSprint=isFinalSprint && !rd.pendingDecision && !rd.lastDecisionResult;
-  // fix105 — TT commentary lines may contain the literal token [TIME_DIFF]
-  // at the two split-checkpoint beats; substitute the split readout that
-  // gameTick already computed into rd._ttSplitText (see computeTTSplit).
-  // rd._posClauseText is '' for TTs (gameTick sets it that way), so the
-  // trailing append below is a no-op for TTs — no separate branch needed.
-  let bubbleBaseLine=commentarySrc[rd.commentaryIdx]||commentarySrc[commentarySrc.length-1];
-  if(rd.typeId==='tt' && bubbleBaseLine.indexOf('[TIME_DIFF]')!==-1){
-    bubbleBaseLine=bubbleBaseLine.replace('[TIME_DIFF]', rd._ttSplitText||'—');
-  }
-  const bubbleText=bubbleSprint
-    ? "It's flat out for the line!"
-    : bubbleBaseLine+(rd._posClauseText||'');
+  //
+  // fix285 — THE TEXT RESOLUTION MOVED. The sprint swap, the commentarySrc
+  // index read, the fix105 [TIME_DIFF] substitution and the Phase 2C position
+  // clause are all now inside raceCommentaryLine(rd), unchanged clause for
+  // clause, so this bubble and the painted stage bubble cannot print two
+  // different lines about the same instant. Output here is identical to
+  // fix284's — see the fix285 changelog §3.
+  //
+  // THE STAMP BELOW DID NOT MOVE. It is a write, and the funnel is
+  // render-only; two callers competing for one change flag inside a single
+  // frame is how a fade-in gets consumed by the wrong surface.
+  const commentaryLine=raceCommentaryLine(rd);
+  const bubbleSprint=commentaryLine.sprint;
+  const bubbleText=commentaryLine.text;
   const bubbleChanged=rd._lastCommentaryText!==bubbleText;
   if(bubbleChanged){ rd._lastCommentaryText=bubbleText; rd._commentaryChangedAt=Date.now(); }
   const bubbleAnimate=rd._commentaryChangedAt!=null && (Date.now()-rd._commentaryChangedAt)<400;
@@ -24580,10 +26190,16 @@ function renderActiveRaceBlock(){
     // fix71 (Phase V3): sprint commentary now rendered via the sky bubble
     // (see commentaryInfo above) instead of this div — retired, not deleted,
     // so the branch structure/isFinalSprint gating stays intact for V4/V5.
+    // fix285 (plan §4.3): .race-commentary is tombstoned here and stays
+    // tombstoned. Its text now comes from raceCommentaryLine(rd) — the one
+    // funnel every commentary producer calls. If fix286 moves fix272's shape
+    // flavour into the bubble (plan §0.1), it goes through that funnel, NOT
+    // back into this div.
     middleHtml='';
   } else {
     // fix71 (Phase V3): normal commentary rotation now rendered via the sky
     // bubble (see commentaryInfo above) instead of this div — retired.
+    // fix285: text source is now raceCommentaryLine(rd). See above.
     middleHtml='';
   }
 
@@ -24603,11 +26219,18 @@ function renderActiveRaceBlock(){
     }
   }
 
+  // fix279: the painted stage, above the existing visualisation. Empty string
+  // unless raceStageDebugToggle() has been called, so the shipped screen is
+  // unchanged. Computed here rather than inline in the template for the same
+  // reason courseProfileSvg is: one call, one place to find it at cutover.
+  const raceStageHtml=renderRaceStage(rd);
+
   wrap.innerHTML=`<div class="active-race">
     ${decisionOverlayHtml}
     ${tickerHtml}
     <div class="race-run-head"><span style="font-size:18px">${icn(headIcon)}</span><span class="race-run-name">${headName}</span><span class="race-run-timer${isFinalSprint?' sprint-gold':''}">${remaining}s</span></div>
     ${shapeChipHtml}
+    ${raceStageHtml}
     <div class="race-peloton-wrap" id="race-peloton-wrap"></div>
     <div class="course-minimap-wrap">${courseMiniMapSvg}</div>
     <div class="course-profile-wrap${isFinalSprint?' sprint-shake':''}">${courseProfileSvg}</div>
