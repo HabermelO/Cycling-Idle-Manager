@@ -451,7 +451,7 @@
 // an unlabelled trophy card, with no ⓘ on either and — on a fresh save — a
 // series wrap that renders nothing at all. Nothing errors. It simply looks like
 // the stage was never written.
-// const CACHE_VERSION = 'cim-v3.8.45';   // fix235: Your Club build-out (headings, ⓘ, series empty state)
+// const CACHE_VERSION = 'cim-v3.8.44';   // fix235: Your Club build-out (headings, ⓘ, series empty state)
 
 // fix236 — the Race hub release pass. HTML-only stage: the only change to
 // index.html is the release-pass record comment above #race-stage, and no
@@ -656,7 +656,30 @@
 // group). Without the bump an already-installed PWA keeps serving the fix276
 // HTML, which has no 'racestage' group at all, and every later stage in this
 // series lands on a device that cannot resolve its own art.
-const CACHE_VERSION = 'cim-v3.8.84';   // fix278: race stage art (NEW assets: race-shell.png, race-win-{road,tt,hill,crit}.jpg, pedal-sheet.png, racer-static.png, tt-static.png)
+// const CACHE_VERSION = 'cim-v3.8.83';   // fix278: race stage art (NEW assets: race-shell.png, race-win-{road,tt,hill,crit}.jpg, pedal-sheet.png, racer-static.png, tt-static.png)
+// fix279: race stage shell markup + CSS + calibration overlay, behind the
+// raceStageDebugToggle() console flag. HTML ONLY — no asset added, removed or
+// renamed, so STATIC_ASSETS below is untouched and the eight fix278 entries
+// stay exactly as they were. The bump is still mandatory: the changed file is
+// the HTML itself, and without a new cache name every already-installed PWA
+// keeps serving the fix278 document indefinitely.
+// const CACHE_VERSION = 'cim-v3.8.84';   // fix279: race stage shell markup/CSS (HTML only, no asset change)
+// fix280: the four race-stage number slots wired to live race data, still
+// behind the raceStageDebugToggle() console flag. HTML ONLY — no asset added,
+// removed or renamed, so STATIC_ASSETS below is untouched and the eight fix278
+// entries stay exactly as they were. The bump is still mandatory for the same
+// reason as fix279: the changed file is the HTML itself.
+// const CACHE_VERSION = 'cim-v3.8.85';   // fix280: race stage number slots wired (HTML only, no asset change)
+// fix281: race-type -> window mapping. HTML only — all four window JPEGs
+// shipped and were precached at fix278, so STATIC_ASSETS is unchanged. The
+// bump exists because network-first only helps a client that asks; an
+// installed PWA on 3.8.85 keeps serving the fix280 HTML until the cache key
+// changes, and this stage would never land.
+// const CACHE_VERSION = 'cim-v3.8.86';   // fix281: race stage race-type->window mapping (HTML only, no asset change)
+// const CACHE_VERSION = 'cim-v3.8.87';   // fix282: race stage player sprite mounted, measured per-scene contact rect (HTML only, no asset change — pedal-sheet.png / tt-static.png shipped at fix278)
+// const CACHE_VERSION = 'cim-v3.8.88';   // fix283: race stage sprite x driven by race position, eased (TAU=320ms). HTML only — no asset change, STATIC_ASSETS untouched
+// const CACHE_VERSION = 'cim-v3.8.89';   // fix284: race stage pedal animation (19-frame strip, 40ms/frame) + reduced-motion hold, TT animated:false. HTML only — no asset change, STATIC_ASSETS untouched
+const CACHE_VERSION = 'cim-v3.8.90';   // fix285: raceCommentaryLine() commentary funnel + painted stage bubble wired; fix71 SVG bubble now reads the funnel (output unchanged). HTML only — no asset change, STATIC_ASSETS untouched
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
