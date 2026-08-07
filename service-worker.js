@@ -656,7 +656,7 @@
 // group). Without the bump an already-installed PWA keeps serving the fix276
 // HTML, which has no 'racestage' group at all, and every later stage in this
 // series lands on a device that cannot resolve its own art.
-const CACHE_VERSION = 'cim-v3.8.83';   // fix278: race stage art (NEW assets: race-shell.png, race-win-{road,tt,hill,crit}.jpg, pedal-sheet.png, racer-static.png, tt-static.png)
+const CACHE_VERSION = 'cim-v3.8.84';   // fix278: race stage art (NEW assets: race-shell.png, race-win-{road,tt,hill,crit}.jpg, pedal-sheet.png, racer-static.png, tt-static.png)
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
