@@ -20697,6 +20697,33 @@ function renderSettings(){
          <button class="set-ver-btn${_armed?' armed':''}" onclick="settingsUpdateTap()">${_armed?'Tap again to update':'Check for update'}</button>
        </div>
      </div>`);
+
+  // fix286 (race-vis plan §5) — the race stage preview row. APPENDED here, and
+  // AFTER the version row, for the fix260 reasons compounded: it is not a
+  // preference, so it cannot go in SETTINGS_ROWS without putting a second shape
+  // inside that map; and it is the least-used row in the sheet, so it goes last.
+  //
+  // REUSES .set-ver / .set-ver-val / .set-ver-btn VERBATIM. No CSS is added by
+  // this fix at all — not one selector, not one declaration. The version row
+  // already establishes exactly this shape (a monospace readout on the left, one
+  // 44px-minimum pill on the right, an .armed fill identical to .set-btn.on) and
+  // a second class set would mean two ways to draw one thing. Keeping the diff
+  // out of the stylesheet entirely also keeps this fix's blast radius to three
+  // JS regions, which matters on a stage that is scaffolding for a hard gate.
+  //
+  // The readout states the flag's live value rather than inferring it from the
+  // button label, so a preview toggled on from the console still reads ON here.
+  const _stArmed = (Date.now() - _setStageArmAt) < SET_UPD_ARM_MS;
+  const _stOn = (typeof _raceStageDebug !== 'undefined') && _raceStageDebug;
+  body.insertAdjacentHTML('beforeend',
+    `<div class="set-row">
+       <div class="set-row-lbl">Race screen preview</div>
+       <div class="set-ver">
+         <div class="set-ver-val">Painted stage ${_stOn?'ON':'OFF'}<br>${_stOn?'Turns off on reload':'Unfinished — testing only'}</div>
+         <button class="set-ver-btn${_stArmed?' armed':''}" onclick="settingsStageTap()">${_stArmed?(_stOn?'Tap again to turn off':'Tap again to turn on'):(_stOn?'Turn off':'Turn on')}</button>
+       </div>
+     </div>`);
+
   if(_setVerCache === null) readCacheVersion();
 }
 
@@ -21295,6 +21322,44 @@ let _setVerMsg = '';
 let _setUpdArmAt = 0;
 const SET_UPD_ARM_MS = 4000;
 
+// ═══ fix286: THE RACE STAGE PREVIEW ARM (race-vis plan §5, fix286) ═══════
+// fix279-285 built the whole painted race stage behind _raceStageDebug, and
+// the ONLY way to set that flag was typing raceStageDebugToggle() into a JS
+// console — the same console-only shape as raceDebugToggle(), calDebugToggle()
+// and the six other hub calibration toggles.
+//
+// That shape was correct for those eight and is WRONG for this one, and the
+// difference is the reason this fix exists. Those toggles raise a calibration
+// GRID over art that already ships; they are read once, off a desktop, against
+// a screenshot. This flag gates a live gameplay SURFACE that plan §5 requires
+// to have "run a full race on a real phone, on all four scenes" before fix287
+// tombstones buildCourseProfileSVG() and buildPelotonStripSVG() and makes it
+// the only race screen there is. A phone has no console. So the verification
+// the hard gate demands was, until this fix, not physically performable on the
+// device it demands it on — and the observed result was a tester racing crit
+// and road and correctly reporting that nothing had changed.
+//
+// SEPARATE TIMESTAMP, NOT SHARED WITH _setUpdArmAt. Two arms in one sheet on
+// one variable would mean arming either disarms the other, and worse, a player
+// who armed the update row and then tapped THIS one would fire a reload from a
+// button that does not say reload. Same reasoning as the fix230 note about
+// raceDebugToggle() and raceStageDebugToggle() addressing disjoint node sets.
+//
+// SAME 4000ms WINDOW, reusing SET_UPD_ARM_MS rather than declaring a second
+// constant: one arm duration for the sheet means the player learns the rhythm
+// once. If these ever need to differ, that is a reason to split the constant,
+// not a reason to have split it in advance.
+//
+// NOT PERSISTED — no storage key, no state.settings entry, nothing in
+// SETTINGS_DEFAULTS, so setSetting() remains THE one funnel into settings and
+// this fix does not touch it. The flag itself is likewise unpersisted by
+// fix279's deliberate choice: a debug surface must not survive a reload into a
+// player's save. The consequence for the tester is real and is stated in the
+// row copy — the preview is lost on reload and must be re-armed — and that is
+// the correct trade, because the alternative is a saved flag that strands a
+// player on an unfinished screen with no way back.
+let _setStageArmAt = 0;
+
 // Reads the ACTIVE worker's script and pulls the live CACHE_VERSION out of it.
 // The anchored ^const is load-bearing: every retired version in that file is a
 // `// const CACHE_VERSION = …` tombstone, and an unanchored match would report
@@ -21372,6 +21437,49 @@ function settingsUpdateTap(){
       });
     })
     .catch(()=> say('Could not check right now.'));
+}
+
+// ═══ fix286: the preview row's two-tap handler ══════════════════════════
+// Structurally settingsUpdateTap() with the fire body swapped, and written out
+// rather than factored into a shared armer because the two differ in what they
+// re-render on arm (that one calls renderSettings(), this one must too, but a
+// generic armer would have to be handed a render callback and a message and
+// would be longer than both).
+//
+// WHY TWO-TAP AT ALL, when this is not destructive. It is not a save-loss risk
+// like the update reload, so the standing rule does not compel it. It gets the
+// arm anyway for a different reason: this is the one control in the sheet that
+// replaces a finished screen with an unfinished one. A player who taps it by
+// accident while looking for the dimmer would start their next race on a
+// surface that is mid-build, and the natural reading of that is not "I pressed
+// something" but "the game is broken". The arm makes the swap deliberate, and
+// the armed copy names what is about to happen. NEVER confirm(), per the rule.
+//
+// THE FIRE IS ONE CALL. raceStageDebugToggle() already does all of it — flips
+// the flag, lazy-loads the 'racestage' group on the way ON only, and re-renders
+// the active race block if a race is running. This fix adds NO new logic to the
+// stage path and does not touch renderRaceStage(), which still returns '' on a
+// false flag exactly as fix285 left it. The shipping race surface is unchanged
+// by this fix: with the preview off, which is the default and is what every
+// player gets, the SVG builders are still the live path.
+function settingsStageTap(){
+  const now = Date.now();
+  if(now - _setStageArmAt >= SET_UPD_ARM_MS){
+    _setStageArmAt = now;
+    renderSettings();
+    // Self-disarm, guarded on the timestamp so a SECOND arm started inside this
+    // window is not cancelled by the first one's timer — settingsUpdateTap()'s
+    // guard, for settingsUpdateTap()'s reason.
+    setTimeout(()=>{
+      if(Date.now() - _setStageArmAt >= SET_UPD_ARM_MS && _setStageArmAt !== 0){
+        _setStageArmAt = 0; renderSettings();
+      }
+    }, SET_UPD_ARM_MS + 60);
+    return;
+  }
+  _setStageArmAt = 0;
+  try{ raceStageDebugToggle(); }catch(e){ console.warn('[CIM] stage preview toggle failed', e); }
+  renderSettings();
 }
 
 // THE one funnel. Every button in the sheet calls this and NOTHING ELSE writes
