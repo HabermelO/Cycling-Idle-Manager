@@ -678,8 +678,28 @@
 // const CACHE_VERSION = 'cim-v3.8.86';   // fix281: race stage race-type->window mapping (HTML only, no asset change)
 // const CACHE_VERSION = 'cim-v3.8.87';   // fix282: race stage player sprite mounted, measured per-scene contact rect (HTML only, no asset change — pedal-sheet.png / tt-static.png shipped at fix278)
 // const CACHE_VERSION = 'cim-v3.8.88';   // fix283: race stage sprite x driven by race position, eased (TAU=320ms). HTML only — no asset change, STATIC_ASSETS untouched
+const CACHE_VERSION = 'cim-v3.8.91';   // fix286: race stage preview row in Settings (two-tap armed) — HTML only, no asset change
 // const CACHE_VERSION = 'cim-v3.8.89';   // fix284: race stage pedal animation (19-frame strip, 40ms/frame) + reduced-motion hold, TT animated:false. HTML only — no asset change, STATIC_ASSETS untouched
-const CACHE_VERSION = 'cim-v3.8.90';   // fix285: raceCommentaryLine() commentary funnel + painted stage bubble wired; fix71 SVG bubble now reads the funnel (output unchanged). HTML only — no asset change, STATIC_ASSETS untouched
+// fix286: the race stage preview reaches the SETTINGS SHEET. HTML only — no
+// asset added, removed or re-encoded, so STATIC_ASSETS below is untouched and
+// the eight fix278 entries stay exactly as they were.
+//
+// The bump is mandatory for the fix186 reason ('./index.html' is in
+// STATIC_ASSETS and the deployed filename never changes), and this stage has a
+// sharper stake than most: fix286 EXISTS to make plan §5's hard-gate
+// verification performable on a phone. An installed PWA left on the v3.8.90
+// shell has no 'Race screen preview' row and no settingsStageTap() — so the
+// tester opens Settings, finds nothing there, and the only available readings
+// are "the fix did not land" or "there is no way to test this". Both are wrong,
+// both cost a session, and the second one is how a hard gate quietly gets
+// waived. Skip the bump and the verification step silently cannot run: same
+// shape of trap as fix274, one layer further in.
+//
+// The four fix278 window JPEGs and pedal-sheet.png were precached at fix278 and
+// are still only fetched when lazyLoadAssetGroup('racestage') runs, which this
+// stage newly makes reachable without a console. Nothing about the group, the
+// manifest, or the fetch strategy changes here — only who can trigger it.
+// const CACHE_VERSION = 'cim-v3.8.90';   // fix285: raceCommentaryLine() commentary funnel + painted stage bubble wired; fix71 SVG bubble now reads the funnel (output unchanged). HTML only — no asset change, STATIC_ASSETS untouched
 
 
 // fix135 — the 16 game images now live in ./assets/ rather than as base64
