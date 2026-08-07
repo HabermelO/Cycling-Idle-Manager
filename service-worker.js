@@ -451,7 +451,7 @@
 // an unlabelled trophy card, with no ⓘ on either and — on a fresh save — a
 // series wrap that renders nothing at all. Nothing errors. It simply looks like
 // the stage was never written.
-// const CACHE_VERSION = 'cim-v3.8.44';   // fix235: Your Club build-out (headings, ⓘ, series empty state)
+// const CACHE_VERSION = 'cim-v3.8.45';   // fix235: Your Club build-out (headings, ⓘ, series empty state)
 
 // fix236 — the Race hub release pass. HTML-only stage: the only change to
 // index.html is the release-pass record comment above #race-stage, and no
