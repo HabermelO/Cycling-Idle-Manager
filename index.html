@@ -1,4 +1,84 @@
 <!DOCTYPE html>
+<!-- ═══════════ fix289: RACE STAGE — THE POLISH PASS ═════════════════════
+     Stage TWELVE OF TWELVE, and the last, for the race visualisation overhaul
+     (race-vis-overhaul-plan-v2 §5 fix289: "Polish: reduced-motion audit,
+     dimmer interaction, landscape"). CSS + two gate swaps. No new asset, no
+     markup node, no save field, no race logic — startRace(), completeRace(),
+     effectiveLegsCost() and the fix270-277 Race Shape work remain out of scope
+     for this whole series (plan §0), and renderRaceStage() returns the same
+     markup it returned at fix288.
+
+     ═══ WHAT SHIPS ═══════════════════════════════════════════════════════
+       1. raceStageReduceMotion() + _raceStageRM — NEW, the one reduced-motion
+          funnel, immediately above raceStageRiderX().
+       2. raceStageRiderX()   — its fix283 gate routed through the funnel.
+       3. raceStagePedalPos() — its fix284 gate routed through the funnel.
+       4. CSS .race-stage         — isolation:isolate.
+       5. CSS .race-stage-slot    — the fix280 drop shadow replaced by a halo.
+       6. CSS @media (orientation: landscape) — one max-width cap, appended at
+          the end of the fix279 stage block.
+       7. this header + service worker CACHE_VERSION.
+
+     ═══ THE AUDIT CHANGED TWO OF THE THREE ANSWERS ═══════════════════════
+     All three concerns were investigated before anything was typed, and two
+     came back different from what the plan expected. The full derivations —
+     the sampled slot RGBs, the WCAG table at every dimmer step, the halo
+     numbers, the stacking argument and the landscape arithmetic — live in the
+     block comment above .race-stage rather than here, so they sit next to the
+     declarations they justify. In brief:
+
+     REDUCED MOTION — a real gap, and the plan was right to call the gate
+     mandatory. fix283 and fix284 both read the fix258 IN-APP toggle only.
+     SETTINGS_DEFAULTS.reduceMotion is false and is never seeded from the OS,
+     so a player who set the preference at the OS and never opened Settings had
+     all 35 of the stylesheet's OS-level blocks suppressing every CSS animation
+     in the app while the race stage — the one surface whose motion is entirely
+     JS-driven and therefore invisible to all 35 — kept moving. Closed with one
+     funnel, OR-combined, read live. Still MOTION CALL SITE 4; the fix258
+     settings list gains no entry.
+
+     DIMMER — the expected interaction is NOT the defect. Measured off
+     raceshell.png at the fix279 slot rects, #fff on three of the four painted
+     boxes is 2.09 / 2.58 / 2.18 — BELOW 3:1 AT DIMMER ZERO, which is the
+     shipped default. That is a fix280 contrast defect the dimmer only made
+     worse (down to 1.81 at the .45 step). The fix280 text-shadow could never
+     have helped: it is offset and 45% transparent, so it darkens below the
+     glyph and leaves the sides painted. Replaced with a zero-offset near-
+     opaque halo — worst box, worst dimmer step, 5.93. No --dimmer-a-driven
+     compensation was added and none is needed; a stage that brightens itself
+     as the player dims the screen is fighting the control.
+
+     LANDSCAPE — plan §8 open question 4 ANSWERED: the race screen is NOT
+     locked portrait. Capped by max-width derived from dvh, never by height,
+     because a height cap would let the used height beat aspect-ratio and
+     squash the box that every measured rect in this surface is a percentage
+     OF. The 0.62 chrome fraction is the one UNTRUSTED number in this fix and
+     is labelled as such at the rule — it is the only quantity here that could
+     not be measured off a raster, and it wants a real landscape device.
+
+     ═══ WHAT THIS STAGE DELIBERATELY DOES NOT SHIP ═══════════════════════
+     fix148 FINDING 1 (.rider-sprite declares 279px / background-size:1674px
+     against a 1568px sheet) is NOT folded in, despite sprite-redraw-spec-
+     fix287-v3 §5.6 proposing it land here. Three reasons, in order: it is
+     outside this series' declared regions (plan §7); it changes TWO surfaces
+     that are not the race stage — the Train scene and the peloton player,
+     which share the class — so it cannot be verified by a race; and fix159
+     already re-characterised it as a SELF-CONSISTENT uniform 6.8% upscale
+     rather than a per-frame drift, meaning correcting it visibly shrinks two
+     surfaces that were tuned by eye at the current size. It is a real defect
+     and it wants its own numbered fix and its own look, not a ride on the last
+     stage of a series it is not part of. Flagged, not forgotten.
+
+     Also not shipped: no change to _raceOverlayRafLoop()'s own reduceMotion
+     test. It still reads the in-app flag directly, so an OS-reduce player goes
+     on getting per-frame renders whose output is now identical every frame
+     (x snapped, pedal held) — wasted work, not wrong pixels. Routing it
+     through the funnel would change WHICH SURFACE RE-RENDERS rather than how
+     it moves, which is the fix17 result-mode / start-stop contract and not a
+     polish-stage edit.
+
+     Service worker CACHE_VERSION bumped to cim-v3.8.95. No filename changed
+     and no asset added, so STATIC_ASSETS needs no edit. -->
 <!-- ═══════════ fix288: THE RACE-STAGE RIDER WEARS THE PLAYER'S COLOURS ═══
      Stage eleven of twelve for the race visualisation overhaul (race-vis-
      overhaul-plan-v2 §5 fix288, §6). REGISTRY WIRING ONLY — no new asset, no
@@ -2324,9 +2404,83 @@ button{font-family:inherit;cursor:pointer;}
    window mapping is fix281, and an unset var renders no background rather
    than a broken surface. The flat --bg3 band under the shell hole IS the
    expected fix279 appearance. Do not "fix" it here. */
+/* ═══════════ fix289: POLISH — MOTION, CONTRAST, STACKING, LANDSCAPE ═══════
+   Stage twelve of twelve (race-vis-overhaul-plan-v2 §5 fix289: "reduced-motion
+   audit, dimmer interaction, landscape"). Three concerns, all investigated
+   before anything was typed, and the investigation changed two of the three
+   answers. Recorded here rather than in a commit message because the numbers
+   are the reason for the declarations.
+
+   ═══ (1) THE DIMMER DID NOT CAUSE THE PROBLEM. IT EXPOSED ONE. ═════════════
+   The plan expected a dimmer INTERACTION — the fix259 screen dimmer (a fixed
+   #000 layer at z 2502, alpha var(--dimmer-a), curve [0, .15, .30, .45])
+   sitting over a surface that is entirely photographic art. It was measured
+   properly rather than eyeballed: the painted slot boxes were sampled from
+   raceshell.png at the fix279 rects (x 35+n*217.7, w175, y976, h111, median
+   over the inset region, alpha>200 across 100% of every box), and WCAG
+   contrast was computed for the shipped #fff slot text at every dimmer step.
+
+     painted box   median RGB      a=0     a=.15    a=.30    a=.45
+     s1 green      105,201, 78    2.09     2.03     1.94     1.81
+     s2 amber      191,157, 76    2.58     2.47     2.32     2.10
+     s3 blue       116,185,210    2.18     2.12     2.02     1.87
+     s4 red        205, 14, 27    5.72     5.17     4.47     3.60
+
+   THREE OF THE FOUR SLOTS ARE BELOW 3:1 AT DIMMER ZERO. That is the shipped
+   default, on the primary read of the whole surface, and it is a fix280 defect
+   the dimmer merely made worse — not a dimmer defect. The dimmer investigation
+   is what found it, which is the argument for doing the audit at all.
+
+   The bubble, measured the same way, needs nothing at any step (painted bubble
+   samples pure 255,255,255; #1A1F2B body 16.47 -> 5.63, #8A5A00 sprint line
+   5.93 -> 3.57). So the fix is scoped to .race-stage-slot and the bubble rules
+   are NOT touched — see the text-shadow note there for why the existing
+   declaration could never have helped.
+
+   NO --dimmer-a-DRIVEN COMPENSATION IS ADDED, and that is deliberate. A stage
+   that brightens itself as the player dims the screen is fighting the control;
+   fix259's own comment is that the dimmer must cover every layer or a layer it
+   missed flashes bright. Fix the underlying contrast deficit and the dimmer
+   stops mattering — which the halo numbers below confirm it does.
+
+   ═══ (2) STACKING — isolation:isolate, ADDED BELOW ════════════════════════
+   .race-stage is position:relative with z-index:auto, so it does NOT create a
+   stacking context and its five internal planes (art 0, rider 1, shell 2,
+   slots/bubble 3, calibration 4) compete in .active-race's context alongside
+   the stage's own siblings. It happens to paint correctly today — .position-
+   ticker is z 5 and .decision-overlay-backdrop is z 20, both above 4 — but
+   that is arithmetic luck across two surfaces that know nothing about each
+   other, and the fix282 comment's whole point is that a plane must not be able
+   to land wrong. isolation:isolate collapses the five planes into one unit, so
+   the ticker and the decision dimmer sit above THE STAGE rather than above the
+   number 4. No visual change today; a future sibling at z 1..4 no longer
+   interleaves with the rider.
+
+   ═══ (3) LANDSCAPE — plan §8 OPEN QUESTION 4, ANSWERED ════════════════════
+   Asked: "is the race screen locked portrait?" It is NOT — nothing in this
+   file locks orientation, and the manifest is not an orientation gate for a
+   browser tab. So aspect-ratio:896/1204 at max-width:420px is 564px tall,
+   which on a landscape phone is taller than the viewport: the player scrolls
+   to see the bubble and the number slots, the two things that carry the race.
+   Capped below by height rather than letterboxed. See that rule.
+
+   ═══ WHAT THIS STAGE DELIBERATELY DOES NOT SHIP ═══════════════════════════
+   fix148 FINDING 1 (.rider-sprite 279px/1674px against a 1568px sheet) is NOT
+   folded in here despite sprite-redraw-spec-fix287-v3 §5.6 suggesting it. It
+   is out of this series' declared regions (plan §7), it changes TWO surfaces
+   outside the race stage (the Train scene and the peloton player, which share
+   the class), and fix159 re-characterised it as a uniform 6.8% upscale that is
+   self-consistent rather than a drift. Correcting it shrinks two by-eye-tuned
+   surfaces. It wants its own fix and its own look. Flagged, not forgotten. */
 .race-stage{position:relative;width:100%;max-width:420px;margin:0 auto 14px;
   aspect-ratio:896/1204;overflow:hidden;border-radius:var(--radius);
-  background:var(--bg3);}
+  background:var(--bg3);
+  /* fix289 (2) — see the stacking note above. One declaration, no visual
+     change today, and the reason it is here rather than a z-index on this rule
+     is that z-index would also enter .race-stage into its PARENT's ordering as
+     a numbered participant; isolation creates the context without claiming a
+     rank. */
+  isolation:isolate;}
 .race-stage-art{position:absolute;left:0;width:100%;top:20.5150%;height:55.1495%;
   z-index:0;background-color:var(--bg3);background-size:100% 100%;
   background-position:center;background-repeat:no-repeat;}
@@ -2504,7 +2658,34 @@ button{font-family:inherit;cursor:pointer;}
   justify-content:center;pointer-events:none;
   top:81.06%;height:9.22%;width:19.53%;
   font-weight:800;color:#fff;font-variant-numeric:tabular-nums;
-  text-shadow:0 1px 2px rgba(0,0,0,.45);
+  /* ═══ fix289 (1): A HALO, NOT A DROP SHADOW ═══════════════════════════
+     SUPERSEDES the fix280 declaration `text-shadow:0 1px 2px rgba(0,0,0,.45)`,
+     tombstoned rather than deleted so the reason it failed stays readable: it
+     is OFFSET (0 1px) and SEMI-TRANSPARENT (.45), so it darkens the pixels
+     BELOW each glyph and leaves the pixels beside and above it as painted box.
+     Contrast is decided by what touches the stroke on every side, so a
+     one-sided 45% shadow could not move the 2.09 / 2.58 / 2.18 numbers in the
+     block comment on .race-stage above, and did not.
+
+     This is a zero-offset near-opaque halo instead: the first shadow wraps the
+     glyph on all sides, so the effective background AROUND the stroke is very
+     dark regardless of which painted box is underneath. The second keeps the
+     original grounding offset so the numerals still sit ON the box rather than
+     floating. Measured against the worst box (s1 green, the lowest of the four
+     at 2.09) at every dimmer step:
+
+         a=0    a=.15   a=.30   a=.45
+        18.79   13.55    9.26    5.93
+
+     Above 4.5:1 at maximum dimmer, from below 3:1 at zero. That is the whole
+     reason no --dimmer-a compensation was needed.
+
+     WHY WHITE IS KEPT. Black text measures better still on the three light
+     boxes, but the boxes are painted UI on a raster the player also sees
+     un-dimmed, and #fff is the design intent of that art. The halo buys the
+     contrast without repainting the numerals a colour the shell was not drawn
+     for — and it works identically on the red box, where black would not. */
+  text-shadow:0 0 3px rgba(0,0,0,.90), 0 1px 2px rgba(0,0,0,.75);
   /* fix280: the type scale. The slot box is 19.53% of a stage capped at
      420px, so it is AT MOST 82 x 52 CSS px and is narrower than that on a
      small phone. The size therefore has to track the stage, not the
@@ -2578,6 +2759,51 @@ button{font-family:inherit;cursor:pointer;}
 .race-stage.race-stage-debug .race-stage-slot::after{
   content:attr(data-slot);color:#ff0;font:700 11px/1 monospace;
   position:absolute;left:2px;top:2px;
+}
+/* ═══════════ fix289 (3): LANDSCAPE — CAP THE WIDTH BY THE HEIGHT ═══════════
+   plan §8 open question 4, answered in the block comment on .race-stage above:
+   the race screen is NOT locked portrait, so this rect has to survive a
+   landscape phone.
+
+   THE CAP IS ON max-width, NOT ON height, AND THAT IS THE WHOLE TRICK. Every
+   child of this stage is positioned in % of one box whose shape is fixed by
+   aspect-ratio:896/1204 — that single fact is what fix279 bought and what
+   every measured rect in this surface (art 20.5150%/55.1495%, the four slot
+   lefts, the four per-scene contact bottoms) depends on. A max-height would
+   let the used height win over aspect-ratio and squash the box: the art would
+   letterbox, the sprite would leave the road, and four stages of contact-line
+   measurement would silently stop meaning anything. Constraining the WIDTH
+   lets aspect-ratio go on deriving the height, so the stage shrinks as a unit
+   exactly as it does between a 320px and a 420px portrait phone. Same
+   reasoning as the .sl-canvas / .wt-canvas boxes.
+
+   896/1204 = 0.744186, so a stage of height H is 0.744186*H wide.
+
+   THE 0.62 IS UNTRUSTED — SAY SO RATHER THAN DRESS IT UP. It is the fraction
+   of the viewport left for the stage after the race overlay's own chrome
+   (safe-area padding, the race header, the legs bar, the run timer and the
+   Continue button), and unlike every other number in this surface it was NOT
+   measured off a raster: that chrome is text at the player's own font size and
+   its height is not knowable from this file. It is a first estimate, chosen so
+   the stage plus chrome fits a 360x740-rotated viewport, and it must be
+   replaced by a measured value taken on a real landscape device — the same
+   estimate-then-measure discipline §3.3 used for the contact rects.
+
+   Erring low is the safe direction and is why 0.62 rather than 0.75: too small
+   a stage is a stage the player can still read in full, too large a one is the
+   scroll this rule exists to remove.
+
+   dvh, matching .race-overlay's own height:100dvh directly above this surface
+   — the same viewport unit the scroll container is measured in, so the two
+   cannot disagree about how tall the screen is when mobile browser chrome
+   collapses. No vh fallback: .race-overlay already has none, so a browser
+   without dvh is already outside this overlay's support floor.
+
+   min() with the portrait 420px means this rule can only ever make the stage
+   SMALLER. On a landscape tablet, where 0.62 of the height already exceeds
+   420px, it is a no-op and the portrait cap stands. */
+@media (orientation: landscape){
+  .race-stage{max-width:min(420px, calc(62dvh * 896 / 1204));}
 }
 
 /* fix150: Rider Skills Training. Same overlay tier as .race-overlay/.gt-overlay
@@ -25979,6 +26205,52 @@ let _raceStageRiderX = null;   // last rendered left, %
 let _raceStageRiderT = 0;      // timestamp of that value, ms
 let _raceStageRiderKey = null; // rd.startTime the two above belong to
 
+// ═══ fix289 — THE REDUCED-MOTION AUDIT, AND THE ONE GAP IT FOUND ═══════════
+//
+// Plan §3.2 calls the prefers-reduced-motion gate on this sprite MANDATORY.
+// fix283 and fix284 each shipped a gate, and both read state.settings
+// .reduceMotion — the fix258 IN-APP toggle — and nothing else. The OS-level
+// preference was never consulted on this surface.
+//
+// THAT IS A REAL GAP, NOT A PEDANTIC ONE, AND THE REST OF THE FILE MAKES IT
+// WORSE RATHER THAN COVERING IT. The stylesheet carries 35 OS-level
+// reduced-motion blocks (fix258's comment counts them), so a player who has
+// set the preference at the OS and never opened this game's Settings already
+// gets every CSS animation in the app suppressed. SETTINGS_DEFAULTS.reduceMotion
+// is `false` and applySettings() never seeds it from the OS, so for that player
+// the in-app flag stays false forever — and the race stage, the one surface
+// whose motion is entirely JS-driven and therefore invisible to all 35 of those
+// blocks, would be the ONLY thing still moving. The surface the plan singled
+// out as mandatory was the single surface not honouring the preference.
+//
+// ONE FUNNEL, TWO CALLERS, NO THIRD OPINION. raceStageRiderX() and
+// raceStagePedalPos() now ask this and nothing else, so the x ease and the
+// pedal phase cannot come to different conclusions about whether motion is
+// wanted — the same single-source rule raceStageWindowClass() enforces for the
+// scene. It stays MOTION CALL SITE 4 in the fix258 settings list: fix283
+// recorded that a second property on one site is not a second site, and an
+// additional INPUT to that site is not one either. The list is unchanged.
+//
+// OR, not AND. Either route suppresses. There is no in-app control that means
+// "I want motion despite my OS preference" — reduceMotion is a request for
+// less motion, not a request for more — so an in-app false must not be able to
+// override an OS reduce.
+//
+// THE MediaQueryList IS BUILT ONCE AND READ LIVE. `.matches` is re-read on
+// every call, so a player toggling the OS setting mid-race is picked up on the
+// next frame with no listener to register and no listener to leak. Building
+// the MQL per call instead would allocate one per rendered frame. The
+// `window.matchMedia &&` guard matches the two existing call sites in this
+// file verbatim, and _rsRM is null-safe rather than throwing on a surface that
+// renders every frame — a throw here would take the whole race render down.
+const _raceStageRM = (typeof window !== 'undefined' && window.matchMedia)
+  ? window.matchMedia('(prefers-reduced-motion: reduce)')
+  : null;
+function raceStageReduceMotion(){
+  if(state.settings && state.settings.reduceMotion) return true;
+  return !!(_raceStageRM && _raceStageRM.matches);
+}
+
 function raceStageRiderX(rd, now){
   const K = RACE_STAGE_RIDER_X;
 
@@ -26004,7 +26276,13 @@ function raceStageRiderX(rd, now){
   // motion off, it just must not travel to get there. Skipping the update would
   // freeze the rider mid-field for the whole race, which is not less motion, it
   // is wrong information.
-  if(state.settings && state.settings.reduceMotion){
+  // fix289: SUPERSEDES the `state.settings && state.settings.reduceMotion`
+  // test that stood here from fix283 — tombstoned in the funnel's comment
+  // above, which is where the reason lives. Behaviour under the in-app toggle
+  // is byte-identical; the OS preference now reaches this gate too. The snap-
+  // rather-than-skip argument in the paragraph above is unchanged and is still
+  // the reason this returns target rather than returning early.
+  if(raceStageReduceMotion()){
     _raceStageRiderX = target;
     _raceStageRiderT = now;
     return target;
@@ -26100,7 +26378,12 @@ function raceStagePedalPos(sceneClass, eff){
   // player learns anything from which point of the stroke the crank is at. So
   // this returns '' and the CSS base rule's background-position:0 0 stands: the
   // rider holds frame 0, which is plan §3.2's stated behaviour verbatim.
-  if(state.settings && state.settings.reduceMotion) return '';
+  // fix289: SUPERSEDES the `state.settings && state.settings.reduceMotion`
+  // test that stood here from fix284, for the reason in the funnel comment
+  // above raceStageRiderX(). The HOLD-not-snap argument in the paragraph above
+  // is unchanged — this still returns '' so the CSS base rule's
+  // background-position:0 0 stands and the rider holds frame 0.
+  if(raceStageReduceMotion()) return '';
   const ms = Math.max(0, eff);
   const n = Math.floor(ms / RACE_STAGE_PEDAL.FRAME_MS) % d.frames;
   return `background-position:${(n / (d.frames - 1) * 100).toFixed(4)}% 0;`;
