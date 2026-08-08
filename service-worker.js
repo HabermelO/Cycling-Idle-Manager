@@ -694,7 +694,8 @@
 // The bump is mandatory anyway: the three files keep their names, so without a
 // new cache key every installed PWA serves the old burnt-orange sprites from
 // the runtime cache indefinitely.
-const CACHE_VERSION = 'cim-v3.8.94';   // fix288: race-stage rider sheets registered with the recolour engine (pedal-sheet / tt-static / racer-static); lazy-group writers tombstoned. HTML only — no asset change, STATIC_ASSETS untouched
+// const CACHE_VERSION = 'cim-v3.8.94';   // fix288: race-stage rider sheets registered with the recolour engine (pedal-sheet / tt-static / racer-static); lazy-group writers tombstoned
+const CACHE_VERSION = 'cim-v3.8.95';   // fix289: race-stage polish — OS prefers-reduced-motion folded into the two JS motion gates, slot text halo (measured contrast deficit), isolation:isolate, landscape height cap. HTML only — no asset change, STATIC_ASSETS untouched
 // const CACHE_VERSION = 'cim-v3.8.93';   // fix287b: sprite re-key asset re-emit (pedal-sheet / racer-static / tt-static replaced; no path change, STATIC_ASSETS untouched)
 // const CACHE_VERSION = 'cim-v3.8.92';   // fix287: RACE STAGE CUTOVER — painted stage ungated, course-profile SVG + peloton strip retired. HTML only, STATIC_ASSETS untouched
 // const CACHE_VERSION = 'cim-v3.8.91';   // fix286: race stage preview row in Settings (two-tap armed) — HTML only, no asset change
