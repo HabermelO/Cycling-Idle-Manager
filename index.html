@@ -1,4 +1,106 @@
 <!DOCTYPE html>
+<!-- ═══════════ fix288: THE RACE-STAGE RIDER WEARS THE PLAYER'S COLOURS ═══
+     Stage eleven of twelve for the race visualisation overhaul (race-vis-
+     overhaul-plan-v2 §5 fix288, §6). REGISTRY WIRING ONLY — no new asset, no
+     markup node, no save field, no race logic. startRace(), completeRace(),
+     effectiveLegsCost() and the fix270-277 Race Shape work remain out of scope
+     for this whole series (plan §0), and renderRaceStage() is not touched.
+
+     ═══ WHAT SHIPS ═══════════════════════════════════════════════════════
+       1. _rcSheetSources()  — three entries appended (pedal-sheet, tt-static,
+                               racer-static).
+       2. RC_SHEET_NAMES     — seven always-on sheets -> TEN.
+       3. RC_VAR_NAMES       — three entries appended.
+       4. RC149_SHEETS       — three entries appended, two carrying a per-sheet
+                               occupancy floor, plus the rec[2] fallback in
+                               ASSERTION 3 that makes that floor possible.
+       5. LAZY_ASSET_GROUPS.racestage — the same three vars TOMBSTONED out.
+       6. CSS — url() fallbacks on the four .race-stage-rider rules.
+       7. this header + service worker CACHE_VERSION.
+
+     ═══ THE PLAN'S §6 BLOCKER IS CLEARED, AND IT WAS MEASURED ════════════
+     Plan §6 refused to register these sheets while the art keyed on helmet
+     only: "a half-recoloured rider must never reach a device", a helmet that
+     changes colour beside a jersey that does not being the exact defect class
+     the fix169 audit exists to catch. fix287b's re-key is what changed the
+     answer, and the answer was re-derived from the shipped cut rather than
+     inherited from the plan — recolorSheet()'s own window test, run offline:
+
+       pedal-sheet.png   kit 18890  helmet 8372  frame 20721   dual-window 0
+       racer-static.png  kit   939  helmet  609  frame   785   dual-window 0
+       tt-static.png     kit   893  helmet  608  frame   804   dual-window 0
+
+     All three parts, all three sheets. The 0-30 burnt-orange band still holds
+     25815 / 1380 / 1153 px and that is SKIN, correctly left unkeyed — the
+     fix161 riderFront problem (frame painted at skin hue, no window able to
+     separate them) does NOT recur on this art.
+
+     AND PER FRAME, WHICH IS THE TEST THAT ACTUALLY MATTERED. pedal-sheet is a
+     19-frame strip stepped by raceStagePedalPos(), so one bad cell would
+     flicker the kit once per pedal revolution rather than sit still and wrong
+     — far harder to diagnose from a bug report, and invisible in a screenshot.
+     Every cell was measured: per-frame minimum kit 956, helmet 369, frame 865.
+     No frame drops a part.
+
+     ═══ SCOPE IS WIDER THAN plan §7 DECLARES, DELIBERATELY ═══════════════
+     Plan §7 lists this stage's regions as _rcSheetSources / RC_SHEET_NAMES /
+     RC_VAR_NAMES only. Items 5 and 6 above are outside that list and are in
+     scope anyway, because the plan's three regions do not add up to a working
+     registration:
+
+     LAZY_ASSET_GROUPS.racestage was ALSO writing these three custom properties
+     — same three names, same documentElement.style. Two writers, last one
+     wins, and the ordering is deterministic and wrong: the recolour pass runs
+     at app init, lazyLoadAssetGroup('racestage') is one-shot and first fires on
+     race ENTRY, so the lazy write lands SECOND and stamps the plain asset over
+     the recoloured data URL. Registry-only would have shipped a rider in
+     default kit for the first race of every session — reverting to correct
+     colours after any later kit change, which reads as intermittent and is
+     not. So the lazy entries are tombstoned and the engine is left as the sole
+     writer, the same single-source-of-truth rule the funnels follow.
+
+     That removal then makes item 6 mandatory rather than tidy: the four
+     .race-stage-rider rules read a BARE var() with no fallback, which was safe
+     only while the lazy group guaranteed a value. Once the engine owns the var
+     it can legitimately be ABSENT — resetRiderSheets() removeProperty()s every
+     RC_VAR_NAMES var, and recolorSheet() returns null on a tainted canvas or a
+     decode failure — and a bare var() with no fallback renders NO background
+     image. That is an invisible player sprite mid-race on the one surface that
+     has no other rider on it. Every other recolour surface in the file already
+     carries the url(assets/...) fallback; these four were the only ones
+     without. This is the fix169 lesson in the other direction: fix169 found a
+     FOURTH list by reference sweep and pulled it into scope because the fix was
+     "retire from every list, not the three I grepped first". Same sweep, same
+     conclusion, same widening — recorded here rather than done quietly.
+
+     ═══ WHY ALWAYS-ON AND NOT LAZY ═══════════════════════════════════════
+     fix144 / fix145 / fix161 argument, unchanged: a sheet reachable at any
+     moment must not be lazily bound, because the bind swaps the var UNDER the
+     player and flashes un-recoloured kit. Here the flash would land exactly as
+     the race overlay opens — the first sight of the player's own rider, every
+     race. Cost is +18% per pass (pedal-sheet 502K px; the two statics 26K px
+     each) against a set already carrying idle.png at 1.1M px, so this does not
+     become the dominant sheet.
+
+     ═══ racer-static.png IS REGISTERED THOUGH NOTHING READS IT YET ═══════
+     A deliberate exception to the fix169 principle, taken with the cost stated
+     rather than overlooked: no CSS rule reads --sheet-race-static, because
+     fix282 chose to hold pedal-sheet frame 0 for road/hill/crit. It is the
+     smallest sheet in the whole set (26K px) and it has a named future
+     consumer, unlike the orphans fix169 retired. If that consumer has not
+     arrived within a few fixes, retire it here rather than let it become the
+     thing a later audit has to clean up. Flagged, not forgotten.
+
+     ═══ WHAT THIS STAGE DELIBERATELY DOES NOT SHIP ═══════════════════════
+     No reduced-motion audit, no dimmer interaction, no landscape work — that
+     is fix289 and the whole of it. No change to renderRaceStage(), to the
+     per-scene contact rects (fix282), to the x ease (fix283) or to the frame
+     stepping (fix284): this stage changes what the sprite is PAINTED WITH and
+     nothing about where it sits or how it moves.
+
+     Service worker CACHE_VERSION bumped to cim-v3.8.94. No filename changed,
+     so STATIC_ASSETS needs no edit — all three assets have been precached
+     since fix278 and were re-emitted in place at fix287b. -->
 <!-- fix250: BIDON TOSS — THE THROW ACTUALLY THROWS, AND THE WIND IS VISIBLE.
      Bug report: the upward swipe did nothing on a touch screen, and the wind
      was a grey "-5" sharing a 13px row with two counters.
@@ -2364,17 +2466,36 @@ button{font-family:inherit;cursor:pointer;}
    which is precisely what a reduced-motion player, and a TT rider, keep.
    NO background-position declaration is added to the modifier rules: an inline
    style beats them, but frame 0 must remain the value when no inline style is
-   emitted. Do not "tidy" the base rule's background-position away. */
+   emitted. Do not "tidy" the base rule's background-position away.
+
+   ═══ fix288: THE var() FALLBACKS BELOW ARE LOAD-BEARING, NOT DECORATION ════
+   Until this fix these four rules read a BARE var(--sheet-race-pedal) with no
+   fallback, and that was correct-by-accident: LAZY_ASSET_GROUPS.racestage set
+   the var unconditionally on race entry, so it was never unset when the rules
+   ran. fix288 registers these sheets with the RECOLOUR ENGINE and tombstones
+   the three lazy entries (see LAZY_ASSET_GROUPS), which makes the var settable
+   from one place only — and removable. resetRiderSheets() exists precisely to
+   removeProperty() every RC_VAR_NAMES var, and recolorSheet() returns null on a
+   tainted canvas or a decode failure, in which case the var is never written at
+   all. Without a fallback either path renders a rider with NO background image:
+   an invisible player sprite mid-race, on the one surface with no other rider
+   on it. Every other recolour surface in this file already carries this exact
+   fallback (.rider-sprite, .rider-still-idle>div, .pel-sprint, .pel-tt,
+   .rider-hero-rider); these four were the only recolour-fed rules without one.
+
+   The fallback is the same path the sheet is recoloured FROM, so the failure
+   mode degrades to "the painted default kit" rather than "no rider" — the
+   fix62 per-sheet degradation contract, applied to the race stage. */
 .race-stage-rider{position:absolute;z-index:1;pointer-events:none;
   width:33.4821%;aspect-ratio:151/175;left:33.2589%;
   background-repeat:no-repeat;background-position:0 0;}
-.race-stage-rider.w-road{background-image:var(--sheet-race-pedal);
+.race-stage-rider.w-road{background-image:var(--sheet-race-pedal, url(assets/pedal-sheet.png));
   background-size:1900% 100%;bottom:30.7309%;}
-.race-stage-rider.w-hill{background-image:var(--sheet-race-pedal);
+.race-stage-rider.w-hill{background-image:var(--sheet-race-pedal, url(assets/pedal-sheet.png));
   background-size:1900% 100%;bottom:25.4153%;}
-.race-stage-rider.w-crit{background-image:var(--sheet-race-pedal);
+.race-stage-rider.w-crit{background-image:var(--sheet-race-pedal, url(assets/pedal-sheet.png));
   background-size:1900% 100%;bottom:25.5814%;}
-.race-stage-rider.w-tt{background-image:var(--sheet-race-tt);
+.race-stage-rider.w-tt{background-image:var(--sheet-race-tt, url(assets/tt-static.png));
   background-size:100% 100%;bottom:25.4153%;}
 .race-stage-shell{position:absolute;inset:0;z-index:2;pointer-events:none;
   background-image:var(--sheet-race-shell);background-size:100% 100%;
@@ -17035,6 +17156,14 @@ function startRace(raceTypeId, isClub=false){
   }
   const result=simulateRaceResult(raceTypeId, {club:isClub});
   state.raceActive=true;
+  // fix287 CUTOVER: race stage art. raceStageDebugToggle() was the ONLY caller
+  // of this group (fix278 appended it inert, fix286 wired the toggle); with the
+  // stage now shipping, the load must happen on race entry or the shell and
+  // window art never fetch and every race paints an empty stage. All THREE
+  // entry points need it — startRace, startCalendarEvent, startGrandTourStage —
+  // because each sets raceActive independently. Idempotent (_lazyGroupsLoaded),
+  // so the 2nd..nth race costs nothing.
+  lazyLoadAssetGroup('racestage');
   // Use this hour's rotating course — same one the race card advertised, so
   // what the player saw before committing is exactly what they race.
   const course=getHourlyCourse(raceTypeId);
@@ -18130,6 +18259,14 @@ function startCalendarEvent(eventId){
   const result=simulateCalendarEventResult(eventId);
   const rt=RACE_TYPES.find(r=>r.id===ev.raceTypeId);
   state.raceActive=true;
+  // fix287 CUTOVER: race stage art. raceStageDebugToggle() was the ONLY caller
+  // of this group (fix278 appended it inert, fix286 wired the toggle); with the
+  // stage now shipping, the load must happen on race entry or the shell and
+  // window art never fetch and every race paints an empty stage. All THREE
+  // entry points need it — startRace, startCalendarEvent, startGrandTourStage —
+  // because each sets raceActive independently. Idempotent (_lazyGroupsLoaded),
+  // so the 2nd..nth race costs nothing.
+  lazyLoadAssetGroup('racestage');
   // fix271 — Race Shape roll (see startRace for the hoisted-startTime rationale).
   const raceStartTime=Date.now();
   const raceShape=rollRaceShape(raceStartTime+'|cal|'+eventId, getDailyWeather().condition.id);
@@ -18312,6 +18449,14 @@ function startGrandTourStage(tourId){
   const stage=stages[stageIndex];
   const result=simulateGrandTourStageResult(tourId, stageIndex);
   state.raceActive=true;
+  // fix287 CUTOVER: race stage art. raceStageDebugToggle() was the ONLY caller
+  // of this group (fix278 appended it inert, fix286 wired the toggle); with the
+  // stage now shipping, the load must happen on race entry or the shell and
+  // window art never fetch and every race paints an empty stage. All THREE
+  // entry points need it — startRace, startCalendarEvent, startGrandTourStage —
+  // because each sets raceActive independently. Idempotent (_lazyGroupsLoaded),
+  // so the 2nd..nth race costs nothing.
+  lazyLoadAssetGroup('racestage');
   // fix271 — Race Shape roll. Stage index is in the seed so consecutive stages
   // of the same tour get independent shapes rather than a repeated one.
   const raceStartTime=Date.now();
@@ -19921,10 +20066,37 @@ const LAZY_ASSET_GROUPS = {
     '--sheet-race-win-road': 'assets/race-win-road.jpg',
     '--sheet-race-win-tt':   'assets/race-win-tt.jpg',
     '--sheet-race-win-hill': 'assets/race-win-hill.jpg',
-    '--sheet-race-win-crit': 'assets/race-win-crit.jpg',
-    '--sheet-race-pedal':    'assets/pedal-sheet.png',
-    '--sheet-race-static':   'assets/racer-static.png',
-    '--sheet-race-tt':       'assets/tt-static.png'
+    '--sheet-race-win-crit': 'assets/race-win-crit.jpg'
+    // fix288: THE THREE RIDER VARS ARE GONE FROM THIS GROUP ON PURPOSE.
+    // They are now written by the recolour engine (_rcSheetSources /
+    // RC_SHEET_NAMES / RC_VAR_NAMES) so the race-stage rider wears the
+    // player's kit, helmet and frame like every other rider surface.
+    //   // '--sheet-race-pedal':    'assets/pedal-sheet.png',
+    //   // '--sheet-race-static':   'assets/racer-static.png',
+    //   // '--sheet-race-tt':       'assets/tt-static.png'
+    //
+    // THEY CANNOT STAY HERE ALONGSIDE THE REGISTRATION. Both writers target
+    // document.documentElement.style, so the two are in a last-write-wins race
+    // on the SAME three custom properties, and the ordering is not a toss-up —
+    // it is reliably the wrong way round. The recolour pass runs at app init;
+    // lazyLoadAssetGroup('racestage') is one-shot (_lazyGroupsLoaded) and first
+    // fires on race ENTRY, i.e. after it. So the lazy write would land second,
+    // stamp the plain un-recoloured asset over the recoloured data URL, and the
+    // player would wear the default kit for the whole session — until the next
+    // kit/helmet/frame change happened to re-run the pass. First race of every
+    // session, wrong colours; second race after a colour change, right colours.
+    // An intermittent-looking bug with a completely deterministic cause.
+    //
+    // The five entries that REMAIN are shell + the four windows: scenery, no
+    // rider pixels, nothing the recolour engine has any claim on. This group
+    // keeps its exact reason to exist and its lazy-on-race-entry call sites in
+    // startRace / startCalendarEvent / startGrandTourStage are untouched.
+    //
+    // NOTE FOR THE NEXT SHEET ADDED HERE: the house rule is that
+    // LAZY_ASSET_GROUPS entries are APPENDED, never inserted. Removing three is
+    // not a violation of it — the rule protects index-keyed lists, and this
+    // group is an object addressed by var name, never by position. It is
+    // nonetheless tombstoned rather than deleted so the removal is visible.
   }
 };
 const _lazyGroupsLoaded = {};
@@ -20719,7 +20891,7 @@ function renderSettings(){
     `<div class="set-row">
        <div class="set-row-lbl">Race screen preview</div>
        <div class="set-ver">
-         <div class="set-ver-val">Painted stage ${_stOn?'ON':'OFF'}<br>${_stOn?'Turns off on reload':'Unfinished — testing only'}</div>
+         <div class="set-ver-val">Calibration grid ${_stOn?'ON':'OFF'}<br>${_stOn?'Turns off on reload':'Race stage measuring overlay'}</div>
          <button class="set-ver-btn${_stArmed?' armed':''}" onclick="settingsStageTap()">${_stArmed?(_stOn?'Tap again to turn off':'Tap again to turn on'):(_stOn?'Turn off':'Turn on')}</button>
        </div>
      </div>`);
@@ -25990,7 +26162,16 @@ function raceCommentaryLine(rd){
 }
 
 function renderRaceStage(rd){
-  if(!_raceStageDebug) return '';
+  // fix287 CUTOVER: the `if(!_raceStageDebug) return '';` guard that stood here
+  // from fix279 is REMOVED. This surface is now the race screen, not a preview.
+  // The fix286 hard gate (full race, real phone, all four scenes) passed before
+  // this line was touched — that ordering is the whole point of the gate.
+  //
+  // _raceStageDebug SURVIVES, narrowed to one job: the calibration grid class
+  // below. It no longer gates whether the stage renders at all, so the Settings
+  // arm is now a grid toggle. Kept rather than deleted because the rects here
+  // will need re-measuring when the fix288 jersey art lands, and a measuring
+  // tool you removed is a measuring tool you rebuild.
 
   // Slot 1 — race legs remaining. Clamped to 0–100 for the same reason the
   // legs bar below clamps its width: a mid-race effect could in principle
@@ -26064,7 +26245,14 @@ function renderRaceStage(rd){
   // fix285 changelog §5); this surface gets one at fix286 from a stamp read.
   const cl = raceCommentaryLine(rd);
 
-  return `<div class="race-stage race-stage-debug">
+  // fix287 CUTOVER — THE ONE THAT SHIPS THE GRID IF MISSED. This class was
+  // hardcoded `race-stage race-stage-debug` from fix279 and was safe ONLY
+  // because the guard above returned '' for players. With the guard gone, a
+  // hardcoded debug class paints the magenta/cyan calibration grid, the yellow
+  // art outline and the magenta sprite box into every race for every player.
+  // Now conditional on the narrowed flag, which is false by default and never
+  // persisted (see raceStageDebugToggle).
+  return `<div class="race-stage${_raceStageDebug?' race-stage-debug':''}">
     <div class="race-stage-art ${sceneClass}"></div>
     <div class="race-stage-rider ${sceneClass}" style="left:${riderLeft}%;${riderPedal}"></div>
     <div class="race-stage-shell"></div>
@@ -26219,7 +26407,11 @@ function renderActiveRaceBlock(){
   const bubbleAnimate=rd._commentaryChangedAt!=null && (Date.now()-rd._commentaryChangedAt)<400;
   const commentaryInfo={text:bubbleText, sprint:bubbleSprint, animate:bubbleAnimate};
 
-  const courseProfileSvg=buildCourseProfileSVG(profileSrc, progress, stages, true, rivalData, commentaryInfo);
+  // fix287 CUTOVER — tombstoned. buildCourseProfileSVG() is retired in place
+  // (definition left standing, unreferenced) rather than cut out: it is ~270
+  // lines and block-commenting it risks a stray */ in its own body. The painted
+  // stage's slot 3 + window art carry the progress/terrain read this drew.
+  // const courseProfileSvg=buildCourseProfileSVG(profileSrc, progress, stages, true, rivalData, commentaryInfo);
   const courseMiniMapSvg=buildCourseMiniMapSVG(profileSrc, progress, stages);
 
   // fix72 (Race Vis Phase V4) — pending decision now renders as a focused
@@ -26339,9 +26531,12 @@ function renderActiveRaceBlock(){
     <div class="race-run-head"><span style="font-size:18px">${icn(headIcon)}</span><span class="race-run-name">${headName}</span><span class="race-run-timer${isFinalSprint?' sprint-gold':''}">${remaining}s</span></div>
     ${shapeChipHtml}
     ${raceStageHtml}
-    <div class="race-peloton-wrap" id="race-peloton-wrap"></div>
+    <!-- fix287 CUTOVER: .race-peloton-wrap and .course-profile-wrap removed.
+         These were the old surface the painted stage replaces — the peloton
+         sprite strip and the course profile SVG. The MINIMAP IS DEPLIBERATELY
+         KEPT: the plan tombstones two SVG builders, and courseMiniMapSvg is
+         neither of them. -->
     <div class="course-minimap-wrap">${courseMiniMapSvg}</div>
-    <div class="course-profile-wrap${isFinalSprint?' sprint-shake':''}">${courseProfileSvg}</div>
     <div class="race-legs-row">
       <span class="race-legs-label">${icn('fire')} Race Legs</span>
       <div class="race-legs-track"><div class="race-legs-fill" style="width:${legsPct}%;background:${legsCol}"></div></div>
@@ -26365,7 +26560,11 @@ function renderActiveRaceBlock(){
   // rule as everything else this function feeds into updatePelotonScene.
   // fix145: scene-scoped sprint flags (suppressed under TT) + the new trailing
   // isTT param. Still render-only — every argument is a local read.
-  updatePelotonScene(rd, sceneIsFinalSprint, profileSrc.profile, progress, elapsed, sceneIsFinalTenSeconds, isTT);
+  // fix287 CUTOVER — tombstoned with its target. updatePelotonScene() bails on
+  // a missing #race-peloton-wrap, so leaving this call would have been a silent
+  // no-op rather than a crash; it is commented out anyway so the dead path is
+  // visible. updatePelotonScene/buildPelotonSceneHtml retired in place.
+  // updatePelotonScene(rd, sceneIsFinalSprint, profileSrc.profile, progress, elapsed, sceneIsFinalTenSeconds, isTT);
 }
 
 // Shared markup for a single race-result card — used by both the Race tab's
@@ -34015,6 +34214,50 @@ function closeInfo(ev){
       // frame slot deliberately not applying - a fixed-colour frame on the hero
       // rather than orange skin. Decided up front, not discovered at runtime.
       riderFront: 'assets/rider-front.png',
+      // fix288: the three race-stage rider assets, cut at fix278 and re-keyed
+      // at fix287b. These are the sprites the painted race stage puts on
+      // screen for the whole duration of a race; until this fix they were
+      // plain <img> data set by LAZY_ASSET_GROUPS and were the ONLY rider
+      // surface in the game that ignored the player's chosen colours.
+      //
+      // ALL THREE PARTS KEY ON ALL THREE ASSETS — MEASURED, not assumed, on
+      // the cut output, using recolorSheet()'s own window test (alpha>0,
+      // h within [hMin,hMax], s > sMin, L within [lMin,lMax]):
+      //     pedal-sheet.png   kit 18890  helmet 8372  frame 20721
+      //     racer-static.png  kit   939  helmet  609  frame   785
+      //     tt-static.png     kit   893  helmet  608  frame   804
+      // Zero pixels match two windows on any of the three, so the
+      // "first matching window wins" break in recolorSheet() is never load
+      // bearing here. This is the plan §6 blocker — helmet passed but kit and
+      // frame did not on the v3 art — and fix287b's re-key is what cleared it.
+      // The frame is no longer painted at skin hue: the 0-30 burnt-orange band
+      // still holds 25815 / 1380 / 1153 px respectively and that is SKIN, left
+      // correctly unkeyed, exactly as intended.
+      //
+      // PER-FRAME, NOT JUST PER-SHEET. pedal-sheet.png is a 19-frame strip
+      // stepped by raceStagePedalPos(), so a single frame that failed to key
+      // would flicker the kit once per pedal revolution rather than showing a
+      // stable wrong colour — the harder defect to diagnose. All 19 cells were
+      // measured individually; the per-frame minimum is kit 956, helmet 369,
+      // frame 865, every one of them clear of the RC149_MIN_PART_PX floor of
+      // 300. No frame drops a part.
+      raceStagePedal:  'assets/pedal-sheet.png',
+      raceStageTT:     'assets/tt-static.png',
+      // racer-static.png is registered although NO CSS rule reads
+      // --sheet-race-static today: fix282 chose to hold pedal-sheet frame 0
+      // for road/hill/crit rather than swap in the static, and said so. It is
+      // included deliberately for future-proofing so that whichever surface
+      // eventually binds it inherits a recoloured sheet instead of being the
+      // next rider in default kit. THE COST IS REAL AND IS ACCEPTED: it is a
+      // 151x175 sheet (26K px, the smallest in the set by a wide margin) that
+      // is fetched, decoded and per-pixel walked on every kit/helmet/frame
+      // change for a var nothing currently consumes. This is the same shape of
+      // waste fix169 retired 'portrait' and 'raceHero' for — the difference is
+      // that those two had been ORPHANED by a redesign with no route back,
+      // whereas this one has a named consumer waiting. If that consumer has
+      // still not arrived in a few fixes, retire it here rather than letting
+      // it become the thing fix169 had to clean up.
+      raceStageStatic: 'assets/racer-static.png',
       // fix143: bike-tier idle stills. Only ONE of these is ever loaded in a
       // given pass — see _rcSheetNamesFor().
       idleMid:   'assets/idle-mid.png',
@@ -34246,9 +34489,35 @@ function closeInfo(ev){
   // whatever it stored, and _rcApplySheets skips any name without a
   // RC_VAR_NAMES entry, so a stale 'portrait' value is dropped rather than
   // written to a dead var.
+  // fix288: the three race-stage sheets join the ALWAYS-ON set, taking it from
+  // seven back to ten. This is the fix144 / fix145 / fix161 argument and not a
+  // new one: a sheet that is reachable at any moment must not be lazily bound,
+  // because the lazy bind swaps the var() UNDER the player and flashes
+  // un-recoloured kit at the worst possible moment. Here that moment is
+  // unusually bad — the bind would land as the race overlay opens, so the
+  // flash would be the first thing the player sees of their own rider, every
+  // race. A race can be started from the Race tab, the Calendar or a Grand
+  // Tour stage at any point, so "reachable at any moment" is literal.
+  //
+  // COST, MEASURED IN PIXELS, BECAUSE THAT IS WHAT recolorSheet() CHARGES BY:
+  // pedal-sheet 2869x175 = 502K px, tt-static and racer-static 26K px each.
+  // Against an existing set of roughly 3.0M px that is about +18% per pass.
+  // Notably pedal-sheet is NOT the largest sheet in the set — idle.png at
+  // 1400x784 is 1.1M px, more than twice it — so this does not change which
+  // sheet dominates a pass, and fix169's 22% saving is not being handed back
+  // for nothing: it is being spent on the surface a player stares at for the
+  // entire duration of a race.
+  //
+  // NOTHING ELSE FOLLOWS THE COUNT. _rcSheetNamesFor() still concats at most
+  // one lazy tier idle, _rcApplySheets() is driven off the results set
+  // (fix143) and resetRiderSheets() iterates RC_VAR_NAMES (fix143), so all
+  // three pick these up with no edit. The session cache (_rcCache) is built
+  // fresh each load and RC_SHEET_NAMES is fixed at parse time, so there is no
+  // stale-key hazard of the kind fix143 had to reason about.
   // var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','portrait','raceHero','sprint','tt'];
   // var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','portrait','raceHero','sprint','tt','riderFront'];
-  var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','sprint','tt','riderFront'];
+  // var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','sprint','tt','riderFront'];
+  var RC_SHEET_NAMES = ['pedal','idle','victory','exhausted','sprint','tt','riderFront','raceStagePedal','raceStageTT','raceStageStatic'];
   var RC_VAR_NAMES = {
     pedal: '--sheet-pedal',
     idle: '--sheet-idle',
@@ -34268,6 +34537,18 @@ function closeInfo(ev){
     // already driven off this map (fix143), so they need no edit. No CSS reads
     // --sheet-rider-front yet - the hero compositions land in fix162/fix163.
     riderFront: '--sheet-rider-front',
+    // fix288: race-stage rider sheets. These three var names are NOT new — they
+    // were already being written by LAZY_ASSET_GROUPS.racestage and are already
+    // read by .race-stage-rider.w-road / .w-hill / .w-crit / .w-tt. What
+    // changes is WHO writes them: the recolour engine now owns all three and
+    // the lazy group's entries are tombstoned, so there is exactly one writer.
+    // Adding them here is also what puts them in resetRiderSheets()'s
+    // removeProperty() sweep (it iterates this map, not RC_SHEET_NAMES), which
+    // is why the four .race-stage-rider rules gained url() fallbacks in the
+    // same fix — see the CSS block.
+    raceStagePedal: '--sheet-race-pedal',
+    raceStageTT: '--sheet-race-tt',
+    raceStageStatic: '--sheet-race-static',
     // fix143: bike-tier idle stills.
     idleMid: '--sheet-idle-mid',
     idleTop: '--sheet-idle-top'
@@ -34519,6 +34800,21 @@ function closeInfo(ev){
     //   ['raceHero',  'assets/race-hero.jpg'],
     ['sprint',    'assets/sprint.png'],
     ['tt',        'assets/tt.png'],
+    // fix288: the three race-stage sheets. fix169 learned the hard way that
+    // FOUR lists reference the recolour set, not three, and that this harness
+    // is the one a reference sweep finds last. Registering a sheet with the
+    // engine and not with the harness leaves the harness quietly reporting on
+    // an incomplete set — it would keep printing PASS while saying nothing at
+    // all about the sprites the player actually watches for a whole race.
+    // These are appended in the same order as RC_SHEET_NAMES.
+    // pedal-sheet.png is a 2869x175 strip and keeps the default floor: it
+    // samples to 1435x88 and measures kit 4641, helmet 2046, frame 5049,
+    // an order of magnitude clear of 300. The two 151x175 statics carry an
+    // explicit rec[2] floor of 75 — see ASSERTION 3 for why an absolute floor
+    // calibrated on strips cannot be applied to them.
+    ['raceStagePedal',  'assets/pedal-sheet.png'],
+    ['raceStageTT',     'assets/tt-static.png',     75],
+    ['raceStageStatic', 'assets/racer-static.png',  75],
     ['idleMid',   'assets/idle-mid.png'],
     ['idleMid*',  'assets/idlemid.png'],
     ['idleTop',   'assets/idle-top.png'],
@@ -34660,8 +34956,35 @@ function closeInfo(ev){
           // show a rider on a bike; a head-and-shoulders portrait has no
           // frame in it at all, so an empty window there is expected. Warn
           // rather than fail, and let the reader judge.
+          //
+          // fix288: the floor is now PER SHEET, rec[2], falling back to
+          // RC149_MIN_PART_PX when a row does not carry one — so every
+          // pre-existing row keeps its exact previous behaviour.
+          //
+          // WHY IT HAD TO BECOME PER-SHEET. RC149_MIN_PART_PX is an ABSOLUTE
+          // sampled-pixel count and it was calibrated against 1568x308 strips.
+          // The harness samples every 2nd pixel on both axes, so it sees a
+          // quarter of the sheet — fine at strip scale, but racer-static.png
+          // and tt-static.png are 151x175, which samples down to 76x88. Their
+          // measured occupancy is kit 231/218, helmet 150/150, frame 196/194:
+          // all three parts on both sheets sit under 300 while being PERFECTLY
+          // keyed (verified against recolorSheet()'s own window test at
+          // registration — see _rcSheetSources). A fixed floor would therefore
+          // have printed six "re-key may have been partial" warnings on every
+          // run, about the one thing in this fix that is definitely not
+          // broken. The file's own fix169 note says a harness that measures
+          // what nobody renders is worse than one that says nothing; a harness
+          // that warns about correct art is worse still, because the next
+          // person to see a real partial re-key will have been trained to
+          // scroll past it.
+          //
+          // 75 is half the lowest occupancy measured on either static (helmet,
+          // 150). A genuine collapsed key drops a part to single digits or to
+          // zero, so half the true value catches it with a wide margin, while
+          // leaving these sheets silent when they are correct.
+          var floorPx = (typeof rec[2] === 'number') ? rec[2] : RC149_MIN_PART_PX;
           names.forEach(function(p){
-            if(r.counts[p] > 0 && r.counts[p] < RC149_MIN_PART_PX){
+            if(r.counts[p] > 0 && r.counts[p] < floorPx){
               console.warn('[fix149] ' + rec[0] + ': only ' + r.counts[p] +
                 ' px in the ' + p + ' window — re-key may have been partial.');
             }
