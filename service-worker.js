@@ -678,7 +678,34 @@
 // const CACHE_VERSION = 'cim-v3.8.86';   // fix281: race stage race-type->window mapping (HTML only, no asset change)
 // const CACHE_VERSION = 'cim-v3.8.87';   // fix282: race stage player sprite mounted, measured per-scene contact rect (HTML only, no asset change — pedal-sheet.png / tt-static.png shipped at fix278)
 // const CACHE_VERSION = 'cim-v3.8.88';   // fix283: race stage sprite x driven by race position, eased (TAU=320ms). HTML only — no asset change, STATIC_ASSETS untouched
-const CACHE_VERSION = 'cim-v3.8.91';   // fix286: race stage preview row in Settings (two-tap armed) — HTML only, no asset change
+// fix287b: SPRITE RE-KEY ASSET RE-EMIT. assets/pedal-sheet.png,
+// assets/racer-static.png and assets/tt-static.png are REPLACED with the
+// re-keyed cut. No path added, removed or renamed, so STATIC_ASSETS is
+// untouched and the fix287 note below still stands verbatim.
+//
+// WHY 287b AND NOT 289. The sprite re-emit is plan v2 §5's 'fix287' row, but
+// that number was consumed by the race stage cutover (this file, v3.8.92 —
+// plan §5's fix286 row). 288 is reserved by the fix287 note below for the
+// STATIC_ASSETS racestage append, and 289 by plan §5 for the reduced-motion /
+// dimmer / landscape polish. Both reservations are intact; this stage takes a
+// suffix rather than displacing either.
+//
+// ASSET-ONLY. No HTML region edited, RC_PARTS untouched (spec v3 §4 step 6).
+// The bump is mandatory anyway: the three files keep their names, so without a
+// new cache key every installed PWA serves the old burnt-orange sprites from
+// the runtime cache indefinitely.
+const CACHE_VERSION = 'cim-v3.8.93';   // fix287b: sprite re-key asset re-emit (pedal-sheet / racer-static / tt-static replaced; no path change, STATIC_ASSETS untouched)
+// const CACHE_VERSION = 'cim-v3.8.92';   // fix287: RACE STAGE CUTOVER — painted stage ungated, course-profile SVG + peloton strip retired. HTML only, STATIC_ASSETS untouched
+// const CACHE_VERSION = 'cim-v3.8.91';   // fix286: race stage preview row in Settings (two-tap armed) — HTML only, no asset change
+//
+// fix287 NOTE — STATIC_ASSETS DELIBERATELY NOT TOUCHED. The eight 'racestage'
+// paths (race-shell.png, the four race-win-*.jpg, pedal-sheet.png,
+// racer-static.png, tt-static.png) are fetched at runtime by
+// lazyLoadAssetGroup('racestage') and are NOT in the precache list. Online play
+// is unaffected. Offline-launched play will paint an unpainted stage until they
+// are appended — that append is fix288's job, APPENDED never inserted, and it
+// is a separate fix because cache.addAll() is all-or-nothing at install and a
+// single bad path there bricks updates for every installed PWA.
 // const CACHE_VERSION = 'cim-v3.8.89';   // fix284: race stage pedal animation (19-frame strip, 40ms/frame) + reduced-motion hold, TT animated:false. HTML only — no asset change, STATIC_ASSETS untouched
 // fix286: the race stage preview reaches the SETTINGS SHEET. HTML only — no
 // asset added, removed or re-encoded, so STATIC_ASSETS below is untouched and
