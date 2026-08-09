@@ -3891,6 +3891,32 @@ button{font-family:inherit;cursor:pointer;}
   border:none;border-radius:50%;background:var(--bg3,rgba(120,120,120,.15));color:var(--txt2);
   font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .info-close:active{opacity:.8;}
+/* ═══ fix290 (4): armed state for the cap modal's ✕ ════════════════════════
+   ID-QUALIFIED to #ws-cap-close, NOT a bare .info-close.armed rule. Every other
+   info overlay in this file reuses .info-close for a plain one-tap dismiss, and
+   an unqualified .armed rule would sit in the stylesheet inviting the next
+   modal to pick up two-tap behaviour it was never designed for. Scoped here,
+   the two-tap treatment belongs to the one surface that needs it.
+
+   The button has to GROW: it is a 28px circle sized for a single glyph, and the
+   armed label is two words. width/min-width are overridden and the radius drops
+   to a pill so the text is not clipped into the circle. Height is unchanged, so
+   the top:10px/right:10px anchoring still lands it in the same corner and the
+   card layout below it does not move.
+
+   Colour is the AMBER TOKEN TRIO (--amber-bg/--amber-txt/--amber-bd), not a
+   hardcoded fill: those three are declared in BOTH theme blocks (light #FFF3DD
+   on #D97900, dark #3A2A0A on #F5A424), so the armed state stays legible in
+   dark mode. A literal amber-on-white would have inverted into an unreadable
+   pale-on-pale in the dark theme — the one place a state change MUST be
+   obvious, since it is the only feedback that the first tap registered.
+
+   Amber rather than a destructive red: dismissing this modal destroys nothing,
+   it only hides an explanation. It must read as CHANGED, not as dangerous. ═══ */
+#ws-cap-close.armed{width:auto;min-width:0;padding:0 10px;border-radius:14px;
+  font-size:12px;font-weight:700;white-space:nowrap;
+  background:var(--amber-bg);color:var(--amber-txt);
+  border:.5px solid var(--amber-bd);}
 /* fix192: #ws-cap-title / #ws-cap-body join these selectors rather than reusing
    the info sheet's ids, which would have been a duplicate-id document and would
    have let openInfo overwrite the cap modal's ticking countdown node. */
@@ -4963,10 +4989,72 @@ button{font-family:inherit;cursor:pointer;}
    nav still relies on it. Only the #tab-rider-qualified overrides are gone. */
 
 /* ═══ fix54: rider sprite scene (Train tab) ═══ */
-.rider-sprite{width:279px;height:308px;background:var(--sheet-pedal, url(assets/pedal.png)) no-repeat;
-  background-size:1674px 308px;transform-origin:bottom center;}
-@keyframes rider-pedal{from{background-position:0 0}to{background-position:-1674px 0}}
-.rider-anim-pedal{animation:rider-pedal var(--cadence,.8s) steps(6) infinite;}
+/* ═══ fix290 (1): .rider-sprite MOVED TO THE v5 RACE SHEET ═════════════════
+   SUPERSEDES the fix54 declaration, tombstoned below rather than deleted:
+
+     .rider-sprite{width:279px;height:308px;
+       background:var(--sheet-pedal, url(assets/pedal.png)) no-repeat;
+       background-size:1674px 308px;transform-origin:bottom center;}
+     @keyframes rider-pedal{from{background-position:0 0}
+                              to{background-position:-1674px 0}}
+     .rider-anim-pedal{animation:rider-pedal var(--cadence,.8s) steps(6) infinite;}
+
+   THIS ALSO CLOSES fix148 FINDING 1, open since fix148 and restated at fix163,
+   fix228 and fix287: the rule declared a 1674px background-size against a sheet
+   that is 1568px wide, so frame 5 was addressed 106px past the end of the image
+   and the sixth frame of the loop rendered as empty backdrop. The finding is
+   closed by REPLACEMENT, not by correction — pedal.png is no longer read here.
+
+   ONE CLASS, THREE SURFACES. .rider-sprite is rendered by all three
+   RIDER_SCENE_WRAP_IDS wraps (rider-scene-wrap, gear-rider-scene-wrap,
+   train-sheet-scene-wrap) AND by buildPelotonSceneHtml's player copy, so the
+   Train scene, the Gear-tab kit preview and the peloton player all move
+   together off ONE edit. That is why no second rule appears below for the kit
+   preview: there was never a separate one to edit.
+
+   READS --sheet-race-pedal, NOT --sheet-pedal. The var is already registered
+   with the recolour engine (fix288 appended raceStagePedal to _rcSheetSources,
+   RC_SHEET_NAMES and RC_VAR_NAMES), so the jersey hue follows equipped kit here
+   exactly as it does on the race stage, with no registry edit and no new asset:
+   assets/pedal-sheet.png already ships in STATIC_ASSETS from fix278. The
+   url() fallback is the same path the var is recoloured FROM, per the fix62
+   per-sheet degradation contract — a tainted canvas degrades to painted default
+   kit, never to an invisible rider.
+
+   CONSEQUENCE: --sheet-pedal is now read by NOTHING. Its _rcSheetSources /
+   RC_SHEET_NAMES / RC_VAR_NAMES entries are LEFT IN PLACE — those registries are
+   append-only (removing one re-indexes every entry after it), so the engine
+   still recolours a sheet no rule consumes. That is wasted work per recolour
+   pass, not a defect; it is recorded here as a follow-up, not fixed by deleting
+   from an append-only registry. Same note applies to --sheet-idle,
+   --sheet-idle-mid, --sheet-idle-top, --sheet-victory, --sheet-exhausted and
+   --sheet-rider-front after regions 2 and 3 below.
+
+   GEOMETRY — MATCHED ON HEIGHT, NOT WIDTH. The v5 cell is 151x175 (fix278 §6
+   normalised all three race assets into that box, bottom-aligned). The box is
+   scaled to the OLD rendered height so the Train scene's sprite does not change
+   size and .rider-scene's scale(.6), the .rider-still boxes and the fix103
+   HERO_SPRITE_SCALE clamp all keep working untouched:
+
+       frame height 308 (unchanged)  ->  frame width 308 * 151/175 = 265.83
+       adopted 266px: aspect 266/308 = 0.8636 vs native 151/175 = 0.8629
+       error 0.09%, i.e. under a quarter of a pixel across the full 308px —
+       below the resampling floor, so it is not visible and is not corrected
+       by a fractional background-size that would land the frame grid off
+       integer pixels at every zoom level.
+
+       sheet width 266 * 19 = 5054px
+
+   PX, NOT PERCENT. The race stage uses background-size:1900% because it is
+   fluid; this box is a FIXED 266px, and the percentage form cannot drive a
+   steps() keyframe correctly anyway: steps(19) across 0%->100% lands frame n at
+   n/19 of the travel, whilst a 19-frame strip needs n/18. The px form travels
+   the full 5054px and steps(19) lands each frame exactly on -266*n. ═══ */
+.rider-sprite{width:266px;height:308px;
+  background:var(--sheet-race-pedal, url(assets/pedal-sheet.png)) no-repeat;
+  background-size:5054px 308px;transform-origin:bottom center;}
+@keyframes rider-pedal{from{background-position:0 0}to{background-position:-5054px 0}}
+.rider-anim-pedal{animation:rider-pedal var(--cadence,.8s) steps(19) infinite;}
 .rider-scene{position:relative;height:200px;overflow:hidden;border-radius:var(--radius-lg);
   border:1px solid var(--border);margin-bottom:.6rem;
   background:linear-gradient(#8ecae6 0 62%,#74c69d 62% 78%,#5a5f66 78% 100%);}
@@ -4986,7 +5074,37 @@ button{font-family:inherit;cursor:pointer;}
 .rider-still>div{width:100%;height:100%;transform-origin:bottom center;
   background:center bottom/contain no-repeat;}
 .rider-still-idle{height:310px;}
-.rider-still-idle>div{background-image:var(--sheet-idle, url(assets/idle.png));
+/* ═══ fix290 (2): THE THREE STILLS MOVE TO THE v5 STATIC ═══════════════════
+   SUPERSEDES the fix56 declaration, tombstoned rather than deleted:
+
+     .rider-still-idle>div{background-image:var(--sheet-idle, url(assets/idle.png));
+       animation:rider-sway 3.2s ease-in-out infinite;}
+
+   WHY THE STILLS MOVE AT ALL. Region 1 alone would have left the Train scene
+   flipping between v5 pedalling art and v3 stills every time energy ran out or
+   a session ended — two different riders, two different draw styles, in one
+   200px scene. The v5 handover supplied a pedal sheet and two statics and NO
+   idle/victory/exhausted poses, so the choice was mismatch or one shared
+   static. One shared static was taken.
+
+   WHAT IS LOST, STATED PLAINLY rather than discovered later: the three poses
+   are now the SAME IMAGE. Idle, victory and exhausted are distinguished only by
+   their per-pose animation (rider-sway / rider-cheer / rider-breathe) and by
+   the .rider-still-exhausted::after sweat bead, all of which are untouched and
+   all of which still run. The poses no longer differ in DRAWING. If v5 pose art
+   ever lands, each rule takes its own var back and nothing else changes.
+
+   The animations are deliberately NOT re-timed. rider-sway/-breathe are applied
+   to the inner div with transform-origin:bottom center (set on .rider-still>div),
+   so they pivot on the wheel contact line — which fix278 §6 bottom-aligned to
+   the box floor in racer-static.png. The pivot is therefore MORE correct against
+   this asset than against the v3 stills, not less.
+
+   contain + center bottom (inherited from .rider-still>div, unchanged) fits the
+   151x175 asset into the 279x310 box on the HEIGHT constraint (310/175 = 1.77 is
+   the smaller of the two ratios), giving 268x310 — within a couple of px of the
+   266x308 Region 1 box, so the sprite does not resize when the pose changes. ═══ */
+.rider-still-idle>div{background-image:var(--sheet-race-static, url(assets/racer-static.png));
   animation:rider-sway 3.2s ease-in-out infinite;}
 /* ═══ fix143: bike-tier idle stills. Tier 1 keeps the base sheet above;
    tiers 2-3 and 4-5 override it with their own art. Plan v3 named these
@@ -4998,8 +5116,22 @@ button{font-family:inherit;cursor:pointer;}
    specificity rather than on source order. Each keeps its own
    url(assets/...) fallback, so a 404 or a tainted recolour canvas still
    shows the correct tier art in its default colours. ═══ */
-.rider-still-idle.bike-mid>div{background-image:var(--sheet-idle-mid, url(assets/idle-mid.png));}
-.rider-still-idle.bike-top>div{background-image:var(--sheet-idle-top, url(assets/idle-top.png));}
+/* fix290 (2): the two fix143 bike-tier idle overrides are TOMBSTONED:
+
+     .rider-still-idle.bike-mid>div{background-image:var(--sheet-idle-mid, url(assets/idle-mid.png));}
+     .rider-still-idle.bike-top>div{background-image:var(--sheet-idle-top, url(assets/idle-top.png));}
+
+   They MUST go rather than simply be left in place: they are class-qualified,
+   so they beat the unqualified base rule on specificity (fix143's own stated
+   mechanism). Left standing, a tier 2-5 bike would keep painting v3 idle art
+   over the v5 static and the mismatch region 2 exists to remove would survive
+   for exactly the players furthest into the game.
+
+   idleTierClass in the RIDER_SCENE_WRAP_IDS renderer is NOT edited — it still
+   computes and still emits .bike-mid/.bike-top on the wrapper. The classes now
+   match no rule, which is inert, and leaving the JS alone keeps the tier signal
+   available for whenever v5 tier art lands. Per-tier idle ART is the loss
+   recorded in the block above; the tier hook itself is intact. */
 /* ═══ fix82: Workshop tab hero image (static scene, same conventions as the
    fix80 rider-portrait hero: height/border/border-radius/margin). This is a
    plain scene photo (bike on a repair stand, no rider figure), so no jersey
@@ -5045,7 +5177,9 @@ button{font-family:inherit;cursor:pointer;}
 .workshop-hero-img{position:absolute;inset:0;
   background:var(--sheet-workshop-hero) center/cover no-repeat;}
 .rider-still-victory{height:298px;}
-.rider-still-victory>div{background-image:var(--sheet-victory, url(assets/victory.png));
+/* fix290 (2): SUPERSEDES background-image:var(--sheet-victory, url(assets/victory.png))
+   — reasoning in the block above .rider-still-idle>div. rider-cheer untouched. */
+.rider-still-victory>div{background-image:var(--sheet-race-static, url(assets/racer-static.png));
   animation:rider-victory-bounce .9s ease-in-out infinite;}
 /* ═══ fix80: Rider tab hero portrait — static, no idle animation as of fix86
    (portrait is one flattened sprite; rotating "just the rider" would need
@@ -5087,8 +5221,33 @@ button{font-family:inherit;cursor:pointer;}
 /* contain + bottom-anchored, sized as a percentage of the wrap rather than a
    fixed px width, so the rider scales with the viewport instead of cropping at
    320px or floating at 430px. Matches .race-hero-rider. */
+/* ═══ fix290 (3): THE THREE FRONT-ON HEROES MOVE TO THE v5 STATIC ══════════
+   SUPERSEDES `background:var(--sheet-rider-front, url(assets/rider-front.png))`
+   on all three of .rider-hero-rider (here), .race-hero-rider and
+   #home-profile-body .profile-hero-rider. They are edited SEPARATELY and not
+   merged into one shared rule, per the fix206 principle the Gear/Train sheets
+   already follow: a rule shared between hubs lets one tab's polish break
+   another's. Three edits, three tombstones, same substitution.
+
+   THIS IS A COMPOSITION CHANGE, NOT JUST AN ASSET SWAP — recorded because it is
+   the one consequence a later reader will otherwise think was an accident:
+   rider-front.png is a FRONT-ON portrait figure, racer-static.png is a SIDE-ON
+   racer on a bike. These three surfaces are hero scenes with a photographic
+   backdrop behind them, so they now show the rider in profile riding across the
+   scene rather than facing the viewer. Taken deliberately at handover so that
+   every rider surface in the game reads as ONE character; the alternative was
+   the v5 rider on Train/Gear/race and a different v3 rider on Rider/Race/Home.
+
+   bottom center/contain and height:96% are UNCHANGED, so each still scales with
+   the viewport rather than cropping (the fix162/fix163 sizing contract) and each
+   still bottom-anchors — which lands the fix278 §6 contact line on the scene
+   floor, the same alignment the stills get in region 2.
+
+   --sheet-race-static is registered with the recolour engine (fix288), so the
+   jersey hue still follows equipped kit on all three, and the url() fallback is
+   the recolour source per the fix62 degradation contract. ═══ */
 .rider-hero-rider{position:absolute;left:0;right:0;bottom:0;height:96%;
-  background:var(--sheet-rider-front, url(assets/rider-front.png)) bottom center/contain no-repeat;}
+  background:var(--sheet-race-static, url(assets/racer-static.png)) bottom center/contain no-repeat;}
 /* ═══ fix83: Race tab hero avatar (static scene, mirrors the fix80
    rider-portrait hero conventions). Jersey colour follows equipped kit —
    recoloured via the shared --sheet-race-hero var, same hue-rotate/canvas
@@ -5122,10 +5281,15 @@ button{font-family:inherit;cursor:pointer;}
 /* contain + bottom-anchored, sized as a percentage of the wrap rather than a
    fixed px width, so the rider scales with the viewport instead of cropping at
    320px or floating at 430px. */
+/* fix290 (3): SUPERSEDES background:var(--sheet-rider-front, url(assets/rider-front.png))
+   — reasoning in the block above .rider-hero-rider. */
 .race-hero-rider{position:absolute;left:0;right:0;bottom:0;height:96%;
-  background:var(--sheet-rider-front, url(assets/rider-front.png)) bottom center/contain no-repeat;}
+  background:var(--sheet-race-static, url(assets/racer-static.png)) bottom center/contain no-repeat;}
 .rider-still-exhausted{height:309px;}
-.rider-still-exhausted>div{background-image:var(--sheet-exhausted, url(assets/exhausted.png));
+/* fix290 (2): SUPERSEDES background-image:var(--sheet-exhausted, url(assets/exhausted.png))
+   — reasoning in the block above .rider-still-idle>div. rider-breathe and the
+   ::after sweat bead untouched. */
+.rider-still-exhausted>div{background-image:var(--sheet-race-static, url(assets/racer-static.png));
   animation:rider-breathe 2.8s ease-in-out infinite;}
 .rider-still-exhausted::after{content:'';position:absolute;left:67%;top:16%;
   width:5px;height:8px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
@@ -5136,16 +5300,27 @@ button{font-family:inherit;cursor:pointer;}
 /* Z3 turbo: stationary trainer — background frozen, sprite gets a fine buzz */
 .rider-scene.turbo .rider-scene-hills,
 .rider-scene.turbo .rider-scene-road{animation:none;}
+/* fix290 (1): steps(6) -> steps(19). These fix58 workout variants RE-DECLARE the
+   whole `animation` shorthand in order to append their own second animation
+   (buzz / wobble), which means they also re-declare the frame count and OVERRIDE
+   .rider-anim-pedal. Left at steps(6) they would step the new 19-frame,
+   5054px-travel strip in sixths — landing between frames, i.e. showing two
+   half-riders side by side — on Z3 turbo and Z5/Z6 sprint only, which is
+   precisely the kind of defect that reaches players before it reaches a
+   changelog. The frame count now lives in THREE places for this one strip
+   (here, sprintmode, and .rider-anim-pedal); that is the shorthand's doing, not
+   a choice, so it is called out rather than quietly duplicated. */
 .rider-scene.turbo .rider-sprite{
-  animation:rider-pedal var(--cadence,.8s) steps(6) infinite,
+  animation:rider-pedal var(--cadence,.8s) steps(19) infinite,
             rider-turbo-buzz .16s linear infinite;}
 @keyframes rider-turbo-buzz{0%,100%{margin-left:0}50%{margin-left:1.5px}}
 /* Z4 threshold: uphill — world tilts, rider leans into the climb */
 .rider-scene.uphill .rider-scene-tilt{transform:rotate(-4deg) scale(1.12);transform-origin:center;}
 .rider-scene.uphill .rider-sprite{transform:translateX(-50%) scale(.6) rotate(-8deg);}
 /* Z5/Z6 sprint & VO2: violent side-to-side sprint shake at max cadence */
+/* fix290 (1): steps(6) -> steps(19), same reason as the turbo variant above. */
 .rider-scene.sprintmode .rider-sprite{
-  animation:rider-pedal var(--cadence,.8s) steps(6) infinite,
+  animation:rider-pedal var(--cadence,.8s) steps(19) infinite,
             rider-sprint-wobble .3s ease-in-out infinite;}
 @keyframes rider-sprint-wobble{
   0%,100%{transform:translateX(-50%) scale(.6)}
@@ -9171,8 +9346,10 @@ body.train-sheet-live{overflow:hidden;}
 }
 #home-profile-body .profile-hero-bg{position:absolute;inset:0;
   background:url(assets/race-hero-bg.jpg) center/cover no-repeat;}
+/* fix290 (3): SUPERSEDES background:var(--sheet-rider-front, url(assets/rider-front.png))
+   — reasoning in the block above .rider-hero-rider. */
 #home-profile-body .profile-hero-rider{position:absolute;left:0;right:0;bottom:0;height:96%;
-  background:var(--sheet-rider-front, url(assets/rider-front.png)) bottom center/contain no-repeat;}
+  background:var(--sheet-race-static, url(assets/racer-static.png)) bottom center/contain no-repeat;}
 
 /* Name / title / category, stacked under the hero. .set-row is reused as the
    card shell, same as #home-shop-body's rows, so all three sections of this
@@ -31569,6 +31746,58 @@ function wsMgWindowLabel(ms){
 let wsCapModalTimer = 0;   // setInterval handle for the countdown
 let wsCapShownFor  = null; // mgWindowStart value the modal has already been shown for
 
+// ═══ fix290 (4): TWO-TAP CONFIRM ON THE CAP MODAL ═════════════════════════
+// The workshop mini-games are TAP-HEAVY by design — the bench is mashed, and
+// this modal opens UNDER a finger that is already moving. A single-tap dismiss
+// on a surface that appears mid-tap-storm is not a dismiss, it is a coin flip:
+// the player never sees why the bench shut, goes back to tapping a dead bench,
+// and the fix192 modal fails at the exact job fix192 created it for.
+//
+// So the dismiss is armed-then-confirmed, matching the two-tap discipline used
+// for destructive actions elsewhere in this file. NOT a confirm() — never.
+//
+// AND THE BACKDROP TAP IS GONE. See the markup change on #ws-cap-overlay: it
+// carried onclick="wsCapModalClose(event)", which made the ENTIRE SCREEN a
+// one-tap dismiss target. That is the single largest accidental-dismiss surface
+// in the modal and no amount of arming on the ✕ would have helped whilst it
+// stood. This is the hard-lockout reading: whilst the bench is shut the modal
+// is modal, and the only way past it is a deliberate two-tap on one small
+// control.
+//
+// DISARM ON A TIMER, not just on the next tap. An armed control left armed
+// indefinitely turns the NEXT stray tap — possibly minutes later, on a modal
+// the player has stopped reading — back into a single-tap dismiss, which is the
+// defect this region exists to remove. WS_CAP_CONFIRM_MS is the arming window.
+const WS_CAP_CONFIRM_MS = 3000;
+let wsCapConfirmArmed = false;
+let wsCapConfirmTimer = 0;
+
+// wsCapConfirmReset() — the ONE place arm state is torn down, so open, close,
+// timeout and confirm all disarm identically and none can leave a stale timer.
+function wsCapConfirmReset(){
+  wsCapConfirmArmed = false;
+  if(wsCapConfirmTimer){ clearTimeout(wsCapConfirmTimer); wsCapConfirmTimer = 0; }
+  const btn = document.getElementById('ws-cap-close');
+  if(btn){ btn.textContent = '✕'; btn.classList.remove('armed'); }
+}
+
+// wsCapModalConfirmClose(ev) — the ✕ handler. First tap arms and relabels;
+// second tap within WS_CAP_CONFIRM_MS closes. wsCapModalClose stays the actual
+// closer so the programmatic callers (showTab teardown, wsCapModalTick at zero)
+// are unaffected and never have to go through the arming path.
+function wsCapModalConfirmClose(ev){
+  if(ev) ev.stopPropagation();
+  if(!wsCapConfirmArmed){
+    wsCapConfirmArmed = true;
+    const btn = document.getElementById('ws-cap-close');
+    if(btn){ btn.textContent = 'Tap again'; btn.classList.add('armed'); }
+    if(wsCapConfirmTimer) clearTimeout(wsCapConfirmTimer);
+    wsCapConfirmTimer = setTimeout(wsCapConfirmReset, WS_CAP_CONFIRM_MS);
+    return;
+  }
+  wsCapModalClose(ev);
+}
+
 function wsCapModalOpen(force){
   const ms = wsMgWindowRemaining();
   if(ms <= 0) return;                       // bench is open; nothing to say
@@ -31580,6 +31809,11 @@ function wsCapModalOpen(force){
   const cd = document.getElementById('ws-cap-countdown');
   if(cd) cd.textContent = wsMgWindowLabel(ms);
   ov.style.display = 'flex';
+  // fix290 (4): every OPEN starts unarmed. Without this an arm left over from a
+  // previous window (armed, then the modal closed by the countdown reaching
+  // zero rather than by the second tap) would make the first tap of the NEXT
+  // opening a single-tap dismiss — the exact failure this region removes.
+  wsCapConfirmReset();
   if(wsCapModalTimer) clearInterval(wsCapModalTimer);
   wsCapModalTimer = setInterval(wsCapModalTick, 1000);
 }
@@ -31605,6 +31839,11 @@ function wsCapModalTick(){
 function wsCapModalClose(ev){
   if(ev) ev.stopPropagation();
   if(wsCapModalTimer){ clearInterval(wsCapModalTimer); wsCapModalTimer = 0; }
+  // fix290 (4): arm teardown joins the interval teardown here, so EVERY route
+  // out of the modal (✕ confirm, countdown hitting zero, showTab leaving the
+  // workshop) disarms. Leaving a setTimeout live off-tab is the same class of
+  // leak the interval clear above already guards against.
+  wsCapConfirmReset();
   const ov = document.getElementById('ws-cap-overlay');
   if(ov) ov.style.display = 'none';
 }
@@ -34256,9 +34495,15 @@ function closeInfo(ev){
      an info tap silently killing the countdown mid-tick. Same .info-overlay /
      .info-card classes, so no new CSS. Dismiss is the two-tap-free pattern used
      by the info sheet — backdrop tap or the ✕; there is no confirm(). -->
-<div id="ws-cap-overlay" class="info-overlay" style="display:none" onclick="wsCapModalClose(event)">
+<!-- fix290 (4): the backdrop onclick="wsCapModalClose(event)" is REMOVED — it
+     made the whole screen a one-tap dismiss on a modal that opens under a
+     finger already mid-tap-storm. The .info-card's stopPropagation stays even
+     though nothing above it listens now: it costs nothing and it stops a future
+     backdrop handler from silently re-introducing tap-through. See the block
+     above wsCapConfirmReset(). -->
+<div id="ws-cap-overlay" class="info-overlay" style="display:none">
   <div class="info-card" onclick="event.stopPropagation()">
-    <button class="info-close" onclick="wsCapModalClose()">✕</button>
+    <button id="ws-cap-close" class="info-close" onclick="wsCapModalConfirmClose(event)">✕</button>
     <div id="ws-cap-title">Bench closed</div>
     <div id="ws-cap-body">
       Your workshop has run out of grease and brake fluid — just nipping out for
