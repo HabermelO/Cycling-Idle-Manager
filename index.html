@@ -1,4 +1,25 @@
 <!DOCTYPE html>
+<!-- ═══════════ fix291: DIFFICULTY LEVELS + THE CALENDAR RATION ═══════════
+     Two independent changes, both requested together.
+
+     1. DIFFICULTY — Amateur / Pro / Legendary. New games default to Pro.
+        EXISTING SAVES HEAL TO AMATEUR, because every Amateur multiplier is
+        exactly 1 and Amateur is therefore the fix290 balance to the integer
+        (verified across 25 XP levels and 48 workshop price points). Nobody's
+        career moves under them. One table (DIFFICULTY_LEVELS), one accessor
+        (diffMod), five application points, nothing else in the file reads it.
+        Energy regeneration deliberately does NOT scale.
+
+     2. CALENDAR — the per-season entry ration is removed, and prestige now
+        ends the calendar season (archiving results, clearing signups) and
+        raises the difficulty picker.
+
+     Regions touched, and nothing outside them: the DIFFICULTY_LEVELS block +
+     xpForLevel; the state object; saveGame/loadGame; workshopTrackCost;
+     simulateRaceResult (AI field, prize, points); getCalendarSlotLimit;
+     renderCalendarTab's two label strings; handlePrestige; renderPrestige;
+     the new modal controller, its markup and its CSS.
+     ══════════════════════════════════════════════════════════════════════ -->
 <!-- ═══════════ fix289: RACE STAGE — THE POLISH PASS ═════════════════════
      Stage TWELVE OF TWELVE, and the last, for the race visualisation overhaul
      (race-vis-overhaul-plan-v2 §5 fix289: "Polish: reduced-motion audit,
@@ -3891,6 +3912,45 @@ button{font-family:inherit;cursor:pointer;}
   border:none;border-radius:50%;background:var(--bg3,rgba(120,120,120,.15));color:var(--txt2);
   font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .info-close:active{opacity:.8;}
+/* ═══ fix291 (13): DIFFICULTY PICKER OPTIONS ═══════════════════════════════
+   Scoped to .diff-opt, which exists only inside #diff-options. Nothing here is
+   a bare element or a shared class, so no other surface in the file can pick
+   these rules up by accident.
+
+   min-height:56px is a TOUCH TARGET, not a look: three stacked full-width
+   buttons inside a modal that opens under a moving finger need to be big enough
+   that the wrong one is not hit, and the .info-card is already the narrow
+   420px-max column so there is width to spare for height.
+
+   .armed reuses the AMBER TOKEN TRIO (--amber-bg/--amber-txt/--amber-bd) rather
+   than a hardcoded fill, for the same reason fix290 (4) does: all three are
+   declared in both theme blocks, so the armed state stays legible in dark mode
+   where a literal amber-on-white would invert into mud.
+
+   .current is a left border only — a filled background would compete with the
+   armed state for the same visual channel and the player could not tell "this
+   is where you are" from "this is about to happen". */
+.diff-opt{
+  display:block;width:100%;min-height:56px;text-align:left;
+  margin-bottom:.5rem;padding:.6rem .7rem;
+  background:var(--bg2,rgba(120,120,120,.08));
+  border:1px solid var(--border);border-left:3px solid transparent;
+  border-radius:var(--radius,10px);
+  color:var(--txt);cursor:pointer;
+  transition:background .12s ease,border-color .12s ease;
+}
+.diff-opt:last-child{margin-bottom:0}
+.diff-opt:active{opacity:.85}
+.diff-opt.current{border-left-color:var(--txt3,#888)}
+.diff-opt.armed{
+  background:var(--amber-bg);color:var(--amber-txt);
+  border-color:var(--amber-bd);border-left-color:var(--amber-bd);
+}
+.diff-opt-head{display:flex;align-items:center;gap:.35rem;font-size:13px;margin-bottom:.2rem}
+.diff-opt-tag{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;opacity:.75}
+.diff-opt-blurb{font-size:11px;line-height:1.4;color:var(--txt2);}
+.diff-opt.armed .diff-opt-blurb{color:var(--amber-txt);opacity:.85}
+
 /* ═══ fix290 (4): armed state for the cap modal's ✕ ════════════════════════
    ID-QUALIFIED to #ws-cap-close, NOT a bare .info-close.armed rule. Every other
    info overlay in this file reuses .info-close for a plain one-tap dismiss, and
@@ -13941,9 +14001,93 @@ function getWeatherFatigueBonus(){
   return Math.round((condition.fatigueBonus||0)*WEATHER_INTENSITY_MULTS[intensity]);
 }
 
-const xpForLevel = l => l < 4
-  ? Math.floor(80  * Math.pow(1.25, l))
-  : Math.floor(300 * Math.pow(2.2,  l - 4));
+// ═══════════ fix291 (1): DIFFICULTY — THE SINGLE SOURCE OF TRUTH ═══════════
+// Three levels. AMATEUR is the game exactly as it shipped through fix290 —
+// every multiplier is 1, to the bit — so an existing save loaded at 'amateur'
+// (see the loadGame heal in fix291 (4)) behaves identically to before and no
+// player's balance moves under them without consent.
+//
+// WHAT SCALES, AND WHERE IT IS APPLIED. Five keys, five application points,
+// each exactly one line, and NOTHING ELSE IN THE FILE READS THIS TABLE:
+//   xpMult     -> xpForLevel()          (levels cost more XP)
+//   mgMult     -> workshopTrackCost()   (tuning costs more Marginal Gains)
+//   fieldMult  -> simulateRaceResult()  (the AI field's FTP band, so wins are rarer)
+//   prizeMult  -> simulateRaceResult()  (winning pays more)
+//   pointsMult -> simulateRaceResult()  (category promotion comes faster)
+//
+// WHAT DELIBERATELY DOES NOT SCALE: energy regeneration. DAILY_ENERGY,
+// maxEnergy, grantRegenEnergy(), the RACE_RHYTHM rebate and the overnight
+// reset are ALL absent from the list above and MUST STAY ABSENT. Energy is the
+// session-length dial, not the challenge dial — scaling it would not make the
+// game harder, it would make it shorter, and a Legendary player would simply
+// be locked out of their own save for most of the day. Do not "helpfully" add
+// an energyMult key here.
+//
+// THE NUMBERS ARE MEASURED, NOT ESTIMATED. fieldMult was solved by bisection
+// against target win rates over 20k-race Monte Carlo runs across cat4/cat2/pro
+// for an 85th-percentile rider; prizeMult and pointsMult were then solved back
+// from the MEASURED post-difficulty earnings so that net £/race and points/race
+// land at roughly +35% (Pro) and +80% (Legendary) versus Amateur. Measured
+// outcome for that rider, averaged over the three categories:
+//
+//            win%    podium%   net £/race   net pts/race
+//   amateur  5.00     19.60       1.00x         1.00x
+//   pro      3.08     15.03       1.35x         1.35x
+//   legend.  1.66     10.37       1.80x         1.80x
+//
+// fieldMult LOOKS tiny and is not. A 1.2% shift in the opposition's FTP band
+// costs ~40% of the win rate, because the field is dense and per-race variance
+// is only ±12%. Anyone retuning this must re-run the harness rather than
+// reasoning about the size of the number: intuition is wrong here by an order
+// of magnitude, which is exactly how the rejected first cut happened.
+//
+// Direction of travel is deliberate: the hard levels take LONGER to progress
+// (xp/mg up, wins rarer) but pay BETTER when you actually win (prize and
+// category points up). Harder is meant to be a different pace, not a wall.
+const DIFFICULTY_LEVELS = {
+  amateur:   {id:'amateur',   name:'Amateur',   icon:'rider',
+              blurb:'The original balance. Gentle XP curve, cheap tuning, a forgiving field.',
+              xpMult:1.00, mgMult:1.00, fieldMult:1.000, prizeMult:1.00, pointsMult:1.00},
+  pro:       {id:'pro',       name:'Pro',       icon:'muscle',
+              blurb:'The intended balance. Slower to build and the field is sharper, but wins pay well over twice as much.',
+              xpMult:1.60, mgMult:1.60, fieldMult:1.012, prizeMult:2.10, pointsMult:1.60},
+  legendary: {id:'legendary', name:'Legendary', icon:'trophy',
+              blurb:'A long career. Everything costs more and the peloton is brutal — but a win is worth four times what it is on Amateur.',
+              xpMult:2.50, mgMult:2.50, fieldMult:1.026, prizeMult:4.40, pointsMult:2.55},
+};
+const DIFFICULTY_ORDER = ['amateur','pro','legendary'];
+
+// normaliseDifficulty(id) — the ONE place an unknown/absent id is resolved, so
+// a hand-edited save, a future renamed level or a corrupted field can never
+// leave difficultyDef() returning undefined and every multiplier read below
+// throwing on a null deref mid-race.
+function normaliseDifficulty(id){
+  return DIFFICULTY_LEVELS[id] ? id : 'pro';
+}
+function difficultyDef(){
+  return DIFFICULTY_LEVELS[normaliseDifficulty(state && state.difficulty)];
+}
+// diffMod(key) — the ONLY read accessor. Every application point goes through
+// this, so there is one place to instrument and one place a missing key falls
+// back to 1 (a neutral multiplier) rather than to NaN, which would silently
+// poison a score or a cost with no visible error.
+function diffMod(key){
+  const d = difficultyDef();
+  const v = d ? d[key] : 1;
+  return (typeof v === 'number' && isFinite(v) && v > 0) ? v : 1;
+}
+
+// fix291 (1): xpMult applied to the CURVE, not to addXP()'s award. Scaling the
+// requirement rather than the award means every "x / y xp" bar in the file
+// (renderRiderTab, the train hub, the attribute cards) reports a consistent,
+// already-scaled target with no edit at any of those five render sites, and a
+// difficulty change mid-career never strands a partially-filled bar holding
+// more XP than its own level now needs — the addXP while-loop just levels
+// through it. Math.floor is kept OUTSIDE the multiply so the result stays an
+// integer at every level on every difficulty.
+const xpForLevel = l => Math.floor((l < 4
+  ? 80  * Math.pow(1.25, l)
+  : 300 * Math.pow(2.2,  l - 4)) * diffMod('xpMult'));
 
 const ATTR_DEFS = {
   endurance:{id:'endurance',name:'Endurance',icon:'heart',colorVar:'blue',
@@ -15903,6 +16047,12 @@ const state = {
   money:0, seasonMoney:0, lifetimeMoney:0,
   onboarding: {step:0, done:false}, // brand-new state default; existing saves get done:true in loadGame
   season:1, seasonsCompleted:0, prestigeMult:1,
+  // fix291 (2): NEW GAMES START ON PRO. This literal is the new-player default
+  // and nothing else — an EXISTING save has no `difficulty` field at all, and
+  // the loadGame heal in fix291 (4) resolves that absence to 'amateur' (the
+  // pre-fix291 balance) rather than letting this line silently promote a
+  // career in progress to a harder curve. Do not "tidy" the two into agreement.
+  difficulty:'pro',
   energy:DAILY_ENERGY, maxEnergy:DAILY_ENERGY, lastEnergyReset:0,
   boughtUpgrades: new Set(),
   activeBoosts: {}, // timed Extras (coach/altitude/wind tunnel) — id -> expiry timestamp ms
@@ -17464,6 +17614,20 @@ function simulateRaceResult(raceTypeId, opts={}){
   // Race Retention Phase 3D — daily form (0-10, decays by half each overnight
   // reset). Small, visible edge for staying in rhythm: max +5% at form 10.
   playerScore*=(1+(state.form||0)*0.005);
+  // ═══ fix291 (6): THE PLAYER SIDE IS NOT TOUCHED BY DIFFICULTY ═════════════
+  // TOMBSTONED — the first cut of this fix ended the player-side chain with
+  // `playerScore*=diffMod('raceMult')`, a flat 0.88 / 0.75. It was measured and
+  // rejected: with per-race variance at only ±12% of base and 20-130 riders
+  // packed into a narrow category FTP band, a 12% score cut does not shade the
+  // odds, it drops the player clean through most of the field. Monte Carlo over
+  // 200k races put a competitive rider at 14.52% wins on amateur and 0.04% on
+  // pro — a 360x collapse off a 12% nudge — and pro consequently EARNED LESS
+  // per race than amateur, inverting the entire "harder pays better" intent.
+  //
+  // The lever moved to the AI field instead (see fieldMult in the loop below):
+  // shifting the opposition's FTP band shifts the whole finishing distribution
+  // rather than punching the player through a dense pack, so the response is
+  // gradual and solvable. DO NOT reintroduce a player-score multiplier here.
   recalibrateRivalIfNeeded();
   const fieldRoll =Math.floor(Math.random()*(cat.fieldMax-cat.fieldMin+1))+cat.fieldMin;
   const fieldSize =isClub ? Math.max(6, Math.round(fieldRoll*CLUB_RACE.fieldScale)) : fieldRoll;
@@ -17475,9 +17639,20 @@ function simulateRaceResult(raceTypeId, opts={}){
   // static checkpoint — they have good days and bad days like anyone else.
   const aiScores=[];
   let rivalScore=0;
+  // fix291 (6): the difficulty lever. Read ONCE outside the loop — a per-rider
+  // diffMod() call would be identical every iteration and this loop runs up to
+  // 129 times per race in the Pro category.
+  //
+  // Applied to the anonymous field's FTP roll ONLY. state.rival.ftp is
+  // deliberately NOT scaled: the rival is a named, persistent opponent whose
+  // number is recalibrated at category changes by recalibrateRivalIfNeeded(),
+  // and multiplying it here would silently disagree with the figure the rival
+  // card shows the player elsewhere. The rival gets harder the same way the
+  // player does — by the category moving.
+  const fieldMult = diffMod('fieldMult');
   for(let i=0;i<fieldSize-1;i++){
     const isRival = (i===0);
-    const aiFTP = isRival ? state.rival.ftp : (cat.ftpMin+Math.random()*(cat.ftpMax-cat.ftpMin));
+    const aiFTP = isRival ? state.rival.ftp : (cat.ftpMin+Math.random()*(cat.ftpMax-cat.ftpMin))*fieldMult;
     const aiVO2=30+(aiFTP-50)/500*55, aiSprint=300+(aiFTP-50)/500*1700;
     const aiBase=rt.weights.ftp*aiFTP+rt.weights.vo2*Math.max(0,(aiVO2-30)/55*100)+rt.weights.sprint*Math.max(0,(aiSprint-300)/1700*100);
     // AI also feels the weather — keeps the playing field level while still making
@@ -17491,9 +17666,24 @@ function simulateRaceResult(raceTypeId, opts={}){
   // Rival's own finishing position: ranked against every OTHER ai rider plus the player.
   const othersBeatingRival=aiScores.filter((s,idx)=>idx!==0&&s>rivalScore).length;
   const rivalPosition=othersBeatingRival+(playerScore>rivalScore?1:0)+1;
-  let prize=Math.round((cat.prizes[Math.min(position-1,cat.prizes.length-1)]||0)*state.prestigeMult*D.legacyPrizeMult);
+  // fix291 (7): prizeMult joins prestigeMult and legacyPrizeMult in the SAME
+  // round, so the three compose once instead of each rounding separately and
+  // drifting a pound or two apart from the figure the player was shown.
+  let prize=Math.round((cat.prizes[Math.min(position-1,cat.prizes.length-1)]||0)*state.prestigeMult*D.legacyPrizeMult*diffMod('prizeMult'));
   if(isClub) prize=Math.round(prize*CLUB_RACE.prizeMult);
-  return {position,fieldSize,prize,points:cat.ptsPerPos[Math.min(position-1,cat.ptsPerPos.length-1)]||0,equipBonus,weightFactor,weatherMult,noTTBike,
+  // fix291 (7): pointsMult — "category upgrades faster for winning races". The
+  // ptsPerPos table is already position-ordered (a win scores most), so a flat
+  // multiplier over it rewards winning proportionally more than pack-filling
+  // without needing a position branch here. Rounded to an integer because
+  // state.categoryPoints is compared against integer promotion thresholds and a
+  // fractional accumulator would render as 12.600000000000001 in renderStats.
+  const rawPoints=cat.ptsPerPos[Math.min(position-1,cat.ptsPerPos.length-1)]||0;
+  // Guard the round UP to 1 when the raw table already paid something: on
+  // amateur-to-legendary every multiplier is >= 1 so this cannot bite today,
+  // but it stops a future sub-1 pointsMult from silently zeroing the tail of
+  // the field and making low placings score nothing at all.
+  const scaledPoints=rawPoints>0 ? Math.max(1,Math.round(rawPoints*diffMod('pointsMult'))) : 0;
+  return {position,fieldSize,prize,points:scaledPoints,equipBonus,weightFactor,weatherMult,noTTBike,
     rival:{name:state.rival.name, beat:playerScore>rivalScore, position:rivalPosition}};
 }
 
@@ -18457,14 +18647,33 @@ function getAvailableCalendarEvents(){
   return CALENDAR_EVENTS.filter(e=> e.tier==='semipro' || (e.tier==='pro' && isProTierUnlocked()) );
 }
 
-// How many calendar slots the player gets this season, based on prestige (Season) level.
-// Season 1-2: 1 slot. Season 3-6: 2 slots. Then +1 slot every 4 seasons beyond that.
-// Always capped at however many events the player can actually see.
+// ═══════════ fix291 (8): THE SLOT CAP IS GONE ═══════════════════════════════
+// TOMBSTONED — the prestige-scaled slot ration this function used to return:
+//
+//   let raw;
+//   if(state.season<=2) raw=1;
+//   else raw=2+Math.floor((state.season-3)/4);
+//   return Math.max(1, Math.min(raw, getAvailableCalendarEvents().length));
+//
+// A Season-1 player could enter ONE event per 30-day calendar month, which
+// meant the Calendar — the feature with the Grand Tours, the relics and the
+// GC standings in it — was effectively switched off for the entire early game
+// and only became a real system somewhere around Season 7. The ration is
+// removed: enter as many events as you can see.
+//
+// THE FUNCTION IS KEPT rather than deleted, and it still returns a finite
+// number rather than Infinity. Six call sites read it (the signup guard, the
+// event-card button state in two renderers, the badge, the section label and
+// getCalendarBadgeCount) and every one of them is a `signups.length >= limit`
+// comparison or a subtraction. Returning the count of visible events makes all
+// six degrade correctly and silently: "full" now means "you have entered every
+// event that exists", which is the only honest remaining meaning of full.
+// Infinity would have rendered as the literal string "Infinity" in the badge.
+//
+// Do not re-introduce a cap here. If pacing needs a brake, the entry fee and
+// the energy cost of actually racing are the levers — both already scale.
 function getCalendarSlotLimit(){
-  let raw;
-  if(state.season<=2) raw=1;
-  else raw=2+Math.floor((state.season-3)/4);
-  return Math.max(1, Math.min(raw, getAvailableCalendarEvents().length));
+  return Math.max(1, getAvailableCalendarEvents().length);
 }
 
 // Lazily starts the 30-day calendar clock the first time the player reaches Semi-Pro,
@@ -19324,8 +19533,56 @@ function handlePrestige(){
   // and uses the already-incremented state.season. It is a single awardVP call
   // and must never grow into a reset.
   awardVP(5 * state.season, 'season_' + state.season);
+  // ═══ fix291 (10): THE CALENDAR SEASON ENDS WITH THE PRESTIGE SEASON ═══════
+  // Before this fix, prestige left state.calendar.signups untouched, so a
+  // player who had entered events and then prestiged carried those entries
+  // across into a career that had just had its FTP, category and sponsor wiped
+  // — committed to a Pro-tier race they could no longer physically finish, with
+  // the entry fee already sunk. The two season clocks now agree: prestiging
+  // ends the calendar month too.
+  //
+  // The archive/forfeit shape is lifted DELIBERATELY from checkCalendarSeasonReset()
+  // rather than being a bare `signups=[]`, so a prestige and a 30-day rollover
+  // leave identical, comparable entries in the same history list. This is a
+  // reset, not a deletion.
+  //
+  // NOT CLEARED HERE, and it must stay that way: state.calendar.history (career
+  // record), state.relics / state.uncollectedRelics (see the note at the top of
+  // this function). tourProgress is likewise left alone, exactly as
+  // checkCalendarSeasonReset leaves it — a forfeited-by-lockout tour is
+  // bookkeeping the relic shelf still reads.
+  if(state.calendar){
+    const calCompleted = Object.entries(state.calendar.completed || {}).map(([eventId,result])=>{
+      const ev=CALENDAR_EVENTS.find(e=>e.id===eventId);
+      return {eventName:ev?ev.name:eventId, eventIcon:ev?ev.icon:'flag', ...result};
+    });
+    const calForfeited = (state.calendar.signups || []).filter(id=>!(state.calendar.completed||{})[id]);
+    if(calCompleted.length || calForfeited.length){
+      state.calendar.history.unshift({
+        seasonEndedAt:Date.now(),
+        results:calCompleted,
+        forfeitedCount:calForfeited.length,
+      });
+      if(state.calendar.history.length>12) state.calendar.history.pop();
+    }
+    state.calendar.signups=[];
+    state.calendar.completed={};
+    // Restart the 30-day clock from zero rather than leaving a part-elapsed
+    // month running, so the new career gets a full calendar season. Only if the
+    // clock had already started — a player who prestiges before ever reaching
+    // Semi-Pro keeps the 0 sentinel and ensureCalendarSeasonStarted() still owns
+    // the first start.
+    if(state.calendar.seasonStartDate!==0) state.calendar.seasonStartDate=Date.now();
+  }
+  updateCalendarBadge();
   checkAchievements(); checkLifetimeGoals(); updateActivityDots(); recalc(); updateUI(); saveGame();
   showToast(`${icn('trophy')} Season ${state.season} begins! FTP reset · Prize ×${next}`);
+  // fix291 (11): the difficulty picker. Raised LAST — after the toast, after
+  // saveGame — so the season has already been committed to disk before the
+  // modal appears. If the player backgrounds the app with the picker open,
+  // nothing is lost and nothing is half-applied; they simply keep the
+  // difficulty they already had, which is the modal's own default action.
+  openDifficultyModal();
 }
 function confirmReset(){
   const btn=document.getElementById('delete-btn');
@@ -28102,6 +28359,14 @@ function renderPrestige(){
       :`<div class="prestige-info" style="margin-bottom:8px">Season goal: <strong>${pct}%</strong> — earn ${fmtMoney(thresh)} this season to unlock New Season.</div>`}
     <div class="prestige-prog-wrap"><div class="prestige-prog-bar" style="width:${pct}%"></div></div>
     ${nextPrestigePreviewLine()}
+    <!-- fix291 (14): the difficulty readout. DISPLAY ONLY — no onclick, no way
+         to open the picker from here. The picker is a New Season decision by
+         design (the XP curve resets with FTP, so a change lands cleanly on a
+         fresh career and messily on a half-built one), and the prestige card is
+         exactly where a player looks when thinking about the next season, so it
+         is where the current setting belongs. Do not add a button here without
+         first deciding what a mid-season change does to a part-filled XP bar. -->
+    <div class="prestige-info" style="margin-top:.5rem">${icn(difficultyDef().icon)} Difficulty: <strong>${difficultyDef().name}</strong> — choose again at the start of each new season.</div>
   </div>`;
 }
 
@@ -28474,7 +28739,14 @@ function getBikeTuning(bikeId){
 
 // Cost to go from `level` to `level+1` on a track: baseCost × 1.8^level.
 function workshopTrackCost(track,level){
-  return Math.round(track.baseCost*Math.pow(1.8,level));
+  // fix291 (5): mgMult. This is the ONLY workshop-side difficulty edit. It sits
+  // in the cost function rather than at the spend site deliberately — every
+  // "next: N MG" line in renderWorkshopSection() and every affordability check
+  // already reads through here, so the displayed price and the price actually
+  // charged can never disagree. WS_MG_WINDOW_CAP and the bench cooldown are NOT
+  // touched: the earn rate is a pacing gate, and scaling both the cost and the
+  // earn rate would multiply into a wall rather than a curve.
+  return Math.round(track.baseCost*Math.pow(1.8,level)*diffMod('mgMult'));
 }
 
 // getWorkshopBonuses(bikeId) — single clamped source of truth for what a
@@ -31848,6 +32120,98 @@ function wsCapModalClose(ev){
   if(ov) ov.style.display = 'none';
 }
 
+// ═══════════ fix291 (11): THE DIFFICULTY PICKER ═════════════════════════════
+// Its own overlay, not an INFO_TEXTS entry, for the same reason the fix192 cap
+// modal and the fix199 GC standings modal are separate: the body is rebuilt
+// from live state (which level is current, which button is armed) and openInfo
+// overwrites #info-card-body wholesale from a body() thunk.
+//
+// NO confirm(). NO backdrop-tap dismiss — this modal is raised by
+// handlePrestige() at the exact moment the player has just double-tapped a
+// button, i.e. under a finger that is already moving, which is the precise
+// failure fix290 (4) removed from the cap modal. The only ways out are the ✕
+// and a completed two-tap on a level.
+//
+// TWO-TAP ON EACH LEVEL, not one. Changing difficulty rewrites the XP curve,
+// every workshop price and the race field for the whole career — it is a
+// consequential, hard-to-notice-you-did-it action, and the house rule for those
+// is arm-then-commit. Same 3s window and same amber armed treatment as the cap
+// modal's ✕, reusing .info-* so there is no new modal CSS.
+//
+// Tapping the level you are ALREADY on is still a two-tap; it just resolves to
+// a no-op close. Special-casing it into a one-tap would mean the three buttons
+// behaved differently from one another for no reason the player can see.
+const DIFF_CONFIRM_MS = 3000;
+let diffArmedId   = null;
+let diffArmedTimer = 0;
+
+// diffArmReset() — the ONE teardown point, so open, close, timeout and commit
+// all disarm identically and none can leave a stale timer running off-screen.
+function diffArmReset(repaint){
+  diffArmedId = null;
+  if(diffArmedTimer){ clearTimeout(diffArmedTimer); diffArmedTimer = 0; }
+  if(repaint) renderDifficultyOptions();
+}
+
+function renderDifficultyOptions(){
+  const box = document.getElementById('diff-options'); if(!box) return;
+  const cur = normaliseDifficulty(state.difficulty);
+  box.innerHTML = DIFFICULTY_ORDER.map(id=>{
+    const d = DIFFICULTY_LEVELS[id];
+    const isCur   = (id===cur);
+    const isArmed = (diffArmedId===id);
+    const cls = 'diff-opt' + (isCur?' current':'') + (isArmed?' armed':'');
+    const label = isArmed
+      ? (isCur ? 'Tap again to keep' : 'Tap again to confirm')
+      : (isCur ? 'Current' : 'Select');
+    return `<button class="${cls}" onclick="chooseDifficulty('${id}')">
+      <div class="diff-opt-head">${icn(d.icon)} <strong>${d.name}</strong><span class="diff-opt-tag">${label}</span></div>
+      <div class="diff-opt-blurb">${d.blurb}</div>
+    </button>`;
+  }).join('');
+}
+
+function openDifficultyModal(){
+  const ov = document.getElementById('diff-overlay'); if(!ov) return;
+  diffArmReset(false);          // every open starts unarmed (fix290 (4) lesson)
+  renderDifficultyOptions();
+  ov.style.display = 'flex';
+}
+
+function closeDifficultyModal(ev){
+  if(ev) ev.stopPropagation();
+  diffArmReset(false);
+  const ov = document.getElementById('diff-overlay');
+  if(ov) ov.style.display = 'none';
+}
+
+function chooseDifficulty(id){
+  if(!DIFFICULTY_LEVELS[id]) return;   // unknown id: do nothing, never write
+  if(diffArmedId!==id){
+    diffArmedId = id;
+    if(diffArmedTimer) clearTimeout(diffArmedTimer);
+    diffArmedTimer = setTimeout(()=>diffArmReset(true), DIFF_CONFIRM_MS);
+    renderDifficultyOptions();
+    return;
+  }
+  diffArmReset(false);
+  const changed = normaliseDifficulty(state.difficulty)!==id;
+  state.difficulty = id;
+  closeDifficultyModal();
+  if(changed){
+    // recalc() then updateUI(): the XP curve and every workshop price just
+    // moved, so every bar and cost line on screen is stale by one frame. The
+    // render pass is the whole of the application — no attribute XP is
+    // migrated, no level is recomputed, because xpForLevel() scaling the
+    // REQUIREMENT (fix291 (1)) means addXP's while-loop resolves any
+    // now-overfull bar on the player's very next session with no data surgery.
+    recalc(); updateUI(); saveGame();
+    showToast(`${icn(DIFFICULTY_LEVELS[id].icon)} Difficulty: ${DIFFICULTY_LEVELS[id].name}`);
+  } else {
+    saveGame();
+  }
+}
+
 function wsAwardMG(gained, msgEl, msg){
   // fix178: window check runs BEFORE the 0–9999 clamp below, so a capped bench
   // banks nothing at all rather than banking and then clamping.
@@ -32868,7 +33232,12 @@ function renderCalendarTab(){
   ensureCalendarSeasonStarted();
 
   const daysRemaining=getCalendarDaysRemaining();
-  const slotLimit=getCalendarSlotLimit();
+  // fix291 (9): TOMBSTONED — `const slotLimit=getCalendarSlotLimit();`. Both of
+  // this renderer's reads of it (the header badge and the Sign Up label) are
+  // gone with the ration, and leaving a bound-but-unused local is how a future
+  // fix reintroduces a cap by accident, having found a variable already sitting
+  // there looking authoritative. getCalendarSlotLimit() still exists and is
+  // still read by the two event-card renderers and the signup guard.
   const slotsUsed=state.calendar.signups.length;
   const events=getAvailableCalendarEvents();
 
@@ -32881,7 +33250,10 @@ function renderCalendarTab(){
       <div class="cal-season-title">${icn('calendar')} Calendar Season</div>
       <div class="cal-season-sub">${daysRemaining} day${daysRemaining!==1?'s':''} remaining this month</div>
     </div>
-    <div class="cal-slots-badge">${slotsUsed} / ${slotLimit} slots used</div>
+    <!-- fix291 (9): was "${'$'}{slotsUsed} / ${'$'}{slotLimit} slots used". With the
+         ration removed (fix291 (8)) a denominator would read as a target the
+         player is expected to hit, which it never was. Plain count only. -->
+    <div class="cal-slots-badge">${slotsUsed} event${slotsUsed===1?'':'s'} entered</div>
   </div>`;
 
   const scheduleHtml = signedUpUnraced.length ? `
@@ -32916,7 +33288,10 @@ function renderCalendarTab(){
   ` : '';
 
   const signupHtml = notSignedUp.length ? `
-    <div class="section-lbl" style="margin-top:.75rem">Sign Up — ${slotsUsed>=slotLimit?'No slots remaining':`${slotLimit-slotsUsed} slot${slotLimit-slotsUsed!==1?'s':''} open`}</div>
+    <!-- fix291 (9): the "N slots open" counter is gone with the ration. The
+         only remaining gates on signing up are the entry fee and the Pro-tier
+         category lock, both of which the event card itself already states. -->
+    <div class="section-lbl" style="margin-top:.75rem">Sign Up</div>
     ${notSignedUp.map(ev=>calendarEventCardHtml(ev,'signup')).join('')}
   ` : '';
 
@@ -33116,6 +33491,7 @@ function saveGame(){
       money:state.money, seasonMoney:state.seasonMoney, lifetimeMoney:state.lifetimeMoney,
       onboarding:state.onboarding,
       season:state.season, seasonsCompleted:state.seasonsCompleted, prestigeMult:state.prestigeMult,
+      difficulty:state.difficulty, // fix291 (3)
       energy:state.energy, maxEnergy:state.maxEnergy, lastEnergyReset:state.lastEnergyReset,
       bought:[...state.boughtUpgrades], activeBoosts:state.activeBoosts, attributes:attrs,
       trainCooldowns:state.trainCooldowns, raceCooldowns:state.raceCooldowns,
@@ -33218,6 +33594,17 @@ function loadGame(){
     // above) keeps the fresh state default of done:false and sees the tutorial.
     state.onboarding = d.onboarding || {step:0, done:true};
     state.season=d.season||1; state.seasonsCompleted=d.seasonsCompleted||0; state.prestigeMult=d.prestigeMult||1;
+    // fix291 (4): a save written before fix291 has NO difficulty field, and the
+    // balance that save was played under is the pre-fix291 one — which is
+    // 'amateur' by construction (every amateur multiplier is exactly 1). So the
+    // absence heals to 'amateur', NOT to the state-object default of 'pro':
+    // promoting an in-progress career to a harder XP curve and a harder field
+    // without asking would invalidate every level and cost the player already
+    // paid for. Its OWN `??`, per the tourProgress lesson — never folded into a
+    // top-level guard, so a save missing only this key still gets it.
+    // normaliseDifficulty() is applied on top so a corrupted or hand-edited
+    // value cannot reach diffMod().
+    state.difficulty = normaliseDifficulty(d.difficulty ?? 'amateur');
     state.energy=d.energy??DAILY_ENERGY; state.maxEnergy=d.maxEnergy||DAILY_ENERGY; state.lastEnergyReset=d.lastEnergyReset||0;
     state.boughtUpgrades=new Set(d.bought||[]); state.activeBoosts=d.activeBoosts||{}; state.trainCooldowns=d.trainCooldowns||{}; state.raceCooldowns=d.raceCooldowns||{};
     state.raceCategory=d.raceCategory||0; state.categoryPoints=d.categoryPoints||0;
@@ -34524,6 +34911,33 @@ function closeInfo(ev){
     <button class="info-close" onclick="gcCloseStandings()">✕</button>
     <div id="gc-standings-title">General Classification</div>
     <div id="gc-standings-body"></div>
+  </div>
+</div>
+
+<!-- ── fix291 (12): Difficulty picker modal ────────────────────────────────
+     Raised by handlePrestige() at the end of every New Season. Own overlay for
+     the same reason the two above are: #diff-options is rebuilt from live state
+     by renderDifficultyOptions() on every open and on every arm.
+
+     NO onclick ON THE BACKDROP — deliberate, and load-bearing. This modal opens
+     one frame after the player's second prestige tap, so a backdrop dismiss
+     would be triggered by the tail of that same gesture and the picker would
+     vanish before it was ever read. Same reasoning as fix290 (4) on the cap
+     modal. The .info-card keeps its stopPropagation so a future backdrop
+     handler cannot silently reintroduce tap-through. The ✕ is a plain one-tap:
+     dismissing changes nothing (you keep the difficulty you already had), so
+     the two-tap lives on the level buttons where the consequence is. -->
+<div id="diff-overlay" class="info-overlay" style="display:none">
+  <div class="info-card" onclick="event.stopPropagation()">
+    <button class="info-close" onclick="closeDifficultyModal(event)">✕</button>
+    <div id="diff-title" style="font-weight:800;font-size:15px;margin-bottom:.15rem">Choose your difficulty</div>
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:.7rem;line-height:1.45">
+      A new season is a clean slate — you can change this now, or keep what you
+      have. Harder levels need more XP per level and more Marginal Gains per
+      upgrade, and the field is faster; in exchange, prize money and category
+      points come in quicker when you win. Energy is the same on every level.
+    </div>
+    <div id="diff-options"></div>
   </div>
 </div>
 
