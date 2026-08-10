@@ -697,7 +697,53 @@
 // const CACHE_VERSION = 'cim-v3.8.94';   // fix288: race-stage rider sheets registered with the recolour engine (pedal-sheet / tt-static / racer-static); lazy-group writers tombstoned
 // const CACHE_VERSION = 'cim-v3.8.95';   // fix289: race-stage polish — OS prefers-reduced-motion folded into the two JS motion gates, slot text halo (measured contrast deficit), isolation:isolate, landscape height cap. HTML only — no asset change, STATIC_ASSETS untouched
 // const CACHE_VERSION = 'cim-v3.8.96';   // fix290: rider sprite unified on the v5 race art (.rider-sprite -> pedal-sheet.png; the three stills and the three front-on heroes -> racer-static.png), pedal-sheet.png RE-EMITTED with the row-0 cut anchor corrected (vertical jump), workshop cap modal two-tap dismiss. ASSET CHANGE: assets/pedal-sheet.png replaced in place — SAME PATH, so STATIC_ASSETS is untouched; this version bump is what forces installed PWAs to re-fetch the corrected sheet instead of serving the jumping one from cache forever.
-const CACHE_VERSION = 'cim-v3.9.01';   // fix295: CALENDAR ENTRY RATION REINSTATED, on a prestige ladder (CALENDAR_SLOTS_BY_PRESTIGE = 1/2/3/4/5/6/all by prestigeLevel, replacing fix291's uncapped getAvailableCalendarEvents().length). Four slots at Lv3 is the first level at which The Perfect Season - three Grand Tours plus a national championship in one 30-day calendar season - is attemptable, one rung below the Lv4 gear tier, so you get to try and lose before you get the kit to win. Slot denominator restored to the calendar header with the next rung named. NEW: 'The Perfect Season' achievement rewarding the Rainbow Bands kit colour; condition is byte-identical to the existing capstone Lifetime Goal statFn. fix294's prestige hint and ladder sheet rewritten - they stated prestige does NOT gate entry, true of fix294 and false as of this fix. HTML ONLY - no new or replaced assets, STATIC_ASSETS untouched.
+// const CACHE_VERSION = 'cim-v3.9.01';   // fix295: CALENDAR ENTRY RATION REINSTATED, on a prestige ladder (CALENDAR_SLOTS_BY_PRESTIGE = 1/2/3/4/5/6/all by prestigeLevel, replacing fix291's uncapped getAvailableCalendarEvents().length). Four slots at Lv3 is the first level at which The Perfect Season - three Grand Tours plus a national championship in one 30-day calendar season - is attemptable, one rung below the Lv4 gear tier, so you get to try and lose before you get the kit to win. Slot denominator restored to the calendar header with the next rung named. NEW: 'The Perfect Season' achievement rewarding the Rainbow Bands kit colour; condition is byte-identical to the existing capstone Lifetime Goal statFn. fix294's prestige hint and ladder sheet rewritten - they stated prestige does NOT gate entry, true of fix294 and false as of this fix. HTML ONLY - no new or replaced assets, STATIC_ASSETS untouched.
+// ── fix297 (splash asset registration — STAGE 1 OF 2) ──────────────────────
+// This fix registers the boot-splash artwork and DOES NOTHING ELSE. No HTML
+// change ships alongside it; nothing in the game references the new file yet.
+//
+// WHY THE SPLIT. cache.addAll() is all-or-nothing at install: a single bad
+// path rejects the install promise, the SW never activates, and every PWA
+// player is stranded on the previous build. Registering the asset in its own
+// fix means the failure mode of a typo'd filename is "the file is cached but
+// unused" rather than "the game is bricked and the splash is also broken".
+// Ship this, confirm assets/splash.jpg is resident (DevTools > Application >
+// Cache Storage > cim-v3.9.03), THEN ship the fix298 HTML that paints it.
+//
+// WHY PRECACHED AND NOT LAZY. The splash is, by definition, the first pixels
+// of the first frame. A runtime-cached asset misses on exactly the cold first
+// visit — the one occasion the splash exists to cover — and an offline cold
+// start would fall through to the flat #7fb8d4 fill with no artwork at all.
+// Install-time cost is 215 KB, paid once, on a connection the install already
+// required. Same reasoning as the fix183 rider-bg entry above.
+//
+// NAMING TRAP, RECORDED DELIBERATELY. The source art arrived from the pipeline
+// named 'training-bg_jpg_2K_<stamp>.jpeg'. assets/training-bg.jpg is a LIVE,
+// UNRELATED asset (the Train hub scene, registered at fix201 and byte-untouched
+// since). The splash is registered under its own name, assets/splash.jpg, and
+// the Train hub background is not implicated by this fix in any way. If a
+// future art drop arrives under the pipeline's default name again, rename it
+// before it goes anywhere near assets/.
+//
+// ASSET SPEC as shipped: 900x1612, JPEG q82, progressive, 4:2:2 chroma,
+// 215 KB. Downscaled from the 1536x2752 / 2.2 MB source — the source is far
+// too heavy for a first-paint asset, which would have left players staring at
+// a blank screen while the loading screen loaded.
+//
+// ASPECT RATIO, MEASURED NOT ESTIMATED: 900/1612 = 0.5583. A typical phone
+// portrait viewport is ~0.462. fix298 will paint this with background-size:
+// cover per MSK's instruction, which crops ~8.6% off EACH side at 0.462 and
+// more on taller handsets. The 'CYCLING IDLE MANAGER' wordmark spans roughly
+// 10%-89% of the source width, so it survives at 0.462 with ~1.4% margin and
+// will begin to clip on viewports narrower than ~0.455. This is an accepted
+// trade, not an oversight — MSK chose full-bleed over a re-cut. If the
+// clipping is judged unacceptable in the field, the fix is a re-cut that PADS
+// SKY ONTO THE TOP to reach ~0.462, never a side crop, and it replaces this
+// file in place at the SAME PATH (so STATIC_ASSETS stays untouched and only
+// CACHE_VERSION moves — the fix172/fix179 same-name-swap case).
+// ───────────────────────────────────────────────────────────────────────────
+const CACHE_VERSION = 'cim-v3.9.03';   // fix297: assets/splash.jpg REGISTERED (900x1612 JPEG q82, 215 KB) for the boot splash screen landing in fix298. ASSET-ONLY FIX — STATIC_ASSETS gains exactly one entry, no HTML ships, nothing references the file yet. The bump is mandatory because STATIC_ASSETS changed and the manifest is only read at install: without it the old cache survives activation and the new file is never precached, so fix298 would 404 offline despite the entry being listed.
+// const CACHE_VERSION = 'cim-v3.9.02';   // fix296: (1) the fix286 "Race screen preview" settings row retired now the calibration overlay is confirmed - tombstoned, settingsStageTap/_setStageArmAt/raceStageDebugToggle/_raceStageDebug all survive so the grid stays console-raisable. (2) GRAND TOUR GC BOARD FIXED: gcScoreStageForField() handed the rival field the stage points table from the top independently of the player, so a stage win paid first-place points TWICE - once to the player, once to the top rival - and a player winning stages could sit 2nd or 3rd on the board. The field is now scored AROUND the player's real finishing position, so every place is issued exactly once. NOT retroactive: tours already underway keep their banked rival totals. The gear tier is not implicated and is untouched. HTML ONLY - no new or replaced assets, STATIC_ASSETS untouched.
 // const CACHE_VERSION = 'cim-v3.9.00';   // fix294: PRESTIGE MADE LEGIBLE — the prestige card gains a capstone hint stating what winning all three Grand Tours and a national championship actually requires, and an info sheet showing the FULL Lv0-Lv6 ladder rather than only one level ahead. Both are DERIVED from CARB_BASE_BY_PRESTIGE / WORKSHOP_CAP_BY_PRESTIGE / the minPrestige fields on the four gear registries, so a gear-ladder retune cannot leave the hint lying. IMPORTANT CORRECTION CARRIED IN THE COPY: prestige does NOT gate calendar entry - that is race category alone (isProTierUnlocked), and the per-season entry ration was removed in fix291. What prestige gates is the equipment you need to WIN. HTML ONLY - no new or replaced assets, STATIC_ASSETS untouched. NOTE the version scheme rolls 3.8.99 -> 3.9.00 here.
 // const CACHE_VERSION = 'cim-v3.8.99';   // fix293: KIT COLOUR PICKER OVERHAUL — locked swatches are now grey + padlocked (was a 30%-opacity tint that read as "this colour, faded"), unlocked ones sort first behind a labelled divider with an "N of M unlocked" count, and tapping a locked swatch opens an explainer naming exactly what unlocks it. The unlock text is DERIVED at load from ACHIEVEMENTS / LIFETIME_GOALS / SHOP_STOCK / the new GT_JERSEYS table rather than hand-written, so a retuned threshold cannot leave the picker giving stale instructions. THREE NEW COLOURS: the Grand Tour leader's jerseys (Maillot Jaune / Maglia Rosa / Maillot Rojo), awarded on a first GC Champion finish of the matching tour, at the same site and on the same condition as the relic. HTML ONLY — no new or replaced assets, STATIC_ASSETS untouched.
 // const CACHE_VERSION = 'cim-v3.8.98';   // fix292: INTRODUCTION OVERHAULED — the spotlight onboarding tour is retired (onboarding.done forced true on every load, boot launch tombstoned, startOnboarding/replayOnboarding neutered) and replaced by per-page guides: a PAGE_HELP entry for all ten pages, a fixed bottom-left ? button in the same viewport position on every page, and a first-visit auto-open per page tracked in the new helpSeen dictionary. The £20 welcome bonus moves off the retired tour onto its own one-shot welcomeBonusPaid flag (heals to true for existing saves, so nobody is paid twice). HTML ONLY — no new or replaced assets, STATIC_ASSETS untouched. The bump exists because installed PWAs would otherwise serve the fix291 HTML forever and keep showing the retired tour to new players.
@@ -896,6 +942,10 @@ const STATIC_ASSETS = [
   './assets/pedal-sheet.png',
   './assets/racer-static.png',
   './assets/tt-static.png',
+  // fix297: boot splash artwork. Appended, never inserted — the registry is
+  // append-only so a diff of this array against the fix296 baseline is exactly
+  // one added line. Nothing in the HTML references this path until fix298.
+  './assets/splash.jpg',
 ];
 
 // ── Install: pre-cache everything ───────────────────────────
