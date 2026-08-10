@@ -3548,11 +3548,55 @@ button{font-family:inherit;cursor:pointer;}
 .spec-btn-unlock{background:var(--blue-bg);color:var(--blue-txt);border:.5px solid var(--blue-bd);}
 .spec-btn-locked{background:var(--bg3);color:var(--txt3);cursor:default;}
 /* KIT COLORS */
+/* ═══ fix293 (1): LOCKED vs UNLOCKED MADE OBVIOUS ═══════════════════════════
+   The old pair of rules said "locked" with `opacity:.3` and nothing else. On a
+   phone, at 28px, a 30%-opacity maroon circle and a full-opacity grey one are
+   the same smudge — which is the complaint this fix answers. Three separate
+   visual channels now carry the state, so no single one has to be read
+   correctly on its own:
+
+     1. SIZE + FILL. Unlocked swatches keep the real colour. Locked ones are
+        drawn in the page's own dead-grey (--bg3) with the colour NOT shown at
+        all. Showing a dimmed version of the real colour was the trap: it reads
+        as "this colour, slightly faded", not as "not yours yet".
+     2. A PADLOCK GLYPH, .color-swatch-lock, centred in the locked swatch. This
+        is the channel that survives colour-blindness and a dimmed screen.
+     3. GROUPING. renderKitShop() sorts unlocked first and puts the locked ones
+        behind a labelled divider, so the two sets are never interleaved.
+
+   36px, not 28px: locked swatches are now TAPPABLE (they open the unlock
+   explainer rather than doing nothing), so they have to be a real touch
+   target. 36 is the smallest that comfortably carries the padlock as well.
+
+   THIS IS NOT A SOFT LOCKOUT. A locked swatch still cannot equip anything —
+   renderKitShop() emits openKitColorLock() on it, never equipPartColor(), so
+   there is no code path from a locked swatch to state.equippedKitColor. The tap
+   only explains. */
 .color-picker-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 0 4px;}
-.color-swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;
-  transition:transform .15s,border-color .15s;flex-shrink:0;}
+.color-swatch{width:36px;height:36px;border-radius:50%;cursor:pointer;border:2px solid transparent;
+  transition:transform .15s,border-color .15s;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;padding:0;}
 .color-swatch.active{border-color:var(--txt);transform:scale(1.15);}
-.color-swatch.locked-color{opacity:.3;cursor:default;}
+.color-swatch.locked-color{
+  background:var(--bg3) !important;   /* !important beats the inline background:<hex> the
+                                          renderer still writes, so ONE template builds both
+                                          states and there is no second markup branch to drift */
+  border:2px dashed var(--border);
+  opacity:1;                          /* tombstone (pre-fix293): opacity:.3 */
+  cursor:pointer;                     /* tombstone (pre-fix293): cursor:default */
+}
+.color-swatch-lock{width:15px;height:15px;color:var(--txt3);pointer-events:none;}
+.color-swatch-tick{width:17px;height:17px;color:#fff;pointer-events:none;
+  filter:drop-shadow(0 0 2px rgba(0,0,0,.75));}
+/* The "N of M unlocked" counter and the locked-group divider. Small, quiet,
+   and always present — a counter that only appeared when something was locked
+   would make its own arrival the news. */
+.color-row-head{font-size:12px;color:var(--txt2);margin-bottom:2px;
+  display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
+.color-row-count{font-size:11px;color:var(--txt3);font-weight:600;}
+.color-locked-divider{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--txt3);width:100%;margin:6px 0 -2px;display:flex;align-items:center;gap:6px;}
+.color-locked-divider::after{content:'';flex:1;height:1px;background:var(--border);}
 .kit-color-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:4px;vertical-align:middle;}
 /* GROWTH TAB — DAILY TASKS */
 .growth-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -3912,6 +3956,51 @@ button{font-family:inherit;cursor:pointer;}
   border:none;border-radius:50%;background:var(--bg3,rgba(120,120,120,.15));color:var(--txt2);
   font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .info-close:active{opacity:.8;}
+/* ═══ fix292 (1): PAGE HELP BUTTON ═════════════════════════════════════════
+   One floating button, bottom-left, in the SAME viewport position on every
+   page. It is deliberately NOT a painted hotspot: only the Home hub has a
+   painted cog in that corner, and the other nine tabs would each need new art
+   to match. A position:fixed FAB gives the "exactly the same space on each
+   page" contract the spec asks for with no art dependency at all.
+
+   THREE VALUES ARE LOAD-BEARING:
+
+   1. z-index:1100 — MEASURED, NOT ESTIMATED (the fix259 precedent). The FAB
+      must sit ABOVE every hub stage (max 100, plus the 998/999 toast pair) and
+      BELOW every layer that owns the screen: #morning-layer 1750, the race and
+      mini-game overlays 1800, .info-overlay 1900, .ceremony-overlay 2000,
+      #onboard-layer 2500, .onboard-skip 2501, #dimmer-layer 2502. A help
+      button floating over a race or over its own popup is the failure this
+      number prevents. IF ANY LAYER BETWEEN 100 AND 1750 IS EVER ADDED, CHECK
+      THIS VALUE AGAINST IT.
+   2. 44x44 with min-width/min-height — a touch target, not a look. It is the
+      smallest square a thumb reliably hits, and it is pinned so the global
+      button rule cannot shrink it.
+   3. env(safe-area-inset-*) on BOTH axes — the bottom-left corner is exactly
+      where an iPhone home indicator and a landscape notch land.
+
+   Visibility is a body class rather than an inline style write, so exactly one
+   expression in showTab() decides it (the HUB_TABS precedent) and no render
+   function ever has to touch this element. Hidden on 'home': the painted cog
+   at data-hot 10 already occupies that corner there, and it is repointed to
+   the same openPageHelp('home') in this fix — two buttons for one guide in one
+   corner is worse than none. */
+#page-help-fab{
+  position:fixed;
+  left:calc(12px + env(safe-area-inset-left));
+  bottom:calc(14px + env(safe-area-inset-bottom));
+  z-index:1100;
+  width:44px;height:44px;min-width:44px;min-height:44px;
+  padding:0;border-radius:50%;
+  border:1px solid var(--border);
+  background:var(--bg);color:var(--txt2);
+  font-size:19px;font-weight:800;line-height:1;
+  display:none;align-items:center;justify-content:center;
+  cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,0,0,.28);
+}
+body.page-help-fab-on #page-help-fab{display:flex;}
+#page-help-fab:active{opacity:.8;}
 /* ═══ fix291 (13): DIFFICULTY PICKER OPTIONS ═══════════════════════════════
    Scoped to .diff-opt, which exists only inside #diff-options. Nothing here is
    a bare element or a shared class, so no other surface in the file can pick
@@ -10977,7 +11066,7 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
              assignment stands UNVERIFIED against the art. If the paint turns out
              to say something else, only this one onclick and aria-label move —
              nothing else in the series depends on it. -->
-        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="10" style="--hx:5.98%;--hy:87.59%;--hw:12%;--hh:5.24%" aria-label="Help and info" onclick="openInfo('homeHelp')"></button>
+        <button class="hub-hot hub-hot-rect home-hot home-hot-rect" data-hot="10" style="--hx:5.98%;--hy:87.59%;--hw:12%;--hh:5.24%" aria-label="Help and info" onclick="openPageHelp('home')"></button>
         <!-- fix212: PLAY re-pointed, resolving the open question plan v1 §1
              flagged ("Move it to race for consistency, or leave home alone?
              Plan assumes move; flip fix212 if not"). MOVED, as the plan
@@ -12139,7 +12228,13 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
       <button class="gear-nav-btn" style="width:100%;margin-top:.5rem" onclick="copyRaceTelemetry()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-clipboard"></use></svg> Copy Race Telemetry</button>
     </div>
     <div style="text-align:center;margin-top:1rem">
-      <button class="gear-nav-btn" onclick="replayOnboarding()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-graduate"></use></svg> Replay Tutorial</button>
+      <!-- fix292 (9): repointed from replayOnboarding() to replayGuides(). The
+           tour it used to replay no longer exists; this now clears the seen-set
+           so every page guide pops once more. Label changed to match, because a
+           button promising a "tutorial" that delivers a help sheet is worse
+           than either. One handler in, one handler out — the audit count on
+           this line is unchanged. -->
+      <button class="gear-nav-btn" onclick="replayGuides()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-graduate"></use></svg> Replay Guides</button>
     </div>
     <div style="text-align:center;margin-top:.5rem">
       <button id="delete-btn" class="danger-btn" onclick="confirmReset()"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-trash"></use></svg> Delete Save &amp; Start Over</button>
@@ -15667,6 +15762,33 @@ const ACHIEVEMENTS = [
   // like the other one-off ftp_/cat_/season_ achievements above.
   {id:'workshop_first_tune', icon:'wrench', name:'First Tune-up',   desc:'Spend Marginal Gains on a tuning upgrade.',
    reward:{type:'money',val:100,  label:'+£100 prize money'},     progress:null},
+  // fix295 (4): THE CAPSTONE ACHIEVEMENT. Appended, never inserted.
+  //
+  // An ACHIEVEMENT and not a second tier on the 'perfectseason' Lifetime Goal
+  // track, and that choice is load-bearing. That track is single-tier with
+  // threshold 1; appending a second tier at the same threshold would make
+  // renderGoalTracks' progress arithmetic — (val - prev) / (next - prev) —
+  // divide by zero. Achievements have no such coupling: one id, one condition,
+  // one reward, checked by the same checkAchievements() sweep as every other.
+  //
+  // Its condition is byte-for-byte the capstone track's statFn, deliberately,
+  // so the badge and the title can never disagree about what a perfect season
+  // is. See achUnlocked below.
+  //
+  // TIMING IS THE SUBTLE PART. state.seasonAchievements is cleared by BOTH
+  // handlePrestige() and checkCalendarSeasonReset(), so the window in which
+  // this reads true is narrow. It is caught because checkAchievements() runs in
+  // completeRace()'s terminal chain, on the same tick that writes gtWon /
+  // nationalsWon — and earnedAchievements is permanent once set, so the later
+  // wipe cannot take it back.
+  {id:'perfect_season', icon:'crown', name:'The Perfect Season',
+   desc:'Win all three Grand Tours and a national championship in one calendar season.',
+   reward:{type:'color',val:'gt_rainbow',label:'Rainbow Bands kit colour'}, progress:s=>{
+     const sa=s.seasonAchievements;
+     const g=(sa&&sa.gtWon)?PERFECT_SEASON_TOURS.filter(id=>sa.gtWon.has(id)).length:0;
+     const n=(sa&&sa.nationalsWon)?1:0;
+     return `${g+n} / ${PERFECT_SEASON_TOURS.length+1} this season`;
+   }},
 ];
 
 function achUnlocked(s,achId){
@@ -15692,6 +15814,15 @@ function achUnlocked(s,achId){
     // fix79/Fix 5 — derived from existing per-bike tuning levels rather than a
     // new state flag: true the moment any track on any bike is above 0.
     workshop_first_tune: Object.values(s.workshop.tuning).some(t=>t.drivetrain>0||t.aero>0||t.weight>0||t.bearings>0),
+    // fix295 (4): same expression as the 'perfectseason' Lifetime Goal statFn.
+    // Guarded on sa.gtWon because seasonAchievements is wiped to a fresh object
+    // by two separate callers and a save written mid-wipe could land here with
+    // the Set absent.
+    perfect_season: (function(){
+      const sa=s.seasonAchievements;
+      if(!sa || !sa.gtWon) return false;
+      return PERFECT_SEASON_TOURS.every(id=>sa.gtWon.has(id)) && !!sa.nationalsWon;
+    })(),
   };
   return !!checks[achId];
 }
@@ -15925,7 +16056,14 @@ const KIT_COLORS = [
   // renders, which fails silently rather than loudly.
   {id:'crimson',  hex:'#b81237', label:'Stage Crimson'},
   {id:'sapphire', hex:'#0b3d91', label:'Grand Tour Sapphire'},
-  {id:'maillot',  hex:'#ffd400', label:'Maillot Jaune'},
+  // fix293 (2): LABEL ONLY. The id is untouched and so is the LIFETIME_GOALS
+  // tier that grants it — this is a display string, never persisted, never
+  // compared against. It is renamed because fix293 adds a real Maillot Jaune
+  // that is won by winning the Tour de France, and two swatches reading
+  // "Maillot Jaune" in the same picker is precisely the confusion this fix
+  // exists to remove. Anyone who already owns it keeps it, in the same hex.
+  // tombstone (pre-fix293): {id:'maillot', hex:'#ffd400', label:'Maillot Jaune'},
+  {id:'maillot',  hex:'#ffd400', label:'Classification Yellow'},
   {id:'tricolore',hex:'#1e4fa3', label:'Champion Tricolore'},
   {id:'chrono',   hex:'#9aa5b1', label:'Chrono Silver'},
   {id:'grease',   hex:'#3d3227', label:'Workshop Grease'},
@@ -15949,6 +16087,49 @@ const KIT_COLORS = [
   {id:'shopcol_copper', hex:'#a55c26', label:'Copper'},
   {id:'shopcol_indigo', hex:'#2e2a6b', label:'Indigo'},
   {id:'shopcol_ivory',  hex:'#e8e2d0', label:'Ivory'},
+  // fix293 (3) — THE THREE GRAND TOUR LEADER'S JERSEYS. Registry 1 of 2; the
+  // award side is GT_JERSEYS immediately below. APPENDED, never inserted.
+  //
+  // These are the only colours in the file whose unlock is a single named race
+  // result rather than a counter, and that is the whole point of them: the
+  // player asked "how do I get the yellow one" and the answer is now the answer
+  // a cyclist would give — win the Tour. Yellow for the Tour, pink for the
+  // Giro, red for the Vuelta, exactly as the real jerseys go.
+  //
+  // Hexes are the broadcast jersey colours, and are deliberately well clear of
+  // the nearest existing swatch in each case so the picker does not gain three
+  // near-duplicates: 'red' is Sprint Red #a32d2d (dark brick) against #d7141a
+  // (bright Vuelta red), and 'maillot' #ffd400 is renamed above so nothing else
+  // now claims to be a Maillot Jaune.
+  {id:'gt_jaune', hex:'#f5d400', label:'Maillot Jaune'},
+  {id:'gt_rosa',  hex:'#f0508c', label:'Maglia Rosa'},
+  {id:'gt_roja',  hex:'#d7141a', label:'Maillot Rojo'},
+  // fix295 (3): THE RAINBOW BANDS. The rarest swatch in the game and the only
+  // one behind the capstone — three Grand Tours and a national championship in
+  // a single calendar season. Appended, as always.
+  //
+  // The hex is the UCI world champion's jersey blue band, chosen as the single
+  // representative stripe because the recolour engine takes ONE hex per part
+  // (see recolorSheet / kitColorHexFor) and cannot render a five-band stripe.
+  // Doing this properly would mean a bespoke sheet, not a colour — noted here
+  // so a later fix reaches for the art rather than trying to widen the engine.
+  {id:'gt_rainbow', hex:'#1b62b5', label:'Rainbow Bands'},
+];
+
+// fix293 (3): tourId -> colour id. Read in exactly two places — the award, in
+// the tierIdx===0 block of completeRace() beside the relic award, and the
+// unlock-source map built below. Keyed by the SAME calendarEventId the relic
+// table uses, so the two rewards for winning a Grand Tour can never disagree
+// about which tour was won.
+//
+// One entry per Grand Tour and no more: a colour here that names a tour with no
+// CALENDAR_EVENTS entry would build an unlock line the player can never satisfy
+// and never find, which is the exact failure fix293 is fixing. The boot audit
+// below checks this.
+const GT_JERSEYS = [
+  {tourId:'tour_de_france', colorId:'gt_jaune'},
+  {tourId:'giro_d_italia',  colorId:'gt_rosa'},
+  {tourId:'vuelta_espana',  colorId:'gt_roja'},
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -16045,7 +16226,31 @@ function racePaceAnimMs(baseMs){
 
 const state = {
   money:0, seasonMoney:0, lifetimeMoney:0,
-  onboarding: {step:0, done:false}, // brand-new state default; existing saves get done:true in loadGame
+  // fix292 (3): the spotlight tour is RETIRED. This default flips false ->
+  // true, which is the single line that stops the tour ever starting for
+  // anybody: every entry point in the file is gated on !state.onboarding.done.
+  // The key itself is KEPT, not deleted, and is still saved and loaded —
+  // dropping it would make a fix292 save unreadable by an older HTML still
+  // sitting in somebody's service-worker cache, which is precisely the
+  // silent-break the append-only registry rule exists to avoid.
+  // tombstone (pre-fix292): onboarding: {step:0, done:false},
+  onboarding: {step:0, done:true},
+  // fix292 (3): per-page guide state, replacing the tour.
+  //   helpSeen        — { <tabId>: true } for every page whose guide has
+  //                     auto-opened once. A DICTIONARY, not a counter or an
+  //                     array of ids: a missing key IS "not seen", so a page
+  //                     added in a later fix needs no migration and no
+  //                     backfill. Never read for anything except the auto-open
+  //                     gate — the button itself ignores it entirely.
+  //   welcomeBonusPaid — the £20 that startOnboarding() used to grant now hangs
+  //                     off its own one-shot flag. It has to exist separately,
+  //                     because with onboarding.done defaulting to true there is
+  //                     no longer any "tour ran" moment to hang it on, and a new
+  //                     player must not silently lose the money the old intro
+  //                     gave them. Existing saves heal to TRUE in loadGame (see
+  //                     the note there) so nobody is paid twice.
+  helpSeen: {},
+  welcomeBonusPaid: false,
   season:1, seasonsCompleted:0, prestigeMult:1,
   // fix291 (2): NEW GAMES START ON PRO. This literal is the new-player default
   // and nothing else — an EXISTING save has no `difficulty` field at all, and
@@ -16647,6 +16852,93 @@ const SHOP_STOCK = [
   { id:'plaque',       kind:'identity', tier:'Trophy room', name:'Hall of Fame plaque', vp:60, gate:175,  // fix266: was vp:30, gate:100
     note:'Your name on the wall. It rides no faster.' },
 ];
+
+// ═══════════════════════════════════════════════════════════
+// fix293 (4): KIT_COLOUR UNLOCK SOURCES — DERIVED, NOT AUTHORED
+// ═══════════════════════════════════════════════════════════
+// Every colour in the game is granted by exactly one of four systems, and each
+// of those systems already carries the requirement in its own registry. So this
+// map is BUILT BY READING THEM rather than typed out by hand.
+//
+// THAT IS THE ENTIRE DESIGN DECISION HERE, AND IT IS NOT A STYLE CHOICE. A
+// hand-written table of 30 "how to unlock" strings is a second copy of the
+// thresholds, and the moment anyone retunes a LIFETIME_GOALS threshold — fix266
+// retuned fourteen VP prices in one go — the picker starts telling players to
+// do something the game no longer asks for. A wrong instruction is strictly
+// worse than the missing one this fix set out to add. Derived, it cannot drift:
+// change the threshold and the sentence changes with it.
+//
+// Sited HERE because it must run after all four source registries are
+// initialised — ACHIEVEMENTS, LIFETIME_GOALS and KIT_COLORS are above, and
+// SHOP_STOCK ends on the line directly before this. `const` is not hoisted, so
+// moving this block above SHOP_STOCK would put it in the temporal dead zone and
+// throw at load. DO NOT MOVE IT UP.
+//
+// Precedence is first-writer-wins, in the order below. It matters for exactly
+// one id today: 'maillot' is reachable only from LIFETIME_GOALS, but if a later
+// fix also hangs it off an achievement, the player is told the ONE route, not
+// both — a picker that lists two ways to earn the same swatch reads as a bug.
+const KIT_COLOR_SOURCE = (function buildKitColorSource(){
+  const m = {};
+  const num = n => (typeof n === 'number' ? n.toLocaleString('en-GB') : n);
+  // 1. Grand Tour leader's jerseys. Most specific, so first.
+  GT_JERSEYS.forEach(function(j){
+    const ev = CALENDAR_EVENTS.find(e => e.id === j.tourId);
+    if(!ev) return;   // audited below; skipped rather than emitting a tour that does not exist
+    m[j.colorId] = {
+      kind:'grandtour',
+      how:`Win the ${ev.name} outright — finish the whole race as GC Champion.`,
+      where:'Calendar ▸ Enter Event',
+    };
+  });
+  // 2. Achievements.
+  ACHIEVEMENTS.forEach(function(a){
+    if(!a.reward || a.reward.type !== 'color') return;
+    if(m[a.reward.val]) return;
+    m[a.reward.val] = { kind:'achievement', how:a.desc, where:'Rider ▸ Career' };
+  });
+  // 3. Lifetime Goal tiers. The tier INDEX is quoted as well as the threshold,
+  //    because the Tasks screen shows tracks as four pips and "tier 2" is what
+  //    the player can actually count to on that screen.
+  LIFETIME_GOALS.forEach(function(g){
+    (g.tiers||[]).forEach(function(t, i){
+      if(!t.reward || t.reward.type !== 'color') return;
+      if(m[t.reward.colorId]) return;
+      m[t.reward.colorId] = {
+        kind:'goal',
+        how:`Reach tier ${i+1} of the “${g.name}” lifetime goal (${num(t.threshold)}), then collect it.`,
+        where:'Tasks ▸ Lifetime',
+      };
+    });
+  });
+  // 4. The Victory Points shop. Matched on the shared id, which is why plan
+  //    fix265 made the swatch id and the shop-line id the same string.
+  SHOP_STOCK.forEach(function(it){
+    if(!it.id || it.id.indexOf('shopcol_') !== 0) return;
+    if(m[it.id]) return;
+    m[it.id] = {
+      kind:'shop',
+      how:`Redeem ${it.vp} Victory Points for the ${it.name} in the shop.`,
+      where:'Home ▸ Shop',
+    };
+  });
+  return m;
+})();
+
+// Boot audit. WARN-ONLY and deliberately so: a colour with no known source is a
+// cosmetic gap in an explainer, and hard-failing the load over it would turn a
+// missing sentence into a black screen. 'default' is excluded because it is
+// unlocked from the first second of a new save and has no source by design.
+(function auditKitColorSources(){
+  try{
+    const missing = KIT_COLORS.filter(c => c.id !== 'default' && !KIT_COLOR_SOURCE[c.id]).map(c => c.id);
+    if(missing.length) console.warn('[CIM][fix293] kit colours with no unlock source:', missing);
+    const orphan = Object.keys(KIT_COLOR_SOURCE).filter(id => !KIT_COLORS.some(c => c.id === id));
+    if(orphan.length) console.warn('[CIM][fix293] unlock sources naming no swatch:', orphan);
+    const noTour = GT_JERSEYS.filter(j => !CALENDAR_EVENTS.some(e => e.id === j.tourId)).map(j => j.tourId);
+    if(noTour.length) console.warn('[CIM][fix293] GT_JERSEYS naming no calendar event:', noTour);
+  }catch(e){ console.warn('[CIM][fix293] kit colour audit failed:', e); }
+})();
 
 // vpWindowTick(now) — expires the window if it has run its course, or if the
 // device clock has moved BACKWARDS past its start. Also the tolerant
@@ -18113,6 +18405,22 @@ function completeRace(){
           state.uncollectedRelics.add(relic.id);
           enqueueCeremony({type:'relic', relicId:relic.id});
         }
+        // fix293 (5): the leader's jersey, awarded on the SAME condition and at
+        // the SAME site as the relic — first GC Champion finish of this tour.
+        // Deliberately inside the existing tierIdx===0 block rather than in a
+        // branch of its own: "won the Tour" must mean one thing in this file,
+        // and a second test somewhere else is how it stops meaning one thing.
+        //
+        // Set semantics, so a repeat win is a silent no-op and the toast fires
+        // once, for the first one only. No ceremony is enqueued: the grandtour
+        // and relic ceremonies already queue on this beat and a third card
+        // would bury both. A toast is the right weight for a cosmetic.
+        const gtj=GT_JERSEYS.find(j=>j.tourId===rd.calendarEventId);
+        if(gtj && !state.unlockedKitColors.has(gtj.colorId)){
+          state.unlockedKitColors.add(gtj.colorId);
+          const gc=KIT_COLORS.find(c=>c.id===gtj.colorId);
+          if(gc) showToast(`${icn('jersey')} ${gc.label} unlocked — wear it in Gear ▸ Kit`);
+        }
       }
     }
   } else if(isCalEvent){
@@ -18672,8 +18980,59 @@ function getAvailableCalendarEvents(){
 //
 // Do not re-introduce a cap here. If pacing needs a brake, the entry fee and
 // the energy cost of actually racing are the levers — both already scale.
+// ═══════════ fix295 (1): THE ENTRY RATION IS BACK, ON A PRESTIGE LADDER ═════
+// fix291 (8) removed the ration outright, and it was right about the symptom —
+// the old curve (`2 + Math.floor((season-3)/4)`) gave a Season-1 player ONE
+// event per 30-day month and effectively switched the Calendar off until about
+// Season 7. It was wrong about the cure. With no cap at all the Calendar has no
+// shape: every event is enterable on day one, so the Grand Tours stop being a
+// campaign you build toward and become a list you work down.
+//
+// So the ration returns, but as a TABLE rather than an arithmetic curve, for
+// the reason every other ladder in this file is a table: the curve hid the two
+// numbers that actually matter behind a formula nobody could read off. Here
+// they are legible, and both are deliberate:
+//
+//   • FOUR SLOTS AT Lv 3. Four is the capstone — three Grand Tours plus one
+//     national championship, which is what PERFECT_SEASON_TOURS.length + 1
+//     comes to. Lv 3 is therefore the first level at which The Perfect Season
+//     is ATTEMPTABLE at all. It is one rung below Lv 4, where the Grand
+//     Tour-grade gear lands, and that gap is the design: you get to try it,
+//     and lose, before you get the equipment to win it.
+//   • FULL ACCESS AT Lv 6. The top of the ladder lifts the cap to the whole
+//     calendar, matching the gear ladder's own cap.
+//
+// INDEXED BY prestigeLevel(), NOT state.season. Those two diverge — season is
+// the display counter and prestigeLevel() is seasonsCompleted — and the old
+// curve read the wrong one. A player is on the rung they have EARNED.
+//
+// The re-entry loop this creates is the point, and is what the player asked
+// for: lose the Tour at Lv 2 with mid-tier wheels, prestige, come back at Lv 4
+// with the gear that beats a 430-560w field. The Calendar is a campaign you run
+// once per prestige, not a checklist.
+const CALENDAR_SLOTS_BY_PRESTIGE = [1, 2, 3, 4, 5, 6, Infinity];
+// tombstone (fix291 (8) - fix294): return Math.max(1, getAvailableCalendarEvents().length);
+// tombstone (pre-fix291):
+//   let raw;
+//   if(state.season<=2) raw=1; else raw=2+Math.floor((state.season-3)/4);
+//   return Math.max(1, Math.min(raw, getAvailableCalendarEvents().length));
 function getCalendarSlotLimit(){
-  return Math.max(1, getAvailableCalendarEvents().length);
+  const idx = Math.max(0, Math.min(CALENDAR_SLOTS_BY_PRESTIGE.length - 1, prestigeLevel()));
+  const rung = CALENDAR_SLOTS_BY_PRESTIGE[idx];
+  // Clamped to the number of events actually visible: a limit of 6 against 5
+  // enterable events would render as "0 / 6" and promise a slot that does not
+  // exist. Infinity on the top rung resolves to "all of them" through the same
+  // Math.min, which is why the top rung is Infinity and not a magic 99.
+  return Math.max(1, Math.min(rung, getAvailableCalendarEvents().length));
+}
+// Slots needed to attempt The Perfect Season, and the first prestige level that
+// grants them. DERIVED from the capstone's own registry and the table above, so
+// a fourth Grand Tour added to PERFECT_SEASON_TOURS moves both numbers with it.
+function perfectSeasonSlotNeed(){ return PERFECT_SEASON_TOURS.length + 1; }
+function perfectSeasonFirstPrestige(){
+  const need = perfectSeasonSlotNeed();
+  const i = CALENDAR_SLOTS_BY_PRESTIGE.findIndex(n => n >= need);
+  return i < 0 ? CALENDAR_SLOTS_BY_PRESTIGE.length - 1 : i;
 }
 
 // Lazily starts the 30-day calendar clock the first time the player reaches Semi-Pro,
@@ -19203,6 +19562,37 @@ function equipPartColor(part,id){
 // fix141: kept as a thin wrapper so existing jersey-only call sites and
 // onclick handlers keep working untouched.
 function equipKitColor(id){ equipPartColor('kit',id); }
+
+// fix293 (7): the locked-swatch explainer. READ-ONLY — it writes nothing, it
+// equips nothing, and it is the only handler a locked swatch can reach. Sited
+// directly beneath equipPartColor() so the two halves of the lockout are read
+// together: one equips and refuses anything not in unlockedKitColors, the other
+// explains and cannot equip at all.
+//
+// Drives the shared #info-overlay rather than a fourth modal, same as
+// openPageHelp() in fix292 — one sheet, one close button, one dismissal rule.
+//
+// The "how" line comes from KIT_COLOR_SOURCE, which is derived from the reward
+// registries at load. If a colour somehow has no source (the boot audit warns
+// about exactly this), the sheet says so honestly instead of inventing a
+// requirement — a made-up instruction is worse than an admitted gap.
+function openKitColorLock(colorId){
+  const c = KIT_COLORS.find(x => x.id === colorId);
+  if(!c) return;
+  const src = KIT_COLOR_SOURCE[colorId];
+  const dot = `<span style="display:inline-block;width:14px;height:14px;border-radius:50%;
+    background:${c.hex};border:1px solid var(--border);vertical-align:-2px;margin-right:6px"></span>`;
+  const body = src
+    ? `${dot}<strong>${c.label}</strong> is locked.<br><br>
+       <strong>To unlock it:</strong> ${src.how}<br><br>
+       <span style="color:var(--txt2)">Find it under <strong>${src.where}</strong>.</span><br><br>
+       Unlock a colour once and it is yours for the jersey, the helmet and the frame — and it stays through every new season.`
+    : `${dot}<strong>${c.label}</strong> is locked.<br><br>
+       This one has no listed route yet. Keep racing — colours arrive from achievements, lifetime goals, the Victory Points shop and Grand Tour wins.`;
+  document.getElementById('info-card-title').textContent = 'Locked colour';
+  document.getElementById('info-card-body').innerHTML = body;
+  document.getElementById('info-overlay').style.display = 'flex';
+}
 // fix61: applies (or resets) the recoloured rider sheets.
 // fix141: now drives all three parts — jersey, helmet and bike frame — from
 // their own equipped slots rather than taking a single kit colour id. With
@@ -19862,19 +20252,28 @@ const ONBOARDING_STEPS = [
 
 const ONBOARD_WELCOME_BONUS = 20;
 
-function startOnboarding(){
-  state.onboarding = {step:0, done:false};
-  earnMoney(ONBOARD_WELCOME_BONUS);
-  // A brand-new player's energy is withheld behind the morning-collect card
-  // (see checkDailyReset/pendingMorningReward) until tapped. Auto-resolve it
-  // here so the "start a session" step has energy to work with immediately —
-  // the player will still see the real collect-card ritual naturally on Day 2.
-  if(state.pendingMorningReward) collectMorningReward();
-  saveGame();
-  showTab('train');
-  document.getElementById('onboard-layer').style.display='block';
-  renderOnboardingStep();
-}
+// fix292 (13): NEUTERED, same reasoning as replayOnboarding below — kept as a
+// defined no-op so nothing can call it into life, rather than deleted.
+// ONBOARD_WELCOME_BONUS above is deliberately LEFT LIVE: the £20 it names is
+// still granted, just from its own one-shot flag in the boot sequence instead
+// of from here.
+//
+// The auto-collect of the morning card is NOT carried over. The tour needed
+// energy in hand immediately for its "start a session" step; the guides ask the
+// player to do nothing, so a new player now meets the collect ritual on day one
+// exactly as they meet it on every other day. maybeAutoPageHelp() retries
+// around that card rather than fighting it.
+// tombstone (pre-fix292):
+// function startOnboarding(){
+//   state.onboarding = {step:0, done:false};
+//   earnMoney(ONBOARD_WELCOME_BONUS);
+//   if(state.pendingMorningReward) collectMorningReward();
+//   saveGame();
+//   showTab('train');
+//   document.getElementById('onboard-layer').style.display='block';
+//   renderOnboardingStep();
+// }
+function startOnboarding(){ /* retired at fix292 — see the tombstone above */ }
 
 // Replay of the tour on demand (Rider tab button). Differs from the first-run
 // path in two ways: no welcome-bonus re-grant, and Skip stays visible on the
@@ -19890,15 +20289,28 @@ function startOnboarding(){
 // nothing extra, so replaying repeatedly can't be used to farm money.
 const ONBOARD_REPLAY_MIN_CASH = 5;
 
-function replayOnboarding(){
-  if(state.raceActive||state.session.active){ showToast('Finish your current activity first'); return; }
-  if(state.money<ONBOARD_REPLAY_MIN_CASH) earnMoney(ONBOARD_REPLAY_MIN_CASH-state.money);
-  state.onboarding = {step:0, done:false, replay:true};
-  saveGame();
-  showTab('train');
-  document.getElementById('onboard-layer').style.display='block';
-  renderOnboardingStep();
-}
+// fix292 (11): NEUTERED. The only caller was the Rider > Save nav button, and
+// that is repointed to replayGuides() in this fix — but the function is KEPT
+// and made to forward rather than deleted, because a browser holding a cached
+// pre-fix292 page against a fix292 save would otherwise hit an undefined
+// handler and do nothing at all. Forwarding means the button still does the
+// nearest sensible thing in that window.
+//
+// The two lines that mattered are gone on purpose: it no longer writes
+// onboarding.done=false (which is now the one flag the whole retirement rests
+// on) and it no longer tops the player up to ONBOARD_REPLAY_MIN_CASH, so the
+// farm this function was carefully fenced against is retired with it.
+// tombstone (pre-fix292):
+// function replayOnboarding(){
+//   if(state.raceActive||state.session.active){ showToast('Finish your current activity first'); return; }
+//   if(state.money<ONBOARD_REPLAY_MIN_CASH) earnMoney(ONBOARD_REPLAY_MIN_CASH-state.money);
+//   state.onboarding = {step:0, done:false, replay:true};
+//   saveGame();
+//   showTab('train');
+//   document.getElementById('onboard-layer').style.display='block';
+//   renderOnboardingStep();
+// }
+function replayOnboarding(){ replayGuides(); }
 
 function skipOnboarding(){
   state.onboarding.done=true;
@@ -20780,6 +21192,201 @@ function lazyLoadAssetGroup(group){
 const TABS=['train','race','rider','gear','workshop','growth','sponsors','calendar','skills'];
 let currentTab='train';
 
+// ═══════════════════════════════════════════════════════════
+// fix292: PAGE GUIDES — the replacement for the spotlight tour
+// ═══════════════════════════════════════════════════════════
+// WHY THIS LIVES HERE AND NOT BESIDE INFO_TEXTS.
+// INFO_TEXTS is declared ~14,000 lines further down, AFTER the boot sequence.
+// `const` is not hoisted the way `function` is, so a PAGE_HELP declared down
+// there would be in the temporal dead zone when boot's showTab('home') runs and
+// the very first guide of a new game would throw instead of opening. Declared
+// above showTab(), it is initialised before any caller exists. DO NOT MOVE IT
+// DOWN FOR TIDINESS.
+//
+// SHAPE. Keyed by tab id — the ids in TABS plus 'home', which has never been in
+// TABS (it has no index-mapped bar button). Values match the INFO_TEXTS shape
+// exactly, {title, body:()=>html}, so both registries drive the SAME
+// #info-overlay sheet with the same open/close path and this fix adds no second
+// modal, no second close button and no second dismissal rule.
+//
+// VOICE. Written to the spec's "imagine they are 5" brief: what this page is,
+// what to tap, what it gets you, and what unlocks the rest. No numbers, no
+// formulas, no talk of how anything is coded — the fix52 in-world voice that
+// the rest of the file's copy already keeps. The ⓘ buttons dotted around each
+// page still carry the detail; this is the way in, not the manual.
+//
+// Append-only, like every other registry in the file. A page added later gets a
+// key added at the END; nothing here is index-mapped, but the habit is what
+// stops somebody reordering a registry that IS.
+const PAGE_HELP = {
+  home: {
+    title: 'Home',
+    body: ()=>`This is your base. Every part of the game is a door on this screen.<br><br>
+      <strong>PLAY</strong> at the bottom takes you straight to a race — that is how you earn money and move up.<br><br>
+      Everything else is preparation. <strong>Train</strong> makes your legs stronger, <strong>Gear</strong> and the <strong>Warehouse</strong> make the bike faster, <strong>Sponsors</strong> pay you while you sleep, <strong>Tasks</strong> hand out rewards for what you were doing anyway, and the <strong>Calendar</strong> shows the big events coming up.<br><br>
+      <strong>Energy</strong> is what training costs. It fills back up over time, even with the game closed, so you can stop whenever you like and come back to a full tank.<br><br>
+      Tap the <strong>?</strong> in the bottom-left of any page for a guide like this one.`
+  },
+  train: {
+    title: 'Training',
+    body: ()=>`This is where you get stronger.<br><br>
+      <strong>Pick a training zone and tap it to train that area.</strong> Easy zones cost little energy and build your base; hard zones cost more and sharpen your top end.<br><br>
+      Enough training pushes up your <strong>FTP</strong> — that is your power, and more power means better race results.<br><br>
+      Check the <strong>Training Log</strong> to see how it is going, and <strong>Gut Training</strong> to learn to eat on the bike.<br><br>
+      Some zones are locked to begin with. Keep training and levelling up and they open. Good luck!`
+  },
+  race: {
+    title: 'Racing',
+    body: ()=>`Racing is how you earn money and climb the categories.<br><br>
+      Tap <strong>Enter a UCI race</strong> to pick an event and ride it. Check the <strong>Weather</strong> first — it changes what suits you — and use <strong>Race Set-up</strong> to choose how you want to ride.<br><br>
+      During the race you will be offered choices: attack, sit in, chase. There is no wrong answer, only a trade — effort now costs you legs later.<br><br>
+      <strong>Your Rival</strong> is the one rider to beat. <strong>Results</strong> and <strong>Category Progress</strong> show how close you are to the next step up.`
+  },
+  rider: {
+    title: 'Your Rider',
+    body: ()=>`Everything about you as a bike rider lives here.<br><br>
+      <strong>Attributes</strong> and <strong>Power</strong> show what you are good at and where training has taken you. <strong>Form</strong> is how fresh you are right now — race tired and you will feel it.<br><br>
+      <strong>Path</strong> is the kind of rider you are becoming: climber, sprinter, all-rounder. <strong>Career</strong> is your record so far.<br><br>
+      <strong>Rider Build &amp; Save</strong> is also where you change your jersey colours and back your progress up. Do that before you clear your browser or change phone — your save lives on this device only.`
+  },
+  gear: {
+    title: 'Gear',
+    body: ()=>`Better kit makes the bike faster for free, forever.<br><br>
+      Tap <strong>Bikes</strong>, <strong>Wheels</strong> or <strong>Kit</strong>, then buy the item you can afford and tap it to equip it. Equipped gear works in every race from then on.<br><br>
+      <strong>Extras</strong> are accessories and one-off boosts. <strong>Energy</strong> sells gels and drinks — take them to train more today and recover better overnight.<br><br>
+      Some gear is locked until you have raced your way up. Money first, then the good stuff.`
+  },
+  workshop: {
+    title: 'Warehouse',
+    body: ()=>`A quick way to earn a bit extra between races.<br><br>
+      Pick one of the three jobs — <strong>Index Gears</strong>, <strong>Pack Bearings</strong> or <strong>Bleed Brakes</strong> — and play the little game. Do it well and you get paid.<br><br>
+      The bench closes for a while once you have done a decent stretch of work. That is on purpose: it is pocket money, not a job. Come back later and it reopens on its own.`
+  },
+  growth: {
+    title: 'Tasks',
+    body: ()=>`Your to-do list, and it pays.<br><br>
+      <strong>Daily</strong> tasks reset every day and are small: train once, race once, that sort of thing. <strong>Lifetime</strong> tasks are the big milestones of a career.<br><br>
+      You do not have to chase these. Play normally and they tick off by themselves — this page is just where you come to collect.<br><br>
+      Tap a finished task to claim its reward.`
+  },
+  sponsors: {
+    title: 'Sponsors',
+    body: ()=>`Sponsors pay you money while you are not playing.<br><br>
+      Tap the <strong>contract</strong> to see what your current sponsor gives you and what they want in return. Tap <strong>Switch sponsor</strong> to look at who else would take you on.<br><br>
+      Better results bring better offers, so a sponsor that looks out of reach today usually is not for long. Check back after a good run of races.`
+  },
+  calendar: {
+    title: 'Calendar',
+    body: ()=>`The season laid out in front of you.<br><br>
+      Tap <strong>Enter Event</strong> to open the race calendar and see what is coming up — one-day races, stage races and the Grand Tours.<br><br>
+      Big events pay much more than an ordinary race, but they ask a lot of your legs, so it is worth arriving fresh and well trained.<br><br>
+      Days pass as you play. Nothing here is missed forever — the season comes round again.`
+  },
+  skills: {
+    title: 'Rider Skills',
+    body: ()=>`Four short drills that teach the things a rider does without thinking.<br><br>
+      Tap a drill — <strong>Feed Zone Scramble</strong>, <strong>Slipstream Drafting</strong>, <strong>Wind Tunnel</strong> or <strong>Bidon Toss</strong> — and play it. Do well and you earn a buff that helps in your next races.<br><br>
+      Tap the <strong>drills and buffs</strong> strip in the middle to see which of your buffs are still running.<br><br>
+      These are short and they do not cost energy. Have a go whenever you are waiting to recover.`
+  }
+};
+
+// Pages that must NOT show the floating ? button. Home is the only one, and
+// only because its art already paints a help cog in that exact corner
+// (data-hot 10), repointed to openPageHelp('home') in this fix. A Set rather
+// than a === test for the HUB_TABS reason: adding a page later is one edit
+// here, not a growing OR chain.
+const PAGE_HELP_NO_FAB = new Set(['home']);
+
+// Layers that own the screen. If ANY of these is up, the auto-open stands down
+// entirely and tries again on the next visit to that page — it does not queue
+// and it does not stack. A guide sliding in under a race, a ceremony or the
+// morning collect ritual would be read as a bug, and #info-overlay is in the
+// list because opening the sheet on top of itself would silently replace an ⓘ
+// the player is halfway through reading.
+const PAGE_HELP_BLOCKERS = ['#info-overlay','#ws-cap-overlay','#ceremony-overlay','#morning-layer','#race-overlay'];
+function pageHelpBlocked(){
+  return PAGE_HELP_BLOCKERS.some(function(sel){
+    const el = document.querySelector(sel);
+    // getComputedStyle, not el.style.display: these overlays are toggled by
+    // inline style TODAY, but a future CSS-class toggle would make an
+    // inline-style test quietly return "not blocking" and the guide would
+    // reappear over a race. The computed value cannot be wrong.
+    return !!el && getComputedStyle(el).display !== 'none';
+  });
+}
+
+// Opens the guide for a page. No argument = the page you are on, which is why
+// the FAB's onclick is a bare openPageHelp() — one handler, ten pages, no way
+// for the attribute to drift out of step with the tab actually on screen.
+//
+// Marking helpSeen HERE and not only in the auto-open path is deliberate: a
+// player who taps ? on a page before its guide has auto-opened has read it, and
+// popping it at them unprompted three seconds later would be the game not
+// listening.
+function openPageHelp(name){
+  const key = name || currentTab;
+  const entry = PAGE_HELP[key];
+  if(!entry){ console.warn('[CIM] openPageHelp: no guide for', key); return; }
+  if(!state.helpSeen || typeof state.helpSeen !== 'object') state.helpSeen = {};
+  if(!state.helpSeen[key]){ state.helpSeen[key] = true; saveGame(); }
+  document.getElementById('info-card-title').textContent = entry.title;
+  document.getElementById('info-card-body').innerHTML = entry.body();
+  document.getElementById('info-overlay').style.display = 'flex';
+}
+
+// Called from showTab() only. One expression decides the button's visibility
+// for every page in the game.
+function updatePageHelpFab(){
+  const on = !!PAGE_HELP[currentTab] && !PAGE_HELP_NO_FAB.has(currentTab);
+  document.body.classList.toggle('page-help-fab-on', on);
+}
+
+// The first-visit auto-open. Delayed rather than immediate for two reasons:
+// the panel underneath must have painted first (a guide over a blank tab
+// explains nothing), and the blocker sweep above needs the ceremony/morning
+// layers to have had their own boot turn before it can honestly answer.
+//
+// Re-checks currentTab inside the timer: a fast player can tap through two
+// pages inside the delay, and the guide that opens must be the guide for the
+// page they are LOOKING at, not the one they passed through.
+// A blocked attempt RETRIES rather than giving up outright, and the reason is
+// the very first screen a new player ever sees. A brand-new save wakes with the
+// morning collect card up on the hub — #morning-layer, a blocker — so a
+// stand-down-on-first-blocker rule would have meant the Home guide, the whole
+// replacement for the retired tour, never opening on day one at all. The player
+// taps collect, the layer goes, and the next tick lets the guide through.
+//
+// BOUNDED, and the bound is the safety property: ~8s of attempts and then it
+// stops for good on this visit. helpSeen is NOT set on a give-up, so the guide
+// is still owed and the next entry to that page tries again from scratch. There
+// is no unbounded timer anywhere in this path and no state written on failure.
+const PAGE_HELP_AUTO_DELAY_MS = 700;
+const PAGE_HELP_AUTO_MAX_TRIES = 12;
+function maybeAutoPageHelp(name, tries){
+  if(!PAGE_HELP[name]) return;
+  if(state.helpSeen && state.helpSeen[name]) return;
+  const n = tries || 0;
+  if(n >= PAGE_HELP_AUTO_MAX_TRIES) return;
+  setTimeout(function(){
+    if(currentTab !== name) return;                       // navigated away
+    if(state.helpSeen && state.helpSeen[name]) return;    // opened by hand meanwhile
+    if(pageHelpBlocked()){ maybeAutoPageHelp(name, n+1); return; }
+    openPageHelp(name);
+  }, PAGE_HELP_AUTO_DELAY_MS);
+}
+
+// Replaces replayOnboarding() on the Rider > Save nav. Wipes the seen-set so
+// every page's guide auto-opens once more, exactly as it did on day one.
+// Note what it does NOT do: it grants no money. replayOnboarding() had to fence
+// off a repeatable £20 (see ONBOARD_REPLAY_MIN_CASH); a guide reset has nothing
+// to farm, so that whole hazard is retired with the tour.
+function replayGuides(){
+  state.helpSeen = {};
+  saveGame();
+  showToast(`${icn('graduate')} Page guides reset — each one will pop up again on your next visit`);
+}
+
 // fix172: back-gesture support. A PWA with a single history entry has nothing
 // to pop, so Android's back gesture / iOS edge-swipe closed the app outright —
 // which got much worse in fix171, when the tab bar went away and the hub became
@@ -21016,6 +21623,18 @@ function showTab(name){
   // out, so the layer can never be left mounted behind another panel.
   if(name==='home') showMorningPopup(); else dismissMorningPopup();
   updateUI();
+  // fix292 (7): the guide plumbing, and the LAST two lines of showTab on
+  // purpose. Both need currentTab already committed and the panel already
+  // revealed — updatePageHelpFab() reads currentTab, and maybeAutoPageHelp()
+  // schedules against a page that must be on screen when its timer fires.
+  //
+  // Sited AFTER updateUI() rather than before it: updateUI() is a render pass
+  // and maybeAutoPageHelp() writes state (via openPageHelp -> saveGame), so
+  // putting it first would make a render call sit downstream of a state write
+  // inside the same function. Render functions must never write state; keeping
+  // the write last keeps that rule readable from this call site.
+  updatePageHelpFab();
+  maybeAutoPageHelp(name);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -28336,6 +28955,101 @@ function renderAchievements(){
 // new state, nothing written. Empty once prestigeLevel() reaches 6 (P6 =
 // full unlock, nothing left to preview). Player-facing voice only — no
 // "gate"/"minPrestige"/"tier" plumbing words in the copy itself.
+// ═══════════════════════════════════════════════════════════
+// fix294: WHAT PRESTIGE ACTUALLY BUYS YOU
+// ═══════════════════════════════════════════════════════════
+// THE CORRECTION THIS FIX MAKES, STATED PLAINLY, BECAUSE IT IS EASY TO GET
+// WRONG AGAIN LATER: **PRESTIGE DOES NOT GATE CALENDAR ENTRY.** It never has.
+// Entry is gated on RACE CATEGORY alone — see isProTierUnlocked(), which reads
+// state.raceCategory against CALENDAR_TIER_UNLOCK_CAT and does not mention
+// prestigeLevel() at all. The per-season entry ration that used to scale with
+// season number was removed outright in fix291 (8).
+//
+// So a hint reading "you need Prestige Lv 4 to enter the Tour de France" would
+// be FALSE, and worse than the silence it replaced: a player at Lv 0 with Pro
+// category can enter every Grand Tour today. What prestige actually decides is
+// whether you can WIN one, and it decides that through equipment — the
+// minPrestige ladder on BIKES / TT_BIKES / WHEELS / KITS — plus the fuelling
+// and workshop ceilings. That is the honest hint, and it is what this builds.
+//
+// EVERY NUMBER BELOW IS DERIVED FROM THE REGISTRIES, NEVER TYPED. The gear
+// ladder has been retuned before (fix118 mapped tier -> minPrestige wholesale)
+// and will be again; a hand-written "Lv 4" in a help string would survive that
+// retune and quietly start lying. Same rule as fix293's KIT_COLOR_SOURCE.
+//
+// A FUNCTION, NOT A CONST IIFE, AND THAT IS LOAD-BEARING: it reads
+// CALENDAR_TIER_UNLOCK_CAT, which is declared ~19,000 lines below this point.
+// `const` is not hoisted; a top-level IIFE here would hit the temporal dead
+// zone and throw at load. Function declarations hoist, so by the time anything
+// calls this every registry it touches is initialised. Memoised because the
+// answer cannot change within a session — the registries are immutable — and
+// renderPrestige() runs on every UI tick.
+let _prestigeGateFactsCache = null;
+function prestigeGateFacts(){
+  if(_prestigeGateFactsCache) return _prestigeGateFactsCache;
+  const all = [...BIKES, ...TT_BIKES, ...WHEELS, ...KITS];
+  // Lowest prestige at which ANY item of a given equipment tier becomes
+  // buyable. min, not max: the question a player is asking is "when can I start
+  // buying this grade of kit", and one item of it is the answer to that.
+  const lvlForTier = t => {
+    const lv = all.filter(i => i.tier === t).map(i => i.minPrestige || 0);
+    return lv.length ? Math.min(...lv) : null;
+  };
+  const tiers = [...new Set(all.map(i => i.tier))].sort((a,b)=>a-b);
+  const topTier = tiers[tiers.length-1];
+  const proTier = tiers.length > 1 ? tiers[tiers.length-2] : topTier;
+  const proCatIdx = CALENDAR_TIER_UNLOCK_CAT.pro;
+  const semiCatIdx = CALENDAR_TIER_UNLOCK_CAT.semipro;
+  _prestigeGateFactsCache = {
+    lvl: prestigeLevel(),          // NOT memo-safe on its own — never read from the cache; see note below
+    proGearLvl:  lvlForTier(proTier),
+    topGearLvl:  lvlForTier(topTier),
+    proCatName:  (RACE_CATEGORIES[proCatIdx]  || {}).name || 'Professional',
+    semiCatName: (RACE_CATEGORIES[semiCatIdx] || {}).name || 'Category 1',
+    // The invitational field the Grand Tours are actually ridden against. This
+    // literal band lives in the calendar race sim (ev.tier==='pro' ? [430,560])
+    // and is quoted here so the hint states a target the player can compare
+    // their own FTP against, rather than a vague "get stronger".
+    proFieldFtp: [430, 560],
+    capstoneTours: PERFECT_SEASON_TOURS.length,
+  };
+  // `lvl` above is a snapshot taken at first call and prestigeLevel() moves.
+  // Deleted rather than left to rot: a stale level in a memoised object is the
+  // classic way a "you are Lv 3" line freezes on screen for the rest of a
+  // career. Callers read prestigeLevel() live instead.
+  delete _prestigeGateFactsCache.lvl;
+  return _prestigeGateFactsCache;
+}
+
+// The capstone hint, and the answer to "what do I actually need to win
+// everything". Rendered on the prestige card unconditionally — including at
+// Lv 6, where it becomes confirmation that the equipment side is done and the
+// remaining work is category and FTP.
+function prestigeCapstoneHintLine(){
+  const f = prestigeGateFacts();
+  const lvl = prestigeLevel();
+  // fix295 (5): REWRITTEN. fix294's copy said "prestige does not gate entry",
+  // which was true of fix294 and is FALSE as of fix295 (1) — the ration is back
+  // on a prestige ladder. This line is the one place that claim was made, and
+  // it is corrected here rather than left to contradict the calendar screen.
+  const need = perfectSeasonSlotNeed();
+  const atLvl = perfectSeasonFirstPrestige();
+  const slots = getCalendarSlotLimit();
+  const gearDone = f.topGearLvl != null && lvl >= f.topGearLvl;
+  const slotBit = lvl >= atLvl
+    ? `You have <strong>${isFinite(slots)?slots:'all'}</strong> entry slot${slots===1?'':'s'} — enough to attempt it.`
+    : `You have <strong>${slots}</strong> of the <strong>${need}</strong> entry slots you need. The ${need}th opens at <strong>Prestige Lv ${atLvl}</strong>.`;
+  const gearBit = gearDone
+    ? `Your equipment ladder is fully unlocked.`
+    : `Grand Tour–grade equipment opens at <strong>Lv ${f.proGearLvl}</strong>, the last WorldTour tier at <strong>Lv ${f.topGearLvl}</strong>.`;
+  return `<div class="prestige-preview">${icn('target')} <strong>The Perfect Season.</strong>
+    Win all ${f.capstoneTours} Grand Tours and a national championship inside one calendar season.
+    It needs <strong>${f.proCatName}</strong> category to start, <strong>${need}</strong> calendar entry slots to fit them all in,
+    and roughly <strong>${f.proFieldFtp[0]}–${f.proFieldFtp[1]}w</strong> to beat the field.
+    You are <strong>Lv ${lvl}</strong>. ${slotBit} ${gearBit}
+    <button class="info-btn" onclick="event.stopPropagation();openInfo('prestigeLadder')">ⓘ</button></div>`;
+}
+
 function nextPrestigePreviewLine(){
   const lvl=prestigeLevel();
   if(lvl>=6) return '';
@@ -28359,6 +29073,14 @@ function renderPrestige(){
       :`<div class="prestige-info" style="margin-bottom:8px">Season goal: <strong>${pct}%</strong> — earn ${fmtMoney(thresh)} this season to unlock New Season.</div>`}
     <div class="prestige-prog-wrap"><div class="prestige-prog-bar" style="width:${pct}%"></div></div>
     ${nextPrestigePreviewLine()}
+    <!-- fix294 (2): the capstone hint. Sited AFTER nextPrestigePreviewLine()
+         so the card reads short-term first ("next season unlocks…") then
+         long-term ("to win the lot you need…"), which is the order a player
+         thinks in. Rendered whether or not the season goal is met, unlike the
+         reset blurb above it: the question "how far off am I" is asked most
+         often by players who are NOT ready to prestige yet, and hiding the
+         answer behind readiness is what made this invisible before. -->
+    ${prestigeCapstoneHintLine()}
     <!-- fix291 (14): the difficulty readout. DISPLAY ONLY — no onclick, no way
          to open the picker from here. The picker is a New Season decision by
          design (the XP curve resets with FTP, so a change lands cleanly on a
@@ -32471,21 +33193,68 @@ function renderKitShop(){
   // compare against and the part they pass to equipPartColor() differ.
   const colorSection=document.createElement('div');
   // fix142: row builder — part is a KIT_COLOR_SLOTS key, label is the heading.
+  // fix293 (6): the row builder, rewritten. Same inputs, same three call sites,
+  // same equipPartColor() funnel — what changed is that the row now answers two
+  // questions it never used to: which of these are mine, and how do I get the
+  // rest.
+  //
+  // FOUR CHANGES, and each one is doing a job:
+  //   a. SORTED, unlocked first, with a labelled divider before the locked
+  //      group. The old row interleaved them, so "which are unlocked" could
+  //      only be answered by squinting at 30 circles one at a time.
+  //   b. A COUNT in the heading. "12 of 30 unlocked" tells the player at a
+  //      glance that there is more to get, without them having to count.
+  //   c. A PADLOCK on every locked swatch (see the CSS note) and a TICK on the
+  //      equipped one, so state is legible without relying on colour or size.
+  //   d. LOCKED SWATCHES ARE TAPPABLE and open openKitColorLock(), which names
+  //      the colour and states exactly what unlocks it.
+  //
+  // (d) IS STILL A HARD LOCKOUT. Read the ternary: the onclick is either
+  // equipPartColor or openKitColorLock, never both, and openKitColorLock does
+  // not touch state. There is no path from a locked swatch to an equipped
+  // colour, which is the property the old "emit no onclick at all" line was
+  // protecting. That line protected it by making the swatch dead, and a dead
+  // control that will not say why is the bug being fixed here.
+  //
+  // Sort is on a COPY (slice) — KIT_COLORS is a module-level registry read by
+  // the recolour engine, the race-setup dot and kitColorHexFor(), and sorting it
+  // in place would silently reorder all of them. It is also STABLE within each
+  // group, so the registry's authored order (achievement palette, then legacy,
+  // then fix197, then shop, then Grand Tour) survives inside each half.
   const colorRow=(part,label)=>{
     const slot=KIT_COLOR_SLOTS[part];
     const equippedId=state[slot];
     const activeLabel=KIT_COLORS.find(c=>c.id===equippedId)?.label||'Default';
-    return `<div style="font-size:12px;color:var(--txt2);margin-bottom:4px">
-        <strong>${label}</strong> — ${activeLabel}</div>
-      <div class="color-picker-row">
-        ${KIT_COLORS.map(c=>{
-          const unlocked=state.unlockedKitColors.has(c.id);
-          // Hard lockout: a locked swatch emits no onclick at all.
-          return `<div class="color-swatch${equippedId===c.id?' active':''}${!unlocked?' locked-color':''}"
-            style="background:${c.hex}" title="${c.label}${unlocked?'':' (locked)'}"
-            onclick="${unlocked?`equipPartColor('${part}','${c.id}')`:''}"></div>`;
-        }).join('')}
-      </div>`;
+    const unlockedFirst=KIT_COLORS.slice().sort((a,b)=>
+      (state.unlockedKitColors.has(b.id)?1:0)-(state.unlockedKitColors.has(a.id)?1:0));
+    const nUnlocked=KIT_COLORS.filter(c=>state.unlockedKitColors.has(c.id)).length;
+    let dividerDone=false;
+    const swatches=unlockedFirst.map(c=>{
+      const unlocked=state.unlockedKitColors.has(c.id);
+      let pre='';
+      if(!unlocked && !dividerDone){
+        dividerDone=true;
+        pre=`<div class="color-locked-divider">Locked — tap to see how</div>`;
+      }
+      const glyph = !unlocked
+        ? `<svg class="color-swatch-lock" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-lock"></use></svg>`
+        : (equippedId===c.id
+            ? `<svg class="color-swatch-tick" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-check"></use></svg>`
+            : '');
+      const handler = unlocked
+        ? `equipPartColor('${part}','${c.id}')`
+        : `openKitColorLock('${c.id}')`;
+      return `${pre}<button type="button" class="color-swatch${equippedId===c.id?' active':''}${!unlocked?' locked-color':''}"
+        style="background:${c.hex}"
+        aria-label="${c.label}${unlocked?'':' — locked'}"
+        title="${c.label}${unlocked?'':' (locked — tap to see how to unlock)'}"
+        onclick="${handler}">${glyph}</button>`;
+    }).join('');
+    return `<div class="color-row-head">
+        <span><strong>${label}</strong> — ${activeLabel}</span>
+        <span class="color-row-count">${nUnlocked} of ${KIT_COLORS.length} unlocked</span>
+      </div>
+      <div class="color-picker-row">${swatches}</div>`;
   };
   colorSection.innerHTML=`<div class="section-lbl" style="display:flex;align-items:center;gap:6px">Colours <button class="info-btn" onclick="event.stopPropagation();openInfo('kitColor')">ⓘ</button></div>
     <div style="background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius);padding:12px 14px">
@@ -33232,12 +34001,14 @@ function renderCalendarTab(){
   ensureCalendarSeasonStarted();
 
   const daysRemaining=getCalendarDaysRemaining();
-  // fix291 (9): TOMBSTONED — `const slotLimit=getCalendarSlotLimit();`. Both of
-  // this renderer's reads of it (the header badge and the Sign Up label) are
-  // gone with the ration, and leaving a bound-but-unused local is how a future
-  // fix reintroduces a cap by accident, having found a variable already sitting
-  // there looking authoritative. getCalendarSlotLimit() still exists and is
-  // still read by the two event-card renderers and the signup guard.
+  // fix295 (2): the local is BACK, and the fix291 (9) tombstone's warning is
+  // hereby answered rather than ignored — it cautioned that a bound-but-unused
+  // local is how a cap gets reintroduced by accident. This one is bound because
+  // the cap is deliberately live again (fix295 (1)), and it is read on the very
+  // next line. A live ration with no denominator on screen is an invisible
+  // wall: the player finds the limit by being refused at sign-up, which is the
+  // worst possible way to learn a rule.
+  const slotLimit=getCalendarSlotLimit();
   const slotsUsed=state.calendar.signups.length;
   const events=getAvailableCalendarEvents();
 
@@ -33250,10 +34021,21 @@ function renderCalendarTab(){
       <div class="cal-season-title">${icn('calendar')} Calendar Season</div>
       <div class="cal-season-sub">${daysRemaining} day${daysRemaining!==1?'s':''} remaining this month</div>
     </div>
-    <!-- fix291 (9): was "${'$'}{slotsUsed} / ${'$'}{slotLimit} slots used". With the
-         ration removed (fix291 (8)) a denominator would read as a target the
-         player is expected to hit, which it never was. Plain count only. -->
-    <div class="cal-slots-badge">${slotsUsed} event${slotsUsed===1?'':'s'} entered</div>
+    <!-- fix295 (2): denominator restored. fix291 (9) removed it on the grounds
+         that a denominator reads as a target the player is expected to hit —
+         true when there was no cap, false now that there is one. The second
+         line names the NEXT rung, so the ration reads as a ladder being climbed
+         rather than a punishment being applied. Both numbers derive from
+         CALENDAR_SLOTS_BY_PRESTIGE; nothing here is typed. -->
+    <div style="text-align:right">
+      <div class="cal-slots-badge">${slotsUsed} / ${isFinite(slotLimit)?slotLimit:'∞'} entered</div>
+      ${(function(){
+        const lvl=prestigeLevel();
+        const nxt=CALENDAR_SLOTS_BY_PRESTIGE[Math.min(CALENDAR_SLOTS_BY_PRESTIGE.length-1, lvl+1)];
+        if(lvl>=CALENDAR_SLOTS_BY_PRESTIGE.length-1) return '';
+        return `<div style="font-size:10.5px;color:var(--txt3);margin-top:3px">Lv ${lvl+1} → ${isFinite(nxt)?nxt:'all'} slots</div>`;
+      })()}
+    </div>
   </div>`;
 
   const scheduleHtml = signedUpUnraced.length ? `
@@ -33490,6 +34272,8 @@ function saveGame(){
     localStorage.setItem(SAVE_KEY,JSON.stringify({
       money:state.money, seasonMoney:state.seasonMoney, lifetimeMoney:state.lifetimeMoney,
       onboarding:state.onboarding,
+      // fix292 (4): appended beside the retired tour's own key, never inserted.
+      helpSeen:state.helpSeen, welcomeBonusPaid:state.welcomeBonusPaid,
       season:state.season, seasonsCompleted:state.seasonsCompleted, prestigeMult:state.prestigeMult,
       difficulty:state.difficulty, // fix291 (3)
       energy:state.energy, maxEnergy:state.maxEnergy, lastEnergyReset:state.lastEnergyReset,
@@ -33589,10 +34373,23 @@ function loadGame(){
     const raw=localStorage.getItem(SAVE_KEY); if(!raw) return;
     const d=JSON.parse(raw);
     state.money=d.money||0; state.seasonMoney=d.seasonMoney||0; state.lifetimeMoney=d.lifetimeMoney||0;
-    // Saves that predate this feature (d.onboarding undefined) default to done:true —
-    // only a genuinely brand-new player (no save file at all, loadGame returns early
-    // above) keeps the fresh state default of done:false and sees the tutorial.
-    state.onboarding = d.onboarding || {step:0, done:true};
+    // fix292 (5): done:true UNCONDITIONALLY. The old line honoured whatever the
+    // save carried, so a player who closed the app mid-tour came back INTO the
+    // tour — a screen that no longer exists to leave. The field is still read
+    // and still written (see saveGame) purely so an older cached HTML can still
+    // parse this save; nothing in fix292 branches on its value.
+    // tombstone (pre-fix292): state.onboarding = d.onboarding || {step:0, done:true};
+    state.onboarding = {step:0, done:true};
+    // fix292 (5): PER-SUB-KEY guards, the tourProgress lesson. helpSeen is
+    // type-checked as well as presence-checked, because a corrupted or
+    // hand-edited save carrying a string here would make every `helpSeen[tab]`
+    // read return undefined and re-pop every guide on every single tab entry.
+    // welcomeBonusPaid heals to TRUE on absence, NOT false: absence means the
+    // save predates fix292, i.e. the player already had their intro (and its
+    // £20) under the old tour. Healing to false would hand every existing
+    // player £20 on their next load, once per device.
+    state.helpSeen = (d.helpSeen && typeof d.helpSeen === 'object' && !Array.isArray(d.helpSeen)) ? d.helpSeen : {};
+    state.welcomeBonusPaid = d.welcomeBonusPaid ?? true;
     state.season=d.season||1; state.seasonsCompleted=d.seasonsCompleted||0; state.prestigeMult=d.prestigeMult||1;
     // fix291 (4): a save written before fix291 has NO difficulty field, and the
     // balance that save was played under is the pre-fix291 one — which is
@@ -34529,13 +35326,31 @@ if(_hadPriorSave && _offlineSummary.awaySeconds>600 && (_offlineSummary.money>0 
 // An interrupted REPLAY (app closed mid-tour) must NOT re-enter startOnboarding
 // — that path grants the £20 welcome bonus and would be repeatable for free
 // money. Resume the replay overlay directly instead.
-if(!state.onboarding.done){
-  if(state.onboarding.replay){
-    document.getElementById('onboard-layer').style.display='block';
-    renderOnboardingStep();
-  } else {
-    startOnboarding();
-  }
+// fix292 (8): THE TOUR IS RETIRED — this was its only launch point, and it is
+// tombstoned rather than deleted, house style. The guides in PAGE_HELP replace
+// it: the Home guide auto-opens here instead, via the showTab('home') a few
+// lines above, and every other page's opens the first time it is entered.
+// tombstone (pre-fix292):
+// if(!state.onboarding.done){
+//   if(state.onboarding.replay){
+//     document.getElementById('onboard-layer').style.display='block';
+//     renderOnboardingStep();
+//   } else {
+//     startOnboarding();
+//   }
+// }
+// fix292 (8): the £20 that startOnboarding() used to grant, moved off the
+// retired tour and onto its own one-shot flag. This is a REPLACEMENT, not a new
+// reward — a brand-new player gets exactly what they got before fix292, and an
+// existing save cannot reach this branch because loadGame heals the absent flag
+// to true (see the note there). Sited after showTab('home') so the toast lands
+// on a painted hub rather than a blank screen, and saved immediately so a
+// player who closes the app in the next fifteen seconds is not paid twice.
+if(!state.welcomeBonusPaid){
+  state.welcomeBonusPaid = true;
+  earnMoney(ONBOARD_WELCOME_BONUS);
+  saveGame();
+  setTimeout(()=>showToast(`${icn('money')} Welcome — here's ${fmtMoney(ONBOARD_WELCOME_BONUS)} to get you started`), 1400);
 }
 setInterval(gameTick,100);
 setInterval(saveGame,15000);
@@ -34671,10 +35486,69 @@ const INFO_TEXTS = {
   // three things to paint. Game voice, no mechanics language.
   kitColor: {
     title: 'Colours',
-    body: ()=>`Style points only — the peloton judges, the stopwatch doesn't.<br><br>
-      Unlock a colour once and it's yours for the jersey, the helmet and the frame.
-      Match them or clash them, your call.<br><br>
-      Colours unlock by winning race type achievements.`
+    // fix293 (8): the old last line said colours unlock "by winning race type
+    // achievements". That was true of the first five and of nothing else — by
+    // fix265 there were four more from the shop and a dozen from lifetime
+    // goals, and a player reading this went looking in the wrong place. Rewritten
+    // to name all four routes, and the counts are COMPUTED from the derived
+    // source map rather than typed, so this paragraph cannot go stale the way
+    // the sentence it replaces did.
+    body: ()=>{
+      const by = k => Object.keys(KIT_COLOR_SOURCE).filter(id => KIT_COLOR_SOURCE[id].kind === k).length;
+      const mine = KIT_COLORS.filter(c => state.unlockedKitColors.has(c.id)).length;
+      return `Style points only — the peloton judges, the stopwatch doesn't.<br><br>
+      Unlock a colour once and it's yours for the jersey, the helmet and the frame, and it stays with you through every new season. Match them or clash them, your call.<br><br>
+      <strong>You have ${mine} of ${KIT_COLORS.length}.</strong> Greyed-out swatches with a padlock are the ones you haven't earned — <strong>tap any of them and it will tell you exactly what to do</strong>.<br><br>
+      There are four ways to earn one:<br>
+      • <strong>Achievements</strong> — ${by('achievement')} of them, mostly for winning a set number of one kind of race. <em>Rider ▸ Career</em><br>
+      • <strong>Lifetime goals</strong> — ${by('goal')}, the second tier of each long-run goal track. <em>Tasks ▸ Lifetime</em><br>
+      • <strong>The shop</strong> — ${by('shop')}, bought with Victory Points. <em>Home ▸ Shop</em><br>
+      • <strong>Grand Tours</strong> — ${by('grandtour')} leader's jerseys. Win the Tour de France outright and the maillot jaune is yours; the Giro pays pink, the Vuelta red. These are the hardest colours in the game to get, and they are meant to be.`;
+    }
+  },
+  // fix294 (3): the full prestige ladder, Lv 0 to the cap. This is the sheet the
+  // capstone hint's ⓘ opens, and it exists because the prestige card could only
+  // ever show ONE level ahead — a player deciding whether a fifth New Season is
+  // worth it had no way to see what the fifth, sixth or seventh actually give.
+  //
+  // Every row is COMPUTED from CARB_BASE_BY_PRESTIGE, WORKSHOP_CAP_BY_PRESTIGE
+  // and the minPrestige fields on the four gear registries. Nothing is typed.
+  // Retune any of those tables and this sheet follows; type the numbers here and
+  // it starts lying the first time somebody rebalances the gear ladder.
+  prestigeLadder: {
+    title: 'The Prestige Ladder',
+    body: ()=>{
+      const f = prestigeGateFacts();
+      const lvl = prestigeLevel();
+      const all = [...BIKES, ...TT_BIKES, ...WHEELS, ...KITS];
+      const cap = CARB_BASE_BY_PRESTIGE.length - 1;
+      let rows = '';
+      for(let L = 0; L <= cap; L++){
+        const n = all.filter(i => (i.minPrestige||0) === L).length;
+        const bits = [];
+        if(n) bits.push(`${n} new gear item${n===1?'':'s'}`);
+        // fix295 (6): the slot rung, now the first thing on every row — it is
+        // the number the capstone actually turns on.
+        const sl = CALENDAR_SLOTS_BY_PRESTIGE[Math.min(CALENDAR_SLOTS_BY_PRESTIGE.length-1, L)];
+        bits.unshift(`${isFinite(sl)?sl:'all'} calendar entr${sl===1?'y':'ies'}`);
+        bits.push(`${CARB_BASE_BY_PRESTIGE[L]}g daily fuelling`);
+        bits.push(`Lv ${WORKSHOP_CAP_BY_PRESTIGE[L]} workshop tuning`);
+        const here = L === lvl;
+        rows += `<div style="padding:5px 0;border-bottom:.5px solid var(--border);
+          ${here?'font-weight:700;color:var(--amber-txt)':''}">
+          <strong>Lv ${L}</strong>${here?' — you are here':''}<br>
+          <span style="font-size:11.5px;color:${here?'var(--amber-txt)':'var(--txt2)'}">${bits.join(' · ')}</span>
+        </div>`;
+      }
+      return `Every New Season is one prestige level. Your level is simply the number of seasons you have completed, and it never goes down.<br><br>
+      <strong>What a New Season takes:</strong> your money, your category, your sponsor and your FTP all reset.<br>
+      <strong>What it gives:</strong> the prize multiplier doubles, +10 daily energy, and the ladder below opens one more rung. Bikes, wheels and kit you already own are <strong>kept forever</strong>.<br><br>
+      ${rows}<br>
+      <strong>What prestige DOES gate:</strong> how many calendar events you may enter in one 30-day season. That is the ladder above, and it is the reason The Perfect Season is a campaign rather than a checklist — you need <strong>${perfectSeasonSlotNeed()}</strong> entries to fit three Grand Tours and a national championship into one season, and the ${perfectSeasonSlotNeed()}th opens at <strong>Prestige Lv ${perfectSeasonFirstPrestige()}</strong>.<br><br>
+      <strong>What it does not gate:</strong> which events you can see. That is your race category alone — reach <strong>${f.semiCatName}</strong> for the semi-pro events and <strong>${f.proCatName}</strong> for the Grand Tours, at any prestige level.<br><br>
+      <strong>Losing one is not wasted.</strong> Entries reset with the calendar season, so a Tour you lost at Lv 2 on mid-tier wheels can be ridden again at Lv 4 on the gear that actually beats the field. That loop is the game.<br><br>
+      <strong>So what stops you winning?</strong> The field. Grand Tour fields ride at roughly <strong>${f.proFieldFtp[0]}–${f.proFieldFtp[1]}w</strong>, and closing that gap takes the equipment on this ladder — the Grand Tour grade at <strong>Lv ${f.proGearLvl}</strong> and the WorldTour grade at <strong>Lv ${f.topGearLvl}</strong> — on top of a season's training.`;
+    }
   },
   // fix49: calendar — grand tour card
   grandTour: {
@@ -34864,6 +35738,19 @@ function closeInfo(ev){
   document.getElementById('info-overlay').style.display = 'none';
 }
 </script>
+
+<!-- ── fix292 (2): the per-page help button ─────────────────────────────────
+     Body-level, NOT inside any #tab-* panel: it is position:fixed, so nesting
+     it in a panel would put it inside that panel's transform/isolation context
+     and pin it to the panel rather than the viewport — the exact bug that
+     would break the "same space on every page" contract. Sited beside
+     #info-overlay because that is the sheet it opens.
+
+     openPageHelp() takes no argument on purpose. The tab it should explain is
+     always currentTab, and reading it inside the function rather than baking it
+     into the attribute means this is ONE handler for ten pages that can never
+     drift out of step with the tab actually on screen. -->
+<button id="page-help-fab" type="button" aria-label="Help for this page" onclick="openPageHelp()">?</button>
 
 <!-- ── fix44: Info popup — bottom-sheet overlay for explanatory text ── -->
 <div id="info-overlay" class="info-overlay" style="display:none" onclick="closeInfo(event)">
