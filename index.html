@@ -1,4 +1,102 @@
 <!DOCTYPE html>
+<!-- ═══════════════ fix298: BOOT SPLASH SCREEN ═══════════════
+     STAGE 2 OF 2. fix297 registered assets/splash.jpg in STATIC_ASSETS and
+     bumped the cache to cim-v3.9.03; it shipped no HTML and nothing referenced
+     the file. This stage paints it. DO NOT SHIP THIS WITHOUT fix297 ALREADY
+     DEPLOYED AND THE ASSET CONFIRMED RESIDENT — cache.addAll is all-or-nothing,
+     and an installed PWA that never precached splash.jpg will 404 it offline.
+
+     WHAT SHIPS. A full-viewport overlay, first child of <body>, painted from a
+     flat #7fb8d4 fill with assets/splash.jpg layered over it, lifted by a single
+     hideBootSplash() call at the end of init. Three regions, all disjoint:
+       1. <head>, above the Chart.js tag  — #boot-splash CSS + the controller.
+       2. First child of <body>           — the (inert, static) node itself.
+       3. End of init, before gameTick    — the one hideBootSplash() call.
+
+     WHY NOT THE MANIFEST. manifest.json has no splash-image field; Android
+     composes its PWA splash from icon-512.png on background_color and takes no
+     artwork. The shared #7fb8d4 is what makes the generated splash and this one
+     read as a single screen instead of two. It also means the splash works in a
+     plain browser tab and inside itch.io's iframe, where the PWA splash never
+     appears at all.
+
+     THE ONE DESIGN INVERSION, STATED PLAINLY. This surface FAILS OPEN. House
+     style prefers hard lockouts; here that would be actively dangerous. A
+     splash that fails to dismiss is an unplayable game for every player on the
+     build simultaneously. So: the controller is the first script in the file
+     and arms a 4 s unconditional release before anything that could throw has
+     run; hide() is idempotent; a 404 on the artwork counts as settled; and the
+     node is removed from the tree rather than parked at opacity:0. No path
+     through this code leaves the splash up.
+
+     ASSET NOTE. The art arrived from the pipeline named 'training-bg_jpg_2K_*'.
+     assets/training-bg.jpg is a LIVE, UNRELATED asset (Train hub, fix201) and is
+     byte-untouched by both stages. See the fix297 service worker header.
+
+     WHAT THIS DELIBERATELY DOES NOT SHIP. No progress bar or percentage — boot
+     is not instrumented for real progress and a fake bar is a lie. No tap-to-
+     skip: the floor is 900 ms and a skip control on a screen that short invites
+     mistaps into whatever is underneath. No settings toggle to disable it; if
+     one is ever wanted it belongs with the other display rows, not here.
+     STATIC_ASSETS IS UNTOUCHED BY THIS FIX and no CACHE_VERSION ships with it —
+     the bump that matters already happened at fix297.
+     ═══════════════════════════════════════════════════════════════
+
+     ═══════════ fix296: GRID ROW RETIRED + THE GC DOUBLE-AWARD ═══════════
+     Two independent bugs, reported together. Neither shares a line with the
+     other; they are in one fix because both diffs are small and disjoint.
+
+     1. THE RACE GRID SETTINGS ROW IS GONE. fix286 added a "Race screen
+        preview" row to the bottom of the settings sheet: a two-tap pill that
+        raised the calibration grid over the painted race stage. It was
+        scaffolding for the fix279-289 race-visualisation series — a way to
+        check the stage geometry against a measuring overlay while it was
+        still being calibrated. The overlay is now confirmed correct in play,
+        so the row is a debug control in a shipping settings sheet with
+        nothing left to debug. TOMBSTONED, not deleted: settingsStageTap(),
+        _setStageArmAt, raceStageDebugToggle() and _raceStageDebug all
+        survive untouched, so the grid is still raisable from the console and
+        a later re-add is an uncomment rather than a rewrite. No CSS is
+        touched — the version row directly above still uses every class the
+        retired row used.
+
+     2. GRAND TOUR STANDINGS CONTRADICTED THE RESULTS. Reported as "I keep
+        winning stages but the GC board has me 2nd or 3rd".
+
+        THE CAUSE — and it is not the gear gate. The player's stage GC points
+        come from their real finishing position. The rival field was then
+        handed the SAME points table from the top, in a rival-only sort, with
+        no knowledge of where the player finished. On a stage the player won,
+        first-place points were paid out TWICE: to the player, and to
+        whichever rival topped the rival sort. Win every stage and the best
+        rival matches you exactly; win most of them and they lead the board
+        while your results page shows the wins.
+
+        getGrandTourGearTier() is NOT implicated. Its multiplier is applied
+        to playerScore inside simulateGrandTourStageResult, before the
+        position is decided — it can only change what position you finish in,
+        and it is demonstrably not preventing wins. There is no second gate
+        downstream of the result. The stage results were always honest; the
+        board was the liar. This fix does not touch the gear tier, the
+        simulation, or the result path.
+
+        THE FIX. gcScoreStageForField() takes the player's finishing position
+        and scores the field AROUND it — the rival sorted i-th takes the best
+        remaining place, stepping over the player's slot. Every place in the
+        table is now issued exactly once per stage to exactly one rider.
+
+        NOT RETROACTIVE, deliberately. A tour already underway keeps the
+        rival totals it has banked; rewriting them would mean re-simulating
+        stages already ridden and paid out. Stages ridden from this build on
+        score correctly, and a tour started from here is correct end to end.
+        A tour currently in progress may still finish with the board reading
+        low — that is the old points, not this code.
+
+     Regions touched, and nothing outside them: the fix286 row inside
+     renderSettings(); gcScoreStageForField() and its one call site in
+     completeRace(); this header. No state shape change, no save migration, no
+     new save key, no asset change, STATIC_ASSETS untouched. Service worker
+     CACHE_VERSION bumped to cim-v3.9.02 because ./index.html is cached. -->
 <!-- ═══════════ fix291: DIFFICULTY LEVELS + THE CALENDAR RATION ═══════════
      Two independent changes, both requested together.
 
@@ -1763,6 +1861,138 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+<!-- ═══════════════ fix298: BOOT SPLASH (stage 2 of 2) ═══════════════
+     SITED HERE DELIBERATELY, ABOVE the Chart.js tag and above the
+     main <style>. Both of those are parse-blocking — the style block alone
+     opens with a ~500 KB base64 woff2 — so a splash defined below them would
+     not paint until after they were dealt with, which is precisely the window
+     it exists to cover. Everything the splash needs is in these two blocks
+     and nothing here depends on anything further down the file.
+
+     WHY THIS IS NOT THE PWA SPLASH. manifest.json has no splash-image field.
+     Android generates its splash from icon-512.png on the background_color
+     fill and cannot be handed artwork. This overlay is what the player sees
+     in a browser tab, on itch.io (where the game runs in an iframe and the
+     PWA splash never appears at all), and immediately after the generated
+     splash on an installed PWA — the shared #7fb8d4 makes that handoff read
+     as one continuous screen rather than two.
+     ═══════════════════════════════════════════════════════════════════ -->
+<style id="boot-splash-style">
+/* The flat fill is the FIRST thing that paints and is what the player
+   actually sees on a cold load — assets/splash.jpg arrives some tens of ms
+   later and layers on top. #7fb8d4 is the same token as <meta theme-color>
+   (~line 1814), manifest.json background_color, and #home-stage's placeholder
+   sky, so every boot surface is one colour. If that value is ever retuned,
+   all four move together or the seam reappears. */
+#boot-splash{
+  position:fixed; inset:0;
+  z-index:3000;                 /* measured, not estimated: the file's previous
+                                   ceiling was 2502 (audited across the full
+                                   z-index inventory). 3000 clears it with room
+                                   and is not adjacent to anything. */
+  background-color:#7fb8d4;
+  background-image:url('assets/splash.jpg');
+  background-position:center center;
+  background-repeat:no-repeat;
+  /* MSK's call: full-bleed over a re-cut. The art is 900x1612 (0.5583); a
+     phone viewport is ~0.462, so cover crops ~8.6% off each side and the
+     wordmark, which spans ~10%-89% of the source width, keeps ~1.4% margin.
+     It begins to clip below ~0.455. Accepted trade, recorded so a later
+     report of "the C is cut off" is diagnosed in seconds rather than
+     rediscovered. The fix if it ever matters is PADDING SKY ONTO THE TOP of
+     the source, never a side crop. */
+  background-size:cover;
+  opacity:1;
+  transition:opacity .38s ease-out;
+}
+#boot-splash.boot-splash-out{
+  opacity:0;
+  /* Released the instant the fade starts so the last frames of the animation
+     cannot swallow a tap aimed at the hub underneath. */
+  pointer-events:none;
+}
+/* No state.settings.reduceMotion check is possible here — state does not exist
+   yet at head-parse time. The OS-level query is the only gate available, and it
+   is the right one: this is a pre-boot surface, not a gameplay animation. */
+@media (prefers-reduced-motion: reduce){
+  #boot-splash{ transition:none; }
+}
+</style>
+<script>
+/* ═══ fix298: the splash controller ═══
+   STANDALONE AND FIRST ON PURPOSE. This is its own <script> in <head>, ahead
+   of every other script in the file, so the hard timeout below is armed before
+   anything that could fail has run. If the main game script throws — a syntax
+   error, a bad migration, anything — the splash still lifts and the player sees
+   the game rather than a permanently frozen loading screen.
+
+   FAIL OPEN, NOT CLOSED. This inverts the house hard-lockout preference, and
+   deliberately. A lockout that misfires on a race decision costs one race; a
+   splash that never dismisses is an unplayable game, and it would hit every
+   player at once on the same build. Every path here ends in the splash going
+   away. Nothing here can keep it up.
+
+   THREE TIMERS, ONE OUTCOME:
+     MIN_MS    floor. On a warm cache boot finishes in ~50 ms and the splash
+               would flash and vanish, which reads as a rendering fault. Held
+               to 900 ms so it registers as a deliberate screen.
+     IMG_MS    ceiling on waiting for the artwork. hideBootSplash() prefers to
+               wait until splash.jpg has settled so it never fades out a splash
+               the player never actually saw — but it gives up at 2.5 s rather
+               than let a slow or missing image extend the wait.
+     MAX_MS    the unconditional release. Runs on its own timer from parse,
+               ignores every other condition, and calls hide() directly rather
+               than going through hideBootSplash().
+
+   onerror COUNTS AS SETTLED. A 404 on splash.jpg must not stall boot — the
+   flat #7fb8d4 fill is a perfectly serviceable splash on its own. */
+(function(){
+  var t0      = Date.now();
+  var MIN_MS  = 900;
+  var IMG_MS  = 2500;
+  var MAX_MS  = 4000;
+  var imgSettled = false;
+  var done       = false;
+
+  function hide(){
+    if(done) return;            /* idempotent — a double call is a no-op, so the
+                                   boot call and the MAX_MS timer racing each
+                                   other is harmless by construction. */
+    done = true;
+    var el = document.getElementById('boot-splash');
+    if(!el) return;             /* never inserted, or already removed. */
+    el.classList.add('boot-splash-out');
+    /* Removed outright rather than left at opacity:0. A position:fixed inset:0
+       node with pointer-events:none is still a node; taking it out of the tree
+       means it cannot come back through some later class or style change. */
+    setTimeout(function(){
+      if(el && el.parentNode) el.parentNode.removeChild(el);
+    }, 420);                    /* > the .38s transition, so removal is never
+                                   visible as a jump. */
+  }
+
+  /* Warm the artwork independently of the CSS background so its arrival is
+     observable. Cheap: the browser serves one request and the CSS layer reuses
+     it from cache. */
+  var im = new Image();
+  im.onload = im.onerror = function(){ imgSettled = true; };
+  im.src = 'assets/splash.jpg';
+
+  /* THE SINGLE FUNNEL. Boot calls this exactly once, at the end of init. It
+     never hides immediately — it polls until both the floor has elapsed and the
+     image has settled (or IMG_MS has passed), then hides. */
+  window.hideBootSplash = function(){
+    (function tick(){
+      var elapsed = Date.now() - t0;
+      if(elapsed >= MIN_MS && (imgSettled || elapsed >= IMG_MS)) hide();
+      else setTimeout(tick, 60);
+    })();
+  };
+
+  /* The unconditional release. Independent of everything above. */
+  setTimeout(hide, MAX_MS);
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 @font-face{
@@ -10786,6 +11016,13 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
 </style>
 </head>
 <body>
+<!-- fix298: the boot splash. FIRST CHILD OF <body> so it exists in the tree at
+     the earliest possible moment. Static, inert markup — no onclick, no id
+     referenced by any handler, nothing for the handler audit to resolve. It is
+     created by the parser and destroyed by hideBootSplash(); no other code in
+     the file touches it. aria-hidden because it carries no information the
+     player needs read out — the artwork's own "LOADING..." is decorative. -->
+<div id="boot-splash" aria-hidden="true"></div>
 <!-- ═══════════════ PHASE 5: SVG ICON SPRITE (fix22) ═══════════════
      Inline <symbol> defs, referenced elsewhere via <use href="#icn-ID">.
      All paths use currentColor so icons tint via CSS color, same as the
@@ -15414,25 +15651,67 @@ function gcEnsureField(tp){
   return tp.gcField;
 }
 
-// gcScoreStageForField(tp, stage) — one stage's GC points for every rival.
-// Ranked, not rolled independently: each rival gets a score of strength plus
-// noise, the field is sorted, and the stage's own gcPoints table is handed down
-// the order. That keeps the points scarce in the way the table intends (six
-// scoring places, the rest zero) instead of letting all fifteen podium at once,
-// and it means a strong rival still has bad days.
+// gcScoreStageForField(tp, stage, yourPosition) — one stage's GC points for
+// every rival. Ranked, not rolled independently: each rival gets a score of
+// strength plus noise, the field is sorted, and the stage's own gcPoints table
+// is handed down the order. That keeps the points scarce in the way the table
+// intends (six scoring places, the rest zero) instead of letting all fifteen
+// podium at once, and it means a strong rival still has bad days.
 //
-// The player is NOT in this sort — their gcPoints come from their real result
-// and are merged only at read time in gcStandings, so a rival can never take
-// points off the player or vice versa.
-function gcScoreStageForField(tp, stage){
+// ── fix296 (2): THE DOUBLE-AWARDED WIN ────────────────────────────────────
+// THE BUG, exactly. fix198's comment claimed "a rival can never take points off
+// the player or vice versa" and treated that as the safe property. It is the
+// bug. The player's gcPoints come from their real stage position via
+// simulateGrandTourStageResult -> stage.gcPoints[position-1]. The rivals were
+// then handed the SAME table from the top, independently, with no knowledge of
+// where the player finished. So on a stage the player WON, table[0] was paid
+// out TWICE — 10 to the player for the win, and another 10 to whichever rival
+// topped the rival-only sort. Win every stage of a five-stage tour and the
+// strongest rival matches you point for point; win four of five and they are
+// ahead of you on the board while your own results page says you won four
+// stages. That is precisely the "I keep winning but I'm 2nd or 3rd" report.
+//
+// THIS IS NOT THE GEAR GATE. getGrandTourGearTier()'s multiplier is applied to
+// playerScore inside simulateGrandTourStageResult, i.e. BEFORE the position is
+// decided. It can only ever change what position you finish in — and it plainly
+// is not stopping wins, because wins are happening. There is no second gate
+// downstream of the result, and this fix does not touch that path at all: the
+// stage results were always the honest number, and the board was the liar.
+//
+// THE FIX: the field is scored AROUND the player's actual finish. The player
+// occupies place `yourPosition`; the rival sorted i-th takes the best remaining
+// place, skipping over the player's slot. Player 1st => rivals take 2nd, 3rd,
+// 4th...; player 3rd => rivals take 1st, 2nd, then 4th, 5th... Every place in
+// the table is now issued exactly once per stage, to exactly one rider, so the
+// board and the results can no longer disagree.
+//
+// yourPosition is OPTIONAL and defaults to Infinity (player outside the scoring
+// places), which reproduces fix198's ordering exactly. That default exists for
+// call-site safety, not for use: completeRace always passes a real position.
+//
+// STILL RENDER-SAFE. This mutates, so it stays callable only from the one
+// mutation path that already called it; gcStandings() remains the pure read.
+//
+// DELIBERATELY NOT RETROACTIVE. A tour already in progress keeps the rival
+// totals it has banked — those points are spent history and rewriting them
+// would mean re-simulating stages that were already ridden and awarded. Stages
+// ridden from this build on are scored correctly, and a tour started from here
+// is correct end to end.
+function gcScoreStageForField(tp, stage, yourPosition){
   const field = gcEnsureField(tp);
   const table = (stage && Array.isArray(stage.gcPoints)) ? stage.gcPoints : [];
   if(field.length===0 || table.length===0) return;
+  // Floor + finite guard rather than a bare read: a malformed position must
+  // degrade to "player not in the scoring places", never to NaN arithmetic
+  // that would silently zero every rival's award for the stage.
+  const yourPos = (typeof yourPosition==='number' && isFinite(yourPosition) && yourPosition>=1)
+    ? Math.floor(yourPosition) : Infinity;
   const order = field
     .map(r=>({ r, roll: r.strength*0.75 + Math.random()*0.55 }))
     .sort((a,b)=>b.roll-a.roll);
   order.forEach((entry, i)=>{
-    entry.r.gcPoints += (i<table.length ? table[i] : 0);
+    const place = (i+1) < yourPos ? (i+1) : (i+2);   // step over the player's slot
+    entry.r.gcPoints += (place-1 < table.length ? table[place-1] : 0);
   });
 }
 
@@ -18361,7 +18640,13 @@ function completeRace(){
     // player's own gcPoints are banked and BEFORE the final-stage branch below,
     // so the board is current at the moment the tour is settled. gcEnsureField
     // inside here covers a tour that was already in progress on an older save.
-    gcScoreStageForField(tp, stages[rd.stageIndex]);
+    // fix296 (2): the player's finishing position is now passed in, so the
+    // rivals fill the places AROUND them instead of being handed the table from
+    // the top independently. Before this, a stage win paid first-place points
+    // to both the player and the best rival, which is what made the standings
+    // contradict the results. rd.result.position is the same value banked into
+    // tp.stageResults two lines above — one source, no chance of drift.
+    gcScoreStageForField(tp, stages[rd.stageIndex], rd.result.position);
     if(tp.stageResults.length>=stages.length){
       // Final stage done — compute the overall GC result and award the big bonus.
       const tier=GC_TIERS.find(t=>tp.gcPoints>=t.minPoints) || GC_TIERS[GC_TIERS.length-1];
@@ -22149,31 +22434,36 @@ function renderSettings(){
        </div>
      </div>`);
 
-  // fix286 (race-vis plan §5) — the race stage preview row. APPENDED here, and
-  // AFTER the version row, for the fix260 reasons compounded: it is not a
-  // preference, so it cannot go in SETTINGS_ROWS without putting a second shape
-  // inside that map; and it is the least-used row in the sheet, so it goes last.
+  // fix296 (1) — THE RACE SCREEN PREVIEW ROW IS RETIRED. TOMBSTONED, not
+  // deleted, in the fix136 form: the fix286 row lived exactly here, appended
+  // after the version row, and read "Race screen preview" on the left with a
+  // two-tap "Turn on / Tap again to turn on" pill on the right calling
+  // settingsStageTap(). Its readout named the calibration grid's live state and
+  // noted that the flag turns off on reload. The whole thing was scaffolding
+  // for the fix279-289 race-visualisation series: a way to eyeball the painted
+  // stage against its measuring overlay while the geometry was still being
+  // calibrated. fix287 cut the painted stage over to the live path and the
+  // series closed at fix289; the overlay has now been confirmed correct in
+  // play, so the row is a debug affordance sitting in a shipping settings sheet
+  // with nothing left to debug.
   //
-  // REUSES .set-ver / .set-ver-val / .set-ver-btn VERBATIM. No CSS is added by
-  // this fix at all — not one selector, not one declaration. The version row
-  // already establishes exactly this shape (a monospace readout on the left, one
-  // 44px-minimum pill on the right, an .armed fill identical to .set-btn.on) and
-  // a second class set would mean two ways to draw one thing. Keeping the diff
-  // out of the stylesheet entirely also keeps this fix's blast radius to three
-  // JS regions, which matters on a stage that is scaffolding for a hard gate.
+  // WHAT SURVIVES, AND WHY EACH PIECE DOES:
+  //   settingsStageTap()      — kept whole. Deleting it would leave the handler
+  //                             audit with one fewer target but is the exact
+  //                             move that makes a later re-add a rewrite rather
+  //                             than an uncomment. It is now unreferenced from
+  //                             markup, which is the intended end state.
+  //   _setStageArmAt          — kept; settingsStageTap() still reads and writes
+  //                             it, so removing it would break that function.
+  //   raceStageDebugToggle()  — kept and still callable from the console, which
+  //                             is now the ONLY way to raise the grid.
+  //   _raceStageDebug         — kept; renderRaceStage() still reads it for the
+  //                             .race-stage-debug class, and it still defaults
+  //                             to false, so the shipping race surface is
+  //                             byte-identical to fix295 for every player.
   //
-  // The readout states the flag's live value rather than inferring it from the
-  // button label, so a preview toggled on from the console still reads ON here.
-  const _stArmed = (Date.now() - _setStageArmAt) < SET_UPD_ARM_MS;
-  const _stOn = (typeof _raceStageDebug !== 'undefined') && _raceStageDebug;
-  body.insertAdjacentHTML('beforeend',
-    `<div class="set-row">
-       <div class="set-row-lbl">Race screen preview</div>
-       <div class="set-ver">
-         <div class="set-ver-val">Calibration grid ${_stOn?'ON':'OFF'}<br>${_stOn?'Turns off on reload':'Race stage measuring overlay'}</div>
-         <button class="set-ver-btn${_stArmed?' armed':''}" onclick="settingsStageTap()">${_stArmed?(_stOn?'Tap again to turn off':'Tap again to turn on'):(_stOn?'Turn off':'Turn on')}</button>
-       </div>
-     </div>`);
+  // NO CSS IS TOUCHED. .set-ver / .set-ver-val / .set-ver-btn are all still
+  // used by the version row directly above, so nothing is orphaned.
 
   if(_setVerCache === null) readCacheVersion();
 }
@@ -35352,6 +35642,19 @@ if(!state.welcomeBonusPaid){
   saveGame();
   setTimeout(()=>showToast(`${icn('money')} Welcome — here's ${fmtMoney(ONBOARD_WELCOME_BONUS)} to get you started`), 1400);
 }
+// fix298: BOOT IS DONE — lift the splash. Sited here, after the welcome-bonus
+// block and immediately before the game loop starts, because everything the
+// player will look at is now painted: the save is loaded and migrated, offline
+// progress is applied, showTab('home') has run, ceremonies are queued. Calling
+// it any earlier would uncover a half-built hub.
+//
+// This is the ONLY call site. The controller in <head> owns all the timing —
+// the 900 ms floor, the image wait, and the 4 s unconditional release — so
+// there is nothing to duplicate here and no second call to drift out of sync.
+// If this line never runs (an exception thrown anywhere above it), the head
+// timer lifts the splash anyway and the player lands on whatever did manage
+// to render, which is strictly better than a frozen loading screen.
+hideBootSplash();
 setInterval(gameTick,100);
 setInterval(saveGame,15000);
 setInterval(()=>{
