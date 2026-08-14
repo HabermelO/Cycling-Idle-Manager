@@ -1,48 +1,5 @@
 <!DOCTYPE html>
-<!-- ═══════════════ fix298: BOOT SPLASH SCREEN ═══════════════
-     STAGE 2 OF 2. fix297 registered assets/splash.jpg in STATIC_ASSETS and
-     bumped the cache to cim-v3.9.03; it shipped no HTML and nothing referenced
-     the file. This stage paints it. DO NOT SHIP THIS WITHOUT fix297 ALREADY
-     DEPLOYED AND THE ASSET CONFIRMED RESIDENT — cache.addAll is all-or-nothing,
-     and an installed PWA that never precached splash.jpg will 404 it offline.
-
-     WHAT SHIPS. A full-viewport overlay, first child of <body>, painted from a
-     flat #7fb8d4 fill with assets/splash.jpg layered over it, lifted by a single
-     hideBootSplash() call at the end of init. Three regions, all disjoint:
-       1. <head>, above the Chart.js tag  — #boot-splash CSS + the controller.
-       2. First child of <body>           — the (inert, static) node itself.
-       3. End of init, before gameTick    — the one hideBootSplash() call.
-
-     WHY NOT THE MANIFEST. manifest.json has no splash-image field; Android
-     composes its PWA splash from icon-512.png on background_color and takes no
-     artwork. The shared #7fb8d4 is what makes the generated splash and this one
-     read as a single screen instead of two. It also means the splash works in a
-     plain browser tab and inside itch.io's iframe, where the PWA splash never
-     appears at all.
-
-     THE ONE DESIGN INVERSION, STATED PLAINLY. This surface FAILS OPEN. House
-     style prefers hard lockouts; here that would be actively dangerous. A
-     splash that fails to dismiss is an unplayable game for every player on the
-     build simultaneously. So: the controller is the first script in the file
-     and arms a 4 s unconditional release before anything that could throw has
-     run; hide() is idempotent; a 404 on the artwork counts as settled; and the
-     node is removed from the tree rather than parked at opacity:0. No path
-     through this code leaves the splash up.
-
-     ASSET NOTE. The art arrived from the pipeline named 'training-bg_jpg_2K_*'.
-     assets/training-bg.jpg is a LIVE, UNRELATED asset (Train hub, fix201) and is
-     byte-untouched by both stages. See the fix297 service worker header.
-
-     WHAT THIS DELIBERATELY DOES NOT SHIP. No progress bar or percentage — boot
-     is not instrumented for real progress and a fake bar is a lie. No tap-to-
-     skip: the floor is 900 ms and a skip control on a screen that short invites
-     mistaps into whatever is underneath. No settings toggle to disable it; if
-     one is ever wanted it belongs with the other display rows, not here.
-     STATIC_ASSETS IS UNTOUCHED BY THIS FIX and no CACHE_VERSION ships with it —
-     the bump that matters already happened at fix297.
-     ═══════════════════════════════════════════════════════════════
-
-     ═══════════ fix296: GRID ROW RETIRED + THE GC DOUBLE-AWARD ═══════════
+<!-- ═══════════ fix296: GRID ROW RETIRED + THE GC DOUBLE-AWARD ═══════════
      Two independent bugs, reported together. Neither shares a line with the
      other; they are in one fix because both diffs are small and disjoint.
 
@@ -1861,138 +1818,6 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
-<!-- ═══════════════ fix298: BOOT SPLASH (stage 2 of 2) ═══════════════
-     SITED HERE DELIBERATELY, ABOVE the Chart.js tag and above the
-     main <style>. Both of those are parse-blocking — the style block alone
-     opens with a ~500 KB base64 woff2 — so a splash defined below them would
-     not paint until after they were dealt with, which is precisely the window
-     it exists to cover. Everything the splash needs is in these two blocks
-     and nothing here depends on anything further down the file.
-
-     WHY THIS IS NOT THE PWA SPLASH. manifest.json has no splash-image field.
-     Android generates its splash from icon-512.png on the background_color
-     fill and cannot be handed artwork. This overlay is what the player sees
-     in a browser tab, on itch.io (where the game runs in an iframe and the
-     PWA splash never appears at all), and immediately after the generated
-     splash on an installed PWA — the shared #7fb8d4 makes that handoff read
-     as one continuous screen rather than two.
-     ═══════════════════════════════════════════════════════════════════ -->
-<style id="boot-splash-style">
-/* The flat fill is the FIRST thing that paints and is what the player
-   actually sees on a cold load — assets/splash.jpg arrives some tens of ms
-   later and layers on top. #7fb8d4 is the same token as <meta theme-color>
-   (~line 1814), manifest.json background_color, and #home-stage's placeholder
-   sky, so every boot surface is one colour. If that value is ever retuned,
-   all four move together or the seam reappears. */
-#boot-splash{
-  position:fixed; inset:0;
-  z-index:3000;                 /* measured, not estimated: the file's previous
-                                   ceiling was 2502 (audited across the full
-                                   z-index inventory). 3000 clears it with room
-                                   and is not adjacent to anything. */
-  background-color:#7fb8d4;
-  background-image:url('assets/splash.jpg');
-  background-position:center center;
-  background-repeat:no-repeat;
-  /* MSK's call: full-bleed over a re-cut. The art is 900x1612 (0.5583); a
-     phone viewport is ~0.462, so cover crops ~8.6% off each side and the
-     wordmark, which spans ~10%-89% of the source width, keeps ~1.4% margin.
-     It begins to clip below ~0.455. Accepted trade, recorded so a later
-     report of "the C is cut off" is diagnosed in seconds rather than
-     rediscovered. The fix if it ever matters is PADDING SKY ONTO THE TOP of
-     the source, never a side crop. */
-  background-size:cover;
-  opacity:1;
-  transition:opacity .38s ease-out;
-}
-#boot-splash.boot-splash-out{
-  opacity:0;
-  /* Released the instant the fade starts so the last frames of the animation
-     cannot swallow a tap aimed at the hub underneath. */
-  pointer-events:none;
-}
-/* No state.settings.reduceMotion check is possible here — state does not exist
-   yet at head-parse time. The OS-level query is the only gate available, and it
-   is the right one: this is a pre-boot surface, not a gameplay animation. */
-@media (prefers-reduced-motion: reduce){
-  #boot-splash{ transition:none; }
-}
-</style>
-<script>
-/* ═══ fix298: the splash controller ═══
-   STANDALONE AND FIRST ON PURPOSE. This is its own <script> in <head>, ahead
-   of every other script in the file, so the hard timeout below is armed before
-   anything that could fail has run. If the main game script throws — a syntax
-   error, a bad migration, anything — the splash still lifts and the player sees
-   the game rather than a permanently frozen loading screen.
-
-   FAIL OPEN, NOT CLOSED. This inverts the house hard-lockout preference, and
-   deliberately. A lockout that misfires on a race decision costs one race; a
-   splash that never dismisses is an unplayable game, and it would hit every
-   player at once on the same build. Every path here ends in the splash going
-   away. Nothing here can keep it up.
-
-   THREE TIMERS, ONE OUTCOME:
-     MIN_MS    floor. On a warm cache boot finishes in ~50 ms and the splash
-               would flash and vanish, which reads as a rendering fault. Held
-               to 900 ms so it registers as a deliberate screen.
-     IMG_MS    ceiling on waiting for the artwork. hideBootSplash() prefers to
-               wait until splash.jpg has settled so it never fades out a splash
-               the player never actually saw — but it gives up at 2.5 s rather
-               than let a slow or missing image extend the wait.
-     MAX_MS    the unconditional release. Runs on its own timer from parse,
-               ignores every other condition, and calls hide() directly rather
-               than going through hideBootSplash().
-
-   onerror COUNTS AS SETTLED. A 404 on splash.jpg must not stall boot — the
-   flat #7fb8d4 fill is a perfectly serviceable splash on its own. */
-(function(){
-  var t0      = Date.now();
-  var MIN_MS  = 900;
-  var IMG_MS  = 2500;
-  var MAX_MS  = 4000;
-  var imgSettled = false;
-  var done       = false;
-
-  function hide(){
-    if(done) return;            /* idempotent — a double call is a no-op, so the
-                                   boot call and the MAX_MS timer racing each
-                                   other is harmless by construction. */
-    done = true;
-    var el = document.getElementById('boot-splash');
-    if(!el) return;             /* never inserted, or already removed. */
-    el.classList.add('boot-splash-out');
-    /* Removed outright rather than left at opacity:0. A position:fixed inset:0
-       node with pointer-events:none is still a node; taking it out of the tree
-       means it cannot come back through some later class or style change. */
-    setTimeout(function(){
-      if(el && el.parentNode) el.parentNode.removeChild(el);
-    }, 420);                    /* > the .38s transition, so removal is never
-                                   visible as a jump. */
-  }
-
-  /* Warm the artwork independently of the CSS background so its arrival is
-     observable. Cheap: the browser serves one request and the CSS layer reuses
-     it from cache. */
-  var im = new Image();
-  im.onload = im.onerror = function(){ imgSettled = true; };
-  im.src = 'assets/splash.jpg';
-
-  /* THE SINGLE FUNNEL. Boot calls this exactly once, at the end of init. It
-     never hides immediately — it polls until both the floor has elapsed and the
-     image has settled (or IMG_MS has passed), then hides. */
-  window.hideBootSplash = function(){
-    (function tick(){
-      var elapsed = Date.now() - t0;
-      if(elapsed >= MIN_MS && (imgSettled || elapsed >= IMG_MS)) hide();
-      else setTimeout(tick, 60);
-    })();
-  };
-
-  /* The unconditional release. Independent of everything above. */
-  setTimeout(hide, MAX_MS);
-})();
-</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 @font-face{
@@ -2527,6 +2352,12 @@ button{font-family:inherit;cursor:pointer;}
 .tier-3{background:var(--amber-bg);color:var(--amber-txt);}
 .tier-4{background:var(--red-bg);color:var(--red-txt);}
 .tier-5{background:var(--purple-bg);color:var(--purple-txt);}
+/* fix301: Tier VI — the career-unlock tier. Teal rather than an extension of
+   the tier-1..5 ramp on purpose: these frames are not "one step past tier 5",
+   they are a different currency entirely (goal progress, never cash), and the
+   badge should read as a different KIND of thing at a glance. */
+.tier-6{background:var(--teal-bg);color:var(--teal-txt);}
+.equip-career-req{font-size:11px;color:var(--teal-txt);font-weight:600;margin-top:5px;line-height:1.35;}
 .type-badge{font-size:10px;padding:2px 7px;border-radius:99px;background:var(--bg3);color:var(--txt2);font-weight:500;}
 .stat-bars{margin-top:8px;display:flex;flex-direction:column;gap:4px;}
 .stat-bar-row{display:flex;align-items:center;gap:6px;}
@@ -3906,6 +3737,14 @@ button{font-family:inherit;cursor:pointer;}
 .goal-track-prog-wrap{height:6px;background:rgba(0,0,0,.12);border-radius:3px;margin-bottom:8px;overflow:hidden;}
 .goal-track-prog-bar{height:100%;background:var(--purple-txt);border-radius:3px;transition:width .2s;}
 .goal-track-next{font-size:11px;color:var(--txt3);}
+/* fix298 (4): the Collect button on a goal track card. Amber token trio, same
+   as every other pending-action surface. min-height 44px is the tap target
+   floor the rest of the file uses — this is a mobile-first PWA and a reward
+   button that needs a precise tap is a reward button that gets missed. */
+.goal-collect-btn{display:block;width:100%;margin-top:.6rem;min-height:44px;
+  font-size:13px;font-weight:800;padding:10px 12px;border-radius:10px;cursor:pointer;
+  border:1.5px solid var(--amber-bd);background:var(--amber-bg);color:var(--amber-txt);}
+.goal-collect-btn:active{filter:brightness(.92);}
 .title-chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem;}
 .title-chip{font-size:15px;font-weight:600;padding:7px 12px;border-radius:99px;cursor:pointer;
   border:1.5px solid var(--border);background:var(--bg);color:var(--txt2);}
@@ -11016,13 +10855,6 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
 </style>
 </head>
 <body>
-<!-- fix298: the boot splash. FIRST CHILD OF <body> so it exists in the tree at
-     the earliest possible moment. Static, inert markup — no onclick, no id
-     referenced by any handler, nothing for the handler audit to resolve. It is
-     created by the parser and destroyed by hideBootSplash(); no other code in
-     the file touches it. aria-hidden because it carries no information the
-     player needs read out — the artwork's own "LOADING..." is decorative. -->
-<div id="boot-splash" aria-hidden="true"></div>
 <!-- ═══════════════ PHASE 5: SVG ICON SPRITE (fix22) ═══════════════
      Inline <symbol> defs, referenced elsewhere via <use href="#icn-ID">.
      All paths use currentColor so icons tint via CSS color, same as the
@@ -15249,6 +15081,23 @@ const BIKES = [
   {id:'colnago_v4rs',  tier:5,minPrestige:6,type:'climbing',  brand:'Colnago',       model:'V4Rs',                      price:14500, aeroWatts:16, climbWatts:36, desc:'Italian craftsmanship at its absolute peak. Raced by UAE Team Emirates in the Tour.'},
   {id:'s_works_sl8',   tier:5,minPrestige:6,type:'climbing',  brand:'Specialized',   model:'S-Works Tarmac SL8',        price:15000, aeroWatts:22, climbWatts:32, desc:'The 2024 evolution. Lighter and more aero than anything that came before it.'},
   {id:'s_venge',       tier:5,minPrestige:6,type:'aero',      brand:'Specialized',   model:'S-Works Venge',             price:16000, aeroWatts:40, climbWatts:12, desc:'The sprint weapon of the WorldTour. Every watt of aero optimisation science allows.'},
+
+  // ── TIER 6 — CAREER UNLOCKS (fix301) ─────────────────────────────────────
+  // price:null is the whole mechanism. It is not "very expensive" — it is NOT
+  // FOR SALE. Cash cannot reach these frames at any balance and at any prestige
+  // level; the only route is a Lifetime Goal tier, which grants ownership
+  // through collectGoalTierReward(). minPrestige is deliberately 0 on every one
+  // of them: stacking a prestige gate on top of a goal gate would mean a player
+  // who has done the work is still told no, which is the opposite of the point.
+  //
+  // The unlock condition is NOT written here. It lives on the LIFETIME_GOALS
+  // tier that grants the item, and is attached to these objects at load by
+  // tagCareerGearUnlocks() below — same shape as tagRelicUnlocks(). One
+  // registry: retune the threshold and every sentence in the Gear tab follows.
+  {id:'tarmac_sl9',    tier:6,minPrestige:0,type:'allrounder',brand:'Specialized',   model:'S-Works Tarmac SL9',        price:null,  aeroWatts:34, climbWatts:34, desc:'Not sold. Specialized build these for riders whose palmarès justify one. Yours does.'},
+  {id:'colnago_y1rs',  tier:6,minPrestige:0,type:'aero',      brand:'Colnago',       model:'Y1Rs',                      price:null,  aeroWatts:46, climbWatts:14, desc:'The fastest thing Colnago have ever put in a wind tunnel. Earned in the classics, never bought.'},
+  {id:'supersix_lab71',tier:6,minPrestige:0,type:'climbing',  brand:'Cannondale',    model:'SuperSix EVO LAB71',        price:null,  aeroWatts:18, climbWatts:42, desc:'LAB71 is Cannondale\'s skunkworks. They hand one over when you have proved you can climb.'},
+  {id:'dogma_gc',      tier:6,minPrestige:0,type:'allrounder',brand:'Pinarello',     model:'Dogma F — GC Edition',      price:null,  aeroWatts:38, climbWatts:38, desc:'Built to a Grand Tour contender\'s own fit sheet. The rarest frame in this game.'},
 ];
 
 // fix106: dedicated Time Trial bikes — a separate ownership/equip slot from
@@ -15262,6 +15111,10 @@ const TT_BIKES = [
   {id:'tt_mid_disc',   tier:3,minPrestige:2,type:'tt',brand:'Trek',           model:'Speed Concept SLR (Disc)',  price:5500,  aeroWatts:26, climbWatts:-8, desc:'Mid-tier carbon paired with a rear disc wheel. Genuinely fast against the watch.'},
   {id:'tt_pro',        tier:4,minPrestige:4,type:'tt',brand:'Canyon',         model:'Speedmax CFR',              price:9000,  aeroWatts:34, climbWatts:-10,desc:'Pro-level TT superbike geometry. Built purely to hold watts at speed, nothing else.'},
   {id:'tt_worldtour',  tier:5,minPrestige:6,type:'tt',brand:'Cervélo',        model:'P5X WorldTour',             price:13500, aeroWatts:42, climbWatts:-12,desc:'The WorldTour prologue weapon. Every surface wind-tunnel optimised. Brutal on any incline.'},
+  // ── TIER 6 — CAREER UNLOCKS (fix301). See the BIKES tier 6 block for the
+  // price:null rationale; identical rules apply to this slot.
+  {id:'tt_chrono_gc',  tier:6,minPrestige:0,type:'tt',brand:'Specialized',    model:'S-Works Shiv TT (Chrono)',  price:null,  aeroWatts:48, climbWatts:-14,desc:'A one-off chassis cut to your position after a career of racing the watch. Unsellable.'},
+  {id:'tt_lab_project',tier:6,minPrestige:0,type:'tt',brand:'Factor',         model:'HANZO — Workshop Project',  price:null,  aeroWatts:46, climbWatts:-10,desc:'Laid up around the position you settled into over thousands of hours in the saddle. One of one.'},
 ];
 
 const WHEELS = [
@@ -15292,6 +15145,14 @@ const WHEELS = [
   {id:'lightweight',   tier:4,minPrestige:4,type:'climbing', name:'Lightweight Meilenstein',    price:4200, aeroWatts:5,  climbWatts:19, desc:'German hand-crafted carbon. Whisper-light at under 1,000g per set for serious climbing.'},
   {id:'enve_45',       tier:4,minPrestige:4,type:'deep',     name:'ENVE SES 4.5',               price:4500, aeroWatts:14, climbWatts:8,  desc:'ENVE\'s all-rounder flagship. 45mm front, 47mm rear — fast on flats, manageable on climbs.'},
   {id:'enve_78',       tier:4,minPrestige:4,type:'deep',     name:'ENVE SES 7.8',               price:5500, aeroWatts:22, climbWatts:-2, desc:'78mm front, 85mm rear deep section. Devastatingly fast. For when only winning matters.'},
+
+  // ── TIER 6 — CAREER UNLOCKS (fix301). price:null — not for sale, ever.
+  // There is no tier 5 in WHEELS and that stays true; tier 6 is the badge
+  // number for "career unlock" across every slot, so a player reads the same
+  // badge on a frame, a wheelset and a skinsuit and knows what it means.
+  {id:'wheels_sprint', tier:6,minPrestige:0,type:'deep',     name:'Sprint Programme Prototypes', price:null, aeroWatts:26, climbWatts:2,  desc:'Rim moulds that never went to production. Handed to the fastest finisher in the bunch.'},
+  {id:'wheels_summit', tier:6,minPrestige:0,type:'climbing', name:'Summit Series Handbuilts',    price:null, aeroWatts:8,  climbWatts:24, desc:'Under 900g the pair. Built by hand for one rider, and that rider stood on a lot of podiums.'},
+  {id:'wheels_forge',  tier:6,minPrestige:0,type:'racing',   name:'Workshop Forge Carbon',       price:null, aeroWatts:18, climbWatts:14, desc:'Laid up in your own workshop from a career of marginal gains. Nobody else has a set.'},
 ];
 
 const KITS = [
@@ -15300,6 +15161,9 @@ const KITS = [
   {id:'ss_skinsuit',  tier:3, minPrestige:2, name:'Race Skinsuit',        price:200,    aeroWatts:6,  desc:'One-piece short-sleeve skinsuit. A significant aero gain over a jersey.'},
   {id:'ls_skinsuit',  tier:4, minPrestige:4, name:'Long-Sleeve Skinsuit', price:500,    aeroWatts:10, desc:'Full-length suit with textured surface treatment. WorldTour standard.'},
   {id:'elite_suit',   tier:5, minPrestige:6, name:'Elite Aero Skinsuit',  price:1100,   aeroWatts:14, desc:'Custom-fit dimpled suit with optimised panel seams. The very best.'},
+  // ── TIER 6 — CAREER UNLOCKS (fix301). price:null — not for sale, ever.
+  {id:'kit_iron',     tier:6, minPrestige:0, name:'Iron Century Skinsuit',price:null,   aeroWatts:17, desc:'Stitched with a number for every start you have ever taken. There is no shop that sells this.'},
+  {id:'kit_gt',       tier:6, minPrestige:0, name:'Grand Tour Finisher\'s Suit', price:null, aeroWatts:19, desc:'The suit they hand you in Paris. Three weeks of racing is the only currency it accepts.'},
 ];
 
 // fix118: prestige access-ladder helpers — single source of truth for gear
@@ -15887,7 +15751,37 @@ const DAILY_TASKS = [
   {id:'enter_race',     icon:'flag', name:'Enter a Race',                desc:'Start any race, any category.',                    xpReward:20},
   {id:'podium_race',    icon:'medal-bronze', name:'Podium a Race',               desc:'Finish in the top 3 of any race.',                 xpReward:40},
   {id:'win_race',       icon:'medal-gold', name:'Win a Race',                  desc:'Finish in 1st place in any race.',                 xpReward:75},
+  // ═══ fix299: FIVE NEW DAILIES — FOUR DRILLS AND THE GREASE TIN ═══════════
+  // APPENDED, never inserted. Nothing indexes DAILY_TASKS positionally today,
+  // but the RS_GAMES comment records what inserting into an ordered table costs,
+  // and the cheap habit is the one that keeps being right.
+  //
+  // NO MIGRATION NEEDED. dailyTaskReset seeds progress/claimed from this table,
+  // and loadGame already spreads `defaultProgress`/`defaultClaimed` UNDER the
+  // saved object, so an existing save gains these five keys as false on its next
+  // load. That defensive merge was written for exactly this moment; do not add a
+  // bespoke migration beside it.
+  //
+  // XP: 15 each for the drills, one rung above the 10 the passive dailies pay
+  // and well under the 40/75 a podium or a win pays. A drill is a deliberate
+  // skill attempt, not a purchase, and not a race result.
+  //
+  // The four ids are literal, NOT generated from RS_GAMES with a map: a derived
+  // id would silently rename every player's saved task key the day someone edits
+  // that table, and the defensive merge would then read the rename as a brand
+  // new uncompleted task.
+  {id:'drill_fz', icon:'drink', name:'Ride the Feed Zone Scramble', desc:'Complete a Feed Zone Scramble drill in Skills.', xpReward:15},
+  {id:'drill_sl', icon:'bike',  name:'Ride Slipstream Drafting',    desc:'Complete a Slipstream Drafting drill in Skills.', xpReward:15},
+  {id:'drill_wt', icon:'wind',  name:'Ride the Wind Tunnel',        desc:'Complete a Wind Tunnel drill in Skills.',         xpReward:15},
+  {id:'drill_bt', icon:'drink', name:'Ride the Bidon Toss',         desc:'Complete a Bidon Toss drill in Skills.',          xpReward:15},
+  {id:'collect_mg', icon:'wrench', name:'Collect 200 MG', desc:'Bank 200 Mechanic\u2019s Grease across the Workshop benches today.', xpReward:30},
 ];
+
+// fix299: the grease target, named once so the task copy above and the test in
+// wsAwardMG cannot drift. 200 against the 500 MG rolling-30-min global ceiling
+// is deliberately well inside a single good workshop sitting: this is a "turn
+// up and work" daily, not a second cap to grind against.
+const DAILY_MG_TARGET = 200;
 
 // ─── SPONSORSHIP (Sponsors tab) ─────────────────────────────
 // Unlocked by RACE CATEGORY — one new tier every promotion, so sponsorship
@@ -16128,6 +16022,9 @@ const LIFETIME_GOALS = [
       {threshold:50,  reward:{type:'color',  colorId:'inferno', label:'Unlock Inferno Orange kit colour'}},
       {threshold:150, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
       {threshold:500, reward:{type:'title',  titleId:'serial_winner', titleText:'Serial Winner', label:'Unlock the title "Serial Winner"'}},
+      // fix301 — APPENDED as tier index 4. Every existing key in
+      // claimedGoalTiers/uncollectedGoalTiers is untouched by an append.
+      {threshold:1000, reward:{type:'gear', slot:'bike', itemId:'tarmac_sl9', label:'Unlock the S-Works Tarmac SL9'}},
     ]},
   { id:'podiums', name:'Consistency', icon:'medal-bronze', statFn:s=>s.totalPodiums||0,
     tiers:[
@@ -16135,6 +16032,9 @@ const LIFETIME_GOALS = [
       {threshold:100,  reward:{type:'color',  colorId:'platinum', label:'Unlock Podium Platinum kit colour'}},
       {threshold:400,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
       {threshold:1500, reward:{type:'title',  titleId:'the_metronome', titleText:'The Metronome', label:'Unlock the title "The Metronome"'}},
+      // fix301 — APPENDED as tier index 4. Every existing key in
+      // claimedGoalTiers/uncollectedGoalTiers is untouched by an append.
+      {threshold:3000, reward:{type:'gear', slot:'wheels', itemId:'wheels_summit', label:'Unlock the Summit Series Handbuilts'}},
     ]},
   { id:'starts', name:'The Long Road', icon:'road', statFn:s=>s.totalRaces||0,
     tiers:[
@@ -16142,6 +16042,9 @@ const LIFETIME_GOALS = [
       {threshold:500,   reward:{type:'color',  colorId:'bronze', label:'Unlock Iron Bronze kit colour'}},
       {threshold:2000,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
       {threshold:10000, reward:{type:'title',  titleId:'iron_rider', titleText:'Iron Rider', label:'Unlock the title "Iron Rider"'}},
+      // fix301 — APPENDED as tier index 4. Every existing key in
+      // claimedGoalTiers/uncollectedGoalTiers is untouched by an append.
+      {threshold:25000, reward:{type:'gear', slot:'kit', itemId:'kit_iron', label:'Unlock the Iron Century Skinsuit'}},
     ]},
   { id:'earnings', name:'Prize Fund', icon:'moneybag', statFn:s=>s.lifetimeMoney||0,
     tiers:[
@@ -16193,6 +16096,9 @@ const LIFETIME_GOALS = [
       {threshold:3,  reward:{type:'color',  colorId:'sapphire', label:'Unlock Grand Tour Sapphire kit colour'}},
       {threshold:10, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
       {threshold:25, reward:{type:'title',  titleId:'tour_veteran', titleText:'Tour Veteran', label:'Unlock the title "Tour Veteran"'}},
+      // fix301 — APPENDED as tier index 4. Every existing key in
+      // claimedGoalTiers/uncollectedGoalTiers is untouched by an append.
+      {threshold:50, reward:{type:'gear', slot:'kit', itemId:'kit_gt', label:"Unlock the Grand Tour Finisher's Suit"}},
     ]},
   { id:'gcpodiums', name:'General Classification', icon:'ribbon', statFn:s=>s.gcPodiums||0,
     tiers:[
@@ -16200,6 +16106,9 @@ const LIFETIME_GOALS = [
       {threshold:3,  reward:{type:'color',  colorId:'maillot', label:'Unlock Maillot Jaune kit colour'}},
       {threshold:8,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
       {threshold:20, reward:{type:'title',  titleId:'gc_contender', titleText:'GC Contender', label:'Unlock the title "GC Contender"'}},
+      // fix301 — APPENDED as tier index 4. Every existing key in
+      // claimedGoalTiers/uncollectedGoalTiers is untouched by an append.
+      {threshold:50, reward:{type:'gear', slot:'bike', itemId:'dogma_gc', label:'Unlock the Pinarello Dogma F — GC Edition'}},
     ]},
   { id:'calwins', name:'Championship Material', icon:'medal-gold', statFn:s=>s.calendarWins||0,
     tiers:[
@@ -16216,6 +16125,9 @@ const LIFETIME_GOALS = [
       {threshold:25,  reward:{type:'color',  colorId:'chrono', label:'Unlock Chrono Silver kit colour'}},
       {threshold:100, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
       {threshold:300, reward:{type:'title',  titleId:'the_chrono', titleText:'The Chrono', label:'Unlock the title "The Chrono"'}},
+      // fix301 — APPENDED as tier index 4. Every existing key in
+      // claimedGoalTiers/uncollectedGoalTiers is untouched by an append.
+      {threshold:750, reward:{type:'gear', slot:'ttbike', itemId:'tt_chrono_gc', label:'Unlock the S-Works Shiv TT (Chrono)'}},
     ]},
   { id:'mgbanked', name:'Marginal Gains', icon:'wrench', statFn:s=>s.lifetimeMG||0,
     tiers:[
@@ -16223,6 +16135,9 @@ const LIFETIME_GOALS = [
       {threshold:1000,  reward:{type:'color',  colorId:'grease', label:'Unlock Workshop Grease kit colour'}},
       {threshold:10000, reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
       {threshold:50000, reward:{type:'title',  titleId:'chief_mechanic', titleText:'Chief Mechanic', label:'Unlock the title "Chief Mechanic"'}},
+      // fix301 — APPENDED as tier index 4. Every existing key in
+      // claimedGoalTiers/uncollectedGoalTiers is untouched by an append.
+      {threshold:250000, reward:{type:'gear', slot:'wheels', itemId:'wheels_forge', label:'Unlock the Workshop Forge Carbon'}},
     ]},
   { id:'tuninglevels', name:'Fine Tuning', icon:'gear', statFn:s=>s.tuningLevelsBought||0,
     tiers:[
@@ -16230,6 +16145,15 @@ const LIFETIME_GOALS = [
       {threshold:25,  reward:{type:'color',  colorId:'titanium', label:'Unlock Titanium Grey kit colour'}},
       {threshold:75,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
       {threshold:200, reward:{type:'title',  titleId:'the_tinkerer', titleText:'The Tinkerer', label:'Unlock the title "The Tinkerer"'}},
+      // fix301: NO GEAR TIER ON THIS TRACK, DELIBERATELY. tuningLevelsBought is
+      // bounded at 4 workshop tracks x maxLevel 6 = 24 for an entire career —
+      // workshop levels are NOT reset by handlePrestige(), so the counter cannot
+      // be farmed across seasons. A fifth tier here would be permanently
+      // unreachable, which is the exact failure the fix197 comment above rules
+      // out for a relic-count track. (Its existing tier-3 at 75 and tier-4 at
+      // 200 are already unreachable for the same reason; NOT touched here —
+      // that is a separate bug and a separate fix, and retuning a live
+      // threshold is not in this fix's scope.)
     ]},
   { id:'buffs', name:'Sharpened Skills', icon:'muscle', statFn:s=>s.buffsUsed||0,
     tiers:[
@@ -16244,6 +16168,9 @@ const LIFETIME_GOALS = [
       {threshold:150,  reward:{type:'color',  colorId:'graphite', label:'Unlock Training Graphite kit colour'}},
       {threshold:600,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
       {threshold:2000, reward:{type:'title',  titleId:'the_engine', titleText:'The Engine', label:'Unlock the title "The Engine"'}},
+      // fix301 — APPENDED as tier index 4. Every existing key in
+      // claimedGoalTiers/uncollectedGoalTiers is untouched by an append.
+      {threshold:5000, reward:{type:'gear', slot:'ttbike', itemId:'tt_lab_project', label:'Unlock the Factor HANZO — Workshop Project'}},
     ]},
   // ─── fix197 capstone ───────────────────────────────────────────────────
   // THE ultimate goal, and the only single-tier track in the list. It sits
@@ -16268,6 +16195,43 @@ const LIFETIME_GOALS = [
     tiers:[
       {threshold:1, reward:{type:'title', titleId:'the_perfect_season', titleText:'The Perfect Season', label:'Unlock the title "The Perfect Season"'}},
     ]},
+  // ─── fix301: the three discipline tracks ───────────────────────────────
+  // APPENDED after the capstone, never inserted. Array position is cosmetic
+  // (renderGoalTracks order); the 'trackId:tierIndex' keys are what persist,
+  // and they are keyed by track.id, so nothing above shifts.
+  //
+  // These read raceWinsByType.crit / .road / .hill — three lifetime counters
+  // that already existed and were, until now, only ever summed (the 'wins'
+  // track) or read one at a time ('ttwins' takes .tt). No new state field.
+  //
+  // Ladder shape is DELIBERATELY not the cash -> colour -> perk -> title one
+  // used above: the tier-2 slot is a perk rather than a kit colour, because a
+  // colour reward means a new KIT_COLORS swatch and three new swatches was not
+  // what this fix set out to add. Documented here so the next person does not
+  // read it as an oversight and "fix" it. Consequence for balance: the perk
+  // ceiling moves from 15 tracks x 2% = +30% to 18 x 2% = +36% on a fully
+  // completed board. recalc()'s loop needs no edit — it reads whatever is here.
+  { id:'critwins', name:'Bunch Sprinter', icon:'bolt', statFn:s=>(s.raceWinsByType&&s.raceWinsByType.crit)||0,
+    tiers:[
+      {threshold:25,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:100,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:300,  reward:{type:'gear',   slot:'wheels', itemId:'wheels_sprint', label:'Unlock the Sprint Programme Prototypes'}},
+      {threshold:1000, reward:{type:'title',  titleId:'fastest_finisher', titleText:'Fastest Finisher', label:'Unlock the title "Fastest Finisher"'}},
+    ]},
+  { id:'roadwins', name:'The Classics Man', icon:'road', statFn:s=>(s.raceWinsByType&&s.raceWinsByType.road)||0,
+    tiers:[
+      {threshold:25,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:100,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:300,  reward:{type:'gear',   slot:'bike', itemId:'colnago_y1rs', label:'Unlock the Colnago Y1Rs'}},
+      {threshold:1000, reward:{type:'title',  titleId:'monument_hunter', titleText:'Monument Hunter', label:'Unlock the title "Monument Hunter"'}},
+    ]},
+  { id:'hillwins', name:'King of the Mountains', icon:'mountain', statFn:s=>(s.raceWinsByType&&s.raceWinsByType.hill)||0,
+    tiers:[
+      {threshold:25,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
+      {threshold:100,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
+      {threshold:300,  reward:{type:'gear',   slot:'bike', itemId:'supersix_lab71', label:'Unlock the Cannondale SuperSix EVO LAB71'}},
+      {threshold:1000, reward:{type:'title',  titleId:'the_grimpeur', titleText:'The Grimpeur', label:'Unlock the title "The Grimpeur"'}},
+    ]},
 ];
 
 // fix197: the three Grand Tours the capstone requires, as ids rather than a
@@ -16281,6 +16245,77 @@ const PERFECT_SEASON_TOURS = ['tour_de_france','giro_d_italia','vuelta_espana'];
 // a specialist rider, so requiring all four on top of three Grand Tours would
 // push the track from "brutal" to "not actually achievable in 30 days".
 const PERFECT_SEASON_NATIONALS = ['nat_hillclimb','nat_roadrace','nat_tt','nat_crit'];
+
+// ─── fix301: CAREER GEAR — the one registry ──────────────────────────────
+// Items with price:null in BIKES / TT_BIKES / WHEELS / KITS are unbuyable and
+// are granted ONLY by a Lifetime Goal tier whose reward.type is 'gear'. This
+// block is the join between the two, and it is DERIVED from LIFETIME_GOALS
+// rather than hand-written on the items, for exactly the reason KIT_COLOR_SOURCE
+// gives above: a hand-written "how to unlock" string is a second copy of the
+// threshold, and the first retune makes the Gear tab lie.
+//
+// Sited here because it must run after LIFETIME_GOALS and after all four
+// catalogues are initialised. `const` is not hoisted — do not move it up.
+const CAREER_GEAR_SLOTS = {
+  bike:   {label:'Bike',           list:()=>BIKES,    owned:()=>state.ownedBikes},
+  ttbike: {label:'Time Trial Bike',list:()=>TT_BIKES, owned:()=>state.ownedTTBikes},
+  wheels: {label:'Wheels',         list:()=>WHEELS,   owned:()=>state.ownedWheels},
+  kit:    {label:'Kit',            list:()=>KITS,     owned:()=>state.ownedKits},
+};
+const CAREER_GEAR_SOURCE = (function buildCareerGearSource(){
+  const m={};
+  const num = v => (typeof v==='number' ? v.toLocaleString('en-GB') : v);
+  LIFETIME_GOALS.forEach(function(track){
+    (track.tiers||[]).forEach(function(tier,idx){
+      const r=tier.reward;
+      if(!r || r.type!=='gear') return;
+      if(m[r.itemId]) return; // first-writer-wins, same precedence rule as KIT_COLOR_SOURCE
+      m[r.itemId]={
+        key: track.id+':'+idx,
+        slot: r.slot,
+        trackName: track.name,
+        tierNumber: idx+1,
+        threshold: tier.threshold,
+        how: 'Career unlock — reach '+num(tier.threshold)+' on the \u201C'+track.name+'\u201D lifetime goal, then collect tier '+(idx+1)+'.',
+      };
+    });
+  });
+  return m;
+})();
+// Tag the catalogue objects, mirroring tagRelicUnlocks(). The tag carries no
+// information of its own — it is a back-pointer into CAREER_GEAR_SOURCE — so
+// there is still exactly one place a threshold is written down.
+(function tagCareerGearUnlocks(){
+  Object.keys(CAREER_GEAR_SOURCE).forEach(function(itemId){
+    const src=CAREER_GEAR_SOURCE[itemId];
+    const slot=CAREER_GEAR_SLOTS[src.slot];
+    const item=slot?slot.list().find(x=>x.id===itemId):null;
+    if(!item){ console.warn('[fix301] career gear reward names an unknown item:', itemId, src.slot); return; }
+    item.goalUnlock=src.key;
+  });
+  // Reverse audit: a price:null item nobody grants is unreachable forever.
+  [BIKES,TT_BIKES,WHEELS,KITS].forEach(function(list){
+    list.forEach(function(it){
+      if(it.price===null && !CAREER_GEAR_SOURCE[it.id]) console.warn('[fix301] unbuyable item with no unlock route:', it.id);
+    });
+  });
+})();
+// THE gate. An item is career-locked when it has an unlock route and that
+// route's tier has not been COLLECTED yet — collected, not merely reached, so
+// the ceremony stays the moment of acquisition (same rule as every other
+// Lifetime Goal reward). The `state.claimedGoalTiers &&` guard is not
+// decoration: this is called from renderers that can run before loadGame()
+// has restored the Set.
+function itemCareerLocked(item){
+  if(!item || !item.goalUnlock) return false;
+  return !(state.claimedGoalTiers && state.claimedGoalTiers.has(item.goalUnlock));
+}
+// Cash can NEVER buy a career item, even after it is unlocked — unlocking
+// grants ownership outright, so a buy path would be a second way to acquire
+// something that is already owned. price===null is checked as well as the tag
+// so a mistagged item still cannot be bought for £0.
+function itemCashBlocked(item){ return !!item && (item.price===null || !!item.goalUnlock); }
+function careerHowFor(item){ const c=item&&CAREER_GEAR_SOURCE[item.id]; return c?c.how:''; }
 
 // ─── SPECIALISATIONS ────────────────────────────────────────
 const SPECIALISATIONS = [
@@ -16672,6 +16707,11 @@ const state = {
     resetDate: 0,
     progress: Object.fromEntries(DAILY_TASKS.map(t=>[t.id,false])),
     claimed:  Object.fromEntries(DAILY_TASKS.map(t=>[t.id,false])),
+    // fix299: MG banked TODAY, the counter behind the collect_mg daily. Its own
+    // field, not a read of state.workshop.mg (a spendable balance that FALLS
+    // when a tuning level is bought) nor of state.lifetimeMG (a career total
+    // with no day boundary). Neither could answer "200 today".
+    mgToday: 0,
   },
   // Sponsorship (Sponsors tab)
   sponsor: {
@@ -16717,7 +16757,15 @@ const state = {
   // fix178: mgWindowStart/mgWindowEarned back the rolling 30-minute earn
   // ceiling in wsAwardMG. Both need ?? guards in loadGame (the tourProgress
   // lesson) — a save from fix177 or earlier carries neither.
-  workshop: { mg:0, tuning:{}, tuningTarget:'bike:starter', mgWindowStart:0, mgWindowEarned:0 },
+  // fix297 (1): mgWindowByGame is the PER-BENCH ledger inside the same rolling
+  // window mgWindowStart/mgWindowEarned already govern. Keyed by WORKSHOP_GAMES
+  // key ('drivetrain'|'bearings'|'bleed'), value = MG banked by that bench in
+  // the CURRENT window. Cleared as one object whenever the window expires, so
+  // it can never outlive the window it belongs to. Needs its OWN ?? guard in
+  // loadGame — per-sub-key, never a single top-level ?? (the tourProgress
+  // lesson): a save from fix296 or earlier carries mgWindowStart and
+  // mgWindowEarned but not this, and a top-level guard would drop all three.
+  workshop: { mg:0, tuning:{}, tuningTarget:'bike:starter', mgWindowStart:0, mgWindowEarned:0, mgWindowByGame:{} },
   // fix261 (vp-shop-plan-v1 §1.1) — VICTORY POINTS. A career currency earned by
   // racing and NEVER bought with cash (plan §0 rule 1). The vp / lifetimeVP
   // split is deliberately the same shape as money / lifetimeMoney above:
@@ -17429,6 +17477,10 @@ function checkDailyReset(){
     state.lastEnergyReset = Date.now();
     // Reset daily tasks alongside energy — same calendar-day boundary
     DAILY_TASKS.forEach(t=>{ state.dailyTasks.progress[t.id]=false; state.dailyTasks.claimed[t.id]=false; });
+    // fix299: the grease tally is day-scoped, so it dies on the same boundary as
+    // the task it feeds. Reset HERE and nowhere else — a second reset site is a
+    // second registry, and the two would drift the day the boundary moved.
+    state.dailyTasks.mgToday=0;
     state.dailyTasks.resetDate=Date.now();
     // Roll fresh prices/offers/benefits for the energy market
     ensureDailyMarket();
@@ -18919,6 +18971,25 @@ function checkLifetimeGoals(){
   }
 }
 
+// fix301: THE single mutation funnel for career-gear ownership. Called only
+// from collectGoalTierReward. No second call site — a second one would be a
+// second registry, and the two would drift the first time a slot is added.
+function grantCareerGear(slot, itemId){
+  const def=CAREER_GEAR_SLOTS[slot];
+  if(!def){ console.warn('[fix301] gear reward names an unknown slot:', slot, itemId); return; }
+  const set=def.owned();
+  if(!set){ console.warn('[fix301] owned-set missing for slot:', slot); return; }
+  set.add(itemId);
+  // Re-render whatever gear surface is open. Guarded on the container existing
+  // rather than on currentTab alone: the Gear hub's sections are sheet-driven
+  // and a section that has never been opened has no container to write into.
+  if(currentTab==='gear'){
+    if(document.getElementById('gear-section-bikes'))  renderBikeShop();
+    if(document.getElementById('gear-section-wheels')) renderWheelShop();
+    if(document.getElementById('gear-section-kit'))    renderKitShop();
+  }
+}
+
 // Grants a Lifetime Goal tier's reward, mirroring collectAchievementReward.
 // Same forced-collect pattern — the ceremony backdrop is blocked for this
 // type too (see dismissCeremony), so nothing is ever silently skipped.
@@ -18934,6 +19005,12 @@ function collectGoalTierReward(trackId, tierIndex){
     state.unlockedTitles.add(r.titleId);
     if(!state.equippedTitle) state.equippedTitle=r.titleId; // auto-equip the first title ever earned
   }
+  // fix301: 'gear' grants OWNERSHIP of an unbuyable catalogue item. Ownership
+  // is the only thing granted — it deliberately does NOT auto-equip, unlike
+  // buyBike/buyWheels/buyKit, because a player mid-Grand-Tour collecting a
+  // backlog of three tiers should not silently find their bike swapped between
+  // stages. The Gear tab shows it as Owned with an Equip button, on their terms.
+  else if(r.type==='gear'){ grantCareerGear(r.slot, r.itemId); }
   // 'perk' rewards need no direct action here — recalc() reads claimedGoalTiers
   // directly, so simply marking this tier as claimed (below) activates it.
   state.uncollectedGoalTiers.delete(key);
@@ -18943,12 +19020,34 @@ function collectGoalTierReward(trackId, tierIndex){
   showToast(`${icn('trophy')} ${r.label} collected!`);
   updateHeader();
   if(currentTab==='growth') renderGrowthTab();
-  // Force-dismiss (bypassing the lifetimegoal backdrop-tap guard) and advance
-  document.getElementById('ceremony-overlay').style.display='none';
-  document.getElementById('ceremony-confetti').innerHTML='';
-  ceremonyShowing=false;
-  currentCeremonyType=null;
-  processCeremonyQueue();
+  // ═══ fix298 (1): THE TEARDOWN IS NOW CONDITIONAL ═════════════════════════
+  // This function is the single mutation funnel for collecting a goal tier, and
+  // fix298 (2) adds a SECOND call site: the Collect button on the Growth tab's
+  // goal track card. That site has no ceremony open. The unconditional teardown
+  // below therefore ran with nothing to tear down, and its two real side
+  // effects were both wrong from the tab: it set ceremonyShowing=false while a
+  // queued-but-not-yet-shown ceremony was pending, and then processCeremonyQueue()
+  // popped an UNRELATED ceremony (an achievement, a relic) into the player's
+  // face because they tapped Collect on a goal track. Guarding on ceremonyShowing
+  // makes the ceremony path byte-identical to before and the tab path a no-op.
+  //
+  // Deliberately guarded here rather than solved by giving the tab its own
+  // collect function. A second collect function is a second registry, and the
+  // two would drift the first time a reward type is added to the ladder above.
+  // TOMBSTONE — the unconditional form, fix121..fix297:
+  //   document.getElementById('ceremony-overlay').style.display='none';
+  //   document.getElementById('ceremony-confetti').innerHTML='';
+  //   ceremonyShowing=false;
+  //   currentCeremonyType=null;
+  //   processCeremonyQueue();
+  if(ceremonyShowing){
+    // Force-dismiss (bypassing the lifetimegoal backdrop-tap guard) and advance
+    document.getElementById('ceremony-overlay').style.display='none';
+    document.getElementById('ceremony-confetti').innerHTML='';
+    ceremonyShowing=false;
+    currentCeremonyType=null;
+    processCeremonyQueue();
+  }
 }
 
 // Switches the player's currently displayed title. Only unlocked titles are
@@ -19744,7 +19843,12 @@ function updateCalendarBadge(){
 }
 
 function buyBike(id){
-  const b=BIKES.find(b=>b.id===id); if(!b||state.ownedBikes.has(id)||state.money<b.price) return;
+  const b=BIKES.find(b=>b.id===id); if(!b||state.ownedBikes.has(id)) return;
+  // fix301: hard lockout BEFORE the affordability test, and before it, because
+  // `state.money < null` is false — a price:null item would otherwise sail
+  // straight through the old guard and be bought for nothing.
+  if(itemCashBlocked(b)){ showToast(`${icn('lock')} ${careerHowFor(b)||'Not for sale — career unlock only.'}`); return; }
+  if(state.money<b.price) return;
   // fix118: belt-and-braces prestige guard — UI already hides the buy button
   // on locked cards, but this blocks any path that bypasses the card (e.g.
   // a stale render).
@@ -19772,7 +19876,9 @@ function equipBike(id){
 // never touches state.equippedBike, so the road bike stays equipped for
 // non-TT races (two independent slots, per plan).
 function buyTTBike(id){
-  const b=TT_BIKES.find(b=>b.id===id); if(!b||state.ownedTTBikes.has(id)||state.money<b.price) return;
+  const b=TT_BIKES.find(b=>b.id===id); if(!b||state.ownedTTBikes.has(id)) return;
+  if(itemCashBlocked(b)){ showToast(`${icn('lock')} ${careerHowFor(b)||'Not for sale — career unlock only.'}`); return; }
+  if(state.money<b.price) return;
   if(itemPrestigeLocked(b)){ showToast(`${icn('lock')} Locked until Prestige ${b.minPrestige}`); return; }
   state.money-=b.price; state.ownedTTBikes.add(id);
   equipTTBike(id); saveGame(); updateUI();
@@ -19787,7 +19893,9 @@ function equipTTBike(id){
   if(currentTab==='race') renderRaceSetupCard();
 }
 function buyWheels(id){
-  const w=WHEELS.find(w=>w.id===id); if(!w||state.ownedWheels.has(id)||state.money<w.price) return;
+  const w=WHEELS.find(w=>w.id===id); if(!w||state.ownedWheels.has(id)) return;
+  if(itemCashBlocked(w)){ showToast(`${icn('lock')} ${careerHowFor(w)||'Not for sale — career unlock only.'}`); return; }
+  if(state.money<w.price) return;
   if(itemPrestigeLocked(w)){ showToast(`${icn('lock')} Locked until Prestige ${w.minPrestige}`); return; }
   state.money-=w.price; state.ownedWheels.add(id);
   equipWheels(id); saveGame(); updateUI();
@@ -19802,7 +19910,9 @@ function equipWheels(id){
   if(currentTab==='race') renderRaceSetupCard();
 }
 function buyKit(id){
-  const k=KITS.find(k=>k.id===id); if(!k||state.ownedKits.has(id)||state.money<k.price) return;
+  const k=KITS.find(k=>k.id===id); if(!k||state.ownedKits.has(id)) return;
+  if(itemCashBlocked(k)){ showToast(`${icn('lock')} ${careerHowFor(k)||'Not for sale — career unlock only.'}`); return; }
+  if(state.money<k.price) return;
   if(itemPrestigeLocked(k)){ showToast(`${icn('lock')} Locked until Prestige ${k.minPrestige}`); return; }
   state.money-=k.price; state.ownedKits.add(id);
   equipKit(id); saveGame(); updateUI();
@@ -30678,6 +30788,11 @@ function fzEnd(){
     const store=rsStore();
     if(store.bestScores.fz==null||fzScore>store.bestScores.fz) store.bestScores.fz=fzScore;
     store.lastPlayed.fz=Date.now();
+    // fix299: the drill_fz daily. Sited on the lastPlayed stamp, which is this
+    // file's existing definition of "a drill was ridden", so the task and the
+    // hub's last-played display can never disagree about whether it happened.
+    // Marked on COMPLETION, not on a win — the task says ride it, not win it.
+    markTaskProgress('drill_fz');
     if(won) grantBuff('fz_regen', FZ_BUFF_MULT, FZ_BUFF_MS); // grantBuff saves
     else saveGame();
   }catch(e){
@@ -30982,6 +31097,11 @@ function slEnd(){
     const store=rsStore();
     if(store.bestScores.sl==null||slScore>store.bestScores.sl) store.bestScores.sl=slScore;
     store.lastPlayed.sl=Date.now();
+    // fix299: the drill_sl daily. Sited on the lastPlayed stamp, which is this
+    // file's existing definition of "a drill was ridden", so the task and the
+    // hub's last-played display can never disagree about whether it happened.
+    // Marked on COMPLETION, not on a win — the task says ride it, not win it.
+    markTaskProgress('drill_sl');
     if(won) grantBuff('sl_xp', SL_BUFF_PCT, SL_BUFF_MS); // grantBuff saves
     else saveGame();
   }catch(e){
@@ -31093,6 +31213,27 @@ const WT_THRESHOLD    = 65;
 // 0-~15w, so 4w is about one tier of wheels for one race — meaningful without
 // distorting the equipment ladder.
 const WT_BUFF_WATTS   = 4;
+// ── fix297 (4): ADJUSTMENT GRACE ──────────────────────────────────────────
+// The tunnel scores EVERY 1/60s step, so the instant the gust pushed the demand
+// out from under the setup the player started losing percentage points — while
+// still reading the line that told them which way to move. The feedback arrived
+// and the penalty arrived together, which is why 65% could feel impossible: the
+// game was charging for the reaction time it was asking for.
+//
+// Grace gives the player a moment to act on the message. The first
+// WT_GRACE_STEPS steps of any excursion out of the clean band still score as
+// clean air. The allowance refills on any clean step, so it is available for
+// every excursion, not just the first.
+//
+// WT_GRACE_BUDGET_STEPS is the hard ceiling on the whole run, and it is what
+// keeps this a forgiveness mechanic rather than a difficulty removal. 240 steps
+// = 4 seconds out of 30, so grace can add AT MOST 13.3 percentage points to a
+// final score, and only to a player who is actively chasing the gust. A player
+// who sets the dials once and lets go still lands near 45% and still fails: the
+// budget only pays out on excursions that are being corrected, because it only
+// refills on clean steps.
+const WT_GRACE_STEPS         = 30;    // 0.5s of cover per excursion
+const WT_GRACE_BUDGET_STEPS  = 240;   // 4.0s of cover per 30s run, total
 const WT_GUST_AMP     = 12;
 const WT_GUST_RATE    = 0.008;     // radians per fixed step ~= 13s period
 
@@ -31107,6 +31248,10 @@ let wtOpen=false, wtActive=false, wtTimeLeft=WT_DURATION_SEC;
 let wtTickId=null, wtRafId=null, wtLastFrame=0, wtAccMs=0;
 let wtSteps=0, wtCleanSteps=0, wtScore=0;
 let wtStage=WT_STAGES[0], wtGustPhase=0, wtDiff=0;
+// fix297 (4): wtGraceLeft is the cover remaining for the CURRENT excursion;
+// wtGraceBudget is the cover remaining for the whole run. Both are step counts,
+// both reset on every wtStart(), and neither is persisted.
+let wtGraceLeft=WT_GRACE_STEPS, wtGraceBudget=WT_GRACE_BUDGET_STEPS;
 let wtParticles=null, wtSprite=null, wtSpriteReady=false;
 let _wtQuitArmed=false, _wtQuitTimer=null;
 
@@ -31198,6 +31343,7 @@ function openWindTunnel(){
   wtResetPanels(true);
   wtActive=false; wtOpen=true;
   wtTimeLeft=WT_DURATION_SEC; wtSteps=0; wtCleanSteps=0; wtScore=0; wtGustPhase=0;
+  wtGraceLeft=WT_GRACE_STEPS; wtGraceBudget=WT_GRACE_BUDGET_STEPS;   // fix297 (4)
   wtUpdateUI();
   ov.style.display='flex';
   document.body.style.overflow='hidden';
@@ -31220,6 +31366,11 @@ function wtStart(){
   wtGustPhase=Math.random()*Math.PI*2;
   wtActive=true; wtOpen=true;
   wtTimeLeft=WT_DURATION_SEC; wtSteps=0; wtCleanSteps=0; wtScore=0;
+  // fix297 (4): the run budget resets HERE as well as in openWindTunnel(),
+  // because "Go again" from the end panel re-enters through wtStart() only. A
+  // budget carried over from the previous run would leave the second attempt
+  // with no cover at all.
+  wtGraceLeft=WT_GRACE_STEPS; wtGraceBudget=WT_GRACE_BUDGET_STEPS;
   // Brief is rebuilt exactly here — once per run, never on the tick.
   const brief=document.getElementById('wt-brief');
   if(brief) brief.innerHTML=`<b>${wtStage.name}.</b> ${wtStage.note}`;
@@ -31239,8 +31390,22 @@ function wtStep(){
   wtDiff=wtPlayerAero()-wtDemand();
   const d=Math.abs(wtDiff);
   wtSteps++;
-  if(d<=WT_CLEAN_BAND)      wtCleanSteps+=1;
-  else if(d<=WT_CLOSE_BAND) wtCleanSteps+=0.5;
+  // fix297 (4): three-way, in priority order. Clean air scores and REFILLS the
+  // per-excursion allowance — that refill is the whole mechanism, because it is
+  // what makes the budget spend only on excursions the player is actually
+  // correcting. Out of band, cover is drawn from both the per-excursion
+  // allowance and the run budget together, and the step scores as clean while
+  // it lasts. Once either runs out the original bands apply unchanged.
+  if(d<=WT_CLEAN_BAND){
+    wtCleanSteps+=1;
+    wtGraceLeft=WT_GRACE_STEPS;
+  } else if(wtGraceLeft>0 && wtGraceBudget>0){
+    wtGraceLeft--;
+    wtGraceBudget--;
+    wtCleanSteps+=1;
+  } else if(d<=WT_CLOSE_BAND){
+    wtCleanSteps+=0.5;
+  }
   wtScore=Math.round(100*wtCleanSteps/wtSteps);
 }
 
@@ -31415,6 +31580,11 @@ function wtEnd(){
     const store=rsStore();
     if(store.bestScores.wt==null||wtScore>store.bestScores.wt) store.bestScores.wt=wtScore;
     store.lastPlayed.wt=Date.now();
+    // fix299: the drill_wt daily. Sited on the lastPlayed stamp, which is this
+    // file's existing definition of "a drill was ridden", so the task and the
+    // hub's last-played display can never disagree about whether it happened.
+    // Marked on COMPLETION, not on a win — the task says ride it, not win it.
+    markTaskProgress('drill_wt');
     // Race-scoped: durationMs null, so it waits on the clock for as long as it
     // takes the player to start a race. Consumed in consumeRaceBuffs().
     if(won) grantBuff('wt_aero', WT_BUFF_WATTS, null); // grantBuff saves
@@ -31503,6 +31673,39 @@ const BT_H = 750;          // canvas backing-store height — ditto
 const BT_TARGET_Y = 220;   // depth line where the fan catches; standalone verbatim
 const BT_CATCH_DIST = 35;  // hit radius; standalone verbatim
 const BT_RESET_MS = 600;   // pause between throws; standalone verbatim
+// ── fix297 (3): CONSTANT THROW POWER ──────────────────────────────────────
+// The standalone's launch was `vy = clamp(deltaY * 0.08, 8, 18)`, i.e. the
+// flick's LENGTH set the bidon's speed, which set the flight TIME, which set
+// how many frames the wind had to work on it. A soft flick (vy 8) spends 54
+// frames in the air; a hard one (vy 18) spends 24. The compounding drift term
+// then turns that 2.2x into a ~3x difference in total sideways travel. The
+// player was therefore aiming at a target whose offset changed with how hard
+// they happened to swipe — unlearnable, and the reason the bench felt random
+// rather than difficult.
+//
+// BT_THROW_VY fixes the vertical speed. Flight is now (BT_H-100) - BT_TARGET_Y
+// = 430px at a constant 13px/frame ~= 34 frames, EVERY throw. The wind offset
+// for a given wind reading is now the same number every time, so it can be
+// learned and aimed off.
+const BT_THROW_VY = 13;
+// BT_AIM_SCALE converts the flick's horizontal component into lateral speed.
+// Dropped from the standalone's 0.15 because with a fixed 34-frame flight,
+// 0.15 turned a 150px sideways drag into 765px of travel across a 420px board
+// — the "flies off the screen unless you aim straight down the middle" defect.
+// At 0.075 the same drag is 383px: enough authority to cancel the strongest
+// wind (see below) with margin, and no longer a cliff either side of centre.
+const BT_AIM_SCALE = 0.075;
+// BT_WIND_DRIFT replaces the standalone's 0.45, against a flight that is now
+// longer than a hard flick's used to be. Over 34 frames the compounding factor
+// (1 + frames*0.04) sums to ~57.8, so total drift is ~18.5px per km/h of wind:
+// ~74px at the 4km/h floor (visible, must be aimed off) and ~333px at the new
+// 18km/h ceiling (demanding, but inside what BT_AIM_SCALE can cancel). Both are
+// MORE drift than a hard flick used to see, which is the point.
+const BT_WIND_DRIFT = 0.32;
+// BT_WIND_MAX caps the difficulty ramp. The old ceiling of 28km/h produced a
+// drift no achievable flick could cancel, so a long streak was punished with an
+// unwinnable throw. 18 is the strongest wind BT_AIM_SCALE can still answer.
+const BT_WIND_MAX = 18;
 let btCtx=null, btStreak=0, btResetTimer=null;
 let btDragging=false, btDragStartX=0, btDragStartY=0, btDragCurrX=0, btDragCurrY=0;
 let btMsgText='', btMsgColor='#fff', btMsgUntil=0;
@@ -31729,7 +31932,7 @@ const btBottle = {
     if(!this.inFlight) return;
     this.flightFrames++;
     const windCurveFactor = 1 + (this.flightFrames*0.04);
-    const windDrift = btWind * 0.45 * windCurveFactor;
+    const windDrift = btWind * BT_WIND_DRIFT * windCurveFactor;   // fix297 (3)
     this.y -= this.vy;
     this.x += this.vx + windDrift;
     this.rotation += 0.08 + (btWind*0.005);
@@ -31764,7 +31967,7 @@ const btBottle = {
 // Difficulty. Verbatim, except that the wind stays a number (port note 4).
 function btUpdateDifficulty(){
   const minWind=4;
-  const maxWind=Math.min(28, 6+(btStreak*2));
+  const maxWind=Math.min(BT_WIND_MAX, 6+(btStreak*2));   // fix297 (3): ceiling was 28
   const rawWind=Math.random()*(maxWind-minWind)+minWind;
   const signed=(Math.random()>0.5 ? rawWind : -rawWind);
   btWind=Math.round(signed*10)/10;
@@ -31879,8 +32082,12 @@ function btDrawAimLine(ctx){
   ctx.beginPath();
   ctx.moveTo(btBottle.x, btBottle.y);
   const deltaX=btDragCurrX-btDragStartX;
-  const deltaY=btDragStartY-btDragCurrY;
-  ctx.lineTo(btBottle.x+(deltaX*1.5), btBottle.y-Math.max(40, deltaY*1.5));
+  // fix297 (3): the guide no longer grows with deltaY, because deltaY no longer
+  // sets the power — showing a longer line for a longer flick would now be a
+  // lie. Fixed reach, angle from deltaX only, using the SAME BT_AIM_SCALE the
+  // launch uses so the line and the throw cannot disagree. deltaY still gates
+  // the throw in btPointerUp; it just has nothing to say about aim.
+  ctx.lineTo(btBottle.x+(deltaX*BT_AIM_SCALE*14), btBottle.y-150);
   ctx.stroke();
   ctx.restore();
 }
@@ -32048,6 +32255,8 @@ function btAward(successPct){
   const catches = Math.round(pct * BT_THROWS);
   if(s.bestScores.bt == null || catches > s.bestScores.bt) s.bestScores.bt = catches;
   s.lastPlayed.bt = now;
+  // fix299: the drill_bt daily, on the same lastPlayed stamp as the other three.
+  markTaskProgress('drill_bt');
 
   // Hype. grantBuff() saves; the else branch is the only path that needs its own
   // saveGame(), exactly as fzEnd() splits it.
@@ -32151,7 +32360,10 @@ function btPointerUp(){
   const deltaX=btDragCurrX-btDragStartX;
   const deltaY=btDragStartY-btDragCurrY;   // positive on an upward flick
   if(deltaY>30){
-    btBottle.launch(deltaX*0.15, Math.min(18, Math.max(8, deltaY*0.08)));
+    // fix297 (3): deltaY no longer sets the power — it only qualifies the flick
+    // as a throw (the deltaY>30 gate above). Every throw leaves the hand at
+    // BT_THROW_VY, so flight time, and therefore the wind offset, is constant.
+    btBottle.launch(deltaX*BT_AIM_SCALE, BT_THROW_VY);
   }
 }
 function btBindPointers(){
@@ -32263,7 +32475,12 @@ function renderWsGameSelector(){
   const wrap=document.getElementById('workshop-game-select');
   if(!wrap) return;
   const shutMs = wsMgWindowRemaining();
-  const btns = WORKSHOP_GAMES.map(g=> shutMs>0
+  // fix297 (1): a bench can now be shut on its own while the other two are open,
+  // so "dead" is per-button rather than per-row. Same treatment as the global
+  // shut state — disabled, dimmed, and NO onclick attribute emitted at all, so
+  // the handler audit still sees exactly one target per live button and none
+  // per dead one.
+  const btns = WORKSHOP_GAMES.map(g=> (shutMs>0 || wsMgGameRemaining(g.key)<=0)
     ? `<button type="button" disabled
         class="gear-nav-btn"
         style="flex:1;text-align:center;opacity:.45;cursor:default;
@@ -32279,8 +32496,20 @@ function renderWsGameSelector(){
         Bench is full — the boss wants the bikes back on the road. Back in ${wsMgWindowLabelCoarse(shutMs)}.
       </div>`;
   }else{
-    wrap.style.flexDirection = '';
-    wrap.innerHTML = btns;
+    // fix297 (1): when the window is open but at least one bench is spent, the
+    // row gains the same column treatment and a line saying so. Without it three
+    // buttons where one is grey reads as a bug rather than as a rule.
+    const spent = WORKSHOP_GAMES.filter(g=>wsMgGameRemaining(g.key)<=0).length;
+    if(spent > 0){
+      wrap.style.flexDirection = 'column';
+      wrap.innerHTML = `<div style="display:flex;gap:8px">${btns}</div>
+        <div style="font-size:11px;color:var(--txt2);text-align:center">
+          ${WS_MG_GAME_CAP} MG is all any one job pays in half an hour. Work the other benches.
+        </div>`;
+    }else{
+      wrap.style.flexDirection = '';
+      wrap.innerHTML = btns;
+    }
   }
 }
 
@@ -32517,8 +32746,24 @@ const WS_BR_COOLDOWN_MS  = 600;   // dead time after a packed bearing
 // fix191: a completed lap = one packed bearing. Only every WS_BR_PER_AWARD-th
 // bearing pays, and it pays WS_BR_AWARD_MG. Every other lap gives feedback and
 // advances the counter but banks nothing.
-const WS_BR_PER_AWARD = 10;
-const WS_BR_AWARD_MG  = 2;
+// fix297 (2): 10 laps for 2 MG priced a traced revolution at 0.2 MG — with the
+// 600ms minimum sweep and the 600ms cooldown that is roughly 0.17 MG/sec, an
+// order of magnitude under Index Gears and Bleed Brakes, and the bench was
+// simply not worth touching. ONE LAP NOW PAYS ONE MG: WS_BR_PER_AWARD drops to
+// 1 so every completed revolution reaches wsAwardMG, and WS_BR_AWARD_MG drops
+// to 1 so the number it asks for is per-lap rather than per-batch.
+//
+// Rate check: 600ms minimum sweep + 600ms cooldown = ~1.2s per paid lap, so
+// ~0.83 MG/sec at a perfect cadence, which reaches the fix297 (1) per-bench
+// ceiling of 180 in about 3m40s of unbroken tracing. That sits alongside the
+// other two benches instead of an order of magnitude below them, and the
+// 180 cap means the buff cannot run away.
+//
+// WS_BR_PER_AWARD is KEPT rather than removed even at 1: it is the batch-size
+// dial, the retry logic at the award site is written against it, and hard-coding
+// 1 would mean unpicking that logic to ever change the batch again.
+const WS_BR_PER_AWARD = 1;
+const WS_BR_AWARD_MG  = 1;
 // fix190: fraction of a full sweep past which a release is treated as the end
 // of a lap rather than an abandon — resets progress, but silently.
 const WS_BR_RELEASE_KEEP = 0.9;
@@ -32535,6 +32780,11 @@ let wsBrLastAwardAt = 0;
 // Session-scoped and deliberately NOT persisted — it resets on every entry to
 // the bench via renderWsBearingsGame(), same as every other wsBr* field here.
 let wsBrPackedCount = 0;
+// fix297 (2): with WS_BR_PER_AWARD at 1 the old "N/10" counter would read
+// "0/1" or "1/1" and nothing else, which is noise. wsBrPackedTotal is the
+// running tally for THIS visit to the bench — session-only, never persisted,
+// never read by any award path. Purely the line under the hub.
+let wsBrPackedTotal = 0;
 
 // renderWsBearingsGame(panel) — full (re)entry point: resets all session
 // state, draws the static SVG shell (track ring, grease arc, 9 ball
@@ -32548,6 +32798,7 @@ function renderWsBearingsGame(panel){
   wsBrCooldownUntil = 0;    // fix178
   wsBrLastAwardAt = 0;      // fix190
   wsBrPackedCount = 0;      // fix191
+  wsBrPackedTotal = 0;      // fix297 (2): the tally is per-visit, not per-window
   wsBrPanelEl = panel;
 
   const maxDashOffset = 2 * Math.PI * WS_BR_RADIUS;
@@ -32580,7 +32831,7 @@ function renderWsBearingsGame(panel){
       </div>
       <div style="font-size:11px;color:var(--txt2);margin-top:8px">Trace the ring clockwise to pack grease.</div>
       <div id="ws-br-count" style="font-size:12px;font-weight:700;color:var(--txt);margin-top:4px">
-        Bearings packed 0/${WS_BR_PER_AWARD}</div>
+        Bearings packed 0</div>
     </div>`;
 
   const hub = document.getElementById('ws-br-hub');
@@ -32683,8 +32934,16 @@ function wsBrHandleMove(e){
     // reaches wsAwardMG, and it asks for WS_BR_AWARD_MG.
     if(wsBrPackedCount < WS_BR_PER_AWARD) wsBrPackedCount++;
     if(wsBrPackedCount >= WS_BR_PER_AWARD){
+      // fix297 (2): the message is per-lap now, so 'Ten bearings packed' is
+      // simply untrue at WS_BR_PER_AWARD = 1. Built from the constants rather
+      // than hard-coded so a future batch-size change cannot leave the copy
+      // lying about what just happened.
       const banked = wsAwardMG(WS_BR_AWARD_MG, null,
-        'Ten bearings packed. +' + WS_BR_AWARD_MG + ' MG.');
+        (WS_BR_PER_AWARD > 1 ? WS_BR_PER_AWARD + ' bearings packed. +' : 'Bearing packed. +')
+        + WS_BR_AWARD_MG + ' MG.');
+      // fix297 (2): the per-visit tally moves on a PAID lap only, so the line
+      // under the hub can never claim work the shut/spent bench refused.
+      if(banked > 0) wsBrPackedTotal++;
       // fix191: wsAwardMG is the single mutation funnel and returns 0 when the
       // rolling window cap is shut. A shut bench must not also eat the ten laps
       // the player already traced, so the counter is held at full and re-tried
@@ -32743,7 +33002,7 @@ function wsBrUpdateBalls(progressPct){
 function wsBrUpdateCount(){
   const el = document.getElementById('ws-br-count');
   if(!el) return;
-  el.textContent = 'Bearings packed ' + wsBrPackedCount + '/' + WS_BR_PER_AWARD;
+  el.textContent = 'Bearings packed ' + wsBrPackedTotal;
 }
 
 // wsBrReset(msg, keepAwardMsg) — resets trace progress (angle accumulator +
@@ -32970,6 +33229,39 @@ function wsStopGame(){
 const WS_MG_WINDOW_MS  = 30 * 60 * 1000;
 const WS_MG_WINDOW_CAP = 500;
 
+// ── fix297 (1): per-bench sub-ceiling ─────────────────────────────────────
+// 500 MG per 30 minutes was reachable from ONE bench, so two of the three
+// mini-games were decoration: a player who liked Bleed Brakes never had a
+// reason to touch the other two. 180 each means no single bench can pay more
+// than 180, and 3 x 180 = 540 > 500, so the global 500 is still the real
+// ceiling — but reaching it now REQUIRES all three benches. The 40 MG of slack
+// is deliberate: an exact 3 x 166.67 would force the player to grind each bench
+// to its precise last point, and a rounding-tight ceiling is a chore, not a
+// choice. With 540 available against a 500 cap the player picks which bench to
+// leave 40 short.
+//
+// This lives here, beside WS_MG_WINDOW_CAP, and is enforced in wsAwardMG — the
+// same single mutation funnel — for the same reason fix178 put the global cap
+// there: one edit covers all three benches and anything added later.
+const WS_MG_GAME_CAP = 180;
+
+// wsMgGameEarned(key) — MG banked by one bench in the current window. PURE
+// READ; assumes wsMgWindowTick() has already run this frame (every caller
+// below is downstream of one).
+function wsMgGameEarned(key){
+  const by = state.workshop.mgWindowByGame;
+  if(!key || !by || typeof by !== 'object') return 0;
+  const v = by[key];
+  return (typeof v === 'number' && isFinite(v) && v > 0) ? v : 0;
+}
+
+// wsMgGameRemaining(key) — MG this bench can still pay in the current window.
+// PURE READ. Returns WS_MG_GAME_CAP for an unknown key so a future bench added
+// to WORKSHOP_GAMES before this ledger knows about it is never silently shut.
+function wsMgGameRemaining(key){
+  return Math.max(0, WS_MG_GAME_CAP - wsMgGameEarned(key));
+}
+
 // wsMgWindowTick(now) — expires the window if it has run its course, or if the
 // device clock has moved BACKWARDS past its start (a rewind must never leave the
 // bench permanently shut). Also the tolerant normaliser for the two fields, so
@@ -32978,10 +33270,25 @@ function wsMgWindowTick(now){
   const w = state.workshop;
   if(typeof w.mgWindowStart !== 'number' || !isFinite(w.mgWindowStart)) w.mgWindowStart = 0;
   if(typeof w.mgWindowEarned !== 'number' || !isFinite(w.mgWindowEarned)) w.mgWindowEarned = 0;
-  if(!w.mgWindowStart) return;
+  // fix297 (1): the per-bench ledger normalises HERE, alongside the other two
+  // fields and by the same tolerant rule, so any save that predates it heals on
+  // the first award rather than on a dedicated migration pass.
+  if(!w.mgWindowByGame || typeof w.mgWindowByGame !== 'object') w.mgWindowByGame = {};
+  if(!w.mgWindowStart){
+    // fix297 (1): no window running means no bench has banked anything, so the
+    // ledger must be empty. Without this a ledger left behind by an expiry that
+    // ran before this field existed would shut a bench inside a window it never
+    // earned in.
+    w.mgWindowByGame = {};
+    return;
+  }
   if(now < w.mgWindowStart || (now - w.mgWindowStart) >= WS_MG_WINDOW_MS){
     w.mgWindowStart = 0;
     w.mgWindowEarned = 0;
+    // fix297 (1): the per-bench ledger expires WITH the window, as one object.
+    // Clearing it field-by-field would leave a bench shut into the next window
+    // if a key were ever added without updating this line.
+    w.mgWindowByGame = {};
   }
 }
 
@@ -33229,7 +33536,32 @@ function wsAwardMG(gained, msgEl, msg){
   // banks nothing at all rather than banking and then clamping.
   const nowW = Date.now();
   wsMgWindowTick(nowW);
+  // fix297 (1): which bench is asking. Read from wsActiveGame rather than added
+  // to the signature — all three call sites are already inside their own game's
+  // loop, so the funnel can derive this itself and no call site changes. A null
+  // or unknown key falls through to the global-only path, which is the correct
+  // behaviour for any future non-bench caller.
+  const gameKey = (wsActiveGame && WORKSHOP_GAMES.some(g=>g.key===wsActiveGame)) ? wsActiveGame : null;
   if(gained > 0){
+    // fix297 (1): the per-bench ceiling is checked BEFORE the global one and is
+    // a genuine hard lockout for that bench — no reduced-payout tail, matching
+    // the fix178 treatment of the global cap. The player is sent to another
+    // bench rather than left tapping a dead one.
+    if(gameKey && wsMgGameRemaining(gameKey) <= 0){
+      const gname = (WORKSHOP_GAMES.find(g=>g.key===gameKey)||{}).name || 'This job';
+      const doneEl = msgEl || document.getElementById('workshop-game-msg');
+      if(doneEl) doneEl.textContent =
+        gname + ' is done for now — ' + WS_MG_GAME_CAP + ' MG out of this bench. Take another job.';
+      // Hard lockout: drop the player back to the selector rather than leaving
+      // a live panel that pays nothing. wsStopGame() first so the rAF cannot
+      // outlive the panel it draws into; the tick bodies all bail on a missing
+      // node, so the one-frame race is already covered.
+      wsStopGame();
+      wsActiveGame = null;
+      renderWsGameSelector();
+      renderWsGamePanel();
+      return 0;
+    }
     const room = WS_MG_WINDOW_CAP - state.workshop.mgWindowEarned;
     if(room <= 0){
       // fix192: the inline line stays as the quiet residue behind the modal (a
@@ -33243,7 +33575,11 @@ function wsAwardMG(gained, msgEl, msg){
       wsCapModalOpen(false);  // fix192: once per window, not once per tap
       return 0;
     }
-    gained = Math.min(gained, room);
+    // fix297 (1): whichever room is smaller wins. Clamping to the per-bench room
+    // as well as the global one is what stops a single big award (Bleed Brakes
+    // pays 8 at a time) from stepping over 180 and leaving the ledger reading
+    // more than the cap it is meant to enforce.
+    gained = Math.min(gained, room, gameKey ? wsMgGameRemaining(gameKey) : room);
   }
 
   const before = state.workshop.mg;
@@ -33268,11 +33604,46 @@ function wsAwardMG(gained, msgEl, msg){
   // total must not claim MG the player never received.
   if(actual > 0) state.lifetimeMG=(state.lifetimeMG||0)+actual;
 
+  // fix299: the collect_mg daily. Sited on `actual` for the same reason the
+  // lifetime counter above is — the 9999 balance clamp and the fix297 per-bench
+  // sub-ceiling can both shave what was credited, and a daily must never be paid
+  // off with MG the player never received.
+  //
+  // Inside wsAwardMG because wsAwardMG is THE single MG mutation funnel: every
+  // bench routes through it. Counting in the three games' own loops would be
+  // three registries that drift the day a fourth bench is added.
+  //
+  // markTaskProgress is false->true only and saves on the transition, so the >=
+  // test firing on every later award of the day costs one comparison and nothing
+  // else.
+  if(actual > 0 && state.dailyTasks){
+    if(typeof state.dailyTasks.mgToday !== 'number' || !isFinite(state.dailyTasks.mgToday)){
+      state.dailyTasks.mgToday = 0;   // defensive: award on a cold path pre-guard
+    }
+    state.dailyTasks.mgToday += actual;
+    if(state.dailyTasks.mgToday >= DAILY_MG_TARGET) markTaskProgress('collect_mg');
+  }
+
   // fix178: book what was actually banked against the window. `actual` (not
   // `gained`) is the right number — the 9999 clamp above can shave it.
   if(actual > 0){
     if(!state.workshop.mgWindowStart) state.workshop.mgWindowStart = nowW;
     state.workshop.mgWindowEarned += actual;
+    // fix297 (1): the per-bench ledger books `actual` for exactly the reason the
+    // line above does — the 9999 balance clamp can shave what was credited, and
+    // a bench must never be charged for MG the player never received.
+    if(gameKey){
+      if(!state.workshop.mgWindowByGame || typeof state.workshop.mgWindowByGame !== 'object'){
+        state.workshop.mgWindowByGame = {};
+      }
+      state.workshop.mgWindowByGame[gameKey] = wsMgGameEarned(gameKey) + actual;
+      // The award that EXHAUSTS a bench repaints the selector immediately, so
+      // the button greys out on the paying tap rather than on the next dead one
+      // — the fix269 lesson applied one level down. No modal: the global cap
+      // means "come back later", a spent bench means "go next door", and the
+      // countdown modal would be the wrong sentence for it.
+      if(wsMgGameEarned(gameKey) >= WS_MG_GAME_CAP) renderWsGameSelector();
+    }
     // fix269: the tap that REACHES the cap now raises the modal, not just the
     // next tap after it. Before this, crossing 500 only repainted the selector
     // into its shut state — the player's last successful move looked like every
@@ -33356,14 +33727,20 @@ function wsRefreshTuningCardsAfford(){
 
 // FIX 1: buildEquipCard — removed spurious third stat-bar block that caused duplicate
 // aero bars on kit items (fired when maxAero was defined AND maxClimb was undefined)
-function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,climbWatts,owned,equipped,onBuy,onEquip,maxAero,maxClimb,prestigeLocked,minPrestige}){
+function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,climbWatts,owned,equipped,onBuy,onEquip,maxAero,maxClimb,prestigeLocked,minPrestige,careerLocked,careerHow}){
   const div=document.createElement('div');
-  div.className='equip-card'+(equipped?' equipped':'')+(prestigeLocked?' prestige-locked':owned?' owned':price<=state.money?' affordable':' cant-afford');
+  // fix301: careerLocked takes the same visual slot as prestigeLocked. Ordered
+  // FIRST so a price:null item never falls through to the `price<=state.money`
+  // test, which reads null as 0 and would paint an unreachable frame as
+  // 'affordable'.
+  div.className='equip-card'+(equipped?' equipped':'')+(careerLocked?' prestige-locked':prestigeLocked?' prestige-locked':owned?' owned':price!==null&&price<=state.money?' affordable':' cant-afford');
 
   const tierCls=`tier-${tier}`, tierLabel=['','I','II','III','IV','V'][tier];
   const typeLabels={allrounder:'All-rounder',aero:'Aero',climbing:'Climbing',tt:'Time Trial',standard:'Standard',racing:'Racing',deep:'Deep Section',disc:'Disc',road:'Road',skinsuit:'Skinsuit'};
   const typeLabel=type?typeLabels[type]||type:'';
-  const priceStr=price===0?'Free':fmtMoney(price);
+  // fix301: price===null means NOT FOR SALE. Checked before the ===0 test so a
+  // career item never reads as 'Free', which would be an invitation to tap.
+  const priceStr=price===null?'Career Unlock':price===0?'Free':fmtMoney(price);
 
   // Stat bars — each axis rendered independently, no overlap
   let statBarsHtml='';
@@ -33380,6 +33757,12 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
   // (removed duplicate aero block that was here — was firing on kits alongside block 1)
 
   let actionHtml='';
+  // fix301: career lock is checked before EVERYTHING, including the prestige
+  // lock. A career item is minPrestige 0 so the two can never both be true
+  // today, but the ordering is what makes that safe to change later.
+  if(careerLocked){
+    actionHtml=`<div class="equip-price">${icn('trophy')} Career Unlock</div><button class="equip-btn btn-locked">${icn('lock')} Locked</button>`;
+  } else
   // fix118: prestige lock is checked first — it overrides every other action
   // state (owned, affordable, equipped-eligible). Owned-but-locked shows
   // "Owned · Prestige N" per plan; never-owned-and-locked shows "Prestige N".
@@ -33403,20 +33786,28 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
       ${brand?`<div class="equip-brand">${brand}</div>`:''}
       <div class="equip-model">${model||name}</div>
       <div class="equip-desc">${desc}</div>
+      ${careerHow?`<div class="equip-career-req">${icn('trophy')} ${careerHow}</div>`:''}
       <div class="equip-badges"><span class="tier-badge ${tierCls}">Tier ${tierLabel}</span>${typeLabel?`<span class="type-badge">${typeLabel}</span>`:''}</div>
       ${statBarsHtml?`<div class="stat-bars">${statBarsHtml}</div>`:''}
     </div>
     <div class="equip-action-col">${actionHtml}</div>
   </div>`;
 
-  if(!prestigeLocked&&!owned&&price<=state.money) div.querySelector('[data-buy]')?.addEventListener('click', ()=>{ onBuy(); burstCard(div); });
-  if(!prestigeLocked&&owned&&!equipped)           div.querySelector('[data-equip]')?.addEventListener('click', onEquip);
+  // fix301: `price!==null` is the hard lockout at the binding layer — a career
+  // card has no buy button to bind, and this makes sure nothing binds one even
+  // if a future branch above emits it. Equip binding is unchanged and still
+  // keyed on `owned`, which is exactly what the goal collect grants.
+  if(!careerLocked&&!prestigeLocked&&!owned&&price!==null&&price<=state.money) div.querySelector('[data-buy]')?.addEventListener('click', ()=>{ onBuy(); burstCard(div); });
+  if(!careerLocked&&!prestigeLocked&&owned&&!equipped)           div.querySelector('[data-equip]')?.addEventListener('click', onEquip);
   return div;
 }
 
 function renderBikeShop(){
   const list=document.getElementById('gear-section-bikes'); list.innerHTML='';
-  const maxAero=38, maxClimb=36;
+  // fix301: scales raised to cover the tier 6 career frames (Y1Rs 46 aero,
+  // LAB71 42 climb). Left at 38/36 the two best frames in the game would both
+  // have painted a full bar and looked identical to a tier 5.
+  const maxAero=46, maxClimb=42;
   const h2=document.createElement('div'); h2.className='section-lbl'; h2.textContent='Bikes — '+BIKES.length+' frames';
   list.appendChild(h2);
   BIKES.forEach(b=>{
@@ -33425,6 +33816,7 @@ function renderBikeShop(){
       aeroWatts:b.aeroWatts, climbWatts:b.climbWatts, maxAero, maxClimb,
       owned:state.ownedBikes.has(b.id), equipped:state.equippedBike===b.id,
       prestigeLocked:itemPrestigeLocked(b), minPrestige:b.minPrestige||0,
+      careerLocked:itemCareerLocked(b), careerHow:careerHowFor(b),
       onBuy:()=>buyBike(b.id),
       // FIX 6: Replaced boolean short-circuit trick with a proper if statement
       onEquip:()=>{ equipBike(b.id); renderBikeShop(); if(currentTab==='race') renderRaceSetupCard(); }
@@ -33436,7 +33828,7 @@ function renderBikeShop(){
   // (state.ownedTTBikes / state.equippedTTBike). Stat bar scale is wider
   // than road bikes since TT aero gains run higher and climb penalties run
   // more negative; using the road maxAero/maxClimb here would clip bars.
-  const ttMaxAero=42, ttMaxClimb=36;
+  const ttMaxAero=48, ttMaxClimb=36; // fix301: raised for the tier 6 career TT bikes
   const h2tt=document.createElement('div'); h2tt.className='section-lbl'; h2tt.style.marginTop='.9rem';
   h2tt.textContent='Time Trial Bikes — '+TT_BIKES.length+' frames';
   list.appendChild(h2tt);
@@ -33446,6 +33838,7 @@ function renderBikeShop(){
       aeroWatts:b.aeroWatts, climbWatts:b.climbWatts, maxAero:ttMaxAero, maxClimb:ttMaxClimb,
       owned:state.ownedTTBikes.has(b.id), equipped:state.equippedTTBike===b.id,
       prestigeLocked:itemPrestigeLocked(b), minPrestige:b.minPrestige||0,
+      careerLocked:itemCareerLocked(b), careerHow:careerHowFor(b),
       onBuy:()=>buyTTBike(b.id),
       onEquip:()=>{ equipTTBike(b.id); renderBikeShop(); if(currentTab==='race') renderRaceSetupCard(); }
     });
@@ -33455,7 +33848,7 @@ function renderBikeShop(){
 
 function renderWheelShop(){
   const list=document.getElementById('gear-section-wheels'); list.innerHTML='';
-  const maxAero=30, maxClimb=18;
+  const maxAero=30, maxClimb=24; // fix301: climb scale raised for Summit Series (24)
   const h2=document.createElement('div'); h2.className='section-lbl'; h2.textContent='Wheels — '+WHEELS.length+' options';
   list.appendChild(h2);
   WHEELS.forEach(w=>{
@@ -33464,6 +33857,7 @@ function renderWheelShop(){
       aeroWatts:w.aeroWatts, climbWatts:w.climbWatts, maxAero, maxClimb,
       owned:state.ownedWheels.has(w.id), equipped:state.equippedWheels===w.id,
       prestigeLocked:itemPrestigeLocked(w), minPrestige:w.minPrestige||0,
+      careerLocked:itemCareerLocked(w), careerHow:careerHowFor(w),
       onBuy:()=>buyWheels(w.id), onEquip:()=>{ equipWheels(w.id); renderWheelShop(); }
     });
     list.appendChild(card);
@@ -33472,7 +33866,7 @@ function renderWheelShop(){
 
 function renderKitShop(){
   const list=document.getElementById('gear-section-kit'); list.innerHTML='';
-  const maxAero=14;
+  const maxAero=19; // fix301: raised for the tier 6 career suits (17 / 19)
   // fix108: Kit Colour picker moved to the top of the Kit section, just below
   // the hero banner (gear-rider-scene-wrap) / gear nav — was previously
   // rendered after the KITS card list. Markup/logic unchanged, only position.
@@ -33562,6 +33956,7 @@ function renderKitShop(){
       aeroWatts:k.aeroWatts, maxAero,
       owned:state.ownedKits.has(k.id), equipped:state.equippedKit===k.id,
       prestigeLocked:itemPrestigeLocked(k), minPrestige:k.minPrestige||0,
+      careerLocked:itemCareerLocked(k), careerHow:careerHowFor(k),
       onBuy:()=>buyKit(k.id), onEquip:()=>{ equipKit(k.id); renderKitShop(); }
     });
     list.appendChild(card);
@@ -33783,7 +34178,16 @@ function renderDailyTasks(){
       <div class="task-icon">${icn(t.icon)}</div>
       <div class="task-info">
         <div class="task-name">${t.name}</div>
-        <div class="task-desc">${t.desc}</div>
+        <div class="task-desc">${t.desc}${(function(){
+          // fix299: live tally on the collect_mg card only. A 200-unit target
+          // with no counter is the invisible-wall problem the fix295 slot
+          // denominator was brought back to solve — the player would find out
+          // where they stood by the task silently ticking. Read-only, clamped
+          // for display so an over-shoot reads "200 / 200" rather than "247 / 200".
+          if(t.id!=='collect_mg' || done) return '';
+          const n=(state.dailyTasks && typeof state.dailyTasks.mgToday==='number' && isFinite(state.dailyTasks.mgToday)) ? state.dailyTasks.mgToday : 0;
+          return ` <strong style="color:var(--amber-txt)">${Math.min(n,DAILY_MG_TARGET)} / ${DAILY_MG_TARGET}</strong>`;
+        })()}</div>
         <div class="task-reward">+${t.xpReward} XP to all 5 attributes</div>
       </div>
       <div class="task-status">${statusHtml}</div>
@@ -33824,9 +34228,23 @@ function renderGoalTracks(){
       const collected=state.claimedGoalTiers.has(key);
       const uncollected=state.uncollectedGoalTiers.has(key);
       const reached=val>=tier.threshold;
-      const icon=tier.reward.type==='color'?'square':tier.reward.type==='perk'?'bolt':tier.reward.type==='title'?'crown':'moneybag';
+      // fix301: 'gear' joins the pip-icon ladder. Left off, a gear tier fell
+      // through to the cash icon and read as another £500 payout.
+      const icon=tier.reward.type==='color'?'square':tier.reward.type==='perk'?'bolt':tier.reward.type==='title'?'crown':tier.reward.type==='gear'?'bike-photo':'moneybag';
       const sep=idx>0?`<div class="goal-tier-sep" style="background:${reached?'var(--purple-bd)':'var(--border)'}"></div>`:'';
-      const clickAttr=uncollected?`onclick="enqueueCeremony({type:'lifetimegoal',trackId:'${track.id}',tierIndex:${idx}})"`:'';
+      // ═══ fix298 (2): THE PIP COLLECTS. IT NO LONGER RE-RAISES THE CEREMONY ══
+      // TOMBSTONE — fix197..fix297, the pip re-opened the modal it had just been
+      // dismissed from:
+      //   const clickAttr=uncollected?`onclick="enqueueCeremony({type:'lifetimegoal',trackId:'${track.id}',tierIndex:${idx}})"`:'';
+      //
+      // The reward was always collect-on-tap and never auto-granted — that part
+      // was already right. What was wrong is that the only way to take it from
+      // this tab was a bounce through the ceremony overlay, so a player who had
+      // dismissed the pop-up had no visible way to finish the job. The pip now
+      // calls the funnel directly. Nothing about WHEN a tier becomes collectable
+      // changes: checkLifetimeGoals() still owns that, and the boot re-enqueue
+      // at the bottom of the file is untouched, so the pop-up still lands.
+      const clickAttr=uncollected?`onclick="collectGoalTierReward('${track.id}',${idx})"`:'';
       return `${sep}<div class="goal-tier-pip${uncollected?' uncollected':''}" ${clickAttr}>
         <span style="font-size:${uncollected?'20px':'15px'};filter:${collected||uncollected?'none':'grayscale(1)'};opacity:${collected||uncollected?'1':'0.4'}">${uncollected?icn('gift'):icn(icon)}</span>
         <span style="font-size:9px;font-weight:700;color:${collected?'var(--purple-txt)':uncollected?'var(--amber-txt)':'var(--txt3)'}">${fmt(tier.threshold)}</span>
@@ -33839,6 +34257,23 @@ function renderGoalTracks(){
     const progPct=nextTier
       ? Math.max(0,Math.min(100,((val-prevThreshold)/(nextTier.threshold-prevThreshold))*100))
       : 100;
+    // fix298 (3): the explicit Collect button. A glowing pip is a hint, not an
+    // instruction — the player's report was that after dismissing the pop-up
+    // there was no obvious way to take the reward, and the answer to that is a
+    // button that says the word, not a bigger pip. Rendered only when this
+    // track actually has an uncollected tier, so a fully-claimed ladder is
+    // visually unchanged from fix297.
+    //
+    // Amber token trio, matching every other "action waiting on you" surface in
+    // the file. NOT two-tap armed: collecting is additive and irreversible only
+    // in the sense that it gives you something. The arm pattern is reserved for
+    // destructive actions and using it here would train players to double-tap
+    // rewards. Lowest uncollected tier first, one per tap, so a player owed
+    // three tiers sees three separate reward toasts rather than one merged
+    // grant they cannot audit.
+    const owedIdx=track.tiers.findIndex((tier,idx)=>state.uncollectedGoalTiers.has(track.id+':'+idx));
+    const owedCount=track.tiers.filter((tier,idx)=>state.uncollectedGoalTiers.has(track.id+':'+idx)).length;
+    const collectHtml = owedIdx>=0 ? `<button class="goal-collect-btn" onclick="collectGoalTierReward('${track.id}',${owedIdx})">${icn('gift')} Collect ${track.tiers[owedIdx].reward.label}${owedCount>1?` <span style="opacity:.75;font-weight:600">(+${owedCount-1} more)</span>`:''}</button>` : '';
     wrap.innerHTML+=`<div class="goal-track-card">
       <div class="goal-track-head">
         <span class="goal-track-icon">${icn(track.icon)}</span>
@@ -33848,6 +34283,7 @@ function renderGoalTracks(){
       <div class="goal-tier-pips">${pips}</div>
       <div class="goal-track-prog-wrap"><div class="goal-track-prog-bar" style="width:${progPct}%"></div></div>
       <div class="goal-track-next">${nextText}</div>
+      ${collectHtml}
     </div>`;
   });
 }
@@ -34953,6 +35389,12 @@ function loadGame(){
       resetDate: d.dailyTasks?.resetDate || 0,
       progress:  {...defaultProgress, ...(d.dailyTasks?.progress||{})},
       claimed:   {...defaultClaimed,  ...(d.dailyTasks?.claimed ||{})},
+      // fix299: ITS OWN SUB-KEY GUARD, the tourProgress lesson. Not folded into
+      // a top-level ?? on d.dailyTasks, and not trusted to be a number just
+      // because it was written as one — a save truncated to a string would make
+      // `mgToday + actual` concatenate and the daily would never fire again.
+      mgToday: (typeof d.dailyTasks?.mgToday === 'number' && isFinite(d.dailyTasks.mgToday))
+                 ? d.dailyTasks.mgToday : 0,
     };
     state.sponsor = {
       activeId:      d.sponsor?.activeId ?? null,
@@ -35034,8 +35476,26 @@ function loadGame(){
         ? d.workshop.mgWindowStart : 0;
       const wWinEarned = (typeof d.workshop?.mgWindowEarned === 'number' && isFinite(d.workshop.mgWindowEarned))
         ? Math.max(0, d.workshop.mgWindowEarned) : 0;
+      // fix297 (1): the per-bench ledger, restored PER SUB-KEY rather than by a
+      // single `?? {}` on the whole object. Only the three known WORKSHOP_GAMES
+      // keys are copied across and each is independently sanitised, so a
+      // corrupted or hand-edited save can neither inject an unknown bench nor
+      // poison one with a non-finite value. A save that predates this field
+      // heals to an empty ledger, which reads as "nothing banked yet this
+      // window" — the correct, generous default.
+      const wWinByGame = {};
+      const wRawByGame = (d.workshop && typeof d.workshop.mgWindowByGame === 'object'
+                          && d.workshop.mgWindowByGame) ? d.workshop.mgWindowByGame : null;
+      if(wRawByGame){
+        WORKSHOP_GAMES.forEach(g=>{
+          const v = wRawByGame[g.key];
+          if(typeof v === 'number' && isFinite(v) && v > 0){
+            wWinByGame[g.key] = Math.min(WS_MG_GAME_CAP, v);
+          }
+        });
+      }
       state.workshop = { mg: Math.max(0, Math.min(9999, wmg)), tuning: wtuning, tuningTarget: wtarget,
-        mgWindowStart: wWinStart, mgWindowEarned: wWinEarned };
+        mgWindowStart: wWinStart, mgWindowEarned: wWinEarned, mgWindowByGame: wWinByGame };
     }
   }catch(e){ console.warn('[CIM] Load failed:',e); }
 }
@@ -35642,19 +36102,6 @@ if(!state.welcomeBonusPaid){
   saveGame();
   setTimeout(()=>showToast(`${icn('money')} Welcome — here's ${fmtMoney(ONBOARD_WELCOME_BONUS)} to get you started`), 1400);
 }
-// fix298: BOOT IS DONE — lift the splash. Sited here, after the welcome-bonus
-// block and immediately before the game loop starts, because everything the
-// player will look at is now painted: the save is loaded and migrated, offline
-// progress is applied, showTab('home') has run, ceremonies are queued. Calling
-// it any earlier would uncover a half-built hub.
-//
-// This is the ONLY call site. The controller in <head> owns all the timing —
-// the 900 ms floor, the image wait, and the 4 s unconditional release — so
-// there is nothing to duplicate here and no second call to drift out of sync.
-// If this line never runs (an exception thrown anywhere above it), the head
-// timer lifts the splash anyway and the player lands on whatever did manage
-// to render, which is strictly better than a frozen loading screen.
-hideBootSplash();
 setInterval(gameTick,100);
 setInterval(saveGame,15000);
 setInterval(()=>{
