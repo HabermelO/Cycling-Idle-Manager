@@ -14476,6 +14476,91 @@ const COURSES = {
             {id:'navigate_pack', label:'🎯 Navigate through the fading riders', detail:'Thread through exhausted riders falling backward through the bunch.', raceLegsConst:16, defaultChoice:true,
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=1; return d; }},
           ]}]},
+    // ─── fix303: three more road courses ──────────────────────
+    { id:'alpine_monument', name:'The Alpine Monument', icon:'peak',
+      profile:[12,14,18,16,22,20,28,26,34,32,42,38,48,46,56,54,64,62,72,78,84,88,92,96],
+      commentary:['A long day in the saddle — the mountains are hours away yet...','The valley road drags upward, and nobody wants to lead...','The first real col begins and the bunch splits immediately...','Two hairpins left and the front group is down to a handful...','A summit finish above the treeline — everything on the line!'],
+      events:[
+        { id:'valley_tempo', triggerPct:0.22, headline:'🏞️ A brutal tempo through the valley',
+          situation:'A team has hit the front and lit the pace on the false flat, hours before the real climbing starts.',
+          choices:[
+            {id:'sit_in_valley', label:'🧘 Sit deep in the bunch', detail:'Hide from the wind and save absolutely everything for the mountain.', raceLegsConst:0, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=+1; if(spec==='climber')d=0; return d; }},
+            {id:'ride_tempo',    label:'💪 Sit near the front and share it', detail:'Stay safe and out of trouble, at the cost of some early legs.', raceLegsConst:24, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-1; if(legs<35)d=+1; if(spec==='rouleur')d-=1; return d; }},
+          ]},
+        { id:'col_selection', triggerPct:0.52, headline:'⛰️ The first col shatters the peloton!',
+          situation:'The gradient bites and the group is coming apart on the lower slopes. This is the selection.',
+          choices:[
+            {id:'follow_best',  label:'🔥 Follow the best climbers', detail:'Go with the front selection now — brutal, but the race is happening here.', raceLegsConst:50, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-4; if(legs<45)d=-1; if(legs<25)d=+2; if(spec==='climber')d-=1; return d; }},
+            {id:'own_rhythm',   label:'🎯 Climb at your own rhythm', detail:'Let them go and hope they overcook it before the summit.', raceLegsConst:14, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=+1; if(spec==='climber')d=-1; return d; }},
+          ]},
+        { id:'summit_kick', triggerPct:0.82, headline:'🏔️ Final kilometre to the summit',
+          situation:'The air is thin, the gradient is savage and the finish banner is finally visible above you.',
+          choices:[
+            {id:'stand_attack', label:'🚀 Stand up and attack', detail:'Empty everything in one long, desperate acceleration to the line.', raceLegsConst:52, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-3; if(legs<35)d=+2; if(spec==='climber')d-=1; return d; }},
+            {id:'seated_grind', label:'🧘 Stay seated and grind', detail:'Hold the gear you can actually turn and refuse to blow up.', raceLegsConst:18, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=0; if(legs<25)d=-1; return d; }},
+          ]}]},
+    { id:'autumn_grind', name:'The Autumn Grind', icon:'rain',
+      profile:[26,30,28,34,32,38,36,42,40,46,44,48,42,50,46,52,48,54,50,56,52,58,54,56],
+      commentary:['Cold rain, grey skies and a long, unglamorous race ahead...','The road tilts up and down without ever really flattening...','Riders are shipping out the back one by one in the cold...','Numb hands, soaked kit, and still 40km to go...','A long uphill drag to the line decides it!'],
+      events:[
+        { id:'cold_clothing', triggerPct:0.22, headline:'🌧️ Freezing rain — the bunch is soaked',
+          situation:'It is barely above freezing and the rain has not stopped. Your hands are already going numb.',
+          choices:[
+            {id:'stop_jacket', label:'🧥 Drop back for a rain jacket', detail:'Lose contact briefly, but stay warm enough to race in three hours.', raceLegsConst:8, defaultChoice:true,
+             deltaFn:(legs,spec)=>+1},
+            {id:'tough_it',    label:'🥶 Tough it out in what you have', detail:'Stay in position now and gamble on the weather easing.', raceLegsConst:20, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ return Math.random()<0.4 ? +3 : -2; }},
+          ]},
+        { id:'attrition', triggerPct:0.52, headline:'💨 The bunch is being ground down',
+          situation:'Nobody has attacked. The pace has simply never dropped, and riders are quietly disappearing.',
+          choices:[
+            {id:'grind_front',  label:'💪 Sit on the front and grind', detail:'Take responsibility for the pace and let the cold do the rest.', raceLegsConst:38, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+1; if(spec==='rouleur')d-=1; return d; }},
+            {id:'shelter',      label:'🧘 Shelter and wait it out', detail:'Stay hidden and hope enough riders crack before the finish.', raceLegsConst:0, defaultChoice:true,
+             deltaFn:()=>0},
+          ]},
+        { id:'final_drag', triggerPct:0.82, headline:'🏁 A long uphill drag to the line',
+          situation:'The finish sits at the top of a three-kilometre false flat into a headwind. Nobody is fresh.',
+          choices:[
+            {id:'long_effort',  label:'🚀 Go long from the bottom', detail:'Start the effort early and hope everyone behind is emptier than you.', raceLegsConst:46, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-3; if(legs<40)d=+2; if(spec==='rouleur')d-=1; return d; }},
+            {id:'wait_last',    label:'🎯 Wait for the last 300m', detail:'Hold the wheel and back your remaining kick over a short distance.', raceLegsConst:18, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=1; return d; }},
+          ]}]},
+    { id:'circuit_finale', name:'The City Circuit Finale', icon:'city',
+      profile:[24,34,22,36,24,32,20,34,22,30,18,32,20,28,16,30,18,26,14,28,16,24,12,20],
+      commentary:['Rolling out onto a flat city finishing circuit...','Eight laps to go and the teams are already organising...','A brave attack goes clear on the far side of the circuit!','The lead-out trains are forming with two laps remaining...','Into the final straight — a full bunch sprint!'],
+      events:[
+        { id:'circuit_break', triggerPct:0.22, headline:'🚴 An early move goes up the road',
+          situation:'Three riders slip away on the first lap. The bunch is not chasing yet, and the gap is stretching.',
+          choices:[
+            {id:'go_with',    label:'⚡ Jump across to the move', detail:'Get in the break early and hope the teams behind never organise.', raceLegsConst:40, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-3; if(legs<40)d=0; if(spec==='sprinter')d+=2; if(spec==='rouleur')d-=1; return d; }},
+            {id:'let_go',     label:'🧘 Let it go and stay put', detail:'Flat circuits almost always come back together. Save it for the sprint.', raceLegsConst:0, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=+1; if(spec==='sprinter')d=0; return d; }},
+          ]},
+        { id:'train_shuffle', triggerPct:0.52, headline:'🚂 Lead-out trains taking over the front',
+          situation:'The sprinters teams are lining out the bunch. Positioning now decides who is even in the sprint.',
+          choices:[
+            {id:'fight_wheel', label:'🔥 Fight for a lead-out wheel', detail:'Elbows out to claim a place in a real train — expensive but decisive.', raceLegsConst:36, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-3; if(legs<35)d=0; if(spec==='sprinter')d-=1; return d; }},
+            {id:'free_wheel',  label:'🎯 Freelance off the back of them', detail:'Stay out of the fight and pick a wheel late instead.', raceLegsConst:12, defaultChoice:true,
+             deltaFn:()=>+1},
+          ]},
+        { id:'final_corner', triggerPct:0.82, headline:'🏁 Last corner before the finishing straight',
+          situation:'One tight left-hander with 250m remaining. Whoever exits first has a real head start.',
+          choices:[
+            {id:'dive_inside', label:'🏍️ Dive up the inside', detail:'Take the tightest line and risk everything for the front position.', raceLegsConst:34, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ return Math.random()<0.28 ? +3 : -3; }},
+            {id:'hold_wheel',  label:'🎯 Hold the wheel through it', detail:'Take the safe line and open the sprint from second or third.', raceLegsConst:16, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=2; return d; }},
+          ]}]},
   ],
   crit:[
     { id:'wet_city', name:'The Wet City Circuit', icon:'rain',
@@ -14590,6 +14675,91 @@ const COURSES = {
             {id:'muscle_big',  label:'💪 Leave it big and muscle it over', detail:'Maximum torque, maximum risk of blowing up before the line.', raceLegsConst:48, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let d=-3; if(legs<30)d=+2; if(spec==='sprinter')d-=1; return d; }},
           ]}]},
+    // ─── fix303: three more crit circuits ─────────────────────
+    { id:'airport_ring', name:'The Airfield Ring', icon:'wind',
+      profile:[20,28,18,30,20,32,18,34,20,30,16,32,18,28,16,30,18,26,14,28,16,24,14,22],
+      commentary:['Rolling out onto wide, exposed airfield tarmac...','The crosswind on the back straight is already splitting the field...','Echelons forming on a circuit race — rare and brutal!','Riders scrambling for shelter every single lap...','A long, wide, wind-blasted sprint to the line!'],
+      events:[
+        { id:'echelon_lap', triggerPct:0.22, headline:'💨 Echelons forming on the back straight',
+          situation:'The wind is straight across the widest part of the circuit. The front twenty are already gone.',
+          choices:[
+            {id:'sprint_echelon', label:'⚡ Sprint into the front echelon', detail:'One huge effort to make the split before the gap becomes permanent.', raceLegsConst:46, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-4; if(legs<40)d=-1; if(spec==='rouleur')d-=1; return d; }},
+            {id:'second_group',   label:'🧘 Settle into the second group', detail:'Accept the split and work with those around you instead.', raceLegsConst:10, defaultChoice:true,
+             deltaFn:()=>+2},
+          ]},
+        { id:'wind_shelter', triggerPct:0.52, headline:'🌬️ Nowhere to hide on the exposed side',
+          situation:'Every lap the same 800 metres of open tarmac drains the legs of whoever is exposed.',
+          choices:[
+            {id:'rotate_share', label:'💪 Rotate through and share the work', detail:'Keep the group moving fast — costly, but the pace stays high.', raceLegsConst:34, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+1; if(spec==='rouleur')d-=1; return d; }},
+            {id:'sit_shelter',  label:'🛡️ Sit in the shelter and refuse', detail:'Take the wheel every time and take the criticism at the finish.', raceLegsConst:0, defaultChoice:true,
+             deltaFn:()=>+1},
+          ]},
+        { id:'wide_sprint', triggerPct:0.82, headline:'🏁 A wide-open sprint into the wind',
+          situation:'The finishing straight is enormous and headwind. Launching early here is a genuine gamble.',
+          choices:[
+            {id:'early_launch', label:'🚀 Launch from 350m out', detail:'Go long and dare the others to come around into the wind.', raceLegsConst:44, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+2; if(spec==='rouleur')d-=1; return d; }},
+            {id:'late_kick',    label:'🎯 Sit on and kick very late', detail:'Use the shelter of the rider ahead and open up in the last 150m.', raceLegsConst:20, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=2; return d; }},
+          ]}]},
+    { id:'old_town_cobbles', name:'The Old Town Cobbles', icon:'brick',
+      profile:[24,36,22,38,24,40,22,36,20,38,22,34,20,36,18,34,20,32,18,34,20,30,18,28],
+      commentary:['A twisting circuit through a medieval town centre...','Cobbled squares and tight alleyways every single lap...','Bikes rattling over the stones, riders losing bottles...','The bunch strung out to a single line through the narrows...','Out of the last alley for a chaotic cobbled sprint!'],
+      events:[
+        { id:'narrow_alley', triggerPct:0.22, headline:'🧱 Into the narrow alley section',
+          situation:'The course pinches to barely two riders wide. Wherever you are now is where you stay for a lap.',
+          choices:[
+            {id:'surge_ahead', label:'⚡ Surge to get in first', detail:'Spend real energy now to avoid being stuck behind slower riders.', raceLegsConst:36, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-3; if(legs<35)d=0; return d; }},
+            {id:'queue_up',    label:'🧘 Slot in and wait your turn', detail:'Accept the position you have and conserve for later laps.', raceLegsConst:0, defaultChoice:true,
+             deltaFn:()=>+1},
+          ]},
+        { id:'bottle_loss', triggerPct:0.52, headline:'💧 Your bottle has bounced out on the stones',
+          situation:'The cobbles have ejected your last bottle. There is a neutral hand-up available, but it costs a wheel.',
+          choices:[
+            {id:'grab_bottle', label:'🥤 Drop back for a hand-up', detail:'Lose a couple of places but stay hydrated for the finale.', raceLegsConst:8, defaultChoice:true,
+             deltaFn:()=>+1},
+            {id:'race_dry',    label:'🔥 Race the rest of it dry', detail:'Keep your position and simply suffer through the last laps.', raceLegsConst:26, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<40)d=+3; return d; }},
+          ]},
+        { id:'cobble_sprint', triggerPct:0.82, headline:'🏁 Out of the last alley onto the cobbled square',
+          situation:'The finish is on the stones themselves. Steering matters as much as power here.',
+          choices:[
+            {id:'smooth_gutter', label:'🎯 Sprint in the smooth gutter', detail:'Take the flatter line at the edge and hope it stays clear.', raceLegsConst:22, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=1; return d; }},
+            {id:'crown_power',   label:'💪 Power straight over the crown', detail:'Take the shortest line over the roughest stones and hold it.', raceLegsConst:40, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<30)d=+2; if(spec==='rouleur')d-=1; return d; }},
+          ]}]},
+    { id:'riverside_ramp', name:'The Riverside Ramp', icon:'chart-up',
+      profile:[26,44,30,48,32,50,34,52,36,54,38,56,40,56,42,58,44,58,46,60,48,60,50,62],
+      commentary:['A short circuit with a bridge ramp on every lap...','The ramp is only 200m, but it comes around every 90 seconds...','Riders are already grimacing on the fourth time up...','The bunch is shrinking with every trip over the bridge...','Up the ramp one final time to the finish line!'],
+      events:[
+        { id:'ramp_pace', triggerPct:0.22, headline:'🌉 The ramp is being ridden flat out',
+          situation:'A rider is treating every trip over the bridge as an attack. The repeated efforts are stacking up.',
+          choices:[
+            {id:'match_every', label:'🔥 Match it every single lap', detail:'Refuse to give an inch on the ramp, whatever it costs later.', raceLegsConst:44, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<40)d=+2; if(spec==='climber')d-=1; return d; }},
+            {id:'lose_regain', label:'🎯 Lose a wheel, regain on the flat', detail:'Ride the ramp at your own pace and close the gap on the descent.', raceLegsConst:12, defaultChoice:true,
+             deltaFn:()=>0},
+          ]},
+        { id:'ramp_split', triggerPct:0.52, headline:'⚡ A split opens over the top of the bridge',
+          situation:'Six riders have crested clear. On a circuit this short, that gap becomes a lap in no time.',
+          choices:[
+            {id:'bridge_gap',  label:'💥 Bridge the gap immediately', detail:'One committed effort on the descent to get across before it settles.', raceLegsConst:48, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-4; if(legs<40)d=-1; if(legs<22)d=+2; return d; }},
+            {id:'organise',    label:'🧘 Organise the chase behind', detail:'Work with the group you are in and bring them back gradually.', raceLegsConst:18, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=+1; if(spec==='rouleur')d=0; return d; }},
+          ]},
+        { id:'uphill_line', triggerPct:0.82, headline:'🏁 The line sits at the top of the ramp',
+          situation:'A finishing sprint that goes uphill. Pure speed matters less here than what is left in the legs.',
+          choices:[
+            {id:'ramp_bottom', label:'🚀 Open the sprint at the bottom', detail:'Start early and try to break everyone on the gradient.', raceLegsConst:46, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-3; if(legs<38)d=+2; if(spec==='climber')d-=1; return d; }},
+            {id:'ramp_top',    label:'🎯 Save it for the last 100m', detail:'Hold a wheel up the ramp and come past right at the top.', raceLegsConst:20, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=-1; if(spec==='sprinter')d-=1; return d; }},
+          ]}]},
   ],
   hill:[
     { id:'cobbled_wall', name:'The Cobbled Wall', icon:'brick',
@@ -14703,6 +14873,91 @@ const COURSES = {
              deltaFn:(legs,spec)=>{ let d=-1; if(spec==='climber')d-=1; return d; }},
             {id:'watch_rivals',  label:'👀 Look up to track your rivals', detail:'Know where the competition is, at the cost of picking a rougher line.', raceLegsConst:40, defaultChoice:false,
              deltaFn:(legs,spec)=>{ let base=-2; return Math.random()<0.2?2:base; }},
+          ]}]},
+    // ─── fix303: three more hill climbs ───────────────────────
+    { id:'forest_switchbacks', name:'The Forest Switchbacks', icon:'mountain-bike',
+      profile:[10,16,14,22,20,30,26,38,34,46,42,54,50,62,58,70,66,78,74,84,82,90,88,96],
+      commentary:['Into the trees, and the gradient starts immediately...','Switchback after switchback, each one steeper on the inside...','No view, no wind, just the sound of breathing...','The trees are thinning — the summit cannot be far now...','Out of the forest and up to the finish!'],
+      events:[
+        { id:'inside_line', triggerPct:0.22, headline:'🌲 Inside or outside on the switchbacks?',
+          situation:'The inside of every hairpin is far steeper, but it is also the shortest way up the mountain.',
+          choices:[
+            {id:'take_inside', label:'⚡ Take every inside line', detail:'Shortest distance, steepest ramps, and repeated spikes in effort.', raceLegsConst:38, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+2; if(spec==='climber')d-=1; return d; }},
+            {id:'sweep_wide',  label:'🎯 Sweep wide and keep the rhythm', detail:'Ride further but hold one steady, repeatable cadence.', raceLegsConst:10, defaultChoice:true,
+             deltaFn:()=>0},
+          ]},
+        { id:'still_air', triggerPct:0.52, headline:'🥵 No wind at all under the trees',
+          situation:'The forest is airless and the temperature is climbing. Overheating is a real risk here.',
+          choices:[
+            {id:'douse_water', label:'💧 Use your bottle to cool down', detail:'Spend water on your neck instead of drinking it, and keep the pace.', raceLegsConst:14, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=0; if(legs>50)d=-1; return d; }},
+            {id:'push_through',label:'🔥 Ignore it and push on', detail:'Keep every drop for drinking and simply ride through the heat.', raceLegsConst:34, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<40)d=+3; return d; }},
+          ]},
+        { id:'tree_line', triggerPct:0.82, headline:'🏔️ Out of the trees, summit in sight',
+          situation:'The final ramp is open, exposed and fully visible. So is every rider ahead of you.',
+          choices:[
+            {id:'chase_visible', label:'🚀 Chase down the riders you can see', detail:'Use the sight of them as motivation and empty everything now.', raceLegsConst:50, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-3; if(legs<35)d=+2; if(spec==='climber')d-=1; return d; }},
+            {id:'metronome',     label:'🧘 Hold your metronome to the top', detail:'Same cadence, same power, and let the gradient sort it out.', raceLegsConst:16, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=0; if(legs<25)d=-1; return d; }},
+          ]}]},
+    { id:'volcano_road', name:'The Volcano Road', icon:'fire',
+      profile:[14,20,24,28,34,38,44,48,52,58,60,66,68,72,76,80,82,86,88,90,92,94,96,99],
+      commentary:['A dead-straight road up the flank of a volcano...','No hairpins, no shelter, and no hiding from the gradient...','The surface turns to black ash and the heat radiates up...','Riders reduced to walking pace on the steepest section...','The crater rim is the finish — grind it out!'],
+      events:[
+        { id:'straight_gradient', triggerPct:0.22, headline:'🌋 A straight road with no relief',
+          situation:'You can see three kilometres of unbroken climbing ahead. There is nowhere to recover at all.',
+          choices:[
+            {id:'blinker_ride', label:'🧘 Stare at your stem and ignore it', detail:'Refuse to look up and simply ride your own numbers.', raceLegsConst:8, defaultChoice:true,
+             deltaFn:()=>0},
+            {id:'chase_group',  label:'🔥 Bridge to the group ahead now', detail:'Close the gap while it is still small, on the least steep section.', raceLegsConst:42, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-3; if(legs<40)d=0; if(spec==='climber')d-=1; return d; }},
+          ]},
+        { id:'ash_surface', triggerPct:0.52, headline:'⚫ Loose ash on the road surface',
+          situation:'Volcanic grit is coating the tarmac. Out of the saddle, the rear wheel keeps slipping.',
+          choices:[
+            {id:'stay_seated', label:'🎯 Stay seated for traction', detail:'Keep the weight over the back wheel and accept a lower power.', raceLegsConst:12, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=0; if(spec==='climber')d=-1; return d; }},
+            {id:'stand_anyway',label:'💪 Stand and fight the slipping', detail:'Take the extra power and manage the traction as best you can.', raceLegsConst:40, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ return Math.random()<0.3 ? +2 : -3; }},
+          ]},
+        { id:'crater_rim', triggerPct:0.82, headline:'🏁 The last ramp to the crater rim',
+          situation:'The steepest pitch of the entire climb has been saved for the final 800 metres.',
+          choices:[
+            {id:'all_in_rim',  label:'🚀 Empty everything on the ramp', detail:'One last effort with nothing held back for afterwards.', raceLegsConst:56, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-4; if(legs<40)d=+2; if(legs<20)d=+3; if(spec==='climber')d-=1; return d; }},
+            {id:'survive_rim', label:'🧘 Just survive to the line', detail:'Ride whatever gear keeps you upright and moving forward.', raceLegsConst:20, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=0; if(legs<25)d=-1; return d; }},
+          ]}]},
+    { id:'coastal_col', name:'The Coastal Col', icon:'cold',
+      profile:[16,22,20,30,28,36,34,44,40,50,46,58,52,64,60,70,66,76,72,82,78,88,84,94],
+      commentary:['Starting at sea level, with the col somewhere in the cloud...','The road climbs away from the coast into the wind...','Cold, wet air rolling in off the sea and up the mountain...','Visibility drops to almost nothing near the top...','Somewhere in the fog is the finish line — dig in!'],
+      events:[
+        { id:'sea_wind', triggerPct:0.22, headline:'🌬️ A headwind straight off the sea',
+          situation:'The lower slopes are exposed to a hard onshore wind. Riding alone here is expensive.',
+          choices:[
+            {id:'find_wheel',  label:'🛡️ Find a wheel and shelter', detail:'Give up a little position to ride out of the wind for now.', raceLegsConst:0, defaultChoice:true,
+             deltaFn:()=>+1},
+            {id:'drive_wind',  label:'💪 Drive into it yourself', detail:'Take the wind on and use it to soften the riders behind you.', raceLegsConst:40, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+1; if(spec==='rouleur')d-=1; return d; }},
+          ]},
+        { id:'cloud_base', triggerPct:0.52, headline:'☁️ Into the cloud base — visibility gone',
+          situation:'You can see maybe twenty metres. Judging the gradient by eye is no longer possible.',
+          choices:[
+            {id:'ride_feel',   label:'🎯 Ride entirely by feel', detail:'Forget the numbers and let your legs choose the pace.', raceLegsConst:14, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=0; if(spec==='climber')d=-1; return d; }},
+            {id:'ride_numbers',label:'🔥 Hold the number regardless', detail:'Stick rigidly to your target power whatever the road is doing.', raceLegsConst:38, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+2; return d; }},
+          ]},
+        { id:'fog_finish', triggerPct:0.82, headline:'🏁 The finish is somewhere in the fog',
+          situation:'You cannot see the banner and you cannot see your rivals. Pacing is pure guesswork now.',
+          choices:[
+            {id:'gamble_early', label:'🚀 Gamble and go now', detail:'Assume the line is close and start the final effort blind.', raceLegsConst:48, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ return Math.random()<0.35 ? +3 : -3; }},
+            {id:'hold_steady',  label:'🧘 Hold steady until you see it', detail:'Keep your rhythm and only commit once the banner appears.', raceLegsConst:18, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=-1; if(legs<25)d=0; return d; }},
           ]}]},
   ],
   // fix105 — Realistic Time Trials (Stage 4). All 4 TT courses replaced with
@@ -14849,6 +15104,109 @@ const COURSES = {
              deltaFn:(legs,spec)=>{ let d=-2; if(legs<25)d=+1; return d; }},
             {id:'hold_threshold', label:'🧘 Hold steady right at threshold', detail:'Sustainable pace that should be repeatable to the finish.', raceLegsConst:12, defaultChoice:true,
              deltaFn:()=>+1},
+          ]}]},
+    // ─── fix303: three more time trial courses ────────────────
+    { id:'tt_airfield_flat', name:'Airfield Circuit TT', icon:'flag',
+      profile:[20,24,22,26,24,28,26,30,28,32,30,34,28,32,26,30,24,28,22,26,20,24,18,22],
+      commentary:['Down the ramp onto a completely flat airfield circuit.',
+        'No gradient, no corners of note — this is a pure test of sustained power.',
+        'Intermediate Time Check 1: [TIME_DIFF]. Settled straight into the target number.',
+        'The bike is barely moving in the frame. A textbook aerodynamic position.',
+        'Intermediate Time Check 2: [TIME_DIFF]. The pacing has not wavered by a single watt.',
+        '2km remaining on wide open tarmac — time to lift it above threshold.',
+        'Across the line! Nowhere to hide out there, and no excuses either.'],
+      events:[
+        { id:'flat_pacing', triggerPct:0.22, headline:'✈️ Opening pace on dead flat tarmac',
+          situation:'There is no terrain to hide a bad start behind. Whatever you set now, you hold for the whole ride.',
+          choices:[
+            {id:'fast_start',  label:'🔥 Start above target power', detail:'Bank time early and gamble on holding on later.', raceLegsConst:40, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<40)d=+2; return d; }},
+            {id:'even_start',  label:'🎯 Settle straight onto target', detail:'Textbook even pacing from the first kilometre.', raceLegsConst:0, defaultChoice:true,
+             deltaFn:()=>0},
+          ]},
+        { id:'position_hold', triggerPct:0.52, headline:'🛩️ The position is starting to hurt',
+          situation:'Your back and neck are complaining. Sitting up would help — and would cost real speed.',
+          choices:[
+            {id:'sit_up_brief', label:'🧘 Sit up briefly to reset', detail:'Ten seconds upright to relieve the position, then straight back down.', raceLegsConst:0, defaultChoice:true,
+             deltaFn:()=>+1},
+            {id:'stay_tucked',  label:'💪 Stay locked in the tuck', detail:'Refuse to move and take every last bit of the aerodynamic gain.', raceLegsConst:30, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<30)d=+1; if(spec==='rouleur')d-=1; return d; }},
+          ]},
+        { id:'flat_finish', triggerPct:0.82, headline:'🏁 2km to go on open tarmac',
+          situation:'Nothing left to manage but the number on the screen and how much is left in the legs.',
+          choices:[
+            {id:'lift_now',   label:'🚀 Lift above threshold now', detail:'Start emptying the tank with two kilometres remaining.', raceLegsConst:46, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-3; if(legs<35)d=+2; return d; }},
+            {id:'last_km',    label:'🎯 Hold, then empty it in the last km', detail:'Keep it steady and save the overshoot for the final minute.', raceLegsConst:20, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=-1; return d; }},
+          ]}]},
+    { id:'tt_viaduct_drag', name:'Viaduct Valley TT', icon:'road',
+      profile:[18,22,26,24,30,28,34,32,38,36,42,40,44,42,46,44,48,46,50,48,52,50,53,54],
+      commentary:['Rolling down the ramp into a long valley road.',
+        'The whole course drags gently upward — the gradient never shows on the road, only in the legs.',
+        'Intermediate Time Check 1: [TIME_DIFF]. That false flat is more expensive than it looks.',
+        'Crossing the viaduct with a strong crosswind pushing at the deep wheels.',
+        'Intermediate Time Check 2: [TIME_DIFF]. Grinding out a big gear on the steady drag.',
+        'The final 3km tilt upward again toward the finish above the valley.',
+        'Over the line! A deceptively hard course, ridden intelligently.'],
+      events:[
+        { id:'false_flat_pace', triggerPct:0.22, headline:'🛤️ A false flat that is faster than it feels',
+          situation:'The road looks level and is not. Your speed is down and the temptation is to overcompensate.',
+          choices:[
+            {id:'chase_speed', label:'🔥 Ride to the speed you expected', detail:'Push the power up to hit the number on the computer.', raceLegsConst:44, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<40)d=+3; return d; }},
+            {id:'trust_power', label:'🎯 Trust the power, ignore the speed', detail:'Hold the watts you planned and accept the slower display.', raceLegsConst:0, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=0; if(spec==='rouleur')d=-1; return d; }},
+          ]},
+        { id:'viaduct_wind', triggerPct:0.52, headline:'🌉 Crosswind on the viaduct',
+          situation:'The bridge is fully exposed and the deep wheels are catching every gust.',
+          choices:[
+            {id:'grip_low',   label:'🛡️ Grip low and ride through it', detail:'Stay aero, stay calm and let the bike move underneath you.', raceLegsConst:12, defaultChoice:true,
+             deltaFn:()=>0},
+            {id:'power_over', label:'💪 Power over the bridge at full gas', detail:'Get across quickly, whatever the buffeting costs in effort.', raceLegsConst:38, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+2; if(spec==='rouleur')d-=1; return d; }},
+          ]},
+        { id:'valley_ramp', triggerPct:0.82, headline:'🏁 The last 3km tilt upward',
+          situation:'The finish sits above the valley floor. The gradient is mild but it arrives with nothing left.',
+          choices:[
+            {id:'shift_up',   label:'🚀 Shift up and drive the gradient', detail:'Attack the drag with a bigger gear and a higher power.', raceLegsConst:48, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-3; if(legs<35)d=+2; if(spec==='climber')d-=1; return d; }},
+            {id:'spin_up',    label:'🧘 Spin up it and protect the legs', detail:'Drop a gear, raise the cadence and get to the line intact.', raceLegsConst:16, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=0; if(legs<25)d=-1; return d; }},
+          ]}]},
+    { id:'tt_fortress_summit', name:'Hilltop Fortress TT', icon:'crown',
+      profile:[20,24,28,32,38,42,48,52,58,62,66,70,74,76,80,82,86,88,90,92,94,96,97,99],
+      commentary:['Off the ramp and immediately onto rising ground.',
+        'The road to the fortress climbs for its entire length — there is no flat section at all.',
+        'Intermediate Time Check 1: [TIME_DIFF]. Power-to-weight is deciding this one, not aerodynamics.',
+        'Out of the aero bars and onto the hoods for the steeper pitches.',
+        'Intermediate Time Check 2: [TIME_DIFF]. The gradient is still increasing toward the walls.',
+        'The final ramp through the fortress gate — a genuine wall at the end of a time trial.',
+        'Across the line at the summit! A brutal way to finish against the clock.'],
+      events:[
+        { id:'bar_choice', triggerPct:0.22, headline:'🏰 Aero bars or hoods on the lower slopes?',
+          situation:'The gradient is already enough that the aero position is costing you more power than it saves.',
+          choices:[
+            {id:'stay_aero',  label:'🎯 Stay on the extensions', detail:'Keep the aerodynamic gain while the gradient is still shallow.', raceLegsConst:14, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=0; if(spec==='rouleur')d=-1; return d; }},
+            {id:'go_hoods',   label:'💪 Move to the hoods and open up', detail:'Sacrifice the position for breathing room and more power.', raceLegsConst:32, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-2; if(legs<35)d=+1; if(spec==='climber')d-=1; return d; }},
+          ]},
+        { id:'gradient_pace', triggerPct:0.52, headline:'⛰️ The gradient keeps increasing',
+          situation:'Every kilometre is steeper than the last. Holding a constant power means going slower and slower.',
+          choices:[
+            {id:'constant_power', label:'🧘 Hold constant power throughout', detail:'The textbook answer, even as the speed bleeds away.', raceLegsConst:16, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=0; if(spec==='climber')d=-1; return d; }},
+            {id:'ramp_power',     label:'🔥 Raise the power with the gradient', detail:'Ride the steep sections harder and hope the legs hold out.', raceLegsConst:46, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-3; if(legs<40)d=+2; if(legs<22)d=+2; return d; }},
+          ]},
+        { id:'fortress_gate', triggerPct:0.82, headline:'🏁 The wall through the fortress gate',
+          situation:'The last 400 metres are the steepest of the entire course, on old stone paving.',
+          choices:[
+            {id:'stand_gate',  label:'🚀 Stand and force it over', detail:'Out of the saddle and throw everything at the final wall.', raceLegsConst:54, defaultChoice:false,
+             deltaFn:(legs,spec)=>{ let d=-4; if(legs<40)d=+2; if(legs<20)d=+3; if(spec==='climber')d-=1; return d; }},
+            {id:'seated_gate', label:'🧘 Stay seated and keep it turning', detail:'Lowest gear, steady cadence, and refuse to stall on the stones.', raceLegsConst:20, defaultChoice:true,
+             deltaFn:(legs,spec)=>{ let d=0; if(legs<25)d=-1; return d; }},
           ]}]},
   ],
 };
@@ -15310,6 +15668,111 @@ const RIVAL_NAMES = [
   'Marcus Hendricks','Tomasz Kowalski','Liam Fitzgerald','Diego Álvarez','Erik Lindqvist',
   'André Dubois','Connor Walsh','Niklas Voss','Rafael Cortez','James Whitfield',
 ];
+
+// ─── fix302: RIVAL DOSSIER ────────────────────────────────────
+// The Rival card used to say four things: name, W-L, FTP and the colour of the
+// gap. This adds the two the player actually asks about — what kind of rider he
+// is, and what he is working on right now.
+//
+// NO NEW SAVE FIELDS. Both figures are DERIVED at render time, never stored:
+//   archetype — hashStr(rival name) % RIVAL_ARCHETYPES.length. Fixed for the
+//     life of a career because the name is, and identical on every device
+//     sharing the save.
+//   training  — a pure function of (category id, local calendar day, rival
+//     name). Same trick getHourlyCourse() uses for course rotation: a wall-clock
+//     derivation survives reload and relaunch and stays in sync across devices
+//     without a save-state field to guard.
+// A stored field here would need its own per-sub-key load guard (the
+// tourProgress lesson) and a seed for every existing save. Deriving needs
+// neither, and cannot drift out of step with the category the player is in.
+//
+// WHY IT MOVES WITH CATEGORY. RIVAL_TRAINING_BLOCKS is keyed by RACE_CATEGORIES
+// id, not by index — an index map would couple this registry to the position of
+// every category in that array. An Uncategorised rival is learning to hold a
+// wheel; a Professional rival is at altitude camp. The pool the day-roll draws
+// from swaps wholesale the moment the player is promoted, so the rival visibly
+// levels up alongside them, which is the whole point of the card.
+//
+// READ-ONLY. Everything below is called from renderRivalCard(), a render path,
+// and writes no state — see the render-only discipline rule.
+const RIVAL_ARCHETYPES = [
+  { id:'climber',  name:'Pure Climber',    icon:'mountain', note:'Waits all season for the gradients.' },
+  { id:'sprinter', name:'Fast Finisher',   icon:'bolt',     note:'Hides all day, then wins in the last 200m.' },
+  { id:'rouleur',  name:'Rouleur',         icon:'road',     note:'Grinds a big gear and never seems to tire.' },
+  { id:'allround', name:'All-Rounder',     icon:'star',     note:'No obvious weakness, and no obvious way past him.' },
+];
+
+// Four blocks per category. Any pool of at least one entry works — the day-roll
+// takes a modulo — so a later fix can append to a category without touching the
+// selector below.
+const RIVAL_TRAINING_BLOCKS = {
+  uncat: [
+    { label:'Learning to hold a wheel', detail:'Club runs twice a week, still getting dropped on the hills.' },
+    { label:'First structured block',   detail:'A borrowed turbo trainer and a printed plan taped to the wall.' },
+    { label:'Base miles',               detail:'Long, slow winter hours with no numbers and no plan.' },
+    { label:'Bike handling drills',     detail:'Cornering practice in an empty car park after work.' },
+  ],
+  cat5: [
+    { label:'Sweetspot intervals',      detail:'Two hours under threshold, three evenings a week.' },
+    { label:'Cadence work',             detail:'Teaching the legs to spin instead of grinding every climb.' },
+    { label:'Group ride sprints',       detail:'Contesting every town sign on the Sunday club run.' },
+    { label:'Weekly long ride',         detail:'Building to four hours without blowing up in the last one.' },
+  ],
+  cat4: [
+    { label:'Threshold block',          detail:'Four by ten minutes, and he is holding the numbers now.' },
+    { label:'Race-pace efforts',        detail:'Short, sharp repeats to survive the first hour of a race.' },
+    { label:'Hill repeats',             detail:'The same climb, six times over, until the legs give out.' },
+    { label:'Recovery discipline',      detail:'Actually riding easy on easy days for the first time.' },
+  ],
+  cat3: [
+    { label:'VO2 max block',            detail:'Five by five at a pace he can barely talk through.' },
+    { label:'Position testing',         detail:'Chasing free speed on the flat with a lower front end.' },
+    { label:'Fuelling on the bike',     detail:'Training the gut to take real carbs at race intensity.' },
+    { label:'Strength work',            detail:'Squats and deadlifts twice a week through the winter.' },
+  ],
+  cat2: [
+    { label:'Polarised training',       detail:'Very easy or very hard, and nothing at all in between.' },
+    { label:'Lactate testing',          detail:'A coach with a finger-prick kit deciding every zone.' },
+    { label:'Race-weight block',        detail:'Losing the last three kilos without losing any power.' },
+    { label:'Sprint lead-out drills',   detail:'Practising the last kilometre with a small trusted group.' },
+  ],
+  cat1: [
+    { label:'Altitude camp',            detail:'Three weeks living high and training low in the mountains.' },
+    { label:'Wind tunnel session',      detail:'A full day chasing watts out of his position and kit.' },
+    { label:'Overload block',           detail:'Deliberately digging a hole, then sleeping for a fortnight.' },
+    { label:'Heat acclimatisation',     detail:'Turbo sessions in a sealed room to prepare for summer racing.' },
+  ],
+  pro: [
+    { label:'Grand Tour build',         detail:'Every session for the next eight weeks points at one race.' },
+    { label:'Team training camp',       detail:'Six-hour days on closed roads with a full support staff.' },
+    { label:'Time trial specific work', detail:'Hours held motionless on the extensions at exactly one power.' },
+    { label:'Peaking and taper',        detail:'Volume down, intensity sharp, and the form is arriving.' },
+  ],
+};
+
+// Local calendar day index. Local rather than UTC so the dossier turns over at
+// the same midnight the daily reset does (checkDailyReset compares
+// toDateString()), instead of drifting hours away from it by timezone.
+function getRivalDossierDay(){
+  const d = new Date();
+  return Math.floor((d.getTime() - d.getTimezoneOffset()*60000) / 86400000);
+}
+
+function getRivalArchetype(){
+  const nm = (state.rival && state.rival.name) || '';
+  const i = Math.abs(hashStr(nm)) % RIVAL_ARCHETYPES.length;
+  return RIVAL_ARCHETYPES[i];
+}
+
+// Falls back to the Uncategorised pool if the category id is ever missing — the
+// card must render something rather than throw inside a render path.
+function getRivalTrainingBlock(){
+  const cat = RACE_CATEGORIES[state.raceCategory];
+  const pool = (cat && RIVAL_TRAINING_BLOCKS[cat.id]) || RIVAL_TRAINING_BLOCKS.uncat;
+  const nm = (state.rival && state.rival.name) || '';
+  const seed = (getRivalDossierDay()*31 + (Math.abs(hashStr(nm)) % 97) + (state.raceCategory||0)) >>> 0;
+  return pool[hash32(seed) % pool.length];
+}
 
 // ─── CALENDAR (Major Events) ─────────────────────────────────
 // Unlocked at Semi-Pro (Cat 1). A calendar season runs on a fixed 30-day real-time
@@ -17810,7 +18273,8 @@ function getGrandTourStage(rd){
 //
 // ── Why the rule is not the plan's original one ──────────────────────────
 // Plan §2.2 spec'd a single test: mean of the last quarter minus the mean of
-// the quarter before it, > +8 => summit. Run over all 16 COURSES entries and
+// the quarter before it, > +8 => summit. Run over all COURSES entries (16 at the
+// time it was written, 28 since fix303) and
 // all 15 Grand Tour stages, that rule MISCLASSIFIES on both ends, and both
 // failures are structural rather than one-off:
 //
@@ -17886,33 +18350,51 @@ function finishTerrainFor(rd){
 // it adds nothing to the handler audit and cannot be reached by a player.
 // Run finishTerrainAudit() in the console to reprint the table below.
 //
-// MEASURED 2026-08 against this file's COURSES and GRAND_TOUR_STAGES:
+// MEASURED 2026-08 against this file's COURSES and GRAND_TOUR_STAGES.
+// RE-MEASURED 2026-08 at fix303, which took COURSES from 16 rows to 28. Every
+// row below is printed by finishTerrainAudit(), not estimated — the painted-hub
+// rule (measure, never estimate) applies to balance tables as much as to crop
+// arithmetic. No existing row's class changed; the thresholds are untouched.
 //
-//   road  The Cobbled Classic        rise  +0.67  fin  41.3  sprint  (velodrome)
-//   road  The Rolling Ardennes       rise -25.00  fin  21.7  sprint  (descent to line)
-//   road  The Crosswind Epic         rise  +1.50  fin  27.0  sprint
-//   road  The Mega-Breakaway Chase   rise  +8.67  fin  42.7  drag
-//   crit  The Wet City Circuit       rise  +2.67  fin  38.7  sprint
-//   crit  The Twilight Race          rise  +4.00  fin  31.3  sprint
-//   crit  The 4-Corner Power Square  rise  +2.00  fin  41.3  sprint
-//   crit  The Uphill Finish Circuit  rise +10.00  fin  60.7  summit
-//   hill  The Cobbled Wall           rise  +3.00  fin  98.7  summit  (saturated)
-//   hill  The High Altitude Pass     rise +21.83  fin  96.3  summit
-//   hill  The Stepped Climb          rise +14.67  fin  99.3  summit
-//   hill  The Goat Track             rise +20.17  fin  91.7  summit
-//   tt    Urban City Prologue        rise +10.67  fin  54.0  drag    (rises, but low)
-//   tt    Estuary Coastline TT       rise  +6.83  fin  47.0  drag
-//   tt    Alpine Hill Climb          rise  +6.33  fin  95.3  summit  (saturated)
-//   tt    Rolling Countryside TT     rise  +4.00  fin  36.7  sprint
+//   road  The Cobbled Classic         rise  +0.67  fin  41.3  sprint
+//   road  The Rolling Ardennes        rise -25.00  fin  21.7  sprint
+//   road  The Crosswind Epic          rise  +1.50  fin  27.0  sprint
+//   road  The Mega-Breakaway Chase    rise  +8.67  fin  42.7  drag
+//   road  The Alpine Monument         rise +30.00  fin  92.0  summit
+//   road  The Autumn Grind            rise  +5.67  fin  56.0  drag
+//   road  The City Circuit Finale     rise  -4.00  fin  18.7  sprint
+//   crit  The Wet City Circuit        rise  +2.67  fin  38.7  sprint
+//   crit  The Twilight Race           rise  +4.00  fin  31.3  sprint
+//   crit  The 4-Corner Power Square   rise  +2.00  fin  41.3  sprint
+//   crit  The Uphill Finish Circuit   rise +10.00  fin  60.7  summit
+//   crit  The Airfield Ring           rise  -3.00  fin  20.0  sprint
+//   crit  The Old Town Cobbles        rise  -2.00  fin  25.3  sprint
+//   crit  The Riverside Ramp          rise  +4.67  fin  57.3  drag
+//   hill  The Cobbled Wall            rise  +3.00  fin  98.7  summit
+//   hill  The High Altitude Pass      rise +21.83  fin  96.3  summit
+//   hill  The Stepped Climb           rise +14.67  fin  99.3  summit
+//   hill  The Goat Track              rise +20.17  fin  91.7  summit
+//   hill  The Forest Switchbacks      rise +21.67  fin  91.3  summit
+//   hill  The Volcano Road            rise +15.83  fin  96.3  summit
+//   hill  The Coastal Col             rise +18.33  fin  88.7  summit
+//   tt    Urban City Prologue         rise +10.67  fin  54.0  drag
+//   tt    Estuary Coastline TT        rise  +6.83  fin  47.0  drag
+//   tt    Alpine Hill Climb           rise  +6.33  fin  95.3  summit
+//   tt    Rolling Countryside TT      rise  +4.00  fin  36.7  sprint
+//   tt    Airfield Circuit TT         rise  -6.00  fin  21.3  sprint
+//   tt    Viaduct Valley TT           rise  +6.17  fin  52.3  drag
+//   tt    Hilltop Fortress TT         rise +13.67  fin  97.3  summit
 //
-//   All three Grand Tours: sprinters' stages and the closing circuits -> sprint,
-//   the two ITT stages -> sprint, every high-mountain stage -> summit. No GT
-//   stage classifies drag, which is correct: they are authored as either flat
-//   or mountainous, with nothing in between.
+//   All three Grand Tours: unchanged by fix303 — sprinters' stages and the
+//   closing circuits -> sprint, the two ITT stages -> sprint, every high-
+//   mountain stage -> summit. No GT stage classifies drag.
 //
-// Totals: 7 sprint / 3 drag / 6 summit across COURSES (16 rows), and
-// 10 sprint / 0 drag / 5 summit across the 15 GT stages. No class is empty and
-// none dominates — which is the property fix275's divisor table needs.
+// Totals: 11 sprint / 6 drag / 11 summit across COURSES (28 rows), and
+// 9 sprint / 0 drag / 6 summit across the 15 GT stages. No class is empty and
+// none dominates — which is the property fix275's divisor table needs. fix303's
+// twelve new courses were authored to hold that spread rather than to a theme:
+// Viaduct Valley TT's tail was flattened after measurement precisely because it
+// first measured summit and the summit class did not need a thirteenth member.
 function finishTerrainAudit(){
   const rows=[];
   Object.keys(COURSES).forEach(typeId=>{
@@ -26323,9 +26805,17 @@ function renderRivalCard(){
   const gap=riv.ftp-playerFtp;
   const gapText = gap>0 ? `${gap}w ahead of you` : gap<0 ? `${Math.abs(gap)}w behind you` : 'dead even with you';
   const gapColor = gap>10 ? 'var(--red-txt)' : gap>0 ? 'var(--amber-txt)' : 'var(--green-txt)';
+  // fix302: dossier rows. Both DERIVED (see RIVAL_ARCHETYPES / getRivalTrainingBlock)
+  // — no state is read that is not already read above, and none is written.
+  const arch=getRivalArchetype();
+  const block=getRivalTrainingBlock();
   wrap.innerHTML=`<div class="race-setup-card" style="border-left:3px solid ${gapColor}">
     <div class="race-setup-head"><span class="race-setup-title">${icn('target')} Your Rival <button class="info-btn" onclick="event.stopPropagation();openInfo('rival')">ⓘ</button></span><span class="race-setup-hint">${riv.wins||0}W – ${riv.losses||0}L</span></div>
     <div class="race-setup-row"><span class="race-setup-icon">${icn('rider')}</span><span class="race-setup-label">${riv.name}</span><span class="race-setup-name" style="color:${gapColor}">${riv.ftp}w FTP</span></div>
+    <div class="race-setup-row"><span class="race-setup-icon">${icn(arch.icon)}</span><span class="race-setup-label">Style</span><span class="race-setup-name">${arch.name}</span></div>
+    <div class="race-setup-row"><span class="race-setup-icon">${icn('coach')}</span><span class="race-setup-label">In training</span><span class="race-setup-name">${block.label}</span></div>
+    <div style="font-size:11px;color:var(--txt3);line-height:1.4;margin-top:7px">${arch.note} ${block.detail}</div>
+    <div style="font-size:11px;font-weight:600;color:${gapColor};margin-top:4px">${gapText.charAt(0).toUpperCase()+gapText.slice(1)}</div>
   </div>`;
 }
 
