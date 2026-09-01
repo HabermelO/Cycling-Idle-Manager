@@ -1,4 +1,43 @@
 <!DOCTYPE html>
+<!-- ═══════════ fix304: GC FIELD REPAIR — THE GC DOUBLE-AWARD, RETROACTIVELY ═══
+     fix296 fixed the per-stage GC scoring bug (a stage win paid first-place
+     points to both the player and a rival, because the rival field was scored
+     independently instead of around the player's real finish) but was
+     DELIBERATELY not retroactive — a tour already in progress kept whatever
+     rival totals it had banked under the old rule. Reported here as "I can
+     win every race but not even finish on the podium of the entire GC",
+     which is exactly the residual case fix296's own comment predicted for a
+     tour straddling that boundary.
+
+     THE FIX. New gcRepairFieldIfNeeded(tp, tourId), sited as the first line
+     of the gtStage branch in completeRace() — before this stage's own result
+     is pushed onto tp.stageResults, so the replay only ever sees PRIOR
+     stages. It wipes the rival field's banked gcPoints to 0 and replays every
+     stage the player has actually completed in this tour through the
+     CORRECTED gcScoreStageForField, using the real recorded position from
+     tp.stageResults for each one — not a guess, the same numbers already on
+     the player's own results page. The current stage is then scored exactly
+     as before, once, by the unchanged call further down.
+
+     ONE-TIME, via a new tp.gcFieldRepairedV2 flag: there is no way to tell
+     from a bare save whether a tour's banked points are old-bugged or already
+     fix296-correct, so every in-progress tour is repaired once, on its next
+     stage. Replaying an already-correct history reproduces an equally fair
+     board (same real positions, freshly rolled rival strengths), so running
+     it unconditionally is safe. A brand-new tour with no stages yet simply
+     sets the flag and returns — nothing to repair.
+
+     NOT RETROACTIVE PAST A FINISHED TOUR. A tour that already ran its final
+     stage has its GC tier, bonus money and any relic/jersey already paid out
+     via state.calendar.completed; this repairs tp (in-progress tours) and
+     does not re-open or re-pay one that has already concluded.
+
+     Regions touched, and nothing outside them: new gcRepairFieldIfNeeded()
+     next to gcScoreStageForField; its one call site in completeRace(); the
+     tp.gcFieldRepairedV2 load-time coercion beside the existing tp.gcField
+     guard in loadGame(); this header. No new save key beyond that one
+     boolean, no asset change, STATIC_ASSETS untouched. Service worker
+     CACHE_VERSION bumped to cim-v3.9.09 because ./index.html is cached. -->
 <!-- ═══════════ fix296: GRID ROW RETIRED + THE GC DOUBLE-AWARD ═══════════
      Two independent bugs, reported together. Neither shares a line with the
      other; they are in one fix because both diffs are small and disjoint.
@@ -16019,11 +16058,12 @@ function gcEnsureField(tp){
 // STILL RENDER-SAFE. This mutates, so it stays callable only from the one
 // mutation path that already called it; gcStandings() remains the pure read.
 //
-// DELIBERATELY NOT RETROACTIVE. A tour already in progress keeps the rival
-// totals it has banked — those points are spent history and rewriting them
-// would mean re-simulating stages that were already ridden and awarded. Stages
-// ridden from this build on are scored correctly, and a tour started from here
-// is correct end to end.
+// UPDATE fix304: fix296 above was deliberately not retroactive — a tour that
+// straddled the fix296 boundary (some stages ridden on the old double-award
+// scoring, some on the new around-the-player scoring) kept its old banked
+// rival totals forever, which is exactly "I won every stage but I'm not on
+// the GC podium" for that one tour. gcRepairFieldIfNeeded() directly below
+// closes that gap by replaying real history through THIS function.
 function gcScoreStageForField(tp, stage, yourPosition){
   const field = gcEnsureField(tp);
   const table = (stage && Array.isArray(stage.gcPoints)) ? stage.gcPoints : [];
@@ -16039,6 +16079,56 @@ function gcScoreStageForField(tp, stage, yourPosition){
   order.forEach((entry, i)=>{
     const place = (i+1) < yourPos ? (i+1) : (i+2);   // step over the player's slot
     entry.r.gcPoints += (place-1 < table.length ? table[place-1] : 0);
+  });
+}
+
+// ═══ fix304: GC FIELD REPAIR — one-time, for tours fix296 left behind ══════
+// gcScoreStageForField (above) has scored each NEW stage correctly since
+// fix296. What it never touched is a tour's BANKED history from before that
+// build — rival gcPoints paid out under the old double-award rule stay in
+// tp.gcField forever, so a tour that straddles the fix296 boundary can still
+// show a player who won every stage sitting outside the GC podium. Reported
+// verbatim as "I can win every race but not even finish on the podium."
+//
+// THE FIX: the moment the player next completes a stage of an in-progress
+// tour, wipe every rival's banked gcPoints to 0 and REPLAY every PRIOR stage
+// of that tour (tp.stageResults, one entry per stage already ridden) through
+// gcScoreStageForField — the same corrected function, fed the player's real
+// recorded finishing position for each stage. This is not a guess at what
+// should have happened; tp.stageResults already holds exactly what did.
+//
+// ONE-TIME, via tp.gcFieldRepairedV2. Cannot tell, from a bare save, whether
+// a given tour's banked points are old-bugged or already fix296-correct — so
+// every in-progress tour gets repaired exactly once, on its next stage. For
+// a tour whose history was already correct this reproduces an equally fair
+// board (same real positions, freshly rolled rival strengths), so it is safe
+// to run unconditionally rather than trying to detect which case applies.
+//
+// SITED as the first line of the gtStage branch in completeRace(), BEFORE
+// this stage's own result is pushed onto tp.stageResults — so "prior stages"
+// never includes the stage currently being completed, and that stage is
+// still scored exactly once, by the existing call below this one.
+//
+// NOT RETROACTIVE PAST A FINISHED TOUR. A tour that already ran its final
+// stage has moved its result into state.calendar.completed — the GC tier,
+// bonus money and any relic/jersey off that tier are already paid. This
+// repairs tp (in-progress tours only); it does not re-open or re-pay a
+// tour that has already concluded.
+//
+// RENDER-SAFE the same way gcScoreStageForField is: this mutates, so it is
+// only ever called from completeRace, a mutation path that saveGame()s
+// immediately after. gcStandings() remains the pure read and is untouched.
+function gcRepairFieldIfNeeded(tp, tourId){
+  if(!tp || tp.gcFieldRepairedV2) return;
+  tp.gcFieldRepairedV2 = true;                        // one-time, win or no-op
+  const priorResults = Array.isArray(tp.stageResults) ? tp.stageResults : [];
+  if(priorResults.length===0) return;                 // no history yet, nothing to repair
+  const stages = GRAND_TOUR_STAGES[tourId] || [];
+  const field = gcEnsureField(tp);
+  field.forEach(r=>{ r.gcPoints = 0; });               // wipe totals banked under the old rule
+  priorResults.forEach(res=>{
+    const stage = stages[res.stageIndex];
+    if(stage) gcScoreStageForField(tp, stage, res.position);
   });
 }
 
@@ -19166,6 +19256,10 @@ function completeRace(){
     if(rd.result.position===1) awardVP(2, 'gt_stage_win');
     // Record this stage's result and GC points into the tour's running progress.
     const tp=state.calendar.tourProgress[rd.calendarEventId];
+    // fix304: repair BEFORE this stage's own result is pushed below, so the
+    // replay only ever sees PRIOR stages — this stage is scored once, by the
+    // gcScoreStageForField call further down, exactly as before this fix.
+    gcRepairFieldIfNeeded(tp, rd.calendarEventId);
     tp.stageResults.push({stageIndex:rd.stageIndex, position:rd.result.position, fieldSize:rd.result.fieldSize, prize:rd.result.prize, gcPoints:rd.result.gcPoints, ts:Date.now()});
     tp.gcPoints += rd.result.gcPoints;
     tp.lastStageCompletedDate = new Date().toDateString();
@@ -35913,6 +36007,11 @@ function loadGame(){
     Object.keys(state.calendar.tourProgress).forEach(tid=>{
       const tp = state.calendar.tourProgress[tid];
       if(tp && typeof tp==='object') tp.gcField = gcNormaliseField(tp.gcField);
+      // fix304: explicit boolean coercion, same lesson as gcField above — a
+      // truthy check alone already treats a missing key as "not yet
+      // repaired" (the correct default), but coercing it here keeps every
+      // tp sub-key typed consistently rather than leaving one as undefined.
+      if(tp && typeof tp==='object') tp.gcFieldRepairedV2 = !!tp.gcFieldRepairedV2;
     });
     state.ftpHistory = Array.isArray(d.ftpHistory) ? d.ftpHistory : [];
     state.loginStreak          = d.loginStreak          || 0;
