@@ -1,4 +1,143 @@
 <!DOCTYPE html>
+<!-- ═══════════ fix307: IN-RACE SPEED CONTROL ═══════════════════════════════
+     Request: let the player speed up or slow down a race WHILE it's running,
+     easier to reach than the Settings pace picker (which only sets the pace
+     for races not yet started). Three levels — 1x / 2x / 5x — as a static
+     pill row at the very top of the race screen, resetting to 1x at the
+     start of every race.
+
+     WHY NOT A DRAG SLIDER: _raceOverlayRafLoop() rebuilds #race-overlay-body's
+     entire innerHTML every animation frame (see the fix283 comment above it).
+     A real <input type=range> living in that subtree would be destroyed and
+     re-created mid-gesture on every frame, killing the drag. .race-overlay-head
+     sits OUTSIDE that rebuilt region — only ever touched via classList, never
+     innerHTML — so the new #race-speed-row lives there instead, as three tap
+     targets rather than a thumb-drag.
+
+     WHY NOT touching rd.animMs or rd.startTime: both are read as identity/scale
+     elsewhere (rd.startTime keys the race-stage position smoother so it doesn't
+     leak between races; rd.animMs is read directly by commentary indexing,
+     the progress bar, and the completeRace() threshold). Mutating either
+     mid-race would jump the sprite or reset the smoother.
+
+     THE MECHANISM: getEffectiveElapsed(rd, now) — the one funnel every race
+     system already reads elapsed through — gains a re-anchoring scheme. Four
+     new rd fields: liveSpeedMult (current multiplier), speedAnchorElapsed
+     (the elapsed value banked at the last speed change), speedAnchorAt (wall
+     time of that change), speedAnchorPaused (rd.totalPausedMs + any live
+     pendingDecision gap at that moment, so pause time accrued after the
+     change is correctly excluded from the new segment). setLiveRaceSpeed(mult)
+     reads the CURRENT elapsed under the OLD fields first, then re-anchors —
+     so elapsed is continuous across the change (no jump) and only its RATE
+     changes going forward. When liveSpeedMult stays 1 and no change ever
+     happens (including on every pre-fix307 save resuming mid-race, where
+     the four fields are undefined and default via ||), the formula reduces
+     to exactly the original — this is a strict superset, not a rewrite.
+
+     Not two-tap armed: changing speed is reversible and non-destructive,
+     same tier as the existing pace/reduced-motion settings toggles.
+
+     Regions touched: the 4 new fields at all three raceData creation sites
+     (startRace/startCalendarEventRace/startGrandTourStage, each already
+     landmarked by `totalPausedMs:0,`); getEffectiveElapsed()'s body;  new
+     setLiveRaceSpeed()+updateRaceSpeedUI() beside it; the #race-speed-row
+     markup + .race-speed-* CSS; one call to updateRaceSpeedUI() added to
+     openRaceOverlay(). No new save migration needed (fields are read with
+     || defaults). No new or replaced assets, STATIC_ASSETS untouched.
+     Service worker CACHE_VERSION bumped to cim-v3.9.12 because ./index.html
+     is cached. -->
+<!-- ═══════════ fix306: LIFETIME GOALS — PER-TRACK INFO POPUP ══════════════
+     The player report: "Consistency", "Three Weeks", "The Race of Truth" —
+     the Lifetime Goal track names on the Growth/Tasks tab give no clue what
+     stat they're actually reading or how to move it. The tier pips show
+     thresholds and reward icons, but never what you have to DO.
+
+     Fix: every one of the 19 LIFETIME_GOALS entries gains a `desc` field —
+     plain, in-world text saying what the underlying statFn counts (podium
+     finishes, Grand Tours ridden to the final stage, Time Trial wins, and
+     so on). renderGoalTracks()'s goal-track-head gains an ⓘ info-btn next
+     to the track name, wired to a new openGoalInfo(trackId) that pulls
+     name+desc straight off the LIFETIME_GOALS object and renders it in the
+     existing #info-overlay — the same bottom-sheet openInfo() already uses,
+     dismissed the same way (backdrop tap or ✕, no confirm()).
+
+     DELIBERATELY NOT routed through INFO_TEXTS. That registry keys strings
+     by an arbitrary id typed at both the call site and the entry — a second
+     copy of a description LIFETIME_GOALS already has room for right next to
+     name/icon/tiers on the same object. Two homes for one sentence is how a
+     future threshold retune quietly falls out of sync with its own explanation;
+     one home, read by the popup at render time, cannot go out of sync. Same
+     reasoning as CAREER_GEAR_SOURCE and KIT_COLOR_SOURCE being derived
+     rather than hand-authored elsewhere in this file.
+
+     openGoalInfo() appends one shared footer — "this is a career total" —
+     to every track except 'perfectseason', which is the one track that is
+     explicitly NOT a career total (it resets every season) and says so in
+     its own desc; appending the generic footer there would contradict it.
+
+     Achievements were NOT touched. ACHIEVEMENTS already carries a `desc` on
+     every entry and renderAchievements() already prints it directly on the
+     card — that system was already self-explanatory, so this fix is scoped
+     to Lifetime Goals only.
+
+     Regions touched, and nothing outside them: the 19 `desc:` lines inside
+     LIFETIME_GOALS; the new openGoalInfo() function, sited beside the
+     existing openInfo(); the one new <button class="info-btn"> line inside
+     renderGoalTracks()'s card template. No new state, no migration, no load
+     guard, no new element IDs beyond the reused #info-overlay ones, no new
+     or replaced assets, STATIC_ASSETS untouched. Service worker
+     CACHE_VERSION bumped to cim-v3.9.11 because ./index.html is cached. -->
+<!-- ═══════════ fix305: RIVAL DOSSIER EXPANSION ═══════════════════════════
+     Four more rows on the existing rival-wrap card — VO2 Max, Team, Bike,
+     Last 3 races — following the exact "derive, don't store" rule fix302
+     set for Style and In-training. NO NEW SAVE FIELDS, NO MIGRATION, NO
+     LOAD GUARD anywhere in this fix.
+
+     VO2 MAX reuses the aiVO2 = 30+(ftp-50)/500*55 formula the race-scoring
+     loop already computes for every AI rider, applied to state.rival.ftp
+     and clamped to MAX_VO2 — the same number the rival is actually scored
+     with, not a separately invented one.
+
+     TEAM is a new RIVAL_TEAMS registry keyed by RACE_CATEGORIES id (same
+     keying rule as RIVAL_TRAINING_BLOCKS — category, not index, so no
+     array-position coupling), escalating from unattached/club names to
+     WorldTour-sounding ones as the category climbs. Picked by
+     hashStr(rival name) only, so within a category it's fixed; it only
+     moves because the POOL changed underneath it on promotion.
+
+     BIKE is a new CATEGORY_TO_BIKE_TIER (explicit 7-entry array, category
+     index -> BIKES tier), capped at tier 5 so the fix301 price:null
+     career-unlock frames — which the player has to actually earn via a
+     Lifetime Goal — are never implied to be sitting under an NPC. The
+     specific bike within that tier is picked by hashStr(name), same
+     pattern as Team.
+
+     LAST 3 RACES is the one row that ISN'T a fact recorded anywhere: the
+     rival has no real background race history, because his finishing
+     position is only ever computed on races the PLAYER runs (see
+     rivalPosition in the scoring loop) — there is nothing happening for
+     him on days the player doesn't race, so there is no true history to
+     log even with a save field. GENERATED instead, on the same
+     getRivalDossierDay() + hashStr(name) + category seed
+     getRivalTrainingBlock() already rotates daily, salted per-slot by
+     2654435761 (Knuth's multiplicative hash constant) so the three
+     positions don't move in lockstep. Weighted to the front ~15% of a
+     category-appropriate field size (RACE_CATEGORIES fieldMin/fieldMax)
+     rather than a flat spread, because recalibrateRivalIfNeeded() builds
+     the rival to be genuinely strong in his own category (10-15% above the
+     player's FTP at category entry) — an average-of-the-field spread would
+     undersell him.
+
+     INFO_TEXTS.rival gains one paragraph stating plainly that the dossier
+     is a snapshot of the level he's riding at, not a scoreboard, so the
+     generated recent-races row doesn't read as a claim about logged data.
+
+     Regions touched, and nothing outside them: the new registry/function
+     block after getRivalTrainingBlock(); renderRivalCard()'s innerHTML
+     (four new rows, existing rows byte-identical); the INFO_TEXTS.rival
+     body; this header. No new handlers, no new element IDs, no new or
+     replaced assets, STATIC_ASSETS untouched. Service worker CACHE_VERSION
+     bumped to cim-v3.9.10 because ./index.html is cached. -->
 <!-- ═══════════ fix304: GC FIELD REPAIR — THE GC DOUBLE-AWARD, RETROACTIVELY ═══
      fix296 fixed the per-stage GC scoring bug (a stage win paid first-place
      points to both the player and a rival, because the rival field was scored
@@ -2415,6 +2554,16 @@ button{font-family:inherit;cursor:pointer;}
 .btn-equip{background:var(--blue-bg);color:var(--blue-txt);border:.5px solid var(--blue-bd);}
 .btn-equipped{background:var(--green-txt);color:#fff;}
 .btn-locked{background:var(--bg3);color:var(--txt3);border:.5px solid var(--border);cursor:default;}
+/* fix308: R&D Bike Build — archetype/axis chip picker and the build card that
+   hosts it. Reuses equip-card as the outer shell (border, radius, shadow). */
+.rd-build-card{margin-top:.9rem;}
+.rd-axis-row{margin-top:9px;}
+.rd-axis-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--txt3);margin-bottom:4px;}
+.rd-chip-row{display:flex;flex-wrap:wrap;gap:5px;}
+.rd-chip{font-size:11px;font-weight:600;padding:5px 9px;border-radius:99px;border:.5px solid var(--border);
+  background:var(--bg3);color:var(--txt2);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s,border-color .15s;}
+.rd-chip.active{background:var(--blue-bg);color:var(--blue-txt);border-color:var(--blue-bd);}
+.btn-buy.armed{background:var(--amber-bg);color:var(--amber-txt);border-color:var(--amber-bd);}
 .upgrade-card,.energy-item-card{display:flex;align-items:center;gap:12px;
   padding:12px 14px;border:.5px solid var(--border);border-radius:var(--radius);
   background:var(--bg);margin-bottom:8px;transition:border-color .2s,background .2s,opacity .2s;}
@@ -2456,6 +2605,28 @@ button{font-family:inherit;cursor:pointer;}
 .race-overlay-abandon{background:var(--bg2);color:var(--txt2);border:.5px solid var(--border);
   border-radius:99px;padding:6px 14px;font-size:13px;font-weight:700;}
 .race-overlay-abandon.armed{background:var(--red-bg);color:var(--red-txt);border-color:var(--red-bd);}
+/* fix307: in-race speed pills. Lives in .race-overlay-head's static region
+   (see markup comment), not inside the per-frame-rebuilt #race-overlay-body —
+   same .set-seg/.set-btn sizing/tap-target rules as the settings picker,
+   scoped under #race-speed-row rather than #home-settings-body. */
+#race-speed-row{display:flex;gap:6px;max-width:600px;margin:0 auto .75rem;}
+#race-speed-row .race-speed-btn{
+  flex:1 1 auto;min-height:40px;
+  padding:0 10px;
+  border:1px solid var(--border);border-radius:999px;
+  background:transparent;color:var(--txt);
+  font-size:13px;font-weight:700;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+#race-speed-row .race-speed-btn.active{
+  background:var(--txt);color:var(--bg);border-color:var(--txt);
+}
+#race-speed-row .race-speed-btn:active{transform:scale(.97);}
+@media (prefers-reduced-motion: no-preference){
+  #race-speed-row .race-speed-btn{transition:transform .12s ease;}
+}
+#race-speed-row .race-speed-btn:focus-visible{outline:3px solid #fff;outline-offset:2px;}
 .race-overlay-body{max-width:600px;margin:0 auto;}
 .race-overlay-continue-btn{width:100%;padding:13px;border-radius:var(--radius-lg);border:none;cursor:pointer;
   background:var(--accent-grad);color:#fff;font-size:15px;font-weight:700;margin-top:14px;box-shadow:var(--shadow-sm);}
@@ -13331,6 +13502,13 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
     <span id="race-overlay-title"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-flag"></use></svg> Race</span>
     <button id="race-overlay-abandon-btn" class="race-overlay-abandon" onclick="requestAbandonRace()">Abandon</button>
   </div>
+  <!-- fix307: static row, outside #race-overlay-body's per-frame RAF rebuild —
+       see setLiveRaceSpeed()/updateRaceSpeedUI() above getEffectiveElapsed(). -->
+  <div id="race-speed-row" class="race-speed-row">
+    <button class="race-speed-btn active" data-mult="1" onclick="setLiveRaceSpeed(1)">1x</button>
+    <button class="race-speed-btn" data-mult="2" onclick="setLiveRaceSpeed(2)">2x</button>
+    <button class="race-speed-btn" data-mult="5" onclick="setLiveRaceSpeed(5)">5x</button>
+  </div>
   <div id="race-overlay-body"></div>
 </div>
 
@@ -14202,6 +14380,114 @@ function getWeatherEnergyCost(baseCost){
 function getWeatherFatigueBonus(){
   const {condition,intensity}=getDailyWeather();
   return Math.round((condition.fatigueBonus||0)*WEATHER_INTENSITY_MULTS[intensity]);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// fix310 — DAILY CHALLENGE: DETERMINISTIC SEED FUNCTIONS (Daily Challenges
+// plan v1, "Determinism recipe"). State shape + load guard (state init /
+// saveGame / loadGame) + these three pick functions ONLY. No UI, no entry
+// gate, no reward funnel — those are fix311/fix312.
+//
+// Nothing here invents a new determinism mechanism. Every function below is
+// the SAME seeded-RNG pattern getDailyWeather() already ships (dayKey +
+// hashStr + mulberry32/hash32), re-salted per field, exactly as the plan
+// specifies. All three are pure, render-safe reads — none of them write
+// state, so calling one to preview today's daily costs nothing and can be
+// called from anywhere (a hub card, a debug console, a future fix) with no
+// risk of rerolling anything.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// getDailyChallengeTypeId() — which of the 4 RACE_TYPES today's daily forces.
+// Same string for every player on a given calendar day. Modulo over
+// RACE_TYPES.length rather than a hardcoded 4, so a fifth race type added by
+// a later fix is picked up automatically rather than silently never rolled.
+function getDailyChallengeTypeId(){
+  const dayKey=getDayKey();
+  const idx=hash32(hashStr(dayKey+'_dailytype')>>>0) % RACE_TYPES.length;
+  return RACE_TYPES[idx].id;
+}
+
+// getDailyChallengeCourseId(raceTypeId) — reseeds getHourlyCourse()'s exact
+// pool-index algorithm (hash32(...) % pool.length) with a date+type salt
+// instead of the rotation hour. Same selection algorithm, different seed
+// input — not a new pick, per the plan. Returns null for a raceTypeId with no
+// course pool (defensive; every current RACE_TYPES id has one).
+function getDailyChallengeCourseId(raceTypeId){
+  const pool=COURSES[raceTypeId];
+  if(!pool||pool.length===0) return null;
+  const dayKey=getDayKey();
+  const idx=hash32(hashStr(dayKey+raceTypeId+'_dailycourse')>>>0) % pool.length;
+  return pool[idx].id;
+}
+
+// getDailyChallengeShape(raceTypeId) — rollRaceShape() itself is UNCHANGED;
+// this just hands it a date-based seed key instead of the start-time-based
+// one startRace() uses, so the shape doesn't drift if the player attempts at
+// 8am vs 11pm on the same calendar day (plan table, "raceShape" row).
+function getDailyChallengeShape(raceTypeId){
+  return rollRaceShape(getDayKey()+'|daily|'+raceTypeId, getDailyWeather().condition.id);
+}
+
+// ── AUDIT FINDING (plan v1, "One open audit item... first coding task in
+//    fix310") ─────────────────────────────────────────────────────────────
+// Question asked: is the rival-difficulty roll inside simulateRaceResult()
+// for a category race itself deterministic, or does it touch Math.random()
+// directly? If the latter, would the daily's rival differ between a reload
+// and the original attempt?
+//
+// FINDING: simulateRaceResult() is NOT seeded. It calls Math.random()
+// directly in at least four places — the player-score variance term, the
+// field-size roll, every non-rival AI's FTP roll, and each AI's per-race
+// score variance (see simulateRaceResult, the fieldRoll/aiFTP/aiScore
+// lines). Two calls with an identical raceTypeId will not produce the same
+// result.
+//
+// THIS DOES NOT GATE fix311. simulateRaceResult() is called exactly ONCE,
+// inside startRace(), and its return value is stored verbatim on
+// state.raceData.result before the immediate post-entry saveGame() call. A
+// mid-race reload never re-simulates — every render (including the TT split
+// readout, computeTTSplit) reads the one stored rd.result. So the daily's
+// rival roll is exactly as reload-safe as every other race in the game
+// already is: not seeded, but computed once and persisted, which is the
+// property that actually matters here.
+//
+// The date-seeding this file's three functions above provide is for a
+// different problem: WHICH race gets offered, so that a player who closes
+// the app before tapping in sees the same daily on reopen. That is fully
+// covered by getDailyChallengeTypeId/CourseId/Shape. Once startRace() is
+// called with the forced course/shape (fix311), the race resolves through
+// the exact same unseeded pipeline every other race already uses, safely,
+// because nothing calls simulateRaceResult() a second time for it.
+//
+// No closing work needed before fix311 ships as planned.
+
+// ── fix311 — DAILY CHALLENGE: ENTRY GATE + STARTER (Daily Challenges plan v1,
+//    "Entry flow") ────────────────────────────────────────────────────────
+// isDailyAttemptedToday() is the ONE gate for "has today's daily already been
+// completed" — deliberately independent of state.raceCooldowns (plan: "that
+// gate is per-race-type and belongs to the normal category-race cooldown,
+// not the daily"). It reads only state.dailyChallenge.lastDate, which fix311
+// itself never writes — completeRace()'s daily branch (fix312) is the sole
+// writer, per the single-funnel rule. Until fix312 ships this always reads
+// false on a fresh save, which is correct: nothing has completed a daily yet.
+function isDailyAttemptedToday(){
+  return state.dailyChallenge.lastDate === getDayKey();
+}
+
+// startDailyChallenge() — the fix311 entry point. Computes today's forced
+// pick from the three fix310 seed functions and hands it to the REAL
+// startRace() pipeline (plan: "should enter through the real startRace()
+// pipeline, not a parallel one-off simulation path") via the opts param,
+// rather than duplicating startRace's body the way startGrandTourStage() and
+// startCalendarEvent() do. Guards mirror startRace's own early-outs so a
+// stale button (mid-render race) can't double-enter.
+function startDailyChallenge(){
+  if(state.raceActive||state.session.active) return;
+  if(isDailyAttemptedToday()) return;
+  const raceTypeId=getDailyChallengeTypeId();
+  const forceCourseId=getDailyChallengeCourseId(raceTypeId);
+  const forceShape=getDailyChallengeShape(raceTypeId);
+  startRace(raceTypeId, false, {isDailyChallenge:true, forceCourseId, forceShape});
 }
 
 // ═══════════ fix291 (1): DIFFICULTY — THE SINGLE SOURCE OF TRUTH ═══════════
@@ -15497,6 +15783,74 @@ const BIKES = [
   {id:'dogma_gc',      tier:6,minPrestige:0,type:'allrounder',brand:'Pinarello',     model:'Dogma F — GC Edition',      price:null,  aeroWatts:38, climbWatts:38, desc:'Built to a Grand Tour contender\'s own fit sheet. The rarest frame in this game.'},
 ];
 
+// ─── R&D BIKE BUILD (fix308) ───────────────────────────────────────────────
+// One build per season (state.rdBuildSeason). Deliberately NOT modelled as
+// catalogue entries — 4 archetypes × 5 independent axes is hundreds of
+// combinations, so hand-authoring BIKES rows the way tier-6 career gear does
+// would violate the append-only-registry rule in spirit even if not in
+// mechanism. Instead each build is computed once at build time and stored as
+// its own immutable record in state.rdBikes (see buildRdBike). This block is
+// pure data/derivation — it owns no state and mutates nothing.
+const RD_ARCHETYPES = [
+  {id:'aero',        name:'Aero',         aeroWatts:28, climbWatts:4,  desc:'Built to cut the air. Every line on this frame is chasing a wind-tunnel number.'},
+  {id:'lightweight',  name:'Lightweight',  aeroWatts:4,  climbWatts:28, desc:'Built to disappear on a climb. Every gram on this frame is accounted for.'},
+  {id:'allrounder',   name:'All-Rounder',  aeroWatts:16, climbWatts:16, desc:'No compromise chased too far in either direction — a frame for any parcours.'},
+  {id:'endurance',    name:'Endurance',    aeroWatts:10, climbWatts:20, desc:'Built to still feel good in the third week. Sustainable power over a single number.'},
+];
+// Deltas are additive onto the archetype base. Each axis is chosen
+// independently of the archetype and of every other axis — a player can pair
+// an Aero archetype with Climbing Rims if that's the build they want.
+const RD_AXES = [
+  {key:'geometry',   label:'Frame Geometry',    options:[
+    {id:'race',      name:'Race-Tuned',         aeroWatts:6,  climbWatts:-2},
+    {id:'endurance', name:'Relaxed Endurance',  aeroWatts:-2, climbWatts:6},
+    {id:'balanced',  name:'Balanced',           aeroWatts:2,  climbWatts:2},
+  ]},
+  {key:'layup',      label:'Carbon Layup',      options:[
+    {id:'stiff',     name:'Ultra-Stiff',        aeroWatts:4,  climbWatts:-2},
+    {id:'compliant', name:'Compliant',          aeroWatts:-2, climbWatts:4},
+    {id:'standard',  name:'Standard',           aeroWatts:1,  climbWatts:1},
+  ]},
+  {key:'wheels',     label:'Wheel Depth',       options:[
+    {id:'deep',      name:'Deep Section',       aeroWatts:6,  climbWatts:-2},
+    {id:'climbing',  name:'Climbing Rims',       aeroWatts:-2, climbWatts:6},
+    {id:'mid',       name:'Mid-Depth Racing',    aeroWatts:2,  climbWatts:2},
+  ]},
+  {key:'drivetrain', label:'Drivetrain',        options:[
+    {id:'wide1x',    name:'1x Wide-Range',      aeroWatts:-1, climbWatts:4},
+    {id:'close2x',   name:'2x Close-Ratio',     aeroWatts:3,  climbWatts:0},
+    {id:'standard2x',name:'2x Standard',        aeroWatts:1,  climbWatts:1},
+  ]},
+  {key:'cockpit',    label:'Cockpit & Cabling', options:[
+    {id:'integrated',name:'Integrated Aero',    aeroWatts:4,  climbWatts:0},
+    {id:'comfort',   name:'Adjustable Comfort', aeroWatts:0,  climbWatts:3},
+    {id:'standard',  name:'Standard',           aeroWatts:1,  climbWatts:1},
+  ]},
+];
+// Theoretical max of ONE stat (aero OR climb) across every archetype/axis
+// combination: 28 (best single-stat archetype) + best same-direction delta
+// from all 5 axes (6+4+6+4+4=24) = 52. Used only to scale the cosmetic
+// Prototype Rating — never read by the race sim.
+const RD_RATING_MAX = 104; // 2 * 52, so a build maxed on ONE axis still reads as roughly half
+function rdArchetype(id){ return RD_ARCHETYPES.find(a=>a.id===id) || RD_ARCHETYPES[0]; }
+function rdAxis(key){ return RD_AXES.find(a=>a.key===key); }
+function rdAxisOption(axisKey, optId){
+  const axis=rdAxis(axisKey); if(!axis) return null;
+  return axis.options.find(o=>o.id===optId) || axis.options[0];
+}
+// Pure function — archetype base + every axis delta, floored so a road-class
+// prototype never reads as having negative or zero aero/climb (unlike TT_BIKES,
+// which intentionally do go negative on climb).
+function computeRdStats(archetypeId, choices){
+  const arch=rdArchetype(archetypeId);
+  let aeroWatts=arch.aeroWatts, climbWatts=arch.climbWatts;
+  RD_AXES.forEach(axis=>{
+    const opt=rdAxisOption(axis.key, choices && choices[axis.key]);
+    if(opt){ aeroWatts+=opt.aeroWatts; climbWatts+=opt.climbWatts; }
+  });
+  return { aeroWatts:Math.max(2,aeroWatts), climbWatts:Math.max(2,climbWatts) };
+}
+
 // fix106: dedicated Time Trial bikes — a separate ownership/equip slot from
 // road BIKES above (see state.ownedTTBikes / state.equippedTTBike). Tier
 // ladder mirrors the road BIKES tiers 1-5 structurally, priced ~1.2-1.5x the
@@ -15811,6 +16165,92 @@ function getRivalTrainingBlock(){
   const nm = (state.rival && state.rival.name) || '';
   const seed = (getRivalDossierDay()*31 + (Math.abs(hashStr(nm)) % 97) + (state.raceCategory||0)) >>> 0;
   return pool[hash32(seed) % pool.length];
+}
+
+// ─── fix305: RIVAL DOSSIER EXPANSION ───────────────────────────
+// Four more rows for the same card: VO2 Max, Team, Bike, and a "last 3
+// races" line. Same discipline as fix302 — every value below is DERIVED at
+// render time from data already in the save (rival name, rival ftp,
+// raceCategory) plus, for the recent-races line only, the wall clock. NO NEW
+// SAVE FIELDS, NO MIGRATION, NO LOAD GUARD.
+//
+// WHY "LAST 3 RACES" ISN'T REAL HISTORY. The rival's actual finishing
+// position is only known for races the PLAYER has run (see rivalPosition in
+// the race-scoring loop) — there is no race happening in the background for
+// the rival on days the player doesn't race, so there is no true history to
+// log even if a save field were added for it. Logging only player-witnessed
+// races would make the line silently skip days and read as broken rather
+// than as flavour. Generating it keeps the row honest about what it is: a
+// sense of the level the rival competes at, not a scoreboard.
+//
+// WHY THIS ROW STILL ROTATES DAILY. It reads as "how's he been going
+// lately" rather than a fixed fact about him (the way Style is), so it uses
+// the exact getRivalDossierDay() + hashStr(name) + category seed pattern
+// getRivalTrainingBlock() already uses, just salted per-slot with a large
+// prime (2654435761, Knuth's multiplicative hash constant) so the 3
+// generated positions don't move in lockstep.
+//
+// WHY THE SPREAD IS WEIGHTED TO THE FRONT OF THE FIELD. recalibrateRivalIfNeeded()
+// fixes the rival 10-15% above the player's FTP at category entry, i.e. he is
+// built to be a genuinely strong rider in his own category, not an average
+// one — so generated results are drawn from the front ~15% of a category-
+// appropriate field size (RACE_CATEGORIES fieldMin/fieldMax), not a flat
+// spread across the whole field.
+function getRivalVO2(){
+  const ftp = (state.rival && state.rival.ftp) || 0;
+  return Math.min(MAX_VO2, Math.max(0, Math.round(30 + (ftp-50)/500*55)));
+}
+
+// Team pools keyed by RACE_CATEGORIES id, same keying rule as
+// RIVAL_TRAINING_BLOCKS and for the same reason — an index map would couple
+// this to array position instead of the category itself. Escalates from
+// unattached/club level to WorldTour-sounding names as the category climbs,
+// so a promotion visibly moves the rival to a bigger team. Picked by
+// hashStr(name) ONLY (no day, no category in the seed) so within a given
+// category the rival's team stays fixed rather than churning render to
+// render — it only changes because the POOL changed underneath it, i.e. on
+// promotion, exactly like the bike tier below.
+const RIVAL_TEAMS = {
+  uncat: ['Unattached', 'Local Development Squad', 'Sunday Club Run Crew'],
+  cat5:  ['Thornbury Wheelers', 'Meadowvale CC', 'Parkside Velo Club'],
+  cat4:  ['Ridgeway Racing Team', 'Old Mill Cycling Club', 'Halton Velo'],
+  cat3:  ['Coastal Elite Racing', 'Northbridge Continental', 'Summit Performance Team'],
+  cat2:  ['Apex Continental Racing', 'Granite Pro Cycling', 'Vantage Elite Squad'],
+  cat1:  ['Meridian Pro Continental', 'Solstice Racing Team', 'Ironclad Continental'],
+  pro:   ['Alpine Sovereign Racing', 'Velocity WorldTour', 'Continental Prestige Racing'],
+};
+function getRivalTeam(){
+  const cat = RACE_CATEGORIES[state.raceCategory];
+  const pool = (cat && RIVAL_TEAMS[cat.id]) || RIVAL_TEAMS.uncat;
+  const nm = (state.rival && state.rival.name) || '';
+  return pool[Math.abs(hashStr(nm)) % pool.length];
+}
+
+// Category index (RACE_CATEGORIES order: uncat,cat5,cat4,cat3,cat2,cat1,pro)
+// -> BIKES tier. An explicit array rather than a formula so the mapping is
+// eyeballable and independently tunable from BIKES itself. Tops out at tier
+// 5 — tier 6 is price:null career-unlock gear (fix301), granted only through
+// a Lifetime Goal, so it is deliberately excluded from what an NPC "owns".
+const CATEGORY_TO_BIKE_TIER = [1, 1, 2, 3, 4, 5, 5];
+function getRivalBike(){
+  const idx = Math.min(state.raceCategory||0, CATEGORY_TO_BIKE_TIER.length-1);
+  const tier = CATEGORY_TO_BIKE_TIER[idx];
+  const pool = BIKES.filter(b=>b.tier===tier && b.price!==null);
+  if(!pool.length) return BIKES[0];
+  const nm = (state.rival && state.rival.name) || '';
+  return pool[Math.abs(hashStr(nm)) % pool.length];
+}
+
+function getRivalRecentPositions(){
+  const cat = RACE_CATEGORIES[state.raceCategory] || RACE_CATEGORIES[0];
+  const nm = (state.rival && state.rival.name) || '';
+  const fieldAvg = Math.max(6, Math.round((cat.fieldMin+cat.fieldMax)/2));
+  const strongCap = Math.max(3, Math.round(fieldAvg*0.15));
+  const baseSeed = (getRivalDossierDay()*31 + (Math.abs(hashStr(nm)) % 97) + (state.raceCategory||0)) >>> 0;
+  return [0,1,2].map(i=>{
+    const h = hash32(baseSeed + i*2654435761);
+    return 1 + (h % (strongCap*2));
+  });
 }
 
 // ─── CALENDAR (Major Events) ─────────────────────────────────
@@ -16563,6 +17003,7 @@ function achUnlocked(s,achId){
 // their own thing — progress tracks, not a badge grid.
 const LIFETIME_GOALS = [
   { id:'category', name:'Climbing the Ranks', icon:'mountain-bike', statFn:s=>s.highestCategoryReached||0,
+    desc:"Tracks the highest race category you've ever reached, from Cat 6 up to Pro. Bank enough season points in category races to move up a rung — this remembers your career-best, so it can never drop, even at the start of a fresh season.",
     tiers:[
       {threshold:2, reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:4, reward:{type:'color',  colorId:'obsidian', label:'Unlock Summit Obsidian kit colour'}},
@@ -16570,6 +17011,7 @@ const LIFETIME_GOALS = [
       {threshold:6, reward:{type:'title',  titleId:'legend_mountains', titleText:'Legend of the Mountains', label:'Unlock the title "Legend of the Mountains"'}},
     ]},
   { id:'wins', name:"Winner's Circle", icon:'medal-gold', statFn:s=>Object.values(s.raceWinsByType).reduce((a,b)=>a+b,0),
+    desc:'Every race win of any kind counts here — road, hill, time trial, criterium, one-day or Grand Tour stage. The simplest track in the book: cross the line first.',
     tiers:[
       {threshold:10,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:50,  reward:{type:'color',  colorId:'inferno', label:'Unlock Inferno Orange kit colour'}},
@@ -16580,6 +17022,7 @@ const LIFETIME_GOALS = [
       {threshold:1000, reward:{type:'gear', slot:'bike', itemId:'tarmac_sl9', label:'Unlock the S-Works Tarmac SL9'}},
     ]},
   { id:'podiums', name:'Consistency', icon:'medal-bronze', statFn:s=>s.totalPodiums||0,
+    desc:"Counts every top-3 finish you've ever had, in any race. You don't need to win — just keep finishing near the front, race after race.",
     tiers:[
       {threshold:25,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:100,  reward:{type:'color',  colorId:'platinum', label:'Unlock Podium Platinum kit colour'}},
@@ -16590,6 +17033,7 @@ const LIFETIME_GOALS = [
       {threshold:3000, reward:{type:'gear', slot:'wheels', itemId:'wheels_summit', label:'Unlock the Summit Series Handbuilts'}},
     ]},
   { id:'starts', name:'The Long Road', icon:'road', statFn:s=>s.totalRaces||0,
+    desc:"Every race you start adds to this, win, lose or anywhere in between. Just keep racing.",
     tiers:[
       {threshold:100,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:500,   reward:{type:'color',  colorId:'bronze', label:'Unlock Iron Bronze kit colour'}},
@@ -16600,6 +17044,7 @@ const LIFETIME_GOALS = [
       {threshold:25000, reward:{type:'gear', slot:'kit', itemId:'kit_iron', label:'Unlock the Iron Century Skinsuit'}},
     ]},
   { id:'earnings', name:'Prize Fund', icon:'moneybag', statFn:s=>s.lifetimeMoney||0,
+    desc:"Every pound of prize money you've ever won, added up across your whole career. Win races — and finish well in the ones you don't — to keep this climbing.",
     tiers:[
       {threshold:50000,    reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:500000,   reward:{type:'color',  colorId:'emerald', label:'Unlock Fortune Emerald kit colour'}},
@@ -16607,6 +17052,7 @@ const LIFETIME_GOALS = [
       {threshold:50000000, reward:{type:'title',  titleId:'prize_hunter', titleText:'Prize Hunter', label:'Unlock the title "Prize Hunter"'}},
     ]},
   { id:'seasons', name:'Years as a Pro', icon:'refresh', statFn:s=>s.seasonsCompleted||0,
+    desc:"Counts every New Season you've started. Each one wipes your form and standing back to the start, but your career total here only ever goes up.",
     tiers:[
       {threshold:1,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:3,  reward:{type:'color',  colorId:'royal', label:'Unlock Legacy Royal kit colour'}},
@@ -16637,6 +17083,7 @@ const LIFETIME_GOALS = [
   // (and therefore an uncollectable title). If RELICS ever grows past four,
   // add the track then — thresholds 1/2/3/4, icon 'gem'.
   { id:'gtstages', name:'Stage Hunter', icon:'flag', statFn:s=>s.gtStageWins||0,
+    desc:"Counts individual stage wins inside a Grand Tour — cross the line first on any single day of the Tour de France, Giro d'Italia or Vuelta a España. You don't need the overall race, just the stage.",
     tiers:[
       {threshold:1,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:5,  reward:{type:'color',  colorId:'crimson', label:'Unlock Stage Crimson kit colour'}},
@@ -16644,6 +17091,7 @@ const LIFETIME_GOALS = [
       {threshold:40, reward:{type:'title',  titleId:'stage_hunter', titleText:'Stage Hunter', label:'Unlock the title "Stage Hunter"'}},
     ]},
   { id:'gtfinished', name:'Three Weeks', icon:'calendar', statFn:s=>s.gtCompleted||0,
+    desc:"Counts Grand Tours you've ridden all the way to the final stage without forfeiting. You don't have to win it, or even podium — just see the whole three weeks through to the end.",
     tiers:[
       {threshold:1,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:3,  reward:{type:'color',  colorId:'sapphire', label:'Unlock Grand Tour Sapphire kit colour'}},
@@ -16654,6 +17102,7 @@ const LIFETIME_GOALS = [
       {threshold:50, reward:{type:'gear', slot:'kit', itemId:'kit_gt', label:"Unlock the Grand Tour Finisher's Suit"}},
     ]},
   { id:'gcpodiums', name:'General Classification', icon:'ribbon', statFn:s=>s.gcPodiums||0,
+    desc:"Counts Grand Tours where your overall result landed GC Champion or GC Podium — not one good stage, but the whole race. Check your standing on the GC leaderboard mid-Tour to see where you sit.",
     tiers:[
       {threshold:1,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:3,  reward:{type:'color',  colorId:'maillot', label:'Unlock Maillot Jaune kit colour'}},
@@ -16664,6 +17113,7 @@ const LIFETIME_GOALS = [
       {threshold:50, reward:{type:'gear', slot:'bike', itemId:'dogma_gc', label:'Unlock the Pinarello Dogma F — GC Edition'}},
     ]},
   { id:'calwins', name:'Championship Material', icon:'medal-gold', statFn:s=>s.calendarWins||0,
+    desc:"Counts wins in one-day Calendar events — the four National Championships and any other one-day race on the calendar. Grand Tour stages don't count here; that's Stage Hunter's job.",
     tiers:[
       {threshold:1,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:5,  reward:{type:'color',  colorId:'tricolore', label:'Unlock Champion Tricolore kit colour'}},
@@ -16673,6 +17123,7 @@ const LIFETIME_GOALS = [
   // raceWinsByType is lifetime and never reset (winsSincePrestige is the
   // season-scoped one) — no new counter needed here.
   { id:'ttwins', name:'The Race of Truth', icon:'stopwatch', statFn:s=>(s.raceWinsByType&&s.raceWinsByType.tt)||0,
+    desc:"'The Race of Truth' is old cycling slang for the time trial — no drafting, no pack tactics, just you against the clock. This counts every Time Trial you've won.",
     tiers:[
       {threshold:5,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:25,  reward:{type:'color',  colorId:'chrono', label:'Unlock Chrono Silver kit colour'}},
@@ -16683,6 +17134,7 @@ const LIFETIME_GOALS = [
       {threshold:750, reward:{type:'gear', slot:'ttbike', itemId:'tt_chrono_gc', label:'Unlock the S-Works Shiv TT (Chrono)'}},
     ]},
   { id:'mgbanked', name:'Marginal Gains', icon:'wrench', statFn:s=>s.lifetimeMG||0,
+    desc:"Marginal Gains are what your mechanics earn after every race, spent in the Workshop on tuning upgrades. This counts every one you've ever banked, whether you've spent it since or not.",
     tiers:[
       {threshold:100,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:1000,  reward:{type:'color',  colorId:'grease', label:'Unlock Workshop Grease kit colour'}},
@@ -16693,6 +17145,7 @@ const LIFETIME_GOALS = [
       {threshold:250000, reward:{type:'gear', slot:'wheels', itemId:'wheels_forge', label:'Unlock the Workshop Forge Carbon'}},
     ]},
   { id:'tuninglevels', name:'Fine Tuning', icon:'gear', statFn:s=>s.tuningLevelsBought||0,
+    desc:"Counts every Workshop tuning upgrade you've ever bought — drivetrain, aero, weight or bearings, on any bike.",
     tiers:[
       {threshold:5,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:25,  reward:{type:'color',  colorId:'titanium', label:'Unlock Titanium Grey kit colour'}},
@@ -16709,6 +17162,7 @@ const LIFETIME_GOALS = [
       // threshold is not in this fix's scope.)
     ]},
   { id:'buffs', name:'Sharpened Skills', icon:'muscle', statFn:s=>s.buffsUsed||0,
+    desc:"Counts every rider-skill buff you've ever activated. Use your skills in Training to keep this moving.",
     tiers:[
       {threshold:10,  reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:50,  reward:{type:'color',  colorId:'voltage', label:'Unlock Voltage Yellow kit colour'}},
@@ -16716,6 +17170,7 @@ const LIFETIME_GOALS = [
       {threshold:750, reward:{type:'title',  titleId:'the_specialist', titleText:'The Specialist', label:'Unlock the title "The Specialist"'}},
     ]},
   { id:'sessions', name:'Hours in the Saddle', icon:'rider', statFn:s=>s.trainingSessions||0,
+    desc:"Every training session you've ever completed and collected, in any zone. Keep training.",
     tiers:[
       {threshold:25,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:150,  reward:{type:'color',  colorId:'graphite', label:'Unlock Training Graphite kit colour'}},
@@ -16739,6 +17194,7 @@ const LIFETIME_GOALS = [
   // that object is cleared by BOTH handlePrestige() and
   // checkCalendarSeasonReset(); see the comment on the state field.
   { id:'perfectseason', name:'The Perfect Season', icon:'crown',
+    desc:"The ultimate goal. Win all three Grand Tours — the Tour de France, Giro d'Italia and Vuelta a España — AND a National Championship, all inside the same season. Unlike every other track here, this one doesn't carry over: start banking wins early, because a New Season or a Prestige resets your progress toward it back to zero.",
     statFn:s=>{
       const sa=s.seasonAchievements;
       if(!sa||!sa.gtWon) return 0;
@@ -16765,6 +17221,7 @@ const LIFETIME_GOALS = [
   // ceiling moves from 15 tracks x 2% = +30% to 18 x 2% = +36% on a fully
   // completed board. recalc()'s loop needs no edit — it reads whatever is here.
   { id:'critwins', name:'Bunch Sprinter', icon:'bolt', statFn:s=>(s.raceWinsByType&&s.raceWinsByType.crit)||0,
+    desc:"Counts every Criterium you've won — the short, sharp, corner-heavy circuit races built for a fast finish.",
     tiers:[
       {threshold:25,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:100,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
@@ -16772,6 +17229,7 @@ const LIFETIME_GOALS = [
       {threshold:1000, reward:{type:'title',  titleId:'fastest_finisher', titleText:'Fastest Finisher', label:'Unlock the title "Fastest Finisher"'}},
     ]},
   { id:'roadwins', name:'The Classics Man', icon:'road', statFn:s=>(s.raceWinsByType&&s.raceWinsByType.road)||0,
+    desc:"Counts every Road Race you've won — the long one-day and multi-day races that reward all-round strength.",
     tiers:[
       {threshold:25,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:100,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
@@ -16779,6 +17237,7 @@ const LIFETIME_GOALS = [
       {threshold:1000, reward:{type:'title',  titleId:'monument_hunter', titleText:'Monument Hunter', label:'Unlock the title "Monument Hunter"'}},
     ]},
   { id:'hillwins', name:'King of the Mountains', icon:'mountain', statFn:s=>(s.raceWinsByType&&s.raceWinsByType.hill)||0,
+    desc:"Counts every Hill Climb you've won — races decided on the steepest ground, where climbers earn their keep.",
     tiers:[
       {threshold:25,   reward:{type:'cashxp', cash:500, xp:20, label:'+£500 and +20 XP to all attributes'}},
       {threshold:100,  reward:{type:'perk',   pct:0.02, label:'+2% lifetime prize money, forever'}},
@@ -17129,6 +17588,13 @@ const state = {
   boughtUpgrades: new Set(),
   activeBoosts: {}, // timed Extras (coach/altitude/wind tunnel) — id -> expiry timestamp ms
   ownedBikes:   new Set(['starter']),
+  // fix308: R&D Bike Build. Append-only — each entry is an immutable,
+  // player-generated prototype (never a lookup into BIKES). rdBuildSeason
+  // gates one build per season; ownership of the resulting bike itself lives
+  // in the rdBikes array entry, not in ownedBikes (custom ids never collide
+  // with the catalog, so they don't need a Set there too).
+  rdBikes:      [],
+  rdBuildSeason: null,
   ownedWheels:  new Set(['training']),
   ownedKits:    new Set(['club_jersey']),
   // fix106: TT bikes are a separate slot — starts empty (no free starter TT
@@ -17351,6 +17817,21 @@ const state = {
   // Absent from handlePrestige()'s reset list like every other field above it,
   // for the same reason: it was paid for.
   perfectDayArmed: false,
+  // fix310 (Daily Challenges plan v1, "State shape"): a daily-login-style hook,
+  // deliberately separate from the energy economy (locked decision 4). lastDate
+  // is the dayKey (getDayKey()) of the last COMPLETED attempt — NOT today's
+  // generated pick, which is derived fresh each render by
+  // getDailyChallengeTypeId()/CourseId()/Shape() and never stored. lastResult
+  // caches the completed race's result object so a same-day re-view doesn't
+  // re-simulate. streak/history land in fix312 (reward funnel); the fields
+  // exist now so fix311's entry gate and fix312's payout share one shape from
+  // the start rather than a fix312 migration.
+  dailyChallenge: {
+    lastDate: '',      // dayKey of the last COMPLETED attempt
+    lastResult: null,  // cached result object, for re-viewing without re-simulating
+    streak: 0,         // consecutive days completed; breaks on a skipped day (fix312)
+    history: [],        // last 7 dayKeys completed, capped — feeds the 7-pip streak UI (fix312)
+  },
 };
 const D = { sponsorPerSec:0, sessionMult:1, legacyPrizeMult:1, trainingBoostPct:0, raceDayPct:0, accessoryWatts:0 };
 
@@ -17408,8 +17889,21 @@ function getWeightFactorForRace(raceTypeId){
   return 1+(rawFactor-1)*sensitivity;
 }
 
+// fix308: single resolution funnel for the equipped bike. state.equippedBike
+// can now hold either a BIKES catalogue id OR a custom rdBikes entry id
+// (namespaced 'rdbike_…', never collides with a catalogue id) — every call
+// site that used to do BIKES.find(...)||BIKES[0] now goes through here
+// instead, so a resolution rule never has to be written twice. Falls back to
+// BIKES[0] exactly like the old inline lookups did, so this never returns
+// undefined.
+function resolveEquippedBike(){
+  return BIKES.find(b=>b.id===state.equippedBike)
+    || (state.rdBikes && state.rdBikes.find(b=>b.id===state.equippedBike))
+    || BIKES[0];
+}
+
 function getEquipmentBonusForRace(raceTypeId){
-  const bike  = BIKES.find(b=>b.id===state.equippedBike)   || BIKES[0];
+  const bike  = resolveEquippedBike();
   const wheel = WHEELS.find(w=>w.id===state.equippedWheels) || WHEELS[0];
   const kit   = KITS.find(k=>k.id===state.equippedKit)     || KITS[0];
   const w = EQUIP_WEIGHTS[raceTypeId] || {aero:0.5,climb:0.5};
@@ -17486,7 +17980,7 @@ function getGearFitness(raceTypeId){
   if(ramp<=0) return 1; // uncat / cat5 / cat4 — byte-identical behaviour to fix165
   const ref=gearFitnessReference(raceTypeId, GEAR_FITNESS_EXPECTED_TIER[cat.id]||3);
   if(!(ref>0)) return 1; // no positive reference for this race type — no effect
-  const bike  = BIKES.find(b=>b.id===state.equippedBike)   || BIKES[0];
+  const bike  = resolveEquippedBike();
   const wheel = WHEELS.find(w=>w.id===state.equippedWheels) || WHEELS[0];
   const kit   = KITS.find(k=>k.id===state.equippedKit)     || KITS[0];
   const raw   = gearWattsForRace(raceTypeId, bike, wheel, kit) / ref;
@@ -18223,7 +18717,46 @@ function collectSessionReward(){
 function getEffectiveElapsed(rd, now){
   let paused = rd.totalPausedMs || 0;
   if(rd.pendingDecision) paused += now - rd.pendingDecision.startedAt;
-  return Math.max(0, (now - rd.startTime) - paused);
+  // fix307: live speed re-anchoring. anchorAt/anchorElapsed/anchorPaused default
+  // to startTime/0/0, which makes this branch reduce to the exact pre-fix307
+  // formula below when liveSpeedMult is absent or 1 and no speed change has
+  // happened — true for every save resuming mid-race from before this fix.
+  const mult = rd.liveSpeedMult || 1;
+  const anchorAt = rd.speedAnchorAt || rd.startTime;
+  const anchorElapsed = rd.speedAnchorElapsed || 0;
+  const anchorPaused = rd.speedAnchorPaused || 0;
+  const pausedSinceAnchor = Math.max(0, paused - anchorPaused);
+  const sinceAnchor = Math.max(0, (now - anchorAt) - pausedSinceAnchor);
+  return Math.max(0, Math.min(rd.animMs, anchorElapsed + sinceAnchor * mult));
+}
+
+// fix307: single mutation funnel for live in-race speed. Reads elapsed under
+// the CURRENT (pre-change) fields first, then re-anchors to that same value
+// at `now` — so getEffectiveElapsed stays continuous across the change and
+// only its rate differs afterward. Not two-tap armed: reversible, no cost.
+function setLiveRaceSpeed(mult){
+  const rd = state.raceData;
+  if(!rd || !state.raceActive) return;
+  const now = Date.now();
+  const currentElapsed = getEffectiveElapsed(rd, now);
+  rd.speedAnchorElapsed = currentElapsed;
+  rd.speedAnchorAt = now;
+  rd.speedAnchorPaused = (rd.totalPausedMs || 0) + (rd.pendingDecision ? (now - rd.pendingDecision.startedAt) : 0);
+  rd.liveSpeedMult = mult;
+  updateRaceSpeedUI();
+}
+
+// fix307: reflects rd.liveSpeedMult onto the #race-speed-row pills. Called on
+// every speed change and once from openRaceOverlay() (covers boot re-open of
+// an in-progress race). Lives in the static race-overlay-head region, so this
+// is the only place that ever needs to touch these three buttons' classes.
+function updateRaceSpeedUI(){
+  const row = document.getElementById('race-speed-row');
+  if(!row) return;
+  const mult = (state.raceData && state.raceData.liveSpeedMult) || 1;
+  row.querySelectorAll('.race-speed-btn').forEach(btn=>{
+    btn.classList.toggle('active', Number(btn.dataset.mult) === mult);
+  });
 }
 
 // fix131: the race clock must not advance while the app is backgrounded.
@@ -18917,19 +19450,36 @@ function computeTTSplit(rd, checkpointNum){
   return `Split ${checkpointNum}: ${timeStr} — ${ordinal(rank)} fastest${gapStr}`;
 }
 
-function startRace(raceTypeId, isClub=false){
+function startRace(raceTypeId, isClub=false, opts={}){
+  // fix311 — Daily Challenge entry (Daily Challenges plan v1, "Entry flow").
+  // opts is the ONLY new surface on this function: isDailyChallenge tags
+  // state.raceData so completeRace() can branch into the reward/streak
+  // funnel (fix312) without a second copy of race-resolution logic;
+  // forceCourseId/forceShape override the hourly-rotation/live-roll picks
+  // below with the date-seeded ones from getDailyChallengeCourseId/Shape(),
+  // computed once by startDailyChallenge() and passed in rather than
+  // recomputed here, so this function never has to know the seed recipe.
+  const {isDailyChallenge=false, forceCourseId=null, forceShape=null}=opts;
   if(state.raceActive||state.session.active) return;
   const rt=RACE_TYPES.find(r=>r.id===raceTypeId); if(!rt) return;
   // Club races have no cooldown and ignore the category race-type cooldown gate
   // entirely (CLUB_RACE.cooldown is 0 and never written to state.raceCooldowns).
-  if(!isClub && state.raceCooldowns[raceTypeId]&&Date.now()<state.raceCooldowns[raceTypeId]) return;
+  // The daily challenge ALSO ignores it — plan: isDailyAttemptedToday() is
+  // "independent of state.raceCooldowns", which only holds if entry itself
+  // doesn't get blocked by a normal cooldown left over from ordinary play.
+  if(!isClub && !isDailyChallenge && state.raceCooldowns[raceTypeId]&&Date.now()<state.raceCooldowns[raceTypeId]) return;
   const cat=RACE_CATEGORIES[state.raceCategory];
-  // Club races: flat 3-energy cost, ignoring the weather energy surcharge.
-  const actualCost=isClub ? CLUB_RACE.energyCost : getWeatherEnergyCost(cat.energyCost);
-  if(state.energy<actualCost){ showToast(`${icn('bolt')} Need ${actualCost} energy${isClub?'':' (weather adds cost)'}`); return; }
-  state.energy=Math.max(0,state.energy-actualCost);
-  const fatBonus=isClub ? 0 : getWeatherFatigueBonus();
-  state.energySpentToday=(state.energySpentToday||0)+actualCost+fatBonus;
+  // Daily challenge: free entry, no energy interaction at all (plan locked
+  // decision 4 — "cost isn't doing any of the grind-control work here, the
+  // VP cap is"). Club races: flat 3-energy cost, ignoring the weather energy
+  // surcharge.
+  const actualCost=isDailyChallenge ? 0 : (isClub ? CLUB_RACE.energyCost : getWeatherEnergyCost(cat.energyCost));
+  if(!isDailyChallenge){
+    if(state.energy<actualCost){ showToast(`${icn('bolt')} Need ${actualCost} energy${isClub?'':' (weather adds cost)'}`); return; }
+    state.energy=Math.max(0,state.energy-actualCost);
+    const fatBonus=isClub ? 0 : getWeatherFatigueBonus();
+    state.energySpentToday=(state.energySpentToday||0)+actualCost+fatBonus;
+  }
   // Race Retention Phase 3C — race rhythm rebate. Counts ALL race kinds (club +
   // category). Fires on the RACE_RHYTHM.first'th race of the day, then every
   // RACE_RHYTHM.every'th race after that (3rd, 9th, 15th, ...).
@@ -18953,8 +19503,14 @@ function startRace(raceTypeId, isClub=false){
   // so the 2nd..nth race costs nothing.
   lazyLoadAssetGroup('racestage');
   // Use this hour's rotating course — same one the race card advertised, so
-  // what the player saw before committing is exactly what they race.
-  const course=getHourlyCourse(raceTypeId);
+  // what the player saw before committing is exactly what they race. The
+  // daily challenge instead forces the date-seeded pick from
+  // getDailyChallengeCourseId() (plan: "reseeds getHourlyCourse()'s exact
+  // pool-index algorithm... not a new selection algorithm"), looked up
+  // against the same COURSES pool by id rather than re-rolled here.
+  const course=isDailyChallenge
+    ? (COURSES[raceTypeId]||[]).find(c=>c.id===forceCourseId) || null
+    : getHourlyCourse(raceTypeId);
   // Race Retention Phase 2B — rival trajectory. Only category races carry a
   // rival in the field (result.rival), so calendar events/GT stages naturally
   // skip this (their simulate* functions never return .rival) — no separate
@@ -18964,13 +19520,19 @@ function startRace(raceTypeId, isClub=false){
   // stored startTime are the same number: the shape is reproducible from the
   // race's own identity, and a mid-race reload cannot reroll a friendlier one.
   const raceStartTime=Date.now();
-  const raceShape=rollRaceShape(raceStartTime+'|'+raceTypeId+'|'+(course?course.id:'none'), getDailyWeather().condition.id);
+  // Daily challenge: the shape seed is pinned to the date (forceShape, from
+  // getDailyChallengeShape()) rather than raceStartTime, so the shape doesn't
+  // drift if the player attempts at 8am vs 11pm on the same calendar day
+  // (plan, Determinism recipe table). rollRaceShape() itself is unchanged —
+  // this is the same override pattern as the course lookup above.
+  const raceShape=isDailyChallenge ? forceShape : rollRaceShape(raceStartTime+'|'+raceTypeId+'|'+(course?course.id:'none'), getDailyWeather().condition.id);
   state.raceData={typeId:raceTypeId,startTime:raceStartTime,animMs:racePaceAnimMs(isClub?CLUB_RACE.animMs:rt.animMs),result, // fix258: race pace — see racePaceAnimMs()
     shape:raceShape,     // fix271: {id,intensity} — read only via raceShapeFor()
     virtualPos:Math.round(result.fieldSize*0.45),startVP:Math.round(result.fieldSize*0.45),commentaryIdx:0,
     courseId:course?course.id:null,
     ...(rivalStartVP!=null ? {rivalStartVP, rivalVP:rivalStartVP} : {}),
     isClub,             // Phase 1: flags this as a Club Race for completeRace()
+    isDailyChallenge,   // fix311: flags this as today's Daily Challenge for completeRace()'s reward/streak branch (fix312)
     // Interactive race system
     stages:course?buildStagesFromEvents(course.events):buildRaceStages(raceTypeId),
     raceLegs:100,          // in-race effort resource, 0-100, reset each race
@@ -18978,6 +19540,7 @@ function startRace(raceTypeId, isClub=false){
     pendingDecision:null,  // {event, startedAt} when player must choose
     lastDecisionResult:null,// shown briefly after a choice is made
     totalPausedMs:0,       // cumulative milliseconds spent showing decision cards
+    liveSpeedMult:1, speedAnchorElapsed:0, speedAnchorAt:raceStartTime, speedAnchorPaused:0, // fix307
   };
   markTaskProgress('enter_race');
   incrementSponsorProgress('enter_races',1);
@@ -20208,6 +20771,7 @@ function startCalendarEvent(eventId){
     stages:buildRaceStages(ev.raceTypeId),
     raceLegs:100, positionDelta:0, pendingDecision:null, lastDecisionResult:null,
     totalPausedMs:0,
+    liveSpeedMult:1, speedAnchorElapsed:0, speedAnchorAt:raceStartTime, speedAnchorPaused:0, // fix307
   };
   markTaskProgress('enter_race');
   incrementSponsorProgress('enter_races',1);
@@ -20275,7 +20839,7 @@ const GT_REQUIRED_TIER  = {bike:5, wheels:4, kit:4};
 // the scoring path and the sign-up card so the warning can never disagree with
 // what the race actually does.
 function getGrandTourGearTier(){
-  const bike  = BIKES.find(b=>b.id===state.equippedBike)   || BIKES[0];
+  const bike  = resolveEquippedBike();
   const wheel = WHEELS.find(w=>w.id===state.equippedWheels) || WHEELS[0];
   const kit   = KITS.find(k=>k.id===state.equippedKit)     || KITS[0];
   const missing=[];
@@ -20399,6 +20963,7 @@ function startGrandTourStage(tourId){
     stages:buildRaceStages('road'),
     raceLegs:100, positionDelta:0, pendingDecision:null, lastDecisionResult:null,
     totalPausedMs:0,
+    liveSpeedMult:1, speedAnchorElapsed:0, speedAnchorAt:raceStartTime, speedAnchorPaused:0, // fix307
   };
   markTaskProgress('enter_race');
   incrementSponsorProgress('enter_races',1);
@@ -20443,6 +21008,56 @@ function equipBike(id){
   // recolour for the new tier and re-render the scene. Within one tier the
   // engine's cache key is unchanged and renderRiderScene's signature matches,
   // so both calls collapse to cheap no-ops.
+  applyKitColorToRider();
+  if(currentTab==='train'||currentTab==='gear') renderRiderScene();
+  if(currentTab==='gear') renderBikeShop();
+  if(currentTab==='race') renderRaceSetupCard();
+}
+// fix308: THE single mutation funnel for R&D prototype creation. Called only
+// from rdBuildConfirm's second (armed) tap. Pushes one immutable record onto
+// state.rdBikes — append-only, exactly like every other registry in this
+// file — and stamps rdBuildSeason so the season gate re-locks the workshop.
+// Returns the created entry (or null on a blocked build) so the caller can
+// toast without re-deriving anything.
+function buildRdBike(archetypeId, choices){
+  if(state.season===state.rdBuildSeason) return null; // season gate — belt and braces, UI already hides the button
+  const arch=rdArchetype(archetypeId);
+  if(!arch) return null;
+  // Normalise every axis choice to a valid option id, defaulting to that
+  // axis's first option — never trust the caller's raw selection object.
+  const normChoices={};
+  RD_AXES.forEach(axis=>{
+    const has=choices && axis.options.some(o=>o.id===choices[axis.key]);
+    normChoices[axis.key]=has?choices[axis.key]:axis.options[0].id;
+  });
+  const stats=computeRdStats(archetypeId, normChoices);
+  const rating=Math.round(Math.min(100,Math.max(0,(stats.aeroWatts+stats.climbWatts)/RD_RATING_MAX*100)));
+  const specLine=RD_AXES.map(axis=>rdAxisOption(axis.key,normChoices[axis.key]).name).join(' / ');
+  const entry={
+    id:'rdbike_'+(state.rdBikes.length+1)+'_'+Date.now().toString(36),
+    tier:6, minPrestige:0, type:archetypeId, brand:'',
+    model:arch.name+' Prototype — '+specLine,
+    price:null,
+    aeroWatts:stats.aeroWatts, climbWatts:stats.climbWatts,
+    desc:arch.desc+' Prototype Rating: '+rating+'/100.',
+    builtSeason:state.season, archetype:archetypeId, choices:normChoices, rating,
+    isRd:true,
+  };
+  state.rdBikes.push(entry);
+  state.rdBuildSeason=state.season;
+  saveGame();
+  return entry;
+}
+// fix308: equip path for a custom rdBikes entry — mirrors equipBike, but
+// ownership is "does this record exist in state.rdBikes" rather than a
+// Set membership test (there is no separate ownedRdBikes registry; the
+// array entry IS the ownership record). No prestige-lock check: every
+// prototype is minPrestige 0 by construction, same reasoning as tier-6
+// career gear.
+function equipRdBike(id){
+  const b=state.rdBikes.find(x=>x.id===id);
+  if(!b) return;
+  state.equippedBike=id; saveGame();
   applyKitColorToRider();
   if(currentTab==='train'||currentTab==='gear') renderRiderScene();
   if(currentTab==='gear') renderBikeShop();
@@ -20577,7 +21192,7 @@ function openKitColorLock(colorId){
 // 1 → base, 2-3 → mid, 4-5 → top. An unknown or missing bike hard-falls-back
 // to tier 1, i.e. the base sheet. Both helpers are pure state reads.
 function idleSheetVariantForBike(){
-  const tier=(BIKES.find(b=>b.id===state.equippedBike)||{}).tier||1;
+  const tier=resolveEquippedBike().tier||1;
   if(tier>=4) return 'top';
   if(tier>=2) return 'mid';
   return null;
@@ -26903,11 +27518,22 @@ function renderRivalCard(){
   // — no state is read that is not already read above, and none is written.
   const arch=getRivalArchetype();
   const block=getRivalTrainingBlock();
+  // fix305: four more derived rows — see the fix305 block above getRivalVO2()
+  // for why each of these is safe to compute at render time with no new
+  // save fields.
+  const vo2=getRivalVO2();
+  const team=getRivalTeam();
+  const bike=getRivalBike();
+  const recent=getRivalRecentPositions();
   wrap.innerHTML=`<div class="race-setup-card" style="border-left:3px solid ${gapColor}">
     <div class="race-setup-head"><span class="race-setup-title">${icn('target')} Your Rival <button class="info-btn" onclick="event.stopPropagation();openInfo('rival')">ⓘ</button></span><span class="race-setup-hint">${riv.wins||0}W – ${riv.losses||0}L</span></div>
     <div class="race-setup-row"><span class="race-setup-icon">${icn('rider')}</span><span class="race-setup-label">${riv.name}</span><span class="race-setup-name" style="color:${gapColor}">${riv.ftp}w FTP</span></div>
     <div class="race-setup-row"><span class="race-setup-icon">${icn(arch.icon)}</span><span class="race-setup-label">Style</span><span class="race-setup-name">${arch.name}</span></div>
     <div class="race-setup-row"><span class="race-setup-icon">${icn('coach')}</span><span class="race-setup-label">In training</span><span class="race-setup-name">${block.label}</span></div>
+    <div class="race-setup-row"><span class="race-setup-icon">${icn('fire')}</span><span class="race-setup-label">VO₂ Max</span><span class="race-setup-name">${vo2} ml/kg</span></div>
+    <div class="race-setup-row"><span class="race-setup-icon">${icn('handshake')}</span><span class="race-setup-label">Team</span><span class="race-setup-name">${team}</span></div>
+    <div class="race-setup-row"><span class="race-setup-icon">${icn('bike-photo')}</span><span class="race-setup-label">Bike</span><span class="race-setup-name">${bike.brand?bike.brand+' ':''}${bike.model}</span></div>
+    <div class="race-setup-row"><span class="race-setup-icon">${icn('chart-up')}</span><span class="race-setup-label">Last 3 races</span><span class="race-setup-name">${recent.map(p=>ordinal(p)).join(' · ')}</span></div>
     <div style="font-size:11px;color:var(--txt3);line-height:1.4;margin-top:7px">${arch.note} ${block.detail}</div>
     <div style="font-size:11px;font-weight:600;color:${gapColor};margin-top:4px">${gapText.charAt(0).toUpperCase()+gapText.slice(1)}</div>
   </div>`;
@@ -26915,7 +27541,7 @@ function renderRivalCard(){
 
 function renderRaceSetupCard(){
   const wrap=document.getElementById('race-setup-wrap');
-  const bike  = BIKES.find(b=>b.id===state.equippedBike)   || BIKES[0];
+  const bike  = resolveEquippedBike();
   const wheel = WHEELS.find(w=>w.id===state.equippedWheels) || WHEELS[0];
   const kit   = KITS.find(k=>k.id===state.equippedKit)     || KITS[0];
   const bonusBadges = RACE_TYPES.map(rt=>{
@@ -27715,6 +28341,7 @@ function openRaceOverlay(){
   window._raceOverlayRafRunning=true;
   cancelAnimationFrame(_raceOverlayRafId);
   _raceOverlayRafId=requestAnimationFrame(_raceOverlayRafLoop);
+  updateRaceSpeedUI(); // fix307: covers both a fresh race (1x) and boot re-open mid-race
 }
 function closeRaceOverlay(){
   const ov=document.getElementById('race-overlay');
@@ -30338,6 +30965,13 @@ function wsTuningTargetList(){
   BIKES.forEach(b=>{ if(state.ownedBikes.has(b.id)) out.push({
     key:tuningKey('bike',b.id), kind:'bike',
     label:(b.brand?b.brand+' ':'')+b.model, equipped:state.equippedBike===b.id}); });
+  // fix308: R&D prototypes share the 'bike' tuningKey namespace, same as TT
+  // frames above — custom rdbike_… ids can't collide with a catalogue id, so
+  // no migration is needed. Existence in state.rdBikes IS ownership, so no
+  // owned-set guard (mirrors the ownership model everywhere else RD bikes appear).
+  state.rdBikes.forEach(b=>{ out.push({
+    key:tuningKey('bike',b.id), kind:'bike',
+    label:b.model, equipped:state.equippedBike===b.id}); });
   // fix196: TT frames. Same 'bike' namespace (see the header note), own kind so
   // wsTuningTargetHtml can head them separately. state.ownedTTBikes is a Set and
   // is empty for most players — the group then renders as '' in the html layer,
@@ -34320,7 +34954,7 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
   div.className='equip-card'+(equipped?' equipped':'')+(careerLocked?' prestige-locked':prestigeLocked?' prestige-locked':owned?' owned':price!==null&&price<=state.money?' affordable':' cant-afford');
 
   const tierCls=`tier-${tier}`, tierLabel=['','I','II','III','IV','V'][tier];
-  const typeLabels={allrounder:'All-rounder',aero:'Aero',climbing:'Climbing',tt:'Time Trial',standard:'Standard',racing:'Racing',deep:'Deep Section',disc:'Disc',road:'Road',skinsuit:'Skinsuit'};
+  const typeLabels={allrounder:'All-rounder',aero:'Aero',climbing:'Climbing',tt:'Time Trial',standard:'Standard',racing:'Racing',deep:'Deep Section',disc:'Disc',road:'Road',skinsuit:'Skinsuit',lightweight:'Lightweight',endurance:'Endurance'};
   const typeLabel=type?typeLabels[type]||type:'';
   // fix301: price===null means NOT FOR SALE. Checked before the ===0 test so a
   // career item never reads as 'Free', which would be an invitation to tap.
@@ -34386,12 +35020,97 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
   return div;
 }
 
+// ─── R&D BUILD CARD (fix308) ────────────────────────────────────────────
+// UI-only draft state for the in-progress build. Deliberately a plain
+// module-level object, not state — it is never persisted (a half-finished
+// selection isn't worth a save-file field) and, per the ARM-state rule used
+// throughout this file, it must live outside the DOM because gear-section-bikes
+// is fully rebuilt on every renderBikeShop() call.
+let rdBuildSelection = {archetype:'allrounder', geometry:'balanced', layup:'standard', wheels:'mid', drivetrain:'standard2x', cockpit:'standard'};
+let _rdBuildArmAt = 0; // timestamp-based arm, same pattern as _shopBuyArmAt/SHOP_ARM_MS
+
+function rdSetArchetype(id){ rdBuildSelection.archetype=id; renderBikeShop(); }
+function rdSetAxis(axisKey, optId){ rdBuildSelection[axisKey]=optId; renderBikeShop(); }
+
+// fix308: two-tap arm-confirm, mirrors buyVP's timestamp-based pattern rather
+// than a boolean + bare setTimeout, so a second build call started inside an
+// existing arm window doesn't get disarmed by the first window's timer.
+function rdBuildConfirm(){
+  if(state.season===state.rdBuildSeason) return; // belt and braces — button is hidden once built
+  const now=Date.now();
+  if(!(now-_rdBuildArmAt<SHOP_ARM_MS)){
+    _rdBuildArmAt=now;
+    renderBikeShop();
+    setTimeout(()=>{
+      if((Date.now()-_rdBuildArmAt)>=SHOP_ARM_MS){
+        _rdBuildArmAt=0;
+        if(document.getElementById('gear-section-bikes')) renderBikeShop();
+      }
+    }, SHOP_ARM_MS+60);
+    return;
+  }
+  _rdBuildArmAt=0;
+  const entry=buildRdBike(rdBuildSelection.archetype, rdBuildSelection);
+  renderBikeShop();
+  if(currentTab==='race') renderRaceSetupCard();
+  if(entry) showToast(`${icn('bike-photo')} ${entry.model} — laid up and ready.`);
+}
+
+// Renders either the build form (season available) or a locked notice
+// (already built this season). Pure render — writes nothing to state.
+function renderRdBuildCard(){
+  const wrap=document.createElement('div');
+  wrap.className='equip-card rd-build-card';
+  const builtThisSeason = state.season===state.rdBuildSeason;
+  if(builtThisSeason){
+    wrap.innerHTML=`<div class="equip-model">${icn('bike-photo')} R&D Workshop</div>
+      <div class="equip-desc">${icn('lock')} This season's prototype is already laid up. The workshop reopens next season.</div>`;
+    return wrap;
+  }
+  // Normalise any stale/invalid selection (e.g. after a data change) before
+  // reading it — same guard shape as buildRdBike's own normalisation.
+  RD_AXES.forEach(axis=>{ if(!axis.options.some(o=>o.id===rdBuildSelection[axis.key])) rdBuildSelection[axis.key]=axis.options[0].id; });
+  const arch=rdArchetype(rdBuildSelection.archetype);
+  const stats=computeRdStats(rdBuildSelection.archetype, rdBuildSelection);
+  const archChips=RD_ARCHETYPES.map(a=>`<button class="rd-chip${a.id===rdBuildSelection.archetype?' active':''}" onclick="rdSetArchetype('${a.id}')">${a.name}</button>`).join('');
+  const axisRows=RD_AXES.map(axis=>{
+    const chips=axis.options.map(o=>`<button class="rd-chip${o.id===rdBuildSelection[axis.key]?' active':''}" onclick="rdSetAxis('${axis.key}','${o.id}')">${o.name}</button>`).join('');
+    return `<div class="rd-axis-row"><div class="rd-axis-label">${axis.label}</div><div class="rd-chip-row">${chips}</div></div>`;
+  }).join('');
+  const armed = (Date.now()-_rdBuildArmAt)<SHOP_ARM_MS;
+  // fix309: preview bars use the SAME 51/51 scale as renderBikeShop's owned
+  // cards (kept as separate local consts, matching the existing per-section
+  // pattern below — see maxAero=30/maxClimb=24 for wheels, maxAero=19 for
+  // kits). Bars, not raw numbers: the draft sits directly above the owned
+  // R&D Prototypes list, so it should read on the same visual scale as
+  // everything below it rather than switching language mid-list.
+  const previewMaxAero=51, previewMaxClimb=51;
+  const previewAeroPct=Math.max(0,Math.min(100,Math.round((stats.aeroWatts/previewMaxAero)*100)));
+  const previewClimbPct=Math.max(0,Math.min(100,Math.round((stats.climbWatts/previewMaxClimb)*100)));
+  wrap.innerHTML=`
+    <div class="equip-model">${icn('bike-photo')} R&D Workshop — Annual Prototype</div>
+    <div class="equip-desc">One build per season. Pick an archetype, tune five sub-systems, then lay it up for the year. ${arch.desc}</div>
+    <div class="rd-axis-row"><div class="rd-axis-label">Archetype</div><div class="rd-chip-row">${archChips}</div></div>
+    ${axisRows}
+    <div class="stat-bars" style="margin-top:10px">
+      <div class="stat-bar-row"><span class="stat-bar-lbl">Aero</span><div class="stat-bar-outer"><div class="stat-bar-inner" style="width:${previewAeroPct}%;background:var(--blue-txt)"></div></div><span class="stat-bar-val" style="color:var(--blue-txt)">+${stats.aeroWatts}w</span></div>
+      <div class="stat-bar-row"><span class="stat-bar-lbl">Climb</span><div class="stat-bar-outer"><div class="stat-bar-inner" style="width:${previewClimbPct}%;background:var(--teal-txt)"></div></div><span class="stat-bar-val" style="color:var(--teal-txt)">+${stats.climbWatts}w</span></div>
+    </div>
+    <button class="equip-btn btn-buy${armed?' armed':''}" style="margin-top:8px;width:100%" onclick="rdBuildConfirm()">${armed?'Sure? Locked in for the season':'Lay up the frame'}</button>
+  `;
+  return wrap;
+}
+
 function renderBikeShop(){
   const list=document.getElementById('gear-section-bikes'); list.innerHTML='';
   // fix301: scales raised to cover the tier 6 career frames (Y1Rs 46 aero,
   // LAB71 42 climb). Left at 38/36 the two best frames in the game would both
   // have painted a full bar and looked identical to a tier 5.
-  const maxAero=46, maxClimb=42;
+  // fix308: raised again to 51/51 — the highest possible R&D prototype (all
+  // axes maxed toward one stat) tops out at 52 before the computeRdStats
+  // floor, so 51 keeps a maxed build's bar just shy of full rather than
+  // clipping past 100%.
+  const maxAero=51, maxClimb=51;
   const h2=document.createElement('div'); h2.className='section-lbl'; h2.textContent='Bikes — '+BIKES.length+' frames';
   list.appendChild(h2);
   BIKES.forEach(b=>{
@@ -34407,6 +35126,27 @@ function renderBikeShop(){
     });
     list.appendChild(card);
   });
+
+  // fix308: R&D Prototypes — owned custom builds (state.rdBikes), then the
+  // build card itself (form or "already built" notice). Placed after the
+  // catalogue bikes and before Time Trial Bikes so the season's build sits
+  // next to what it's being compared against.
+  const h2rd=document.createElement('div'); h2rd.className='section-lbl'; h2rd.style.marginTop='.9rem';
+  h2rd.textContent='R&D Prototypes — '+state.rdBikes.length+' built';
+  list.appendChild(h2rd);
+  state.rdBikes.forEach(b=>{
+    const card=buildEquipCard({
+      brand:b.brand, model:b.model, tier:b.tier, type:b.type, desc:b.desc, price:b.price,
+      aeroWatts:b.aeroWatts, climbWatts:b.climbWatts, maxAero, maxClimb,
+      owned:true, equipped:state.equippedBike===b.id,
+      prestigeLocked:false, minPrestige:0,
+      careerLocked:false, careerHow:'',
+      onBuy:()=>{},
+      onEquip:()=>{ equipRdBike(b.id); renderBikeShop(); if(currentTab==='race') renderRaceSetupCard(); }
+    });
+    list.appendChild(card);
+  });
+  list.appendChild(renderRdBuildCard());
 
   // fix106: Time Trial Bikes subsection — separate ownership/equip slot
   // (state.ownedTTBikes / state.equippedTTBike). Stat bar scale is wider
@@ -34862,6 +35602,7 @@ function renderGoalTracks(){
       <div class="goal-track-head">
         <span class="goal-track-icon">${icn(track.icon)}</span>
         <span class="goal-track-name">${track.name}</span>
+        <button class="info-btn" onclick="openGoalInfo('${track.id}')">ⓘ</button>
         <span class="goal-track-value">${fmt(val)}</span>
       </div>
       <div class="goal-tier-pips">${pips}</div>
@@ -35348,6 +36089,13 @@ function renderCalendarTab(){
     </div>
   </div>`;
 
+  // fix311 — Daily Challenge card (Daily Challenges plan v1, "Nav placement":
+  // "folded into the existing Calendar hub... not a new hub section"). Placed
+  // directly below the season header and above the season schedule, so it
+  // reads as today's quick pick sitting above the season-long commitments
+  // rather than competing with them for the same visual weight.
+  const dailyChallengeHtml = dailyChallengeCardHtml();
+
   const scheduleHtml = signedUpUnraced.length ? `
     <div class="section-lbl">Your Season Schedule</div>
     ${signedUpUnraced.map(ev=>calendarEventCardHtml(ev,'scheduled')).join('')}
@@ -35407,7 +36155,7 @@ function renderCalendarTab(){
     `).join('') : ''}
   ` : '';
 
-  wrap.innerHTML = seasonHeaderHtml + scheduleHtml + completedHtml + signupHtml + historyHtml;
+  wrap.innerHTML = seasonHeaderHtml + dailyChallengeHtml + scheduleHtml + completedHtml + signupHtml + historyHtml;
 }
 
 // Dedicated card for Grand Tours — the generic card assumes a single-race event
@@ -35508,6 +36256,62 @@ function grandTourCardHtml(ev, mode){
   </div>`;
 }
 
+// ── fix311 — DAILY CHALLENGE CARD (Daily Challenges plan v1, "Entry flow" +
+//    fix311 sequence item: "Calendar hub card (locked/available/completed
+//    visual states)") ───────────────────────────────────────────────────
+// Dedicated card, same reasoning as grandTourCardHtml() above it: a daily
+// has no signup, no ev.prizes[] shape, and its own gate, so the generic
+// calendarEventCardHtml() doesn't fit. Three mutually-exclusive states:
+//   - completed: isDailyAttemptedToday() — today's daily is done. Never true
+//     within fix311 alone on a fresh save (nothing writes
+//     state.dailyChallenge.lastDate until fix312's completeRace() branch),
+//     but the render is written once and reads correctly regardless of
+//     which fix wrote the field — no fix312 migration to this function.
+//   - locked: neither completed, but a race is already active elsewhere
+//     (state.raceActive || state.session.active) — the same "busy" gate
+//     startGrandTourStage's card already disables on, reused rather than
+//     invented fresh.
+//   - available: neither of the above. Today's forced pick is previewed and
+//     can be raced via startDailyChallenge().
+// Today's pick is recomputed on every render straight from the fix310 seed
+// functions — cheap, pure, and by construction never drifts from what
+// startDailyChallenge() will actually enter, since both read the same
+// getDailyChallengeTypeId()/CourseId()/Shape() calls.
+function dailyChallengeCardHtml(){
+  const raceTypeId=getDailyChallengeTypeId();
+  const rt=RACE_TYPES.find(r=>r.id===raceTypeId);
+  const courseId=getDailyChallengeCourseId(raceTypeId);
+  const course=(COURSES[raceTypeId]||[]).find(c=>c.id===courseId)||null;
+  const busy=state.raceActive||state.session.active;
+  const completed=isDailyAttemptedToday();
+
+  let badgeHtml, bodyHtml, actionHtml;
+  if(completed){
+    badgeHtml=`<span class="cal-event-tierbadge" style="background:var(--green-bg,rgba(80,180,120,.12));color:var(--green-txt);border:.5px solid var(--green-txt)">DONE TODAY</span>`;
+    bodyHtml=`<div class="cal-event-desc">${icn('check-circle')} Today's challenge is complete — a new one is picked at midnight.</div>`;
+    actionHtml=`<button class="cal-start-btn" disabled style="opacity:.6;cursor:default">${icn('check-circle')} Come back tomorrow</button>`;
+  } else if(busy){
+    badgeHtml=`<span class="cal-event-tierbadge" style="background:var(--amber-bg);color:var(--amber-txt);border:.5px solid var(--amber-bd)">LOCKED</span>`;
+    bodyHtml=`<div class="cal-event-desc">${icn('lock')} Finish your current race before starting today's challenge.</div>`;
+    actionHtml=`<button class="cal-start-btn" disabled style="opacity:.6;cursor:default">${icn('lock')} Locked — race in progress</button>`;
+  } else {
+    badgeHtml=`<span class="cal-event-tierbadge" style="background:var(--amber-bg);color:var(--amber-txt);border:.5px solid var(--amber-bd)">FREE</span>`;
+    bodyHtml=`<div class="cal-event-desc">${rt.name}${course?' · '+course.name:''} — today's forced pick, the same for every rider. No energy cost, doesn't touch your race cooldowns.</div>`;
+    actionHtml=`<button class="cal-start-btn" onclick="startDailyChallenge()">${icn('flag')} Race Today's Challenge</button>`;
+  }
+
+  return `<div class="cal-event-card">
+    <div class="cal-event-head">
+      <div class="cal-event-icon">${icn(rt.icon)}</div>
+      <div class="cal-event-info">
+        <div class="cal-event-name">Daily Challenge${badgeHtml} <button class="info-btn" onclick="event.stopPropagation();openInfo('dailyChallenge')">ⓘ</button></div>
+        ${bodyHtml}
+      </div>
+    </div>
+    ${actionHtml}
+  </div>`;
+}
+
 function calendarEventCardHtml(ev, mode){
   if(ev.isGrandTour) return grandTourCardHtml(ev, mode);
   const tierColor = ev.tier==='pro' ? 'amber' : 'purple';
@@ -35594,6 +36398,7 @@ function saveGame(){
       installPromptShown:state.installPromptShown,
       raceHistory:state.raceHistory, lastRaceResult:state.lastRaceResult,
       equippedBike:state.equippedBike, ownedBikes:[...state.ownedBikes],
+      rdBikes:state.rdBikes, rdBuildSeason:state.rdBuildSeason, // fix308
       equippedTTBike:state.equippedTTBike, ownedTTBikes:[...state.ownedTTBikes],
       equippedWheels:state.equippedWheels, ownedWheels:[...state.ownedWheels],
       equippedKit:state.equippedKit, ownedKits:[...state.ownedKits],
@@ -35673,6 +36478,9 @@ function saveGame(){
       // reference like raceHistory above; raceTelemetryPush() is the only writer
       // and it caps the length, so this cannot grow the payload without bound.
       raceTelemetry:state.raceTelemetry,
+      // fix310 (Daily Challenges plan v1): appended after raceTelemetry, before
+      // lastSavedAt. A plain object of primitives/array — no Sets, no spread.
+      dailyChallenge:state.dailyChallenge,
       lastSavedAt:Date.now(),
     }));
   }catch(e){ console.warn('[CIM] Save failed:',e); }
@@ -35724,6 +36532,10 @@ function loadGame(){
     state.raceHistory=d.raceHistory||[]; state.lastRaceResult=d.lastRaceResult||null; state._lastSavedAt=d.lastSavedAt||0;
     state.equippedBike   = d.equippedBike   || 'starter';
     state.ownedBikes     = new Set(d.ownedBikes   || ['starter']);
+    // fix308: pre-fix308 saves predate both fields — empty array / null are
+    // exactly the "never built" defaults, so no heal beyond the usual guard.
+    state.rdBikes        = Array.isArray(d.rdBikes) ? d.rdBikes : [];
+    state.rdBuildSeason  = d.rdBuildSeason ?? null;
     // fix106: pre-fix106 saves predate the TT bike slot — default to null/empty
     // (no free starter TT bike, unlike the road-bike 'starter' default above).
     state.equippedTTBike = d.equippedTTBike || null;
@@ -35836,6 +36648,21 @@ function loadGame(){
     state.raceTelemetry = Array.isArray(d.raceTelemetry) ? d.raceTelemetry : [];
     if(state.raceTelemetry.length > RACE_TELEMETRY_MAX){
       state.raceTelemetry.splice(0, state.raceTelemetry.length - RACE_TELEMETRY_MAX);
+    }
+    // fix310 (Daily Challenges plan v1, "Load guard"): ONE `??` PER SUB-KEY,
+    // never a single top-level `d.dailyChallenge || {...}` guard — the
+    // tourProgress lesson. A save from fix309 or earlier carries no
+    // dailyChallenge object at all, so every sub-key below heals from
+    // undefined the same way a save from fix310 itself that somehow lost one
+    // field (hand-edited backup, partial write) would.
+    {
+      const _dc = d.dailyChallenge || {};
+      state.dailyChallenge = {
+        lastDate:   typeof _dc.lastDate === 'string' ? _dc.lastDate : '',
+        lastResult: _dc.lastResult ?? null,
+        streak:     Number.isFinite(_dc.streak) ? _dc.streak : 0,
+        history:    Array.isArray(_dc.history) ? _dc.history : [],
+      };
     }
     // fix257: THE SAME LESSON, and this object is the one most likely to grow.
     // EVERY FUTURE SETTINGS FIELD ADDED ANYWHERE IN THIS CODEBASE GETS ITS OWN
@@ -36805,7 +37632,8 @@ const INFO_TEXTS = {
       const gapText = gap>0 ? `${gap}w ahead of you` : gap<0 ? `${Math.abs(gap)}w behind you` : 'dead even with you';
       const gapColor = gap>10 ? 'var(--red-txt)' : gap>0 ? 'var(--amber-txt)' : 'var(--green-txt)';
       return `${riv.name} is currently <span style="color:${gapColor};font-weight:600">${gapText}</span>.<br><br>
-        This is your rival — your enemy for your whole career. He trains when you train and moves up when you move up, so he'll never be far away. Beat him at all costs.`;
+        This is your rival — your enemy for your whole career. He trains when you train and moves up when you move up, so he'll never be far away. Beat him at all costs.<br><br>
+        The dossier below — style, team, bike, recent form — is a picture of the level he's riding at right now, not a running scoreboard. It moves the moment you're promoted, same as he does.`;
     }
   },
   // fix47: race setup card
@@ -36894,6 +37722,12 @@ const INFO_TEXTS = {
     title: 'Grand Tour Rules',
     body: ()=>`One stage races per day — you can't bank or skip ahead.<br><br>
       Missing a day forfeits the whole Tour, so plan your energy around it.`
+  },
+  // fix311: Daily Challenge card info popup (Daily Challenges plan v1).
+  dailyChallenge: {
+    title: 'Daily Challenge',
+    body: ()=>`A free race, once per day — same course and conditions for every rider today, picked fresh at midnight.<br><br>
+      Costs no energy and doesn't touch your normal race cooldowns. One shot per calendar day; come back tomorrow for a new pick.`
   },
   // fix53: recovery panel (Train tab) + tomorrow's energy banner (Gear tab)
   recovery: {
@@ -37069,6 +37903,31 @@ function openInfo(key){
   }
   document.getElementById('info-card-title').textContent = entry.title;
   document.getElementById('info-card-body').innerHTML = entry.body();
+  document.getElementById('info-overlay').style.display = 'flex';
+}
+
+// fix306: Lifetime Goals — per-track "how do I unlock this?" popup. Deliberately
+// NOT routed through INFO_TEXTS: that registry is a second copy of a string
+// keyed by an arbitrary id, and LIFETIME_GOALS already has exactly the field
+// this needs (desc, added this fix, sitting right next to name/icon/tiers on
+// the same object). Duplicating it into INFO_TEXTS would give the description
+// two homes that can drift the next time a track's copy is edited — the same
+// "derived, not hand-authored duplicate" reasoning CAREER_GEAR_SOURCE and
+// KIT_COLOR_SOURCE already follow elsewhere in the file.
+//
+// Reuses the #info-overlay markup and closeInfo() dismiss wholesale (backdrop
+// tap or the ✕, no confirm()) rather than inventing a second overlay — same
+// reasoning as the existing openInfo(), just a different lookup table.
+//
+// Appends one shared closing line — "this is a career total" — for every
+// track except the capstone, which is the one track that is explicitly NOT a
+// career total (see its own desc) and would be contradicted by it.
+function openGoalInfo(trackId){
+  const track=LIFETIME_GOALS.find(t=>t.id===trackId); if(!track) return;
+  const footer = track.id==='perfectseason' ? '' :
+    '<br><br>This is a career total. New seasons reset your form and your standing — they never touch this.';
+  document.getElementById('info-card-title').textContent = track.name;
+  document.getElementById('info-card-body').innerHTML = (track.desc||'') + footer;
   document.getElementById('info-overlay').style.display = 'flex';
 }
 
