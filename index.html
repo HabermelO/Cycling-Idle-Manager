@@ -1,4 +1,353 @@
 <!DOCTYPE html>
+<!-- ═══════════ fix317: CONSUMABLE MARGINAL GAINS — MINI-GAME FUNNEL ═══════════
+     Fifth fix in the CIM-plan-rewards-overhaul-v1 sequence, closing out §3.
+     Plan flagged this as blocked on three design questions — all resolved
+     by MSK this session, BEFORE any code:
+
+       Q1 (consumed-on-tap vs passive-on-owned): TAP-TO-USE PICKER (plan's
+       own recommendation). A consumable is spent the instant it's tapped,
+       not auto-applied the moment it's owned.
+
+       Q2 (stacking cap): UNCAPPED. No per-item ceiling on state.consumables.
+
+       Q3 (effect strength): MODERATE, across all four — a real edge, not a
+       free win. All four magnitudes are PROVISIONAL, same discipline as
+       every other untuned figure in this plan (DIVIDEND_PCT, RD_MATERIALS'
+       bonus watts) — a balance pass, not an architecture decision.
+
+     A FOURTH question surfaced while reading the code, not in the plan: §3's
+     literal UI-placement wording ("near the mini-game launchers in the
+     Workshop tab / gear-section-workshop") doesn't match where the four
+     usableIn hook sites actually live. gear-section-workshop renders the
+     UNRELATED Workshop bench games (Index Gears/Pack Bearings/Bleed Brakes,
+     wsAwardMG funnel) — the four consumables are usable only in the Rider
+     Skills games (Feed Zone/Slipstream/Wind Tunnel/Bidon Toss), which live
+     on the Skills tab. Flagged to MSK before writing any UI; resolved as:
+     the picker itself lives at each game's own start panel (where a
+     consumable can actually be armed for a run), and a separate read-only
+     inventory display goes in the Gear tab's Extras section
+     (gear-section-accessories / renderAccessoryShop()) — MSK's explicit
+     call, not gear-section-workshop as literally written and not the
+     Skills hub either.
+
+     FUNNEL: new useConsumable(id, tag) is THE sole decrement site for
+     state.consumables — mirrors buildRdBike()'s discipline for rdMaterials
+     (fix316). tag is CONSUMABLES[].usableIn verbatim ('feedzone'|
+     'windtunnel'|'bidontoss'|'slipstream'), reused as the lookup key rather
+     than inventing a second short-tag registry that could drift from it.
+     One armed slot per game (fzArmedConsumable/slArmedConsumable/
+     wtArmedConsumable/btArmedConsumable) — transient `let`s, never saved,
+     same pattern as fzScore/wtScore/slScore. cancelConsumable() is the only
+     way back and REFUNDS THROUGH grantConsumable() (fix315's existing earn
+     funnel) rather than writing state.consumables directly, so spend and
+     earn each keep exactly one writer. A dangling arm (tapped, never
+     started) is cleared with no refund in all four close*() functions, so
+     it can never silently carry into an unrelated future session; the
+     Cancel affordance on the armed chip is the only intentional way back.
+
+     EFFECTS, one per mini-game, applied at the narrowest point that doesn't
+     touch a hot per-frame loop:
+       - focus_gel (feedzone, widen_timing_window): FZ_GEL_SPEED_MULT=0.75
+         on every spawned item's fall speed for the run — read fresh by
+         each item in fzAnimateItem(), so it's uniform for the full 30s.
+       - chain_lube (windtunnel, score_multiplier): WT_LUBE_SCORE_MULT=1.15
+         applied ONCE in wtEnd() to the finished percentage, clamped to
+         100 (wtScore is a %) — wtStep()'s per-frame scoring is untouched.
+       - draft_tip (slipstream, score_multiplier): SL_TIP_SCORE_MULT=1.15,
+         same once-at-finalisation shape as chain_lube, no cap needed
+         (slScore has no upper bound).
+       - extra_bidon (bidontoss, extra_attempt): BT_BIDON_EXTRA_THROWS=2,
+         read into a new per-run btThrowBudget in btStart() (replacing the
+         fixed BT_THROWS at the one gameplay check-site and the UI's live
+         throws-remaining display). btAward()'s pct denominator DELIBERATELY
+         stays BT_THROWS (fixed 10) — Extra Bidon's entire reward effect is
+         raising the ceiling on that ratio (clamped at 1.0 inside btAward),
+         not a second bonus on top. bestScores.bt (`catches`) also stays on
+         the fixed BT_THROWS scale for the same reason, commented at both
+         sites. btEnd()'s "X of Y" display text uses btThrowBudget so what's
+         shown always matches what actually happened on the board.
+
+     UI: renderConsumablePicker(tag), one function for all four games (three
+     states — armed/owned/empty — identical shape across games, only the
+     container id and CONSUMABLES lookup differ). Reuses .rd-chip/
+     .rd-chip.mat-selected/.rd-chip.locked (fix316) rather than inventing new
+     CSS for the same three visual states; no new CSS rules added. Four new
+     empty `<div id="X-consumable-picker">` containers, one per start panel,
+     populated by renderConsumablePicker() from each openXXX().
+
+     NO NEW STATE FIELDS — state.consumables has existed schema-only since
+     fix313, first earn site since fix315; this is its first spend/read
+     site, nothing about its shape or load guard changes. No save migration.
+     No new or replaced assets, STATIC_ASSETS untouched. Service worker
+     CACHE_VERSION bumped to cim-v3.9.22 because ./index.html is cached.
+     Diff confined to: the four HTML picker-container divs, the new shared
+     funnel block (useConsumable/cancelConsumable/renderConsumablePicker/
+     helpers) sited before Feed Zone, four new per-game effect constants,
+     four openXXX() render-call additions, the four effect-application
+     sites (fzAnimateItem/slEnd/wtEnd/btStart+btEvaluateThrow+btUpdateUI+
+     btEnd), and the four close*() dangling-arm clears — nothing else
+     touched. Plan v1 is now fully shipped (§1 fix314, §2 fix316, §3
+     fix317, §4 fix315). -->
+<!-- ═══════════ fix316: R&D MATERIALS SPEND HOOK ══════════════════════════════
+     Fourth (and final-piece-of-§2) fix in the CIM-plan-rewards-overhaul-v1
+     sequence. The plan flagged fix316 as blocked on two design questions
+     from §2 — both resolved by MSK this session, BEFORE any code:
+
+       Q1 (deterministic ceiling vs new RNG success roll): CEILING-ONLY.
+       buildRdBike()/computeRdStats() remain fully deterministic — no pass/
+       fail roll anywhere in the pipeline, no new RNG surface added.
+
+       Q2 (spend-only vs passive-perk for rare materials): BOTH TIERS EXIST.
+       Common materials (carbon_sheet, alloy_bolt) are a stockpile/spend
+       build-time currency. Rare materials (ceramic_bearing,
+       titanium_spindle, aero_bar_tape) are "own-to-unlock" — owning >=1
+       unit permanently applies a passive bonus to every future build for as
+       long as it stays owned, and are NEVER decremented by any funnel
+       (owning 2+ of the same rare id still only counts once — this is not
+       a stockpile, matching the "Ceramic bearings permanently drop rolling
+       resistance" flavour text in MSK's original brief).
+
+     MECHANISM — one new additive function, not a change to the existing one:
+     computeRdStats() stays byte-identical and pure, exactly as fix308 left
+     it. New computeRdMaterialBonus(selectedCommonIds) sits beside it and is
+     summed on top wherever stats are computed (buildRdBike's actual build,
+     renderRdBuildCard's live preview) — the base archetype/axis model never
+     changes shape, materials only ever add. RD_MATERIALS gains `stat`
+     ('aero'|'climb') and `bonus` (flat watts) fields; both the stat mapping
+     and the amounts (2w common / 3w rare) are PROVISIONAL, a balance pass
+     not an architecture decision, same discipline as every other untuned
+     figure in this plan (DIVIDEND_PCT, DAILY_DROP_CHANCE_MID).
+
+     SPEND: new module-level `rdMaterialUse` (mirrors rdBuildSelection — a
+     transient `let`, never state.*, never saved, since a build is one
+     atomic action with nothing worth restoring across a reload) tracks
+     which OWNED common materials are armed for this build via the new
+     rdToggleMaterial(id), guarded so an un-owned id can never be selected.
+     buildRdBike() gains a third param (materialUse) and is now the SOLE
+     decrement site for state.rdMaterials on the common side — the spend
+     joins the same atomic write as the new rdBikes entry + rdBuildSeason
+     stamp + saveGame(), so a spend and a build can never come apart. It
+     resolves usedCommon/activeRare from CURRENT ownership before spending
+     anything, so a toggle gone stale between arming and confirming silently
+     drops instead of going negative. rdBuildConfirm() passes rdMaterialUse
+     through and clears it once the build (and any spend) is committed.
+
+     UI: renderRdBuildCard() gains a Materials row (common, tappable chips,
+     disabled/`locked` styling when count is 0) and a Rare Materials row
+     (read-only, "active perk" when owned else "own 1 to unlock" — never
+     tappable, there is nothing to arm). The live stat-bar preview now
+     folds in computeRdMaterialBonus() so it stays truthful to what a
+     confirmed build will actually store. A compact read-only inventory
+     tally renders in BOTH the open-workshop and season-locked card states
+     — plan's "inventory display in gear-section-bikes" ask — so the stash
+     stays visible year-round, not only while building.
+
+     NO NEW STATE FIELDS — state.rdMaterials has existed schema-only since
+     fix313; this is its first spend/read site, nothing about its shape or
+     load guard changes. No save migration. No new or replaced assets,
+     STATIC_ASSETS untouched. Service worker CACHE_VERSION bumped to
+     cim-v3.9.21 because ./index.html is cached. Diff confined to: two new
+     fields on RD_MATERIALS, the new computeRdMaterialBonus() beside
+     computeRdStats(), rdMaterialUse + rdToggleMaterial() beside
+     rdBuildSelection, buildRdBike()'s spend logic, rdBuildConfirm()'s
+     pass-through+reset, renderRdBuildCard()'s new materials markup, and
+     four new .rd-chip CSS rules — nothing else touched. fix317
+     (consumables useConsumable() funnel) is next, still blocked on §3's
+     own open questions. -->
+<!-- ═══════════ fix315: TIERED WEEKLY REWARD TABLE ════════════════════════════
+     Third fix in the CIM-plan-rewards-overhaul-v1 sequence (plan §4). The
+     Daily Challenge now rolls a material/consumable drop on top of its
+     existing VP + Sponsorship Dividend (fix312/314), tiered across the
+     week.
+
+     RIDES THE EXISTING state.dailyChallenge.streak (fix312) — no new
+     cycle-tracking state. dailyChallengeDayInCycle() = ((streak-1)%7)+1,
+     exactly the plan's formula. A skipped day already resets streak to 1,
+     so the drop cycle restarts with it automatically.
+
+     TWO OPEN CALLS RESOLVED (MSK, this session), both DEPARTING from the
+     plan's own recommendation:
+       - Day 7: a GUARANTEED rare material, not a boosted chance.
+       - Days 4-6: BOTH materials and consumables are drop-eligible, not
+         materials-only (the plan's §4 phrasing left consumable eligibility
+         conditional on §3 landing first — MSK opted in now instead).
+
+     DROP TABLE:
+       Days 1-3: unchanged — dividend + VP only, no roll.
+       Days 4-6: DAILY_DROP_CHANCE_MID (35%, PROVISIONAL, no playtest data
+         exists yet) chance of ONE drop; on a hit, 50/50 (also provisional)
+         between a common R&D material and a consumable, each picked
+         uniformly at random from its registry.
+       Day 7: guaranteed, one rare material, picked uniformly among
+         RD_MATERIALS' rarity:'rare' rows.
+
+     NEW WRITERS: grantRdMaterial()/grantConsumable() are the FIRST code
+     anywhere that increments state.rdMaterials/state.consumables — fix313
+     shipped both pools schema-only, nothing wrote to either until now.
+     Single mutation point each, same discipline as awardVP()/earnMoney();
+     the ONLY call sites for both are inside the new
+     rollDailyChallengeDrop(), so a drop decision and its state write can
+     never come apart. (The fix316/317 SPEND funnels — rdBuildConfirm(),
+     useConsumable() — are separate, later, and still blocked on §2/§3's
+     open design questions; this fix only earns, never spends.)
+
+     WIRED into completeRace()'s existing fix312/314 daily branch, rolled
+     immediately AFTER dc.streak's own update in that same branch —
+     dayInCycle must read the FRESH streak, so a tick from 6→7 on this
+     exact completion correctly rolls as day 7 (guaranteed rare), not day 6.
+     Cached as dc.lastResult.dropAwarded: null on a no-roll day/miss,
+     undefined on any lastResult cached before this fix — the recap card
+     treats both identically, so a same-day re-view spanning the fix needs
+     no migration.
+
+     RNG: plain Math.random() per roll, matching the existing
+     rollRaceBonus() convention (Race Retention Phase 1B) rather than the
+     seeded mulberry32/hashStr pattern used for daily CONTENT selection
+     (course/weather) — this is a reward roll, not a shared daily fact two
+     players should see identically, and it only ever fires once per
+     completed day via the existing dc.lastDate!==todayKey gate, so
+     re-roll-on-refresh was never a risk to guard against.
+
+     UI: Calendar hub's completed-state daily card
+     (dailyChallengeCardHtml) gains a third recap line, shown only when
+     lr.dropAwarded is truthy — "+1 <name>" with a "(rare!)" suffix on a
+     rarity:'rare' drop.
+
+     NO NEW SAVE FIELDS beyond the dropAwarded key inside the already-
+     unstructured dc.lastResult cache object — lastResult has never carried
+     a fixed-shape load guard, so this is not a schema/migration event.
+     No new or replaced assets, STATIC_ASSETS untouched. Service worker
+     CACHE_VERSION bumped to cim-v3.9.20 because ./index.html is cached.
+     Diff confined to four sites: the new grant-funnels+drop-roll block
+     (sited directly after the CONSUMABLES registry), the roll call +
+     lastResult.dropAwarded field in completeRace()'s daily branch, and the
+     recap card's new drop line — nothing else touched. -->
+<!-- ═══════════ fix314: SPONSORSHIP DIVIDEND ══════════════════════════════════
+     Second fix in the CIM-plan-rewards-overhaul-v1 sequence. Replaces the
+     flat `DAILY_CHALLENGE_CASH` daily-challenge payout (plan §1) with a
+     dividend tied to the player's own trailing income — meaningful at
+     Prestige 1 and still meaningful at Prestige 7 with a bank in the
+     millions, instead of the same flat £25 forever.
+
+     OPEN QUESTION RESOLVED (MSK, this session): VP stays FLAT. Only the
+     cash portion goes dynamic — DAILY_CHALLENGE_VP/awardVP() untouched.
+
+     MECHANISM, three new pieces, no new save fields (moneyEarnedToday/
+     incomeLog already exist, schema-only, since fix313 — this fix is the
+     first thing that actually writes and reads them):
+
+     1. earnMoney() — the existing single money-mutation funnel — gains one
+        more line: `state.moneyEarnedToday += n`. Never a second mutation
+        point; every existing call site (race prizes, sponsor income, GT
+        bonuses, everything) now feeds the running total automatically.
+
+     2. checkDailyReset()'s existing day-boundary block gains a snapshot
+        step, sited FIRST — before loginStreak/carbsToday/energy/etc. reset
+        below it — pushing `{date, amount: moneyEarnedToday}` onto
+        `state.incomeLog` (capped at 7, oldest first, same cap discipline as
+        ftpHistory/VP_LEDGER_CAP) then zeroing moneyEarnedToday for the new
+        day. Guarded on `state.lastEnergyReset` already being truthy: on the
+        very first-ever reset `last` is the epoch (the lastEnergyReset:0
+        default), which is not a day anyone played, so no 0-entry is pushed
+        for it — that would only drag the average down for no reason.
+
+     3. New `computeSponsorshipDividend()` — the single computation point
+        for the formula, sited beside DAILY_CHALLENGE_CASH/VP — returns
+        `avg(incomeLog) * DIVIDEND_PCT`, clamped between a floor and
+        ceiling. PROVISIONAL, per the plan's explicit flag: no real
+        income-curve data exists yet across Prestige tiers. Starting point
+        per the plan: DIVIDEND_PCT = 8%; floor = DAILY_CHALLENGE_CASH itself
+        (still 25 — its ROLE changes here, from flat payout to floor, so a
+        day-1 player or a bad-luck week still gets a reward that means
+        something); ceiling = floor × 20 (DIVIDEND_CEILING_MULT) as a
+        sanity rail against one freak-income day distorting an average
+        before a full 7-day log exists. Defensively type-checks each
+        incomeLog entry's `.amount` rather than trusting it, since the
+        load guard validates the array but not per-entry shape.
+
+     WIRED into completeRace()'s existing fix312 daily-challenge branch:
+     `dividendAwarded = computeSponsorshipDividend()` replaces the flat
+     constant in both the earnMoney() call and the cached
+     dc.lastResult.cashAwarded — the SAME site, same single-funnel
+     discipline (awardVP()/earnMoney()), nothing new added. Because
+     computeSponsorshipDividend() reads only incomeLog (prior days'
+     snapshots) and never moneyEarnedToday, today's own race prize —
+     already earned above via the normal !isCalEvent branch, same
+     completeRace() call — can never feed back into its own reward; call
+     order relative to earnMoney() is irrelevant to that guarantee.
+
+     UI: the Calendar hub's completed-state daily card (dailyChallengeCardHtml)
+     already read `lr.cashAwarded` generically, so no shape change was
+     needed there — only the label changed, "daily bonus" → "sponsorship
+     dividend", so the copy matches what the number now represents.
+
+     NO NEW SAVE FIELDS, no migration. No new or replaced assets,
+     STATIC_ASSETS untouched. Service worker CACHE_VERSION bumped to
+     cim-v3.9.19 because ./index.html is cached. Diff confined to five
+     sites: earnMoney(), the day-boundary block in checkDailyReset(), the
+     new constants+function beside DAILY_CHALLENGE_CASH, completeRace()'s
+     daily branch (call site + lastResult.cashAwarded), and the recap text
+     string — nothing else touched. -->
+<!-- ═══════════ fix313: REWARDS OVERHAUL — STATE SCHEMA ONLY ═════════════════
+     First fix in the CIM-plan-rewards-overhaul-v1 sequence (sequenced before
+     the Prestige Fork, per MSK's call). SCHEMA ONLY — no earning, no
+     spending, no UI. Per the plan's "New architecture, stated plainly":
+     state.rdMaterials and state.consumables are the FIRST quantity-based
+     inventories anywhere in this codebase. Every other stackable-feeling
+     field (state.gear-family fields, state.boughtUpgrades, etc.) is
+     equipped-slot OWNERSHIP — own it or don't — there has never been a
+     `{ id: count }` map before. The shape decided here is the pattern every
+     future stackable item follows, including any future IAP consumable, so
+     it is being set once deliberately rather than iterated live.
+
+     FOUR NEW STATE FIELDS, all defaulting to empty/zero, added right after
+     the existing dailyChallenge block:
+       - rdMaterials: {}   — R&D Manufacturing Drops (plan §2), ONE shared
+         pool, not split by archetype (locked decision 5). Spend hook lands
+         in fix316 (rdBuildConfirm()).
+       - consumables: {}   — Consumable Marginal Gains (plan §3). Deliberately
+         NOT the same object as the existing state.shopConsumables (fix263,
+         VP-shop Tier 1 stock, a different funnel entirely) — separate
+         namespaces on purpose. useConsumable() funnel lands in fix317.
+       - moneyEarnedToday: 0, incomeLog: []  — back the Sponsorship Dividend
+         (plan §1), which replaces the flat DAILY_CHALLENGE_CASH starting
+         fix314. moneyEarnedToday is meant to increment inside earnMoney()
+         (the existing single funnel); incomeLog is a capped 7-entry rolling
+         snapshot, same cap discipline as ftpHistory/VP_LEDGER_CAP, meant to
+         be pushed by checkDailyReset() at the existing day-boundary block.
+         Neither is wired to anything yet.
+
+     TWO NEW DATA-ONLY REGISTRIES, sited beside DAILY_CHALLENGE_VP/CASH:
+     RD_MATERIALS (5 materials: carbon_sheet/alloy_bolt common,
+     ceramic_bearing/titanium_spindle/aero_bar_tape rare) and CONSUMABLES (4
+     items, one per rider-skills mini-game: focus_gel/feedzone,
+     chain_lube/windtunnel, extra_bidon/bidontoss, draft_tip/slipstream).
+     Nothing reads either registry yet outside the load-guard rebuild below.
+
+     LOAD GUARD: rdMaterials/consumables are rebuilt by ITERATING THEIR OWN
+     REGISTRY rather than trusting the saved object's keys directly — same
+     discipline as shopPurchases/shopConsumables (fix261) — so a save
+     missing the pool entirely (every pre-fix313 save) and a save carrying a
+     since-retired id both heal correctly with no migration edit needed
+     later, and an id a later fix adds arrives at 0 automatically.
+     moneyEarnedToday/incomeLog each get their OWN `??`/type guard, the
+     tourProgress lesson — never folded into a single top-level check.
+
+     SAVE: all four fields appended to saveGame()'s payload directly after
+     dailyChallenge, before lastSavedAt — plain objects/primitives, no Sets,
+     no spread needed.
+
+     ZERO BEHAVIOUR CHANGE. Nothing earns into either pool, nothing spends
+     from either pool, no render path reads them. Two design questions from
+     the plan (§2: deterministic-ceiling vs new RNG success roll; passive-
+     perk vs stockpile-and-spend for rare materials) remain open and are
+     explicitly NOT resolved by this fix — they block fix316, not this one.
+
+     No new or replaced assets, STATIC_ASSETS untouched. Service worker
+     CACHE_VERSION bumped to cim-v3.9.18 because ./index.html is cached.
+     Diff confined to: the four new state-init fields (after dailyChallenge),
+     the two new registries (beside DAILY_CHALLENGE_VP/CASH), and the
+     matching save/load blocks — nothing else touched. -->
 <!-- ═══════════ fix307: IN-RACE SPEED CONTROL ═══════════════════════════════
      Request: let the player speed up or slow down a race WHILE it's running,
      easier to reach than the Settings pace picker (which only sets the pace
@@ -2563,6 +2912,18 @@ button{font-family:inherit;cursor:pointer;}
 .rd-chip{font-size:11px;font-weight:600;padding:5px 9px;border-radius:99px;border:.5px solid var(--border);
   background:var(--bg3);color:var(--txt2);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s,border-color .15s;}
 .rd-chip.active{background:var(--blue-bg);color:var(--blue-txt);border-color:var(--blue-bd);}
+/* fix316: R&D Materials chips. .locked covers both an un-owned common
+   material (button, disabled) and an un-owned rare material (span, never
+   interactive) with the same muted treatment. .mat-selected is common
+   materials armed to spend this build (amber, matches .btn-buy.armed's
+   "about to commit" language). .rare-active is an owned rare perk, always
+   on — green, matching the game's other "unlocked/owned" affordances
+   (.upgrade-card.affordable etc). .rd-chip-tally is the read-only inventory
+   line shown in both build-card states — never interactive either way. */
+.rd-chip.locked{opacity:.45;cursor:default;}
+.rd-chip.mat-selected{background:var(--amber-bg);color:var(--amber-txt);border-color:var(--amber-bd);}
+.rd-chip.rare-active{background:var(--green-bg);color:var(--green-txt);border-color:var(--green-bd);cursor:default;}
+.rd-chip-tally{cursor:default;}
 .btn-buy.armed{background:var(--amber-bg);color:var(--amber-txt);border-color:var(--amber-bd);}
 .upgrade-card,.energy-item-card{display:flex;align-items:center;gap:12px;
   padding:12px 14px;border:.5px solid var(--border);border-radius:var(--radius);
@@ -4098,6 +4459,12 @@ button{font-family:inherit;cursor:pointer;}
   animation:cal-confirm-pulse .55s ease-in-out infinite alternate;}
 .cal-start-btn{width:100%;margin-top:10px;padding:9px;border-radius:var(--radius);border:none;
   font-size:15px;font-weight:700;cursor:pointer;background:var(--accent-grad);color:#fff;box-shadow:var(--shadow-sm);}
+/* fix312 — Daily Challenge 7-pip streak row (Daily Challenges plan v1). */
+.daily-streak-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;flex-wrap:wrap;}
+.daily-streak-pips{display:flex;gap:4px;}
+.daily-streak-pip{width:9px;height:9px;border-radius:50%;background:var(--bg3);border:.5px solid var(--border);flex-shrink:0;}
+.daily-streak-pip.filled{background:var(--amber-txt);border-color:var(--amber-bd);}
+.daily-streak-label{font-size:10px;font-weight:700;color:var(--txt2);white-space:nowrap;}
 .cal-result-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:.5px solid var(--border);
   border-radius:var(--radius);background:var(--bg);margin-bottom:6px;}
 .cal-result-pos{font-size:16px;font-weight:800;width:30px;text-align:center;flex-shrink:0;}
@@ -13641,6 +14008,7 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
       <div id="fz-panel-start" class="fz-panel show">
         <h3>Feed Zone Scramble</h3>
         <p>Thirty seconds of soigneurs. Grab the gels and bidons as they come past — leave the debris on the road.</p>
+        <div id="fz-consumable-picker" style="margin:8px 0 2px"></div>
         <button class="fz-action" onclick="fzStart()">Start scramble</button>
       </div>
       <div id="fz-panel-end" class="fz-panel">
@@ -13682,6 +14050,7 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
       <div id="sl-panel-start" class="sl-panel show">
         <h3>Slipstream Drafting</h3>
         <p>Slide your finger left and right to sit in the shelter behind the wheel in front. Stay in it and you tuck in closer &mdash; the closer you get, the more you save.</p>
+        <div id="sl-consumable-picker" style="margin:8px 0 2px"></div>
         <button class="sl-action" onclick="slStart()">Get on the wheel</button>
       </div>
       <div id="sl-panel-end" class="sl-panel">
@@ -13726,6 +14095,7 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
       <div id="wt-panel-start" class="wt-panel show">
         <h3>Wind Tunnel</h3>
         <p>Thirty seconds in the tunnel. Move the three sliders until the air goes quiet around you &mdash; and keep it quiet as the wind shifts.</p>
+        <div id="wt-consumable-picker" style="margin:8px 0 2px"></div>
         <button class="wt-action" onclick="wtStart()">Fire up the fans</button>
       </div>
       <div id="wt-panel-end" class="wt-panel">
@@ -13818,6 +14188,7 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
       <div id="bt-panel-start" class="bt-panel show">
         <h3>Bidon Toss</h3>
         <p>Ten spent bidons and a roadside full of outstretched hands. Flick upward from the bottle, judge the crosswind, and let it go.</p>
+        <div id="bt-consumable-picker" style="margin:8px 0 2px"></div>
         <button class="bt-action" onclick="btStart()">Start throwing</button>
       </div>
       <div id="bt-panel-end" class="bt-panel">
@@ -15850,6 +16221,27 @@ function computeRdStats(archetypeId, choices){
   });
   return { aeroWatts:Math.max(2,aeroWatts), climbWatts:Math.max(2,climbWatts) };
 }
+// fix316 (rewards overhaul plan v1 §2, resolved this session): the ceiling-
+// extension half of the R&D materials mechanic. computeRdStats() above stays
+// untouched and pure — this is a SEPARATE additive function so nothing about
+// the archetype/axis chip-picker model changes, materials only ever add on
+// top. `selectedCommonIds` is a { materialId: true } map of common materials
+// the player has toggled on for THIS build (see rdMaterialUse) — a common
+// material only contributes if BOTH selected AND still actually owned
+// (belt and braces against a stale toggle). Rare materials need no selection
+// at all: MSK's "own-to-unlock" call means owning >=1 unit is the only gate,
+// checked directly against state.rdMaterials, and they are never consumed by
+// this or any other funnel — owning 2+ of the same rare id still only counts
+// once, this isn't a stockpile.
+function computeRdMaterialBonus(selectedCommonIds){
+  let aeroWatts=0, climbWatts=0;
+  RD_MATERIALS.forEach(m=>{
+    const owned=(state.rdMaterials[m.id]||0)>0;
+    const active = m.rarity==='rare' ? owned : (owned && !!(selectedCommonIds && selectedCommonIds[m.id]));
+    if(active){ if(m.stat==='aero') aeroWatts+=m.bonus; else climbWatts+=m.bonus; }
+  });
+  return { aeroWatts, climbWatts };
+}
 
 // fix106: dedicated Time Trial bikes — a separate ownership/equip slot from
 // road BIKES above (see state.ownedTTBikes / state.equippedTTBike). Tier
@@ -17832,6 +18224,39 @@ const state = {
     streak: 0,         // consecutive days completed; breaks on a skipped day (fix312)
     history: [],        // last 7 dayKeys completed, capped — feeds the 7-pip streak UI (fix312)
   },
+  // fix313 (CIM — Daily Challenge Rewards Overhaul plan v1, "New architecture,
+  // stated plainly"): rdMaterials/consumables are the FIRST quantity-based
+  // inventories anywhere in this codebase — state.gear-style fields are all
+  // equipped-slot ownership (own it or don't), there is no prior
+  // state.inventory-shaped map. Schema decisions here set the pattern every
+  // future stackable item (including any future IAP consumable) follows.
+  // SCHEMA ONLY in this fix — no earning, no spending, no UI. Both pools are
+  // rebuilt from their registry on load (RD_MATERIALS/CONSUMABLES below),
+  // same discipline as shopPurchases/shopConsumables (fix261), so a retired
+  // id's key never lingers and an id a later fix adds arrives at 0 on every
+  // existing save with no migration edit needed.
+  //
+  // rdMaterials: R&D Manufacturing Drops (plan §2) — ONE shared pool, not
+  // split by archetype (locked decision 5). Spend hook lands in fix316
+  // (rdBuildConfirm()).
+  rdMaterials: {},    // { materialId: count }, see RD_MATERIALS below
+  // consumables: Consumable Marginal Gains (plan §3) — deliberately NOT the
+  // same object as state.shopConsumables above (fix263, VP-shop Tier 1
+  // items, a different funnel/shape entirely). Separate namespaces on
+  // purpose: shopConsumables is bought-once VP-shop stock; consumables here
+  // is a drop-earned mini-game item pool with its own future useConsumable()
+  // funnel (fix317).
+  consumables: {},    // { consumableId: count }, see CONSUMABLES below
+  // moneyEarnedToday / incomeLog back the Sponsorship Dividend (plan §1),
+  // which replaces the flat DAILY_CHALLENGE_CASH starting fix314 — NOT wired
+  // in this fix, schema only. moneyEarnedToday is meant to increment
+  // alongside money/lifetimeMoney inside earnMoney() (the existing single
+  // funnel, one more line, not a second mutation point — fix314).
+  // incomeLog is the capped 7-entry rolling snapshot, same cap discipline as
+  // ftpHistory/VP_LEDGER_CAP, meant to be pushed by checkDailyReset() at the
+  // existing day-boundary block (fix314).
+  moneyEarnedToday: 0,
+  incomeLog: [],       // capped 7-entry array of {date, amount}, oldest first
 };
 const D = { sponsorPerSec:0, sessionMult:1, legacyPrizeMult:1, trainingBoostPct:0, raceDayPct:0, accessoryWatts:0 };
 
@@ -18063,7 +18488,12 @@ function addXP(attrId, amount){
   }
 }
 
-function earnMoney(n){ state.money+=n; state.seasonMoney+=n; state.lifetimeMoney+=n; }
+// fix314 (rewards overhaul plan v1 §1): moneyEarnedToday is the running
+// total checkDailyReset() snapshots into incomeLog at the day boundary,
+// backing the Sponsorship Dividend. Incremented here, inside the existing
+// single funnel, same as money/seasonMoney/lifetimeMoney above it — never a
+// second mutation point.
+function earnMoney(n){ state.money+=n; state.seasonMoney+=n; state.lifetimeMoney+=n; state.moneyEarnedToday=(state.moneyEarnedToday||0)+n; }
 
 // ═══════════ fix261: VICTORY POINTS (vp-shop-plan-v1 §1, §2) ═════════════
 // awardVP() is the SINGLE MUTATION POINT for state.vp and state.lifetimeVP.
@@ -18124,6 +18554,132 @@ function vpReasonIsCapped(reason){
   return !VP_UNCAPPED_PREFIXES.some(p => r.indexOf(p) === 0);
 }
 const VP_LEDGER_CAP = 60;   // same cap discipline as ftpHistory
+
+// fix312 — Daily Challenge reward funnel (Daily Challenges plan v1, "Reward
+// funnel"). PROVISIONAL: retune on playtest, per fix266's measured-not-
+// estimated discipline — no real balance data exists yet for this reward.
+// DAILY_CHALLENGE_VP is deliberately NOT in VP_UNCAPPED_PREFIXES above: the
+// daily draws from the SAME VP_WINDOW_CAP pool as every other grindable VP
+// source. Since entry itself is free (locked decision 4), that shared cap is
+// the entire grind-control mechanism for this feature — not a belt-and-
+// braces extra on top of something else.
+const DAILY_CHALLENGE_VP = 2;
+// fix314 (rewards overhaul plan v1 §1): DAILY_CHALLENGE_CASH's role changes
+// here — no longer the flat daily payout, now the FLOOR computeSponsorship
+// Dividend() clamps to (plan: "floor = the old flat £25, so day-1 players
+// with no income history yet, or a bad-luck week, still get a reward that
+// means something"). VP stays flat per MSK's confirmation (plan §1 open
+// question) — DAILY_CHALLENGE_VP above is untouched, still used directly.
+const DAILY_CHALLENGE_CASH = 25;
+// PROVISIONAL — no real income-curve data exists yet across Prestige tiers
+// to tune either figure correctly, same as DAILY_CHALLENGE_CASH itself was
+// flagged provisional in fix312. Plan's suggested starting point: 8% of the
+// trailing 7-day income average, ceiling a 20x multiple of the floor as a
+// sanity rail against a single freak-income day distorting the average
+// before a full 7-day incomeLog exists.
+const DIVIDEND_PCT = 0.08;
+const DIVIDEND_CEILING_MULT = 20;
+// Single computation point for the Sponsorship Dividend — mirrors the
+// single-funnel discipline everything else in this file follows, so a
+// later fix retuning the formula only ever has one place to edit.
+function computeSponsorshipDividend(){
+  const log = state.incomeLog || [];
+  const avg = log.length ? log.reduce((s,e)=>s+((e && typeof e.amount==='number' && isFinite(e.amount)) ? e.amount : 0),0) / log.length : 0;
+  const floor = DAILY_CHALLENGE_CASH, ceiling = DAILY_CHALLENGE_CASH * DIVIDEND_CEILING_MULT;
+  return Math.round(Math.min(ceiling, Math.max(floor, avg * DIVIDEND_PCT)));
+}
+
+// fix313 (rewards overhaul plan v1 §2/§3): DATA ONLY — no earning, no
+// spending, no UI reads these yet. RD_MATERIALS backs state.rdMaterials
+// (R&D Manufacturing Drops, spend hook lands in fix316); CONSUMABLES backs
+// state.consumables (Consumable Marginal Gains, useConsumable() funnel
+// lands in fix317). loadGame() rebuilds both pools by iterating these
+// registries rather than trusting saved keys — same discipline as
+// SHOP_STOCK/shopPurchases (fix261) — so an id retired later drops out and
+// an id a later fix adds arrives at 0 on every existing save, no migration.
+//
+// fix316: plan §2's two open questions are now resolved (MSK, this
+// session) — ceiling-only, no new RNG surface; BOTH tiers exist, common =
+// stockpile/spend, rare = own-to-unlock passive perk. `stat`/`bonus` added
+// here accordingly: `stat` is which computeRdStats output the material
+// nudges ('aero'|'climb'), `bonus` is the flat watt nudge. Common materials
+// are consumed one-per-build by buildRdBike() when selected via the
+// build-card chips; rare materials are NEVER decremented by any funnel —
+// owning >=1 unit permanently applies `bonus` to every future build for as
+// long as it stays owned (see computeRdMaterialBonus()). Both the stat
+// mapping and the bonus amounts are PROVISIONAL — a balance pass, not an
+// architecture decision, same discipline as DIVIDEND_PCT/
+// DAILY_DROP_CHANCE_MID; no playtest data exists yet to tune them.
+const RD_MATERIALS = [
+  { id:'carbon_sheet',     name:'Raw Carbon Sheet',      rarity:'common', stat:'aero',  bonus:2 },
+  { id:'alloy_bolt',       name:'Standard Alloy Bolt',   rarity:'common', stat:'climb', bonus:2 },
+  { id:'ceramic_bearing',  name:'Ceramic Speed Bearing', rarity:'rare',   stat:'aero',  bonus:3 },
+  { id:'titanium_spindle', name:'Titanium Spindle',      rarity:'rare',   stat:'climb', bonus:3 },
+  { id:'aero_bar_tape',    name:'Aerodynamic Bar Tape',  rarity:'rare',   stat:'aero',  bonus:3 },
+];
+// usableIn/effect pin down SHAPE only (plan §3: id, which mini-game, what
+// KIND of effect) — exact magnitudes are a balance pass MSK signs off before
+// fix317, not free to invent here. `name` is a display-label addition beyond
+// the plan's schema (harmless, needed by any future UI, no behaviour today).
+const CONSUMABLES = [
+  { id:'focus_gel',   name:'Focus Gel',   usableIn:'feedzone',   effect:'widen_timing_window' },
+  { id:'chain_lube',  name:'Chain Lube',  usableIn:'windtunnel', effect:'score_multiplier' },
+  { id:'extra_bidon', name:'Extra Bidon', usableIn:'bidontoss',  effect:'extra_attempt' },
+  { id:'draft_tip',   name:'Draft Tip',   usableIn:'slipstream', effect:'score_multiplier' },
+];
+
+// fix315 (rewards overhaul plan v1 §4, Tiered weekly table) — the FIRST
+// writers to state.rdMaterials/state.consumables. fix313 shipped both pools
+// schema-only ("nothing earns into either pool"); this fix is that earn
+// side, for the daily-challenge drop only — the fix316/317 spend funnels
+// (rdBuildConfirm()/useConsumable()) are separate, later, still blocked on
+// §2/§3's open questions. Single mutation point each, same discipline as
+// awardVP()/earnMoney() — nothing else may increment either pool.
+function grantRdMaterial(id, n=1){ state.rdMaterials[id] = (state.rdMaterials[id]||0) + n; }
+function grantConsumable(id, n=1){ state.consumables[id] = (state.consumables[id]||0) + n; }
+
+// fix315 — dayInCycle drop table (plan §4). Rides the EXISTING
+// state.dailyChallenge.streak from fix312, no new cycle-tracking state:
+// streak already resets to 1 on a skipped day, so the cycle restarts with
+// it rather than drifting independently. Days 1-3: no roll (today's
+// dividend/VP only). Days 4-6: a chance of one common material OR one
+// consumable (MSK's call: both are drop-eligible, not materials-only).
+// Day 7: a GUARANTEED rare material (MSK's call: hard guarantee, not a
+// boosted chance — overrides the plan's own boosted-chance recommendation).
+// DAILY_DROP_CHANCE_MID and the material-vs-consumable split are
+// PROVISIONAL, same as DAILY_CHALLENGE_CASH/DIVIDEND_PCT — no playtest data
+// exists yet to tune either.
+const DAILY_DROP_CHANCE_MID = 0.35;      // days 4-6 chance of ANY drop
+const DAILY_DROP_MATERIAL_SPLIT = 0.5;   // of a mid-week hit, odds it's a material (vs consumable)
+function dailyChallengeDayInCycle(){
+  return ((state.dailyChallenge.streak - 1) % 7) + 1; // 1..7, per the plan's formula
+}
+// Returns null (no drop) or {kind:'material'|'consumable', id, name, rarity}.
+// Grants into the pool via the funnels above — the ONLY call sites for
+// either, so a drop here is guaranteed to be reflected in state the same
+// instant it's decided, never a return value the caller forgets to apply.
+function rollDailyChallengeDrop(dayInCycle){
+  if(dayInCycle>=7){
+    const rare = RD_MATERIALS.filter(m=>m.rarity==='rare');
+    const pick = rare[Math.floor(Math.random()*rare.length)];
+    grantRdMaterial(pick.id);
+    return { kind:'material', id:pick.id, name:pick.name, rarity:'rare' };
+  }
+  if(dayInCycle>=4){
+    if(Math.random()>=DAILY_DROP_CHANCE_MID) return null;
+    if(Math.random()<DAILY_DROP_MATERIAL_SPLIT){
+      const common = RD_MATERIALS.filter(m=>m.rarity==='common');
+      const pick = common[Math.floor(Math.random()*common.length)];
+      grantRdMaterial(pick.id);
+      return { kind:'material', id:pick.id, name:pick.name, rarity:'common' };
+    } else {
+      const pick = CONSUMABLES[Math.floor(Math.random()*CONSUMABLES.length)];
+      grantConsumable(pick.id);
+      return { kind:'consumable', id:pick.id, name:pick.name, rarity:null };
+    }
+  }
+  return null; // days 1-3
+}
 
 // fix261: declared EMPTY here on purpose. The load block below rebuilds
 // shopPurchases / shopConsumables by iterating this registry rather than the
@@ -18500,6 +19056,21 @@ function checkDailyReset(){
   } else {
   const now=new Date(), last=new Date(state.lastEnergyReset||0);
   if(now.toDateString()!==last.toDateString()){
+    // fix314 (rewards overhaul plan v1 §1, Sponsorship Dividend): snapshot
+    // the day that just ended into incomeLog BEFORE any other day-scoped
+    // counter below resets — same site as loginStreak/carbsToday/
+    // dailyTasks, same cap discipline as ftpHistory/VP_LEDGER_CAP (capped
+    // at 7, oldest first). Guarded on state.lastEnergyReset already being
+    // truthy: on the very first-ever reset `last` is the epoch (see the
+    // lastEnergyReset:0 default above), which is not a day anyone actually
+    // played — pushing a 0-entry for it would only bias the trailing
+    // average down for no reason. moneyEarnedToday then zeroes for the new
+    // day regardless, same as every other day-scoped field below.
+    if(state.lastEnergyReset){
+      state.incomeLog.push({ date: last.toDateString(), amount: state.moneyEarnedToday||0 });
+      if(state.incomeLog.length>7) state.incomeLog.shift();
+    }
+    state.moneyEarnedToday = 0;
     const nextEnergy = getTomorrowEnergy();
     // ── LOGIN STREAK: track consecutive calendar days ──────────
     const todayStr = now.toDateString();
@@ -19918,6 +20489,77 @@ function completeRace(){
     }
   }
 
+  // fix312 — Daily Challenge: reward funnel + lastResult caching + streak/
+  // history update (Daily Challenges plan v1, "Reward funnel" + "Streak
+  // logic"). A daily always rides the `!isCalEvent` branch above (category
+  // points + the normal per-race-type cooldown already applied there,
+  // unchanged since fix311 — this is a genuinely SEPARATE, ADDITIONAL
+  // branch, not a replacement for anything above it). Sited here rather than
+  // inside that branch so raceTypeNameForDisplay (set further down at line
+  // ~19786, needed for lastResult) is already in scope.
+  if(rd.isDailyChallenge){
+    const dc = state.dailyChallenge;
+    const todayKey = getDayKey();
+    // Paid once per completed calendar day, keyed off dc.lastDate (plan:
+    // "re-viewing a cached lastResult on the same day never re-pays"). In
+    // practice isDailyAttemptedToday() already blocks a same-day re-entry at
+    // the Calendar card, so this guard is belt-and-braces against a stale
+    // rd.isDailyChallenge surviving an unexpected second completeRace() call
+    // — cheap insurance, same reasoning as the itemCashBlocked() guards
+    // elsewhere in this file.
+    if(dc.lastDate !== todayKey){
+      // Routed through the SAME single funnels every other reward in this
+      // function uses — awardVP()/earnMoney() — never a second mutation
+      // point (the single-funnel rule). awardVP() returns the amount
+      // ACTUALLY banked (0 once VP_WINDOW_CAP is hit that day), which is
+      // cached below so the result card can truthfully show a capped award
+      // instead of promising VP that didn't land.
+      const vpAwarded = awardVP(DAILY_CHALLENGE_VP, 'daily_challenge');
+      // fix314 (rewards overhaul plan v1 §1): flat DAILY_CHALLENGE_CASH
+      // replaced with the Sponsorship Dividend. computeSponsorshipDividend()
+      // reads only incomeLog (prior days' checkDailyReset() snapshots), never
+      // moneyEarnedToday, so today's race prize (already earned above via
+      // the normal !isCalEvent branch) can never feed back into its own
+      // reward — call order relative to earnMoney() below is irrelevant.
+      const dividendAwarded = computeSponsorshipDividend();
+      earnMoney(dividendAwarded);
+      // Streak — the exact day-diff pattern already shipped in
+      // checkGrandTourLockouts(), reused rather than re-derived (plan,
+      // "Streak logic"). dc.lastDate here is only ever a PRIOR completed
+      // dayKey (today's guard above already excluded same-day), or '' on a
+      // rider's first-ever completion.
+      const todayMs = new Date(new Date().toDateString()).getTime();
+      const lastMs = dc.lastDate ? new Date(dc.lastDate).getTime() : NaN;
+      const dayDiff = isNaN(lastMs) ? Infinity : Math.round((todayMs-lastMs)/86400000);
+      // dayDiff===1: streak continues. dayDiff>=2 (a day skipped) or
+      // Infinity (no prior completion at all) both start a fresh streak at
+      // 1 — a first-ever completion is definitionally a streak of one.
+      dc.streak = (dayDiff===1) ? (dc.streak||0)+1 : 1;
+      dc.lastDate = todayKey;
+      // fix315 (plan §4, Tiered weekly table): rolled AFTER dc.streak's
+      // update immediately above, since dailyChallengeDayInCycle() reads the
+      // FRESH value — a streak that just ticked from 6 to 7 must roll as
+      // day 7 (the guaranteed rare), not day 6, on this same completion.
+      const dropAwarded = rollDailyChallengeDrop(dailyChallengeDayInCycle());
+      const dcCourse = (COURSES[rd.typeId]||[]).find(c=>c.id===rd.courseId) || null;
+      dc.lastResult = {
+        ts: Date.now(),
+        raceTypeName: raceTypeNameForDisplay,
+        courseName: dcCourse ? dcCourse.name : null,
+        position: rd.result.position, fieldSize: rd.result.fieldSize,
+        prize: rd.result.prize,
+        vpAwarded, cashAwarded: dividendAwarded, dropAwarded,
+      };
+      // Capped 7-entry array, same cap discipline as ftpHistory/VP_LEDGER_CAP
+      // (plan, "State shape") — an audit trail of completions, kept separate
+      // from the 7-pip UI below (which reads dc.streak directly, capped at 7
+      // for display, so a broken-then-restarted streak can never paint stale
+      // filled pips from completions the current run doesn't include).
+      dc.history.push(todayKey);
+      if(dc.history.length>7) dc.history.shift();
+    }
+  }
+
   state.raceActive=false; state.raceData=null;
   // Rival tracking — only for normal category races (not calendar events, which
   // use a fixed elite field with no rival slot). Compared against the ORIGINAL
@@ -21019,7 +21661,15 @@ function equipBike(id){
 // file — and stamps rdBuildSeason so the season gate re-locks the workshop.
 // Returns the created entry (or null on a blocked build) so the caller can
 // toast without re-deriving anything.
-function buildRdBike(archetypeId, choices){
+//
+// fix316: gained a third param, materialUse — the { materialId: true }
+// selection of common materials to spend on this build (see rdMaterialUse).
+// The SPEND itself lives here, not in a separate mutation point: a build is
+// one atomic action (new rdBikes entry + rdBuildSeason stamp + one
+// saveGame()), so the material decrement joins that same atomic write rather
+// than splitting across two funnels that could come apart. Rare materials
+// are read-only here — never decremented, per MSK's "own-to-unlock" call.
+function buildRdBike(archetypeId, choices, materialUse){
   if(state.season===state.rdBuildSeason) return null; // season gate — belt and braces, UI already hides the button
   const arch=rdArchetype(archetypeId);
   if(!arch) return null;
@@ -21030,18 +21680,31 @@ function buildRdBike(archetypeId, choices){
     const has=choices && axis.options.some(o=>o.id===choices[axis.key]);
     normChoices[axis.key]=has?choices[axis.key]:axis.options[0].id;
   });
-  const stats=computeRdStats(archetypeId, normChoices);
+  // fix316: resolve which materials actually contribute BEFORE spending
+  // anything — usedCommon only includes ids the player toggled on AND still
+  // owns right now (a stale toggle on something spent/lost between arming
+  // and confirming silently drops instead of going negative). activeRare is
+  // read-only, never spent.
+  const usedCommon = RD_MATERIALS.filter(m=>m.rarity==='common' && materialUse && materialUse[m.id] && (state.rdMaterials[m.id]||0)>0).map(m=>m.id);
+  const activeRare = RD_MATERIALS.filter(m=>m.rarity==='rare' && (state.rdMaterials[m.id]||0)>0).map(m=>m.id);
+  usedCommon.forEach(id=>{ state.rdMaterials[id]-=1; }); // the ONLY decrement site for rdMaterials — mirrors grantRdMaterial() being the only increment site
+  const bonus=computeRdMaterialBonus(Object.fromEntries(usedCommon.map(id=>[id,true])));
+  const baseStats=computeRdStats(archetypeId, normChoices);
+  const stats={ aeroWatts: baseStats.aeroWatts+bonus.aeroWatts, climbWatts: baseStats.climbWatts+bonus.climbWatts };
   const rating=Math.round(Math.min(100,Math.max(0,(stats.aeroWatts+stats.climbWatts)/RD_RATING_MAX*100)));
   const specLine=RD_AXES.map(axis=>rdAxisOption(axis.key,normChoices[axis.key]).name).join(' / ');
+  const usedNames=[...usedCommon,...activeRare].map(id=>RD_MATERIALS.find(m=>m.id===id).name);
+  const matNote = usedNames.length ? ' Enhanced with '+usedNames.join(', ')+'.' : '';
   const entry={
     id:'rdbike_'+(state.rdBikes.length+1)+'_'+Date.now().toString(36),
     tier:6, minPrestige:0, type:archetypeId, brand:'',
     model:arch.name+' Prototype — '+specLine,
     price:null,
     aeroWatts:stats.aeroWatts, climbWatts:stats.climbWatts,
-    desc:arch.desc+' Prototype Rating: '+rating+'/100.',
+    desc:arch.desc+' Prototype Rating: '+rating+'/100.'+matNote,
     builtSeason:state.season, archetype:archetypeId, choices:normChoices, rating,
     isRd:true,
+    materialsUsed:usedCommon, rareMaterialsActive:activeRare, // fix316 — record only, nothing reads these back into stats; stats already include the bonus
   };
   state.rdBikes.push(entry);
   state.rdBuildSeason=state.season;
@@ -31852,6 +32515,99 @@ function startRiderSkillGame(gameId){
   showToast(`${icn(g.icon)} ${g.name} — rolling out soon`);
 }
 
+// ── fix317: Consumable Marginal Gains — the four mini-games' funnel ──────
+// Plan v1 §3, both open questions resolved (MSK, this session): tap-to-use
+// picker (consumed at the tap, not passive-on-owned), uncapped stacking,
+// moderate effect strength. Placement resolved separately: the picker lives
+// in the Gear tab's Extras section (renderAccessoryShop(), below), NOT in
+// gear-section-workshop as plan §3's literal wording said — that div renders
+// the UNRELATED Workshop bench games (wsAwardMG funnel), while these four
+// consumables are usable only in the Rider Skills games on the Skills tab.
+// Flagged and confirmed before writing any of this.
+//
+// tag is CONSUMABLES[].usableIn verbatim ('feedzone'|'windtunnel'|
+// 'bidontoss'|'slipstream') — reusing that field as the lookup key rather
+// than inventing a second short-tag registry that could drift from it.
+//
+// One armed slot per game, because CONSUMABLES has exactly one usableIn
+// entry per game today; a second slot would have no id to hold. All four are
+// transient `let`s (never saved, never read by loadGame()) — same pattern as
+// fzScore/wtScore/slScore, reset by page reload and deliberately not by
+// design: an item tapped and not spent by the time the overlay is closed is
+// gone (see the four close*() edits below), same as tapping "Use" and then
+// never pressing Start. cancelConsumable() is the ONLY way back, and it
+// REFUNDS THROUGH grantConsumable() (fix315's existing earn funnel) rather
+// than writing state.consumables directly — useConsumable() stays the sole
+// decrement site, grantConsumable() stays the sole increment site, no third
+// writer is invented for this.
+let fzArmedConsumable=null, slArmedConsumable=null, wtArmedConsumable=null, btArmedConsumable=null;
+
+const MG_CONSUMABLE_CONTAINER = {
+  feedzone:'fz-consumable-picker', windtunnel:'wt-consumable-picker',
+  bidontoss:'bt-consumable-picker', slipstream:'sl-consumable-picker'
+};
+function mgArmedConsumableFor(tag){
+  if(tag==='feedzone') return fzArmedConsumable;
+  if(tag==='slipstream') return slArmedConsumable;
+  if(tag==='windtunnel') return wtArmedConsumable;
+  if(tag==='bidontoss') return btArmedConsumable;
+  return null;
+}
+function mgSetArmedConsumable(tag, id){
+  if(tag==='feedzone') fzArmedConsumable=id;
+  else if(tag==='slipstream') slArmedConsumable=id;
+  else if(tag==='windtunnel') wtArmedConsumable=id;
+  else if(tag==='bidontoss') btArmedConsumable=id;
+}
+
+// THE decrement site for state.consumables — mirrors buildRdBike()'s
+// discipline for rdMaterials (fix316). Guarded on def.usableIn===tag so an
+// id can only ever arm the game CONSUMABLES actually names for it, and on
+// ownership so a double-tap (or a stale button from a pre-render state)
+// can never go negative.
+function useConsumable(id, tag){
+  const def = CONSUMABLES.find(c=>c.id===id);
+  if(!def || def.usableIn!==tag) return false;
+  if((state.consumables[id]||0) <= 0) return false;
+  state.consumables[id]--;
+  mgSetArmedConsumable(tag, id);
+  saveGame();
+  return true;
+}
+
+// The only refund path. Reuses grantConsumable() rather than writing
+// state.consumables itself — see the block comment above.
+function cancelConsumable(tag){
+  const id = mgArmedConsumableFor(tag);
+  if(!id) return;
+  mgSetArmedConsumable(tag, null);
+  grantConsumable(id, 1);
+  saveGame();
+  renderConsumablePicker(tag);
+}
+
+// Render-only, called from each openXXX() and after every arm/cancel. One
+// function for all four games since the three states (armed / owned /
+// empty) and their markup are identical — only the container id and the
+// CONSUMABLES lookup differ. Reuses .rd-chip/.rd-chip.mat-selected/
+// .rd-chip.locked (fix316) rather than inventing new CSS for the same three
+// visual states.
+function renderConsumablePicker(tag){
+  const el=document.getElementById(MG_CONSUMABLE_CONTAINER[tag]); if(!el) return;
+  const def=CONSUMABLES.find(c=>c.usableIn===tag);
+  if(!def){ el.innerHTML=''; return; }
+  const armed=mgArmedConsumableFor(tag);
+  const owned=state.consumables[def.id]||0;
+  if(armed===def.id){
+    el.innerHTML=`<span class="rd-chip mat-selected">${icn('bolt')} ${def.name} armed for this run`
+      +`<button onclick="cancelConsumable('${tag}')" style="margin-left:6px;background:none;border:none;color:inherit;font-weight:700;cursor:pointer;padding:0 2px;font-size:inherit">&#10005;</button></span>`;
+  } else if(owned>0){
+    el.innerHTML=`<button class="rd-chip" onclick="useConsumable('${def.id}','${tag}');renderConsumablePicker('${tag}')">${icn('bolt')} Use ${def.name} <b>&times;${owned}</b></button>`;
+  } else {
+    el.innerHTML=`<span class="rd-chip locked">No ${def.name} &mdash; check Extras in Gear</span>`;
+  }
+}
+
 // ── fix151: Feed Zone Scramble ──────────────────────────────────────────
 // Ported from the standalone Feedzone_scramble_minigame.html. Three changes
 // made during the port, all deliberate:
@@ -31873,6 +32629,12 @@ const FZ_ITEM_SIZE    = 44;   // must match .fz-gel/.fz-bidon/.fz-tack width
 const FZ_THRESHOLD    = 250; // fix156: raised from 150g
 const FZ_BUFF_MULT    = 2;
 const FZ_BUFF_MS      = 30*60*1000;
+// fix317: Focus Gel (widen_timing_window) — moderate strength, MSK's call.
+// Slows every item's fall by a quarter for the run, which is what "wider
+// timing window" cashes out to here: more flight time per item to react to,
+// not a bigger hitbox or a friendlier spawn table. PROVISIONAL like every
+// other untuned figure in this plan.
+const FZ_GEL_SPEED_MULT = 0.75;
 
 let fzActive=false, fzScore=0, fzTimeLeft=FZ_DURATION_SEC;
 let fzTickId=null, fzSpawnId=null, fzHitTimer=null;
@@ -31883,6 +32645,7 @@ function openFeedZone(){
   const ov=document.getElementById('fz-overlay'); if(!ov) return;
   fzResetPanels(true);
   fzScore=0; fzTimeLeft=FZ_DURATION_SEC; fzUpdateUI();
+  renderConsumablePicker('feedzone'); // fix317
   ov.style.display='flex';
   document.body.style.overflow='hidden';
 }
@@ -31961,7 +32724,11 @@ function fzSpawnItem(){
 // the lot without touching the DOM.
 function fzAnimateItem(el, area){
   let pos=-FZ_ITEM_SIZE;
-  const speed=2+Math.random()*4;
+  // fix317: Focus Gel armed for this run slows every item, not just the
+  // ones spawned after the tap — fzArmedConsumable is set once at the tap
+  // and read fresh by every item's own spawn, so the effect is uniform for
+  // the whole 30s rather than fading in.
+  const speed=(2+Math.random()*4) * (fzArmedConsumable==='focus_gel' ? FZ_GEL_SPEED_MULT : 1);
   function move(){
     if(!fzActive){ el.remove(); return; }
     pos+=speed;
@@ -31988,6 +32755,7 @@ function fzEnd(){
   fzActive=false;
   fzClearHandles();
   fzClearItems();
+  fzArmedConsumable=null; // fix317: one run per tap, spent whether or not it helped
   const won=fzScore>=FZ_THRESHOLD;
 
   const title=document.getElementById('fz-end-title');
@@ -32053,6 +32821,7 @@ function closeFeedZone(){
   fzClearHandles();
   fzClearItems();
   fzResetPanels(true);
+  fzArmedConsumable=null; // fix317: no dangling arm into an unrelated future session
   ov.style.display='none';
   document.body.style.overflow='';
   _fzQuitArmed=false;
@@ -32098,6 +32867,9 @@ const SL_DRAFT_W      = 60;
 const SL_THRESHOLD    = 11000; // fix156: raised from 6000 — 6000 was clearing on a loose hold
 const SL_BUFF_PCT     = 10;
 const SL_BUFF_MS      = 60*60*1000;
+// fix317: Draft Tip (score_multiplier) — moderate strength, MSK's call.
+// PROVISIONAL like every other untuned figure in this plan.
+const SL_TIP_SCORE_MULT = 1.15;
 
 let slActive=false, slScore=0, slTimeLeft=SL_DURATION_SEC;
 let slTickId=null, slRafId=null, slLastFrame=0, slAccMs=0, slRoadOffset=0;
@@ -32110,6 +32882,7 @@ function openSlipstream(){
   slBindSteering(); // idempotent; done here so the init path stays untouched
   slResetPanels(true);
   slScore=0; slTimeLeft=SL_DURATION_SEC; slResetRiders(); slUpdateUI();
+  renderConsumablePicker('slipstream'); // fix317
   ov.style.display='flex';
   document.body.style.overflow='hidden';
   slDraw(); // paint the scene behind the start panel
@@ -32297,6 +33070,12 @@ function slEnd(){
   slActive=false;
   slClearHandles();
   slDraw();
+  // fix317: Draft Tip — applied once at finalisation, not per-tick, so the
+  // live in-progress readout (slUpdateUI's frame-by-frame writes) stays
+  // untouched and only the banked total is boosted. Cleared right after
+  // reading, same run-scoped lifetime as fzArmedConsumable.
+  if(slArmedConsumable==='draft_tip') slScore=Math.round(slScore*SL_TIP_SCORE_MULT);
+  slArmedConsumable=null;
   const won=slScore>=SL_THRESHOLD;
 
   const title=document.getElementById('sl-end-title');
@@ -32358,6 +33137,7 @@ function closeSlipstream(){
   slActive=false;
   slClearHandles();
   slResetPanels(true);
+  slArmedConsumable=null; // fix317: no dangling arm into an unrelated future session
   ov.style.display='none';
   document.body.style.overflow='';
   _slQuitArmed=false;
@@ -32454,6 +33234,12 @@ const WT_GRACE_STEPS         = 30;    // 0.5s of cover per excursion
 const WT_GRACE_BUDGET_STEPS  = 240;   // 4.0s of cover per 30s run, total
 const WT_GUST_AMP     = 12;
 const WT_GUST_RATE    = 0.008;     // radians per fixed step ~= 13s period
+// fix317: Chain Lube (score_multiplier) — moderate strength, MSK's call.
+// Applied once to the finished percentage in wtEnd(), clamped to 100 there
+// — wtScore is a %, so an uncapped multiply could read above 100. Not
+// applied per-step inside wtStep(), which stays untouched.
+// PROVISIONAL like every other untuned figure in this plan.
+const WT_LUBE_SCORE_MULT = 1.15;
 
 const WT_STAGES=[
   {name:'Flat and windy',  aero:88, note:'Nothing to hide behind out there. Get low and get long.'},
@@ -32563,6 +33349,7 @@ function openWindTunnel(){
   wtTimeLeft=WT_DURATION_SEC; wtSteps=0; wtCleanSteps=0; wtScore=0; wtGustPhase=0;
   wtGraceLeft=WT_GRACE_STEPS; wtGraceBudget=WT_GRACE_BUDGET_STEPS;   // fix297 (4)
   wtUpdateUI();
+  renderConsumablePicker('windtunnel'); // fix317
   ov.style.display='flex';
   document.body.style.overflow='hidden';
   // The loop runs for as long as the overlay is open, not just during a run,
@@ -32780,6 +33567,11 @@ function wtEnd(){
   wtActive=false;
   wtClearHandles();
   wtDraw();
+  // fix317: Chain Lube — applied once at finalisation, not per-step, so
+  // wtStep()'s hot per-frame scoring stays untouched. Clamped to 100 since
+  // wtScore is a percentage. Cleared right after reading.
+  if(wtArmedConsumable==='chain_lube') wtScore=Math.min(100, Math.round(wtScore*WT_LUBE_SCORE_MULT));
+  wtArmedConsumable=null;
   const won=wtScore>=WT_THRESHOLD;
 
   const title=document.getElementById('wt-end-title');
@@ -32846,6 +33638,7 @@ function closeWindTunnel(){
   wtActive=false; wtOpen=false;
   wtClearHandles();
   wtResetPanels(true);
+  wtArmedConsumable=null; // fix317: no dangling arm into an unrelated future session
   ov.style.display='none';
   document.body.style.overflow='';
   _wtQuitArmed=false;
@@ -32874,8 +33667,17 @@ function closeWindTunnel(){
 // readout is not reproduced. It is consumed here only by the static throw
 // counter; successPct = catches / BT_THROWS arrives with the loop at fix246.
 const BT_THROWS = 10;
+// fix317: Extra Bidon (extra_attempt) — moderate strength, MSK's call: +2
+// throws on top of the base 10 (a fifth more attempts). btThrowBudget is
+// the ACTUAL per-run ceiling (BT_THROWS, or BT_THROWS+this when armed),
+// read/set once in btStart(). BT_THROWS itself stays untouched everywhere
+// else — notably btAward()'s pct denominator (see the comment there) — so
+// this is additive to the ceiling, not a rescale of the whole game.
+// PROVISIONAL like every other untuned figure in this plan.
+const BT_BIDON_EXTRA_THROWS = 2;
 
 let btActive=false, btThrows=0, btScore=0, btWind=0;
+let btThrowBudget=BT_THROWS; // fix317: this run's actual throw ceiling
 const btRafIds=new Set();
 let _btQuitArmed=false, _btQuitTimer=null;
 
@@ -32957,7 +33759,7 @@ function btUpdateUI(){
   const s=document.getElementById('bt-score');
   const w=document.getElementById('bt-wind');
   if(t) t.textContent=btThrows;
-  if(m) m.textContent=BT_THROWS;
+  if(m) m.textContent=btThrowBudget; // fix317: was BT_THROWS — now reflects Extra Bidon
   if(s) s.textContent=btScore;
   // fix250: #bt-wind still exists and is still written here — it MOVED into the
   // band, it was not replaced. The magnitude only: sign is carried by the arrow,
@@ -33007,12 +33809,13 @@ function btRenderWind(){
 function openBidonToss(){
   const ov=document.getElementById('bt-overlay'); if(!ov) return;
   btResetPanels(true);
-  btThrows=0; btScore=0; btWind=0; btUpdateUI();
+  btThrows=0; btScore=0; btWind=0; btThrowBudget=BT_THROWS; btUpdateUI();
   // fix246: loop state is reset here too, not only in btStart(), so a board
   // opened and abandoned cannot hand the next open a stale streak or a
   // half-finished drag.
   btStreak=0; btDragging=false; btMsgUntil=0;
   btBottle.reset();
+  renderConsumablePicker('bidontoss'); // fix317
   ov.style.display='flex';
   document.body.style.overflow='hidden';
   // ONE frame, behind the start panel, so the board is a road and a fan rather
@@ -33056,6 +33859,7 @@ function closeBidonToss(){
   btClearHandles();
   btUnbindPointers();   // fix246: nothing listens on a closed board
   btResetPanels(true);
+  btArmedConsumable=null; // fix317: no dangling arm into an unrelated future session
   ov.style.display='none';
   document.body.style.overflow='';
   _btQuitArmed=false;
@@ -33212,7 +34016,7 @@ function btEvaluateThrow(){
   btThrows++;
   btUpdateDifficulty();
   btUpdateUI();
-  if(btThrows>=BT_THROWS){
+  if(btThrows>=btThrowBudget){
     // Let the last message land before the panel covers it. Tracked, so a quit
     // inside this window cannot fire btEnd() into a closed board.
     clearTimeout(btResetTimer);
@@ -33362,6 +34166,13 @@ function btStart(){
   btResetPanels(false);
   btActive=true;
   btThrows=0; btScore=0; btStreak=0;
+  // fix317: Extra Bidon — read into this run's actual ceiling, then cleared
+  // immediately (same run-scoped lifetime as fzArmedConsumable/slArmedConsumable/
+  // wtArmedConsumable). "Throw again" on the end panel calls straight in
+  // here bypassing openBidonToss(), same as rsCanStart above — so this reset
+  // has to live here, not only in openBidonToss().
+  btThrowBudget = BT_THROWS + (btArmedConsumable==='extra_bidon' ? BT_BIDON_EXTRA_THROWS : 0);
+  btArmedConsumable=null;
   btMsgUntil=0; btMsgText='';
   btDragging=false;
   btFan.reset();
@@ -33470,6 +34281,9 @@ function btAward(successPct){
   }
 
   // Best score and last-played reuse the existing sub-objects — no new key.
+  // fix317: deliberately BT_THROWS here, not btThrowBudget — bestScores.bt
+  // stays on a fixed 0-10 scale across every run regardless of Extra Bidon,
+  // same reasoning as the pct denominator above.
   const catches = Math.round(pct * BT_THROWS);
   if(s.bestScores.bt == null || catches > s.bestScores.bt) s.bestScores.bt = catches;
   s.lastPlayed.bt = now;
@@ -33503,23 +34317,29 @@ function btEnd(){
   const copy=document.getElementById('bt-end-copy');
   const fin=document.getElementById('bt-final');
   if(fin) fin.textContent=String(btScore);
-  if(title) title.textContent = btScore>=BT_THROWS ? 'Every hand filled' : 'Bidons away';
-  if(copy) copy.textContent = `You landed ${btScore} of ${BT_THROWS}.`;
+  if(title) title.textContent = btScore>=btThrowBudget ? 'Every hand filled' : 'Bidons away';
+  if(copy) copy.textContent = `You landed ${btScore} of ${btThrowBudget}.`; // fix317: was BT_THROWS
   btResetPanels(false);
   const endPanel=document.getElementById('bt-panel-end');
   if(endPanel) endPanel.classList.add('show');
 
   // fix247: everything below is credit, and all of it is behind the panel.
+  // fix317: btAward()'s pct is deliberately STILL btScore/BT_THROWS (the
+  // fixed 10, not btThrowBudget) — Extra Bidon's whole effect on reward is
+  // that more throws raise the ceiling on this ratio (it can now exceed 1.0
+  // and gets clamped inside btAward), not a second, separate bonus. Display
+  // text below uses btThrowBudget so "X of Y" always matches what actually
+  // happened on the board.
   try{
     const res=btAward(btScore/BT_THROWS);
     if(title) title.textContent = res.won
-      ? (btScore>=BT_THROWS ? 'Every hand filled' : 'The roadside is roaring')
+      ? (btScore>=btThrowBudget ? 'Every hand filled' : 'The roadside is roaring')
       : 'Bidons away';
     if(copy){
       const paid = res.cash>0 ? `+${fmtMoney(res.cash)} in the tin.` : 'Nothing left in the tin this half hour.';
       copy.textContent = res.won
-        ? `You landed ${btScore} of ${BT_THROWS}. ${paid} The crowd carries you for the next half hour.`
-        : `You landed ${btScore} of ${BT_THROWS}. ${paid} Land ${Math.ceil(BT_HYPE_THRESHOLD*BT_THROWS)} to get the crowd behind you.`;
+        ? `You landed ${btScore} of ${btThrowBudget}. ${paid} The crowd carries you for the next half hour.`
+        : `You landed ${btScore} of ${btThrowBudget}. ${paid} Land ${Math.ceil(BT_HYPE_THRESHOLD*BT_THROWS)} to get the crowd behind you.`;
     }
     // Celebration fires LAST, after all DOM work, so nothing rebuilds it out
     // from under the pop (fix126/fix155).
@@ -35028,9 +35848,25 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
 // is fully rebuilt on every renderBikeShop() call.
 let rdBuildSelection = {archetype:'allrounder', geometry:'balanced', layup:'standard', wheels:'mid', drivetrain:'standard2x', cockpit:'standard'};
 let _rdBuildArmAt = 0; // timestamp-based arm, same pattern as _shopBuyArmAt/SHOP_ARM_MS
+// fix316 — transient UI selection of which OWNED common materials to spend
+// on this season's build. Mirrors rdBuildSelection: a module-level `let`,
+// never state.*, never saved — a build is a single atomic action (see
+// buildRdBike), so there is nothing here worth restoring across a reload.
+// Rare materials never appear as keys in this object; their bonus is
+// automatic ownership-based (see computeRdMaterialBonus), never toggled.
+let rdMaterialUse = {};
 
 function rdSetArchetype(id){ rdBuildSelection.archetype=id; renderBikeShop(); }
 function rdSetAxis(axisKey, optId){ rdBuildSelection[axisKey]=optId; renderBikeShop(); }
+// fix316 — arms/disarms one common material for the CURRENT build. The
+// ownership guard is belt and braces (the rendered chip is already
+// non-interactive/`disabled` when count is 0 — see renderRdBuildCard) so
+// this can never select something the player doesn't own.
+function rdToggleMaterial(id){
+  if((state.rdMaterials[id]||0)<=0) return;
+  rdMaterialUse[id]=!rdMaterialUse[id];
+  renderBikeShop();
+}
 
 // fix308: two-tap arm-confirm, mirrors buyVP's timestamp-based pattern rather
 // than a boolean + bare setTimeout, so a second build call started inside an
@@ -35050,7 +35886,8 @@ function rdBuildConfirm(){
     return;
   }
   _rdBuildArmAt=0;
-  const entry=buildRdBike(rdBuildSelection.archetype, rdBuildSelection);
+  const entry=buildRdBike(rdBuildSelection.archetype, rdBuildSelection, rdMaterialUse);
+  rdMaterialUse={}; // fix316 — the spend (if any) is already committed inside buildRdBike; clear the transient selection so it never bleeds into next season's form
   renderBikeShop();
   if(currentTab==='race') renderRaceSetupCard();
   if(entry) showToast(`${icn('bike-photo')} ${entry.model} — laid up and ready.`);
@@ -35058,24 +35895,58 @@ function rdBuildConfirm(){
 
 // Renders either the build form (season available) or a locked notice
 // (already built this season). Pure render — writes nothing to state.
+//
+// fix316: gains the R&D Materials block. matTallyHtml is a compact
+// read-only inventory line rendered in BOTH the locked and open states, so
+// the stash stays visible year-round rather than only while the workshop is
+// unlocked — the plan's "inventory display in gear-section-bikes" ask.
 function renderRdBuildCard(){
   const wrap=document.createElement('div');
   wrap.className='equip-card rd-build-card';
   const builtThisSeason = state.season===state.rdBuildSeason;
+  const matTallyHtml = RD_MATERIALS.map(m=>{
+    const n=state.rdMaterials[m.id]||0;
+    return `<span class="rd-chip rd-chip-tally${n>0?'':' locked'}">${icn(m.rarity==='rare'?'gem':'gear','0.85em')} ${m.name} ×${n}</span>`;
+  }).join('');
   if(builtThisSeason){
     wrap.innerHTML=`<div class="equip-model">${icn('bike-photo')} R&D Workshop</div>
-      <div class="equip-desc">${icn('lock')} This season's prototype is already laid up. The workshop reopens next season.</div>`;
+      <div class="equip-desc">${icn('lock')} This season's prototype is already laid up. The workshop reopens next season.</div>
+      <div class="rd-axis-row"><div class="rd-axis-label">R&D Materials</div><div class="rd-chip-row">${matTallyHtml}</div></div>`;
     return wrap;
   }
   // Normalise any stale/invalid selection (e.g. after a data change) before
   // reading it — same guard shape as buildRdBike's own normalisation.
   RD_AXES.forEach(axis=>{ if(!axis.options.some(o=>o.id===rdBuildSelection[axis.key])) rdBuildSelection[axis.key]=axis.options[0].id; });
+  // fix316: drop any stale selection for a material no longer owned (spent
+  // since, or count changed elsewhere) — never trust a transient selection
+  // blind, same reasoning as the axis normalisation above.
+  Object.keys(rdMaterialUse).forEach(id=>{ if((state.rdMaterials[id]||0)<=0) delete rdMaterialUse[id]; });
   const arch=rdArchetype(rdBuildSelection.archetype);
-  const stats=computeRdStats(rdBuildSelection.archetype, rdBuildSelection);
+  const baseStats=computeRdStats(rdBuildSelection.archetype, rdBuildSelection);
+  const matBonus=computeRdMaterialBonus(rdMaterialUse);
+  const stats={ aeroWatts: baseStats.aeroWatts+matBonus.aeroWatts, climbWatts: baseStats.climbWatts+matBonus.climbWatts };
   const archChips=RD_ARCHETYPES.map(a=>`<button class="rd-chip${a.id===rdBuildSelection.archetype?' active':''}" onclick="rdSetArchetype('${a.id}')">${a.name}</button>`).join('');
   const axisRows=RD_AXES.map(axis=>{
     const chips=axis.options.map(o=>`<button class="rd-chip${o.id===rdBuildSelection[axis.key]?' active':''}" onclick="rdSetAxis('${axis.key}','${o.id}')">${o.name}</button>`).join('');
     return `<div class="rd-axis-row"><div class="rd-axis-label">${axis.label}</div><div class="rd-chip-row">${chips}</div></div>`;
+  }).join('');
+  // fix316: common material chips — tappable only while owned (count>0);
+  // the actual spend happens at confirm time inside buildRdBike(), this only
+  // arms/disarms the selection, same "preview vs commit" split as every
+  // other chip on this card.
+  const commonChips = RD_MATERIALS.filter(m=>m.rarity==='common').map(m=>{
+    const n=state.rdMaterials[m.id]||0, sel=!!rdMaterialUse[m.id], locked=n<=0;
+    const cls='rd-chip'+(sel?' mat-selected':'')+(locked?' locked':'');
+    const statLbl=m.stat==='aero'?'aero':'climb';
+    return `<button class="${cls}" ${locked?'disabled':''} onclick="rdToggleMaterial('${m.id}')">${m.name} (${n})${sel?` ✓ +${m.bonus}w ${statLbl}`:''}</button>`;
+  }).join('');
+  // fix316: rare materials — never tappable. Active the moment one is
+  // owned, per MSK's "own-to-unlock" call; never consumed by any funnel, so
+  // there is nothing here to arm or confirm.
+  const rareChips = RD_MATERIALS.filter(m=>m.rarity==='rare').map(m=>{
+    const active=(state.rdMaterials[m.id]||0)>0;
+    const cls='rd-chip'+(active?' rare-active':' locked');
+    return `<span class="${cls}">${icn('gem','0.85em')} ${m.name}${active?` — active perk (+${m.bonus}w ${m.stat})`:' — own 1 to unlock'}</span>`;
   }).join('');
   const armed = (Date.now()-_rdBuildArmAt)<SHOP_ARM_MS;
   // fix309: preview bars use the SAME 51/51 scale as renderBikeShop's owned
@@ -35084,6 +35955,9 @@ function renderRdBuildCard(){
   // kits). Bars, not raw numbers: the draft sits directly above the owned
   // R&D Prototypes list, so it should read on the same visual scale as
   // everything below it rather than switching language mid-list.
+  // fix316: stats now include matBonus, so an armed material selection (or
+  // an owned rare perk) moves these bars, keeping the preview truthful to
+  // what buildRdBike() will actually store.
   const previewMaxAero=51, previewMaxClimb=51;
   const previewAeroPct=Math.max(0,Math.min(100,Math.round((stats.aeroWatts/previewMaxAero)*100)));
   const previewClimbPct=Math.max(0,Math.min(100,Math.round((stats.climbWatts/previewMaxClimb)*100)));
@@ -35092,6 +35966,8 @@ function renderRdBuildCard(){
     <div class="equip-desc">One build per season. Pick an archetype, tune five sub-systems, then lay it up for the year. ${arch.desc}</div>
     <div class="rd-axis-row"><div class="rd-axis-label">Archetype</div><div class="rd-chip-row">${archChips}</div></div>
     ${axisRows}
+    <div class="rd-axis-row"><div class="rd-axis-label">Materials — tap to spend on this build</div><div class="rd-chip-row">${commonChips}</div></div>
+    <div class="rd-axis-row"><div class="rd-axis-label">Rare Materials — permanent perk while owned</div><div class="rd-chip-row">${rareChips}</div></div>
     <div class="stat-bars" style="margin-top:10px">
       <div class="stat-bar-row"><span class="stat-bar-lbl">Aero</span><div class="stat-bar-outer"><div class="stat-bar-inner" style="width:${previewAeroPct}%;background:var(--blue-txt)"></div></div><span class="stat-bar-val" style="color:var(--blue-txt)">+${stats.aeroWatts}w</span></div>
       <div class="stat-bar-row"><span class="stat-bar-lbl">Climb</span><div class="stat-bar-outer"><div class="stat-bar-inner" style="width:${previewClimbPct}%;background:var(--teal-txt)"></div></div><span class="stat-bar-val" style="color:var(--teal-txt)">+${stats.climbWatts}w</span></div>
@@ -36277,6 +37153,33 @@ function grandTourCardHtml(ev, mode){
 // functions — cheap, pure, and by construction never drifts from what
 // startDailyChallenge() will actually enter, since both read the same
 // getDailyChallengeTypeId()/CourseId()/Shape() calls.
+// fix312 — 7-pip streak display (Daily Challenges plan v1, "Streak logic":
+// "history is a capped 7-entry array of dayKeys ... feeding a 7-pip streak
+// display"). Reads state.dailyChallenge.streak directly rather than walking
+// .history: streak already IS the correct current-run count (it resets to 1
+// on a skipped day, per completeRace()'s daily branch), whereas .history is
+// an append+cap audit trail of the last 7 COMPLETIONS regardless of gaps —
+// using it as the fill source would paint stale filled pips left over from
+// a run that has since broken. Capped at 7 pips for display; a longer
+// streak shows a plain "Nx" count instead of overflowing the row.
+// Still-open plan item ("should a broken streak show any UI acknowledgment
+// beyond the pip row resetting, or stay silent?") is resolved HERE, at
+// fix312, per the plan's own "small, decide at fix312": silent — the pip
+// row itself resetting to fewer filled pips (or the label going 0/7 -> "No
+// streak yet") is the acknowledgment. No separate toast on a broken streak;
+// completeRace()'s existing Phase 3B podium-streak toast is a different
+// streak entirely and is untouched.
+function dailyStreakPipsHtml(){
+  const streak = state.dailyChallenge.streak||0;
+  const filled = Math.min(streak,7);
+  let pips='';
+  for(let i=0;i<7;i++) pips += `<span class="daily-streak-pip${i<filled?' filled':''}"></span>`;
+  const label = streak>7 ? `${icn('fire')} ${streak}-day streak`
+    : streak>0 ? `${icn('fire')} ${streak}/7 day streak`
+    : 'No streak yet — start one today';
+  return `<div class="daily-streak-row"><div class="daily-streak-pips">${pips}</div><div class="daily-streak-label">${label}</div></div>`;
+}
+
 function dailyChallengeCardHtml(){
   const raceTypeId=getDailyChallengeTypeId();
   const rt=RACE_TYPES.find(r=>r.id===raceTypeId);
@@ -36288,7 +37191,26 @@ function dailyChallengeCardHtml(){
   let badgeHtml, bodyHtml, actionHtml;
   if(completed){
     badgeHtml=`<span class="cal-event-tierbadge" style="background:var(--green-bg,rgba(80,180,120,.12));color:var(--green-txt);border:.5px solid var(--green-txt)">DONE TODAY</span>`;
-    bodyHtml=`<div class="cal-event-desc">${icn('check-circle')} Today's challenge is complete — a new one is picked at midnight.</div>`;
+    // fix312 — re-view the cached lastResult (plan: "lastResult caches the
+    // completed race's result object so a same-day re-view doesn't
+    // re-simulate") instead of a generic "complete" line. Falls back to the
+    // old generic text if lastResult is somehow missing (a save whose
+    // lastDate/lastResult disagree — hand-edited or from a version skew —
+    // rather than assume shape and throw on a bad render).
+    const lr = state.dailyChallenge.lastResult;
+    // fix315 — third recap line for a material/consumable drop, only when
+    // lr.dropAwarded is truthy. Pre-fix315 cached lastResult objects simply
+    // don't have this key (undefined, same as a no-roll day's explicit
+    // null), so this line renders empty for both — no migration needed for
+    // a same-day re-view spanning the fix.
+    const dropLine = (lr && lr.dropAwarded)
+      ? `<div class="cal-event-desc" style="margin-top:2px">${icn('gift')} +1 ${lr.dropAwarded.name}${lr.dropAwarded.rarity==='rare'?' (rare!)':''}</div>`
+      : '';
+    bodyHtml = lr
+      ? `<div class="cal-event-desc">${icn('check-circle')} ${lr.raceTypeName}${lr.courseName?' · '+lr.courseName:''} — ${ordinal(lr.position)} / ${lr.fieldSize} · ${fmtMoney(lr.prize)} race prize</div>
+         <div class="cal-event-desc" style="margin-top:2px">${icn('fire')} +${fmtMoney(lr.cashAwarded)} sponsorship dividend${lr.vpAwarded>0?` · +${lr.vpAwarded} VP`:''} — a new challenge is picked at midnight.</div>
+         ${dropLine}`
+      : `<div class="cal-event-desc">${icn('check-circle')} Today's challenge is complete — a new one is picked at midnight.</div>`;
     actionHtml=`<button class="cal-start-btn" disabled style="opacity:.6;cursor:default">${icn('check-circle')} Come back tomorrow</button>`;
   } else if(busy){
     badgeHtml=`<span class="cal-event-tierbadge" style="background:var(--amber-bg);color:var(--amber-txt);border:.5px solid var(--amber-bd)">LOCKED</span>`;
@@ -36308,6 +37230,7 @@ function dailyChallengeCardHtml(){
         ${bodyHtml}
       </div>
     </div>
+    ${dailyStreakPipsHtml()}
     ${actionHtml}
   </div>`;
 }
@@ -36481,6 +37404,12 @@ function saveGame(){
       // fix310 (Daily Challenges plan v1): appended after raceTelemetry, before
       // lastSavedAt. A plain object of primitives/array — no Sets, no spread.
       dailyChallenge:state.dailyChallenge,
+      // fix313 (rewards overhaul plan v1): appended after dailyChallenge,
+      // before lastSavedAt. Plain objects/primitives — no Sets, no spread.
+      // Schema only in this fix; nothing writes a non-zero value yet
+      // (fix314 wires moneyEarnedToday/incomeLog, fix316/317 wire the pools).
+      rdMaterials:state.rdMaterials, consumables:state.consumables,
+      moneyEarnedToday:state.moneyEarnedToday, incomeLog:state.incomeLog,
       lastSavedAt:Date.now(),
     }));
   }catch(e){ console.warn('[CIM] Save failed:',e); }
@@ -36664,6 +37593,29 @@ function loadGame(){
         history:    Array.isArray(_dc.history) ? _dc.history : [],
       };
     }
+    // fix313 (rewards overhaul plan v1, "New architecture" + §1 schema):
+    // rdMaterials/consumables are rebuilt by ITERATING THEIR REGISTRY, same
+    // discipline as shopPurchases/shopConsumables (fix261) rather than
+    // trusting the saved keys directly — a save missing the pool entirely
+    // (every pre-fix313 save) and a save carrying a since-retired id both
+    // heal correctly this way, with no migration edit needed later.
+    {
+      const _rdm = (d.rdMaterials && typeof d.rdMaterials === 'object' && !Array.isArray(d.rdMaterials)) ? d.rdMaterials : {};
+      state.rdMaterials = {};
+      RD_MATERIALS.forEach(m => { state.rdMaterials[m.id] = Math.max(0, Math.floor(Number(_rdm[m.id]) || 0)); });
+    }
+    {
+      const _cons = (d.consumables && typeof d.consumables === 'object' && !Array.isArray(d.consumables)) ? d.consumables : {};
+      state.consumables = {};
+      CONSUMABLES.forEach(c => { state.consumables[c.id] = Math.max(0, Math.floor(Number(_cons[c.id]) || 0)); });
+    }
+    // moneyEarnedToday/incomeLog back the Sponsorship Dividend (fix314) —
+    // each gets its OWN guard, the tourProgress lesson, never folded into a
+    // single top-level check. incomeLog is capped at 7 same as
+    // ftpHistory/VP_LEDGER_CAP; a save carrying more (hand-edited) is
+    // trimmed to the most recent 7 rather than trusted as-is.
+    state.moneyEarnedToday = (typeof d.moneyEarnedToday === 'number' && isFinite(d.moneyEarnedToday)) ? Math.max(0, d.moneyEarnedToday) : 0;
+    state.incomeLog = Array.isArray(d.incomeLog) ? d.incomeLog.slice(-7) : [];
     // fix257: THE SAME LESSON, and this object is the one most likely to grow.
     // EVERY FUTURE SETTINGS FIELD ADDED ANYWHERE IN THIS CODEBASE GETS ITS OWN
     // `??` LINE IN THIS BLOCK. A save written by fix257 carries a truthy
@@ -37724,10 +38676,12 @@ const INFO_TEXTS = {
       Missing a day forfeits the whole Tour, so plan your energy around it.`
   },
   // fix311: Daily Challenge card info popup (Daily Challenges plan v1).
+  // fix312: extended with the reward + streak paragraph now that both exist.
   dailyChallenge: {
     title: 'Daily Challenge',
     body: ()=>`A free race, once per day — same course and conditions for every rider today, picked fresh at midnight.<br><br>
-      Costs no energy and doesn't touch your normal race cooldowns. One shot per calendar day; come back tomorrow for a new pick.`
+      Costs no energy and doesn't touch your normal race cooldowns. One shot per calendar day; come back tomorrow for a new pick.<br><br>
+      Finishing pays a small VP + cash bonus on top of the normal race prize — this draws from the same daily VP pool as everything else, so it's a nice top-up rather than a route around it. Race it on consecutive days to build a streak; missing a day resets it.`
   },
   // fix53: recovery panel (Train tab) + tomorrow's energy banner (Gear tab)
   recovery: {
