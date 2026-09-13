@@ -1,4 +1,231 @@
 <!DOCTYPE html>
+<!-- ═══════════ fix320: DIRECTEUR SPORTIF PATH — RACE DAY AUTO-RESOLVE
+     (CIM-plan-fix320-director-v1.md) ═══════════════════════════════════════
+     First content fix on Path B. Baseline fix319. Default sizing per the
+     plan's scope flag: ONE real mechanic — Race Day Auto-Resolve with three
+     Strategy Sliders. Squad Form/Morale, the Team Logistics Hub, Race Radio
+     Scramble, Staff Efficiency Tests and the Medical Wing are each their own
+     future fix in this sub-series — not stubbed here, just not started.
+
+     PLAYER IDENTITY POST-FORK (design decision #1): hybrid. The personal
+     rider card is preserved and viewable, but simulateRaceResult()/
+     startRace() — the tap-to-race personal engine — is never invoked again
+     once legacyPath==='director'. Zero new branches added to either function,
+     same "don't touch the deeply cross-wired engine" discipline fix319 held
+     for completeRace().
+
+     STATE: two new fields — directorSeason (season-scoped, cleared at the
+     same two sites privateerSeason/seasonAchievements already clear:
+     checkCalendarSeasonReset() and handlePrestige()), one entry per
+     GRAND_TOUR_STAGES key. tour_de_suisse is a one-day CALENDAR_EVENTS entry
+     with no stage list — deliberately OUT OF SCOPE for this auto-resolve
+     mechanic, not an oversight against the plan's "plus tour_de_suisse" line;
+     the plan's own "Not yet resolved" section left this kind of structural
+     question open rather than blocking on it. directorCareer is permanent,
+     never cleared, same discipline as privateerCareer/gtStageWins. Every
+     sub-key its own ?? guard on load, tourProgress-lesson discipline
+     throughout, matching fix319's directorSeason-shaped sibling exactly.
+
+     SQUAD STRENGTH (design decision #6): getRiderStats()'s existing output,
+     read as a squad proxy rather than a personal one — no new roster data
+     structure, no per-rider objects. A deliberate placeholder; the Team
+     Logistics Hub fix is what turns this into a real multi-rider roster.
+
+     SIM: simulateDirectorStageResult() mirrors simulatePrivateerRaceResult()'s
+     exact shape (base weights → variance → AI-field beaten-count → position →
+     prize off the SAME prestigeMult/legacyPrizeMult/diffMod formula every
+     race path uses) — no new physics model, no new RNG surface beyond the
+     DIRECTOR_STRATEGIES weight/varianceMult table. Score weights come from
+     the strategy the player armed, NEVER from RACE_TYPES; raceTypeId is
+     derived from the stage's own terrain string SOLELY to pick which
+     EQUIP_WEIGHTS/getEquipmentBonusForRace table to read (equipment buffs
+     decision — squad reads the exact same road-gear bonuses the personal
+     rider card already shows, since Director has no gravel-style gear system
+     of its own the way Privateer does). AI field mirrors the Pro category's
+     own ftpMin/ftpMax band and the tour's own CALENDAR_EVENTS fieldSize.
+
+     CADENCE: hangs off the existing checkDailyReset() 60s interval, at the
+     exact call site checkCalendarSeasonReset() already occupies — no new
+     setInterval, no new parallel tick, per decision #3. armDirectorStrategy()
+     sets resolveAt = Date.now()+DIRECTOR_RESOLVE_MS (100s, in
+     PRIVATEER_LADDER's cooldownMs range); checkDirectorStageResolve() fires
+     once a stage's resolveAt has passed. A light per-tick text-only countdown
+     patch (directorTickCountdowns(), called from the existing 100ms
+     gameTick()) keeps the "resolving in Ns" figure live without any state
+     write or DOM rebuild — same "guarded textContent, no innerHTML"
+     discipline as rsTickBuffPills().
+
+     STRATEGY COST: VP, spent via the existing spendVP() funnel (NOT
+     useConsumable(), which is the item-inventory funnel) — cash is the
+     OUTPUT of a stage (prize money), so spending it to also enter would be a
+     closed loop, per the plan's own reasoning.
+
+     CALENDAR REUSE: Director racing reuses the SAME GT calendar
+     (GRAND_TOUR_STAGES' three real Grand Tours) rather than a parallel race
+     list — what changes is HOW a stage resolves (strategy + auto-resolve
+     instead of tap-and-race), not WHICH races exist, per decision #5.
+
+     UI: renderRaceTab() branches on legacyPath a third way — Director players
+     get renderDirectorCalendar() in a new #director-calendar-wrap panel,
+     sibling to fix319's #privateer-ladder-wrap; the painted #race-stage hub
+     and #race-sheet are hidden via a `.director-active` class on #tab-race,
+     same shape as `.privateer-active`. Road gear cards are UNCHANGED for
+     Director players — no greyed-out treatment, no privateerLocked-style
+     flag — because Director still reads the exact same equipment bonuses as
+     its squad-strength proxy, per decision #6's reasoning; only Privateer's
+     gravel-gear system supersedes road gear's role. renderLegacyFork()'s
+     Director copy updated the same way fix319 updated Privateer's.
+
+     Diff confined to: state init block, save payload, load guards, the two
+     season-reset call sites, DIRECTOR_STRATEGIES/DIRECTOR_STAGE_VP_COST/
+     DIRECTOR_RESOLVE_MS constants, directorStageRaceTypeId()/
+     simulateDirectorStageResult(), armDirectorStrategy(),
+     checkDirectorStageResolve() + its checkDailyReset() hookup,
+     directorTickCountdowns() + its gameTick() hookup, renderRaceTab()'s third
+     branch, renderDirectorCalendar(), the #director-calendar-wrap markup +
+     CSS toggle, renderLegacyFork()'s Director copy, and one INFO_TEXTS entry.
+     completeRace(), the interactive stage/decision engine, startRace(),
+     simulateRaceResult(), the road GT calendar, and every Privateer-path
+     function/state field from fix319 are NOT touched anywhere.
+-->
+<!-- ═══════════ fix319: PRIVATEER PATH — FULL LADDER (CIM-plan-fix319-privateer-v1.md) ═══
+     First content fix on top of the fix318 Prestige Fork schema. Baseline
+     fix318. SCOPE DEVIATION, MSK-APPROVED (flagged in the plan itself): ships
+     the FULL four-rung ladder — Qualifier → Nationals → Worlds → Lifetime
+     Grand Prix — in one fix, rather than the plan's default "one real
+     mechanic per fix" sizing. Two design questions resolved by MSK this
+     session before any code: placement thresholds TIGHTEN per rung (top-5 /
+     top-3 / top-1 / top-1), not a uniform top-3; and the Lifetime GP is a
+     SPLIT — the attempt resets every season (privateerSeason.lifetimeGpWon)
+     but privateerCareer.lifetimeGpWins is a permanent, append-only trophy
+     count, same pattern as nationalsWins/worldsWins.
+
+     STATE: three new fields — privateerSeason (season-scoped, cleared at the
+     same two sites seasonAchievements/gtWon already clear:
+     checkCalendarSeasonReset() and handlePrestige()), privateerCareer
+     (permanent, never cleared, same discipline as gtStageWins/gcPodiums), and
+     gravelGear (a separate owned/equipped inventory, GRAVEL_BIKES/
+     GRAVEL_WHEELS/GRAVEL_TYRES — new registries, not a re-skin of BIKES/
+     WHEELS/KITS, no shared slots). Every sub-key its own ?? guard on load,
+     tourProgress-lesson discipline throughout.
+
+     SIM: ONE reweighted terrain profile (PRIVATEER_TERRAIN, gravel/endurance-
+     leaning: heavy ftp+vo2, light sprint) shared by all four rungs — decision
+     #2 said "a reweighted terrain parameter set", singular, because gravel is
+     one discipline here, not four. simulatePrivateerRaceResult() mirrors
+     simulateCalendarEventResult()'s exact shape (fixed elite AI band per
+     rung, position from beaten-count, prize off the rung's own table run
+     through the SAME prestigeMult/legacyPrizeMult/diffMod formula
+     simulateRaceResult() already uses — no parallel reward formula, per the
+     plan's "Reward scaling" default). No specialisation multiplier branch:
+     those all key off road/hill/crit/tt raceTypeIds gravel racing doesn't
+     have one of, and inventing a mapping wasn't a decision this plan
+     resolved, so it's left out rather than guessed.
+
+     ENTRY FLOW — THE ONE DELIBERATE DEVIATION FROM "reuse the sim engine,
+     don't replace it": Privateer races resolve on a SINGLE TAP
+     (enterPrivateerRace()), not through the interactive stage/decision
+     overlay completeRace() drives for road racing. completeRace() is
+     deliberately untouched — zero new branches added to it. That function is
+     the single most deeply cross-wired one in the file (GT tour progress,
+     series scoring, streaks, VP, sponsors, achievements, category points all
+     branch through it), and this plan's own verification harness requires
+     "existing GT calendar stays fully functional for any save where
+     legacyPath !== 'privateer'" — the only way to GUARANTEE that with
+     confidence in one sitting is to add nothing to it. A later fix can
+     promote Privateer entry into the full interactive engine without
+     touching any schema landed here. Entry cooldowns reuse the existing
+     state.raceCooldowns map under a 'priv_'-prefixed key — no new state
+     field for that half of the mechanic.
+
+     GATE: checkPrivateerLadderAdvance(rung, position) — pure-ish, called
+     from the one site a Privateer result is computed (enterPrivateerRace,
+     immediately after simulatePrivateerRaceResult), mirroring how
+     checkLegacyForkEligibility() hooks the tier-0 GT handler. Placement-only
+     (no separate points gate — MSK's answer to the tightened-threshold
+     question already settled decision #4 as placement).
+
+     UI: renderRaceTab() branches on legacyPath — Privateer players get
+     renderPrivateerLadder() (ladder + gravel gear cards) in a new
+     #privateer-ladder-wrap panel; the painted #race-stage hub and #race-sheet
+     are hidden via a `.privateer-active` class on #tab-race. THIS SITES
+     OUTSIDE THE GEAR TAB'S PAINTED HUB, a deliberate departure from the
+     plan's "sited in Gear tab" default: Gear's hub is five fixed painted
+     medallions (GEAR_SECTIONS) and a sixth needs a new hotspot this
+     code-only session cannot calibrate against real art. Gravel gear cards
+     reuse the .equip-card/.equip-head/.equip-model/.equip-desc/.equip-badges/
+     .tier-badge/.equip-action-col/.equip-btn/.equip-price classes verbatim
+     (buildGravelEquipCardHtml(), kept separate from buildEquipCard() rather
+     than extending its signature, so none of buildEquipCard()'s three
+     existing road-gear call sites are touched by this change). Road gear
+     cards (BIKES/WHEELS/KITS via buildEquipCard) gained one new boolean,
+     privateerLocked, which reuses the EXISTING .prestige-locked visual
+     class — no new CSS class, per the plan's instruction. One new small CSS
+     block for the ladder/gear panel's show/hide toggle only.
+
+     Diff confined to: state init block, save payload, load guards, the two
+     season-reset call sites, GRAVEL_BIKES/WHEELS/TYRES + their buy/equip
+     funnel functions, PRIVATEER_TERRAIN/PRIVATEER_LADDER constants,
+     simulatePrivateerRaceResult(), checkPrivateerLadderAdvance(),
+     enterPrivateerRace(), renderPrivateerLadder()/buildGravelEquipCardHtml()/
+     buildGravelGearSectionHtml(), buildEquipCard()'s privateerLocked branch +
+     its three call sites, the #privateer-ladder-wrap markup + CSS toggle, and
+     one INFO_TEXTS entry. completeRace(), the interactive stage/decision
+     engine, and the road GT calendar are NOT touched anywhere.
+-->
+<!-- ═══════════ fix318: PRESTIGE FORK — STATE SCHEMA + FORK GATE ═══════════════
+     First fix in the CIM-plan-prestige-fork-v1 series (CIM-plan-prestige-fork-v1.md,
+     "fix318 — State schema + fork gate", fully scoped section). Baseline fix317.
+
+     SCOPE, PER THE PLAN: schema and gate only. No path content, no new
+     mechanics for either the Privateer or Directeur Sportif paths — those
+     get their own design-question passes before fix319+/fix320+.
+
+     Three new state fields: legacyPath (null|'privateer'|'director', set
+     once, never mutated again), legacyForkAvailable and legacyForkSeason
+     (a cached snapshot of eligibility, taken the moment gtWon first reaches
+     all three Grand Tours in a season, so the offer survives BOTH
+     checkCalendarSeasonReset() and handlePrestige() wiping seasonAchievements
+     moments later). Per-sub-key load guards, tourProgress-lesson discipline,
+     same as every other field. New checkLegacyForkEligibility() reuses
+     PERFECT_SEASON_TOURS verbatim (fix197) and is called from the exact site
+     gtWon gets updated in completeRace()'s tier-0 GT finish handler — no new
+     polling loop, no new RNG surface. Deliberately does NOT require
+     nationalsWon: the fork trigger is the GT treble alone, a looser bar than
+     the adjacent Perfect Season capstone.
+
+     ONE BLOCKING QUESTION SURFACED READING THE PLAN, NOT IN IT: design
+     decision #3 says the bespoke point-of-no-return ceremony needs its own
+     design pass "before fix318 implements it," but the same doc's own
+     "safe to ship in isolation" test list requires confirming the choice
+     persists through save/load — which needs SOME player-facing way to set
+     legacyPath. Resolved by MSK this session: ship a functional stand-in now
+     (the offer card in renderLegacyFork(), the same two-tap amber-confirm
+     pattern as New Season/handlePrestige(), one pending path via
+     legacyForkConfirmPending instead of one boolean so the two buttons arm
+     independently) so the fix is actually testable. A later fix swaps this
+     card's body for the real bespoke ceremony without touching the schema or
+     gate logic, which are already final.
+
+     UI: one new "Legacy" sub-section in Rider ▸ Path, sited directly below
+     the existing Season/prestige card (#legacy-fork-area, rendered by
+     renderLegacyFork()). No nav changes — the Rider tab's painted-hub "Path"
+     hotspot already opens this sheet, so nothing new needed to reach it. Once
+     state.legacyPath is set, the card becomes a "Coming soon" placeholder for
+     the chosen path; both Privateer and Director placeholders are the same
+     card body keyed off legacyPath, not two separate screens/tabs — no path
+     content exists yet for either to distinguish, so building two would be
+     dead code until fix319/fix320 land. Reuses .prestige-card/.prestige-btn/
+     .prestige-btn-confirm/.prestige-info verbatim — no new CSS added. One new
+     INFO_TEXTS entry ('legacyFork') for the ⓘ button, matching the
+     prestige/specialisation pattern beside it.
+
+     Diff confined to: state init block, save payload, load guards, the
+     PERFECT_SEASON_TOURS-adjacent gate function + its one call site in
+     completeRace(), the #legacy-fork-area markup + renderRiderSection()
+     dispatch line, renderLegacyFork()/chooseLegacyPath() + their two new
+     confirm-state lets, and the one INFO_TEXTS entry. Nothing else touched.
+-->
 <!-- ═══════════ fix317: CONSUMABLE MARGINAL GAINS — MINI-GAME FUNNEL ═══════════
      Fifth fix in the CIM-plan-rewards-overhaul-v1 sequence, closing out §3.
      Plan flagged this as blocked on three design questions — all resolved
@@ -10859,6 +11086,25 @@ body.home-open{overflow:hidden;}
    still does something (the fix136 lesson), and this rule is what a future
    stage would re-gate through if the art were ever pulled. */
 #tab-race.race-hub-preview #race-stage{display:block;pointer-events:auto;}
+/* fix319 — Privateer ladder toggle. #privateer-ladder-wrap is hidden by
+   default (normal road-racing players never see it exist); .privateer-active
+   on #tab-race (set every render by renderRaceTab()) flips both the painted
+   hub AND the sheet off and the plain ladder panel on. !important on the
+   hub/sheet side because #race-sheet has its own open/closed display rules
+   elsewhere in this sheet (see the fix231 comment on #race-stage above) that
+   this toggle must always win over once a player has forked to Privateer. */
+#privateer-ladder-wrap{display:none;padding:12px 14px;}
+#tab-race.privateer-active #race-stage{display:none!important;pointer-events:none!important;}
+#tab-race.privateer-active #race-sheet{display:none!important;}
+#tab-race.privateer-active #privateer-ladder-wrap{display:block;}
+/* fix320 — Director calendar toggle, same shape as the fix319 Privateer
+   toggle immediately above. #director-calendar-wrap is hidden by default;
+   .director-active on #tab-race (set every render by renderRaceTab()) flips
+   the painted hub AND the sheet off and the plain calendar panel on. */
+#director-calendar-wrap{display:none;padding:12px 14px;}
+#tab-race.director-active #race-stage{display:none!important;pointer-events:none!important;}
+#tab-race.director-active #race-sheet{display:none!important;}
+#tab-race.director-active #director-calendar-wrap{display:block;}
 #race-art{
   /* Cover-rect arithmetic comes from .hub-art (fix203) — do NOT re-derive it
      here. Only the background shorthand is per-tab, and like #cal-art,
@@ -12045,6 +12291,18 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
     <div id="training-list"></div>
   </div>
   <div id="tab-race" style="display:none">
+    <!-- fix319: Privateer ladder panel — a plain (non-painted) sibling of the
+         race hub below, shown instead of it once legacyPath==='privateer'.
+         Visibility is a pure CSS toggle keyed on .privateer-active (set by
+         renderRaceTab()) so no JS display-juggling is needed on every
+         render. Populated entirely by renderPrivateerLadder(). -->
+    <div id="privateer-ladder-wrap"></div>
+    <!-- fix320: Director calendar panel — a plain (non-painted) sibling of the
+         race hub below and of #privateer-ladder-wrap, shown instead of both
+         once legacyPath==='director'. Visibility is a pure CSS toggle keyed
+         on .director-active (set by renderRaceTab()). Populated entirely by
+         renderDirectorCalendar(). -->
+    <div id="director-calendar-wrap"></div>
     <!-- fix229: the painted RACE hub stage, the NINTH and last painted hub in
          the file. Art and geometry only — no hotspot, no slot, no sheet, no
          exit is welded to it yet (race hub plan v1: the seven medallions, the
@@ -12842,6 +13100,13 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
       <div id="spec-area"></div>
       <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-crown"></use></svg> Season <button class="info-btn" onclick="openInfo('prestige')">ⓘ</button></div>
       <div id="prestige-area"></div>
+      <!-- fix318: Prestige Fork. Left empty by renderLegacyFork() whenever
+           neither legacyForkAvailable nor legacyPath is set, so this section
+           stays silent for the vast majority of saves that haven't reached
+           it — no "locked" card, matching how prestige-area itself never
+           shows a "you haven't earned this yet" state. -->
+      <div class="section-lbl" style="margin-top:1rem"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-ribbon"></use></svg> Legacy <button class="info-btn" onclick="openInfo('legacyFork')">ⓘ</button></div>
+      <div id="legacy-fork-area"></div>
     </div>
     <div id="rider-section-career" style="display:none">
       <div class="section-lbl"><svg class="icn" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-trophy"></use></svg> Career <button class="info-btn" onclick="openInfo('careerStats')">ⓘ</button></div>
@@ -16309,6 +16574,38 @@ const KITS = [
   {id:'kit_gt',       tier:6, minPrestige:0, name:'Grand Tour Finisher\'s Suit', price:null, aeroWatts:19, desc:'The suit they hand you in Paris. Three weeks of racing is the only currency it accepts.'},
 ];
 
+// ─── GRAVEL GEAR (fix319 — Privateer path) ──────────────────────────────
+// Separate inventory from BIKES/WHEELS/KITS — own registries, own owned/
+// equipped slots (state.gravelGear), never shared. A single combined stat
+// (gravelWatts) rather than the road gear's aero/climb split: Privateer
+// racing scores off ONE reweighted terrain profile (PRIVATEER_TERRAIN,
+// below), not the four EQUIP_WEIGHTS-keyed race types the aero/climb split
+// exists to serve — a second axis here would have no read side. No prestige
+// gating: the Prestige Fork itself (three Grand Tours won GC) is already the
+// gate that gets a player here. price:0 starter items are owned+equipped by
+// default in the state schema.
+const GRAVEL_BIKES = [
+  {id:'gravel_starter', tier:1, price:0,    name:'Entry Gravel Frame',      gravelWatts:0,  desc:'An aluminium do-it-all frame. Not fast, but it will get you round.'},
+  {id:'gravel_alloy',   tier:2, price:900,  name:'Adventure Alloy',        gravelWatts:8,  desc:'Wider tyre clearance and a more relaxed geometry built for long gravel days.'},
+  {id:'gravel_carbon',  tier:3, price:3200, name:'Carbon Gravel Racer',    gravelWatts:18, desc:'Light enough to race, tough enough for washboard and rock gardens alike.'},
+  {id:'gravel_elite',   tier:4, price:7800, name:'Elite Gravel Superbike', gravelWatts:30, desc:'The bike the front of a UCI gravel field actually rides. Built to be raced flat out for six hours.'},
+];
+const GRAVEL_WHEELS = [
+  {id:'gravel_wheels_starter', tier:1, price:0,    name:'Stock Gravel Rims',    gravelWatts:0,  desc:'Durable, heavy, and not going anywhere fast.'},
+  {id:'gravel_wheels_alloy',   tier:2, price:600,  name:'Tubeless Alloy Set',   gravelWatts:6,  desc:'A proper tubeless-ready wheelset. Lighter and more reliable over rough ground.'},
+  {id:'gravel_wheels_carbon',  tier:3, price:2400, name:'Carbon Gravel Wheels',gravelWatts:14, desc:'Wide carbon rims tuned for low pressures and high average speeds.'},
+  {id:'gravel_wheels_race',    tier:4, price:5600, name:'Race Gravel Wheels',  gravelWatts:22, desc:'The wheels teams hand their leader on the fastest gravel courses.'},
+];
+const GRAVEL_TYRES = [
+  {id:'gravel_tyres_starter', tier:1, price:0,    name:'Stock Gravel Tyres', gravelWatts:0,  desc:'Whatever came fitted. Fine for the driveway.'},
+  {id:'gravel_tyres_all',     tier:2, price:250,  name:'All-Road Tyres',     gravelWatts:4,  desc:'A dependable tread that copes with tarmac and gravel alike.'},
+  {id:'gravel_tyres_race',    tier:3, price:750,  name:'Race Casing Tyres',  gravelWatts:9,  desc:'Supple, fast-rolling casings built to be raced, not commuted on.'},
+  {id:'gravel_tyres_worlds',  tier:4, price:1800, name:'Worlds-Spec Tyres',  gravelWatts:15, desc:'Hand-picked tread and pressure for the exact course conditions on the day.'},
+];
+// fix319: highest catalogue gravelWatts today (the elite bike) — the "measured,
+// not padded" scale rule buildGravelEquipCardHtml()'s stat bar uses.
+const GRAVEL_GEAR_MAX_STAT = 30;
+
 // fix118: prestige access-ladder helpers — single source of truth for gear
 // gating (Stage 1 of the prestige overhaul). prestigeMult (the money
 // multiplier) is untouched; this reads the existing seasonsCompleted counter
@@ -17100,6 +17397,89 @@ const CALENDAR_EVENTS = [
    entryFee:2000, energyCost:45, fieldSize:120, prizes:[25000,12000,6000,3000,1500,600]},
 ];
 
+// ─── PRIVATEER LADDER (fix319) ──────────────────────────────────────────
+// One reweighted terrain profile for ALL FOUR rungs — decision #2 said "a
+// reweighted terrain parameter set (gravel/endurance-leaning)", singular.
+// Gravel racing is one discipline in this game, not four, so there is no
+// per-rung raceTypeId the way CALENDAR_EVENTS has one. Heavier ftp/vo2,
+// lighter sprint than any of the four RACE_TYPES profiles — long, grinding
+// efforts over technical/sprint ones. No new RNG surface: playerScore/
+// aiScore in simulatePrivateerRaceResult() reuse the exact formula shape
+// simulateCalendarEventResult() already uses, just fed this weight set
+// instead of an RACE_TYPES entry's.
+const PRIVATEER_TERRAIN = { weights:{ftp:0.55,vo2:0.35,sprint:0.10} };
+
+// tier: 0-3. threshold: top-N to PASS (MSK: tighten per rung, not uniform —
+// top-5 / top-3 / top-1 / top-1). aiFtpBand: a fixed elite band per rung,
+// same "invitational field of specialists" shape as
+// simulateCalendarEventResult's ftpBand, scaled up tier by tier so Worlds and
+// the Lifetime GP are genuinely harder than the Qualifier. prizes[] are
+// consumed by the SAME round(...*prestigeMult*legacyPrizeMult*diffMod)
+// formula simulateRaceResult() already uses — no parallel reward formula, per
+// the plan's "Reward scaling" default. careerKey names the privateerCareer
+// counter that increments on a first-ever pass THIS season (null on
+// Qualifier — no permanent counter for clearing the entry rung).
+// prereqKey names the privateerSeason flag that must already be true before
+// this rung can be entered at all.
+const PRIVATEER_LADDER = [
+  {id:'qualifier',  tier:0, name:'Gravel Qualifier',    icon:'flag',
+   placementKey:'qualifierPlacement', passedKey:'qualifierPassed', careerKey:null,
+   prereqKey:null, threshold:5,
+   entryFee:150, energyCost:35, fieldSize:50, cooldownMs:120000,
+   aiFtpBand:[330,430], prizes:[3000,1500,750,400,200,100]},
+  {id:'nationals',  tier:1, name:'Gravel Nationals',    icon:'ribbon',
+   placementKey:'nationalsPlacement', passedKey:'nationalsPassed', careerKey:'nationalsWins',
+   prereqKey:'qualifierPassed', threshold:3,
+   entryFee:300, energyCost:40, fieldSize:70, cooldownMs:180000,
+   aiFtpBand:[370,470], prizes:[6000,3000,1500,750,350,150]},
+  {id:'worlds',     tier:2, name:'Gravel Worlds',       icon:'trophy',
+   placementKey:'worldsPlacement', passedKey:'worldsPassed', careerKey:'worldsWins',
+   prereqKey:'nationalsPassed', threshold:1,
+   entryFee:600, energyCost:45, fieldSize:100, cooldownMs:240000,
+   aiFtpBand:[420,530], prizes:[12000,6000,3000,1500,700,300]},
+  {id:'lifetimeGp', tier:3, name:'Lifetime Grand Prix', icon:'medal-gold',
+   placementKey:'lifetimeGpPlacement', passedKey:'lifetimeGpWon', careerKey:'lifetimeGpWins',
+   prereqKey:'worldsPassed', threshold:1,
+   entryFee:1200, energyCost:50, fieldSize:130, cooldownMs:300000,
+   aiFtpBand:[460,570], prizes:[25000,12000,6000,3000,1500,600]},
+];
+
+// ─── DIRECTOR STRATEGIES (fix320) ──────────────────────────────────────
+// Three Strategy Sliders for Race Day Auto-Resolve (CIM-plan-fix320-director-v1
+// design decision #2 / "Strategy Slider set" — matches MSK's concept exactly).
+// Same weight-table shape RACE_TYPES/PRIVATEER_TERRAIN already use (ftp/vo2/
+// sprint), plus varianceMult — the ONLY new modifier surface this fix adds,
+// applied as a straight multiplier over the existing Math.max(10, base*0.12)
+// variance floor every score formula in the file already uses, not a second
+// RNG mechanism. PROVISIONAL: the relative weight/variance deltas are a
+// balance question (plan's "Not yet resolved" list), tunable post-
+// implementation without touching schema.
+const DIRECTOR_STRATEGIES = {
+  protect_gc:     { id:'protect_gc',     name:'Protect the GC',    icon:'crown',
+    desc:'Ride for the overall. Climb/TT-weighted, low variance — a safe, steady result.',
+    weights:{ftp:0.75,vo2:0.20,sprint:0.05}, varianceMult:0.7, formCost:4 },
+  send_breakaway: { id:'send_breakaway', name:'Send the Breakaway',icon:'rocket',
+    desc:'Go for broke off the front. High variance — best-case ceiling, worst-case floor.',
+    weights:{ftp:0.40,vo2:0.30,sprint:0.30}, varianceMult:1.8, formCost:10 },
+  sprint_train:   { id:'sprint_train',   name:'Sprint Train',      icon:'bolt',
+    desc:'Set up for the bunch kick. Sprint-weighted, low variance.',
+    weights:{ftp:0.30,vo2:0.20,sprint:0.50}, varianceMult:0.7, formCost:6 },
+};
+// fix321 — Squad Form (see CIM-plan-fix321-squad-form-v1.md). formCost above is
+// the fatigue half of the mechanic: tiered per MSK's decision 3, Send the
+// Breakaway costs more per stage than Protect the GC, Sprint Train in between.
+// PROVISIONAL balance numbers, confirmed "use as-is" by MSK — tunable later
+// without touching schema. state.directorForm is the squad-wide meter this
+// feeds; see its own declaration/guard and checkDirectorStageResolve() below.
+// PROVISIONAL — VP cost per stage entry, scaling by tour tier the same way
+// entryFee already varies by tour in CALENDAR_EVENTS (TdF 5000 > Giro 4000 >
+// Vuelta 3500). A balance default per the plan's "Not yet resolved" section,
+// not a schema decision.
+const DIRECTOR_STAGE_VP_COST = { tour_de_france:15, giro_d_italia:12, vuelta_espana:10 };
+// Fixed cooldown per stage entry, in PRIVATEER_LADDER's cooldownMs range —
+// plan decision #3: "existing cadence, existing tick", no offline-progress model.
+const DIRECTOR_RESOLVE_MS = 100000;
+
 // Accessories provide no passive £/s income — that role belongs exclusively to the
 // Sponsors tab where weekly objectives gate every payout. These are one-time
 // investments in your setup and athlete infrastructure.
@@ -17650,6 +18030,33 @@ const PERFECT_SEASON_TOURS = ['tour_de_france','giro_d_italia','vuelta_espana'];
 // push the track from "brutal" to "not actually achievable in 30 days".
 const PERFECT_SEASON_NATIONALS = ['nat_hillclimb','nat_roadrace','nat_tt','nat_crit'];
 
+// ─── fix318: PRESTIGE FORK gate — schema + gate only, no path content ────
+// Fork trigger reuses PERFECT_SEASON_TOURS verbatim rather than a new literal
+// list, for the same reason completeRace() and the perfect_season achievement
+// already have to agree on what "all three Grand Tours" means: one source,
+// no chance of drift. Deliberately does NOT require nationalsWon — the
+// Prestige Fork plan's trigger is the GT treble alone, a looser bar than the
+// Perfect Season capstone next to it, so a player can reach the fork without
+// also chasing a national jersey.
+//
+// Called from the same site gtWon gets updated (the tier-0 GT finish handler
+// in completeRace()) — no new polling loop, no new RNG surface. Two early-outs
+// make every call after the first a no-op: once legacyPath is set the fork is
+// permanently resolved, and once legacyForkAvailable is true there is nothing
+// left to detect until the player acts (or not — the cached flag is what lets
+// the offer survive the season-boundary wipes of seasonAchievements below).
+function checkLegacyForkEligibility(){
+  if(state.legacyPath) return;
+  if(state.legacyForkAvailable) return;
+  const sa=state.seasonAchievements;
+  if(!sa || !sa.gtWon) return;
+  if(PERFECT_SEASON_TOURS.every(id=>sa.gtWon.has(id))){
+    state.legacyForkAvailable=true;
+    state.legacyForkSeason=state.season;
+    showToast(`${icn('ribbon')} Legacy path unlocked — visit Rider ▸ Path to choose your future`);
+  }
+}
+
 // ─── fix301: CAREER GEAR — the one registry ──────────────────────────────
 // Items with price:null in BIKES / TT_BIKES / WHEELS / KITS are unbuyable and
 // are granted ONLY by a Lifetime Goal tier whose reward.type is 'gear'. This
@@ -18067,6 +18474,71 @@ const state = {
   // without that reset the "single season" requirement decays into "at some
   // point across your whole career", which is not the goal.
   seasonAchievements: { gtWon: new Set(), nationalsWon: false },
+  // fix318 — Prestige Fork gate (CIM-plan-prestige-fork-v1 §fix318). legacyPath
+  // is set exactly once, via the confirm in renderLegacyFork()/chooseLegacyPath(),
+  // and never mutated again — append-only discipline, same as relics/kit colors:
+  // a future "switch paths" feature gets its own new field or save flow, not a
+  // rewrite of this one. legacyForkAvailable/legacyForkSeason are a cached
+  // snapshot of eligibility taken the moment gtWon first reaches all 3 tours in
+  // a season (checkLegacyForkEligibility()) — cached specifically so the offer
+  // survives BOTH checkCalendarSeasonReset() and handlePrestige() wiping
+  // seasonAchievements moments later. Without the cache the offer would flash
+  // and vanish for any player who doesn't act on it before the season rolls over.
+  legacyPath: null,              // null | 'privateer' | 'director'
+  legacyForkAvailable: false,
+  legacyForkSeason: null,
+  // fix319 — Privateer path (CIM-plan-fix319-privateer-v1.md). privateerSeason
+  // is SEASON-scoped — cleared at the same two sites seasonAchievements/gtWon
+  // clear (checkCalendarSeasonReset(), handlePrestige()), never a top-level
+  // guard on load (tourProgress lesson). privateerCareer is permanent and
+  // append-only, same discipline as gtStageWins/gcPodiums above — never
+  // cleared, never decremented.
+  privateerSeason: {
+    qualifierPlacement:null, qualifierPassed:false,
+    nationalsPlacement:null, nationalsPassed:false,
+    worldsPlacement:null,    worldsPassed:false,
+    lifetimeGpPlacement:null,lifetimeGpWon:false,
+  },
+  privateerCareer: { lifetimeGpWins:0, worldsWins:0, nationalsWins:0 },
+  // fix320 — Directeur Sportif path (CIM-plan-fix320-director-v1.md).
+  // directorSeason is SEASON-scoped, cleared at the same two sites
+  // privateerSeason/seasonAchievements already clear (checkCalendarSeasonReset(),
+  // handlePrestige()), never a top-level guard on load (tourProgress lesson).
+  // One entry per GRAND_TOUR_STAGES key — tour_de_suisse is a one-day
+  // CALENDAR_EVENTS entry with no stage list to auto-resolve through, so it is
+  // deliberately out of scope for this mechanic, not a schema oversight.
+  // directorCareer is permanent and append-only, same discipline as
+  // privateerCareer/gtStageWins above — never cleared, never decremented.
+  directorSeason: {
+    tour_de_france: { stageIndex:0, strategyChoice:null, resolveAt:null, stageResults:[] },
+    giro_d_italia:  { stageIndex:0, strategyChoice:null, resolveAt:null, stageResults:[] },
+    vuelta_espana:  { stageIndex:0, strategyChoice:null, resolveAt:null, stageResults:[] },
+  },
+  directorCareer: { toursDirected:0, gcPodiumsAsDirector:0 },
+  // fix321 — Squad Form (CIM-plan-fix321-squad-form-v1.md). Squad-wide,
+  // NOT per-tour (decision 4) — one Directeur, one meter, shared across all
+  // three GT-calendar tours. Own top-level field, own load guard above; own
+  // reset lines in checkCalendarSeasonReset()/handlePrestige() next to
+  // directorSeason's reset, same two sites, no new season-boundary hook.
+  directorForm: 70,
+  // fix321 — day-boundary bookkeeping only: did a Director stage resolve
+  // during the calendar day that just ended? Read and cleared by
+  // checkDailyReset()'s existing day-boundary block to decide whether Squad
+  // Form's rest-day regen fires; set true by checkDirectorStageResolve()
+  // whenever it actually processes a result. Not part of the Form meter
+  // itself, just the "did a stage resolve today" plumbing the plan flagged
+  // as an implementation detail.
+  directorStageResolvedToday: false,
+  // Gravel gear — separate inventory/equip slots from road BIKES/WHEELS/KITS,
+  // shape mirrors the road gear state per the plan. Starter items owned+
+  // equipped by default (same "free tier-1 default" pattern as
+  // equippedBike:'starter'), present regardless of legacyPath so the load
+  // guard never has to special-case an unset path.
+  gravelGear: {
+    ownedBikes: new Set(['gravel_starter']),        equippedBike:'gravel_starter',
+    ownedWheels: new Set(['gravel_wheels_starter']), equippedWheels:'gravel_wheels_starter',
+    ownedTyres: new Set(['gravel_tyres_starter']),   equippedTyres:'gravel_tyres_starter',
+  },
   // fix257: device settings. Every field a primitive, no nesting beyond this
   // level. Cloned from SETTINGS_DEFAULTS rather than referencing it, so a fresh
   // game can never mutate the defaults object out from under loadGame().
@@ -19122,6 +19594,19 @@ function checkDailyReset(){
     // (halved rather than zeroed, so a strong day still carries a little momentum).
     state.racesToday=0;
     state.form=Math.floor((state.form||0)/2);
+    // fix321 — Squad Form rest-day regen (Director path, plan decision 2's
+    // "team energy" half): if no Director stage resolved during the day that
+    // just ended, drift Form 3 points toward the 70 baseline from either
+    // side. Reuses this existing day-boundary block rather than a new tick.
+    // checkDirectorStageResolve() is the only other site that writes
+    // directorForm; this only fires when that site did NOT run today, so
+    // there's no double-write. Gated on the Director path since the flag is
+    // otherwise always false and the meter is otherwise inert at 70.
+    if(state.legacyPath==='director' && !state.directorStageResolvedToday){
+      if(state.directorForm<70) state.directorForm=Math.min(70, state.directorForm+3);
+      else if(state.directorForm>70) state.directorForm=Math.max(70, state.directorForm-3);
+    }
+    state.directorStageResolvedToday=false;
     // Record today's FTP/W/kg snapshot before saving — weight may have just changed
     recordFtpSnapshot();
     // Set pending morning reward — energy withheld until player taps
@@ -19145,6 +19630,10 @@ function checkDailyReset(){
   // Calendar season is a rolling 30-day window, also independent of the calendar-day
   // boundary above — checked every tick once activated.
   checkCalendarSeasonReset();
+  // fix320 — Director path auto-resolve, sited at the same call site as
+  // checkCalendarSeasonReset() just above per the plan's "existing cadence,
+  // existing tick" decision. No new setInterval, no new polling loop.
+  checkDirectorStageResolve();
   // Grand Tour hard lockout — forfeit any tour where a full stage-day was skipped.
   checkGrandTourLockouts();
 }
@@ -20435,6 +20924,9 @@ function completeRace(){
       // tierIdx===0 test the relic award below uses. Set semantics, so
       // winning the same Tour twice in a season is correctly still one entry.
       if(tierIdx===0) state.seasonAchievements.gtWon.add(rd.calendarEventId);
+      // fix318: same site gtWon gets updated, so eligibility is caught on the
+      // same tick — see checkLegacyForkEligibility()'s comment for why.
+      checkLegacyForkEligibility();
       state.calendar.completed[rd.calendarEventId]={
         finished:true, gcPoints:tp.gcPoints, gcTier:tier.label, gcIcon:tier.icon, gcBonus,
         stageResults:tp.stageResults, ts:Date.now(),
@@ -21247,6 +21739,27 @@ function checkCalendarSeasonReset(){
   // trigger for many Calendar seasons) would let three Grand Tour wins from
   // different years count together and turn the capstone into a formality.
   state.seasonAchievements = { gtWon:new Set(), nationalsWon:false };
+  // fix319 — Privateer ladder is season-scoped exactly like seasonAchievements
+  // just above; privateerCareer (the permanent counters) is deliberately NOT
+  // touched here, same "lifetime counters survive the season boundary" rule
+  // gtStageWins/gcPodiums/etc. follow.
+  state.privateerSeason = {
+    qualifierPlacement:null, qualifierPassed:false,
+    nationalsPlacement:null, nationalsPassed:false,
+    worldsPlacement:null,    worldsPassed:false,
+    lifetimeGpPlacement:null,lifetimeGpWon:false,
+  };
+  // fix320 — same reset as privateerSeason just above; directorCareer (the
+  // permanent counters) is deliberately NOT touched here, same "lifetime
+  // counters survive the season boundary" rule gtStageWins/privateerCareer follow.
+  state.directorSeason = {
+    tour_de_france: { stageIndex:0, strategyChoice:null, resolveAt:null, stageResults:[] },
+    giro_d_italia:  { stageIndex:0, strategyChoice:null, resolveAt:null, stageResults:[] },
+    vuelta_espana:  { stageIndex:0, strategyChoice:null, resolveAt:null, stageResults:[] },
+  };
+  // fix321 — Squad Form is squad-wide and season-scoped (decision 4/5): reset
+  // to baseline at the same boundary directorSeason just cleared at above.
+  state.directorForm = 70;
   saveGame();
 
   const msg = forfeitedIds.length>0
@@ -21425,7 +21938,234 @@ function startCalendarEvent(eventId){
   renderActiveRaceBlock();
 }
 
-// Scores a single Grand Tour stage using the STAGE's own weights and weight-
+// fix319 — mirrors simulateCalendarEventResult() exactly in shape (see that
+// function's comment for the pattern this follows): one fixed elite AI band
+// per rung, position from beaten-count, prize off rung.prizes run through the
+// same prestigeMult/legacyPrizeMult/diffMod formula simulateRaceResult()
+// uses. The two differences: PRIVATEER_TERRAIN.weights replaces rt.weights
+// (decision #2 — the only thing that's supposed to change), and
+// getGravelEquipmentBonus() replaces getEquipmentBonusForRace(). No
+// specialisation multiplier branch — see the changelog header.
+function simulatePrivateerRaceResult(rungId){
+  const rung=PRIVATEER_LADDER.find(r=>r.id===rungId); if(!rung) return null;
+  const w=PRIVATEER_TERRAIN.weights;
+  const rs=getRiderStats();
+  const normVO2=Math.max(0,(rs.vo2max-30)/55*100);
+  const normSprint=Math.max(0,(rs.sprintPower-300)/1700*100);
+  const playerBase=w.ftp*rs.ftp+w.vo2*normVO2+w.sprint*normSprint;
+  const vo2Mult=1+state.attributes.vo2.level*0.04;
+  const equipBonus=getGravelEquipmentBonus();
+  const variance=Math.max(10,playerBase*0.12);
+  let playerScore=playerBase*vo2Mult+equipBonus+(Math.random()-0.5)*variance*2;
+  playerScore*=(1+(D.raceDayPct||0));
+  const [ftpMin,ftpMax]=rung.aiFtpBand;
+  let beaten=0;
+  for(let i=0;i<rung.fieldSize-1;i++){
+    const aiFTP=ftpMin+Math.random()*(ftpMax-ftpMin);
+    const aiVO2=30+(aiFTP-50)/500*55, aiSprint=300+(aiFTP-50)/500*1700;
+    const aiBase=w.ftp*aiFTP+w.vo2*Math.max(0,(aiVO2-30)/55*100)+w.sprint*Math.max(0,(aiSprint-300)/1700*100);
+    const aiScore=aiBase+(Math.random()-0.5)*Math.max(10,aiBase*0.12)*2;
+    if(aiScore>playerScore) beaten++;
+  }
+  const position=beaten+1;
+  const prize=Math.round((rung.prizes[Math.min(position-1,rung.prizes.length-1)]||0)*state.prestigeMult*(D.legacyPrizeMult??1)*diffMod('prizeMult'));
+  return {position, fieldSize:rung.fieldSize, prize, equipBonus};
+}
+
+// fix319 — pure-ish gate function, mirrors checkLegacyForkEligibility()'s
+// shape: called from the one site a Privateer result is computed
+// (enterPrivateerRace, immediately after simulatePrivateerRaceResult), never
+// polled. Placement-only threshold (decision #4, tightened per rung — see
+// PRIVATEER_LADDER) — writes the placement, and on a first-ever pass this
+// season flips passedKey and, for rungs with a careerKey, increments the
+// matching permanent privateerCareer counter. Returns whether THIS call
+// passed the rung, so the caller can toast without re-deriving it.
+function checkPrivateerLadderAdvance(rung, position){
+  state.privateerSeason[rung.placementKey]=position;
+  const passed = position<=rung.threshold;
+  if(passed && !state.privateerSeason[rung.passedKey]){
+    state.privateerSeason[rung.passedKey]=true;
+    if(rung.careerKey) state.privateerCareer[rung.careerKey]=(state.privateerCareer[rung.careerKey]||0)+1;
+  }
+  return passed;
+}
+
+// fix319 — THE single entry funnel for Privateer racing. Deliberately NOT
+// startRace()/startCalendarEvent()-shaped: this resolves on one tap rather
+// than opening the interactive stage/decision overlay — see the changelog
+// header for why completeRace() and the stage engine are untouched. Entry
+// cooldown reuses the existing state.raceCooldowns map under a
+// 'priv_'-prefixed key, so no new state field is needed for it and it is
+// already covered by the existing raceCooldowns save/load lines.
+function enterPrivateerRace(rungId){
+  if(state.raceActive||state.session.active) return;
+  if(state.legacyPath!=='privateer') return;
+  const rung=PRIVATEER_LADDER.find(r=>r.id===rungId); if(!rung) return;
+  if(rung.prereqKey && !state.privateerSeason[rung.prereqKey]){ showToast(`${icn('lock')} Clear the rung above first`); return; }
+  if(state.privateerSeason[rung.passedKey]){ showToast(`${icn('check')} Already secured this season`); return; }
+  const cdKey='priv_'+rungId;
+  if(state.raceCooldowns[cdKey] && Date.now()<state.raceCooldowns[cdKey]){ showToast(`${icn('bolt')} Not ready yet — still recovering`); return; }
+  if(state.energy<rung.energyCost){ showToast(`${icn('bolt')} Need ${rung.energyCost} energy`); return; }
+  if(state.money<rung.entryFee){ showToast(`${icn('lock')} Need ${fmtMoney(rung.entryFee)} entry fee`); return; }
+  state.energy=Math.max(0,state.energy-rung.energyCost);
+  state.energySpentToday=(state.energySpentToday||0)+rung.energyCost;
+  state.money-=rung.entryFee;
+  state.raceCooldowns[cdKey]=Date.now()+rung.cooldownMs;
+  const result=simulatePrivateerRaceResult(rungId);
+  const passed=checkPrivateerLadderAdvance(rung, result.position);
+  if(result.prize>0) earnMoney(result.prize);
+  state.totalRaces++;
+  incrementSponsorProgress('prize_money', result.prize);
+  incrementSponsorProgress('enter_races',1);
+  markTaskProgress('enter_race');
+  if(result.position<=3){ state.totalPodiums++; markTaskProgress('podium_race'); incrementSponsorProgress('podiums',1); }
+  if(result.position===1) markTaskProgress('win_race');
+  saveGame(); updateUI();
+  const passMsg = passed ? ` — ${icn('check')} advanced!` : '';
+  showToast(`${icn(rung.icon)} ${rung.name}: ${ordinal(result.position)} of ${result.fieldSize}${passMsg}`);
+  if(currentTab==='race') renderPrivateerLadder();
+}
+
+// ─── DIRECTEUR SPORTIF — RACE DAY AUTO-RESOLVE (fix320) ─────────────────
+// fix320 — raceTypeId is derived from the STAGE's own terrain string purely to
+// pick which EQUIP_WEIGHTS/getEquipmentBonusForRace table to read (equipment
+// buffs read decision). It has nothing to do with SCORING — the score weights
+// always come from DIRECTOR_STRATEGIES, never from RACE_TYPES, per decision #4.
+function directorStageRaceTypeId(stage){
+  if(/Time Trial/i.test(stage.terrain)) return 'tt';
+  if(/Mountain/i.test(stage.terrain)) return 'hill';
+  return 'road';
+}
+// fix320 — mirrors simulatePrivateerRaceResult()'s exact shape: base weights →
+// variance → AI-field beaten-count → position → prize off the STAGE's own
+// prizes[] table, through the SAME prestigeMult/legacyPrizeMult/diffMod
+// formula every other race path uses. Squad-strength proxy is getRiderStats()
+// (design decision #6 — "legacy roster strength", no new roster data
+// structure). AI field mirrors the tour's own CALENDAR_EVENTS fieldSize and
+// the Pro category's own ftpMin/ftpMax band (RACE_CATEGORIES) — Director
+// players already conquered the pro peloton to reach the fork, so the squad
+// races other pro-level outfits, not a bespoke elite band invented for this.
+function simulateDirectorStageResult(tourId, stageIndex, strategyId){
+  const stages=GRAND_TOUR_STAGES[tourId]||[]; const stage=stages[stageIndex]; if(!stage) return null;
+  const strat=DIRECTOR_STRATEGIES[strategyId]; if(!strat) return null;
+  const w=strat.weights;
+  const rs=getRiderStats();
+  const normVO2=Math.max(0,(rs.vo2max-30)/55*100);
+  const normSprint=Math.max(0,(rs.sprintPower-300)/1700*100);
+  const playerBase=w.ftp*rs.ftp+w.vo2*normVO2+w.sprint*normSprint;
+  const vo2Mult=1+state.attributes.vo2.level*0.04;
+  // fix321 — Squad Form reads (plan decision 1: "both" a score multiplier AND
+  // a variance-tightening factor). Stacks multiplicatively with the existing
+  // vo2Mult/strat.varianceMult numbers — this function's signature, AI-field
+  // loop, and prize formula are all untouched. PROVISIONAL curves confirmed
+  // "use as-is" by MSK.
+  const formMult=0.85+((state.directorForm??70)/100)*0.3;
+  const formVarianceMult=1.3-((state.directorForm??70)/100)*0.6;
+  const raceTypeId=directorStageRaceTypeId(stage);
+  const equipBonus=getEquipmentBonusForRace(raceTypeId);
+  const variance=Math.max(10,playerBase*0.12)*strat.varianceMult*formVarianceMult;
+  let playerScore=playerBase*vo2Mult*formMult+equipBonus+(Math.random()-0.5)*variance*2;
+  playerScore*=(1+(D.raceDayPct||0));
+  const proCat=RACE_CATEGORIES.find(c=>c.id==='pro');
+  const [ftpMin,ftpMax]=proCat?[proCat.ftpMin,proCat.ftpMax]:[430,550];
+  const ev=CALENDAR_EVENTS.find(e=>e.id===tourId);
+  const fieldSize=ev?ev.fieldSize:140;
+  let beaten=0;
+  for(let i=0;i<fieldSize-1;i++){
+    const aiFTP=ftpMin+Math.random()*(ftpMax-ftpMin);
+    const aiVO2=30+(aiFTP-50)/500*55, aiSprint=300+(aiFTP-50)/500*1700;
+    const aiBase=w.ftp*aiFTP+w.vo2*Math.max(0,(aiVO2-30)/55*100)+w.sprint*Math.max(0,(aiSprint-300)/1700*100);
+    const aiScore=aiBase+(Math.random()-0.5)*Math.max(10,aiBase*0.12)*2;
+    if(aiScore>playerScore) beaten++;
+  }
+  const position=beaten+1;
+  const prize=Math.round((stage.prizes[Math.min(position-1,stage.prizes.length-1)]||0)*state.prestigeMult*(D.legacyPrizeMult??1)*diffMod('prizeMult'));
+  return {position, fieldSize, prize, equipBonus};
+}
+
+// fix320 — THE single-funnel mutation point for committing a Strategy Slider
+// choice and spending its VP cost (plan: "Strategy cost… spent via the
+// existing useConsumable()/VP funnel" — spendVP() IS that funnel; useConsumable()
+// is the item-inventory funnel and does not apply here). Idempotent no-op if
+// the tour's current stage is already armed (resolveAt set) or the tour has
+// already run out its stages this season (stageIndex >= stages.length).
+function armDirectorStrategy(tourId, strategyId){
+  if(state.legacyPath!=='director') return;
+  const stages=GRAND_TOUR_STAGES[tourId]; if(!stages) return;
+  const strat=DIRECTOR_STRATEGIES[strategyId]; if(!strat) return;
+  const ds=state.directorSeason[tourId]; if(!ds) return;
+  if(ds.stageIndex>=stages.length){ showToast(`${icn('check')} This tour is done for the season`); return; }
+  if(ds.resolveAt){ showToast(`${icn('lock')} Already armed — awaiting result`); return; }
+  const cost=DIRECTOR_STAGE_VP_COST[tourId]||10;
+  if(!spendVP(cost, 'director_stage_entry:'+tourId)){ showToast(`${icn('lock')} Need ${cost} VP`); return; }
+  ds.strategyChoice=strategyId;
+  ds.resolveAt=Date.now()+DIRECTOR_RESOLVE_MS;
+  saveGame(); updateUI();
+  showToast(`${icn(strat.icon)} ${strat.name} armed — resolving shortly`);
+  if(currentTab==='race') renderDirectorCalendar();
+}
+
+// fix320 — called from checkDailyReset(), alongside checkCalendarSeasonReset()
+// (plan decision #3: "existing cadence, existing tick" — no new setInterval,
+// no new parallel tick). Fires once per stage whose resolveAt has passed;
+// computes placement via simulateDirectorStageResult(), awards prize via
+// earnMoney() (same funnel/formula as every other race path), advances
+// stageIndex, and on a tour's final stage rolls directorCareer.toursDirected/
+// gcPodiumsAsDirector — tourGcPoints is derived from stageResults+the stage's
+// own gcPoints table at completion time rather than a running counter, so the
+// schema stays exactly what the plan specifies (no extra field invented).
+function checkDirectorStageResolve(){
+  if(state.legacyPath!=='director') return;
+  Object.keys(state.directorSeason).forEach(tourId=>{
+    const ds=state.directorSeason[tourId];
+    const stages=GRAND_TOUR_STAGES[tourId]||[];
+    if(!ds || !ds.resolveAt || Date.now()<ds.resolveAt) return;
+    const stage=stages[ds.stageIndex];
+    const stratId=ds.strategyChoice;
+    const result=simulateDirectorStageResult(tourId, ds.stageIndex, ds.strategyChoice);
+    ds.resolveAt=null; ds.strategyChoice=null;
+    if(!result || !stage){ saveGame(); return; }
+    ds.stageResults.push({stageIndex:ds.stageIndex, stageName:stage.name, position:result.position, prize:result.prize});
+    if(result.prize>0) earnMoney(result.prize);
+    // fix321 — Squad Form debit + result delta, same single write site as
+    // every other directorSeason/directorCareer mutation in this function
+    // (plan decision 2: "both applied in the same single write site"). Fatigue
+    // debit is tiered by strategy (DIRECTOR_STRATEGIES[*].formCost); result
+    // delta is sized by how the stage placed relative to the field. Net change
+    // = delta − debit, then clamp to [20,100] — same "always clamp at the
+    // write site" discipline state.energy already follows. Marks today as a
+    // stage-resolved day so checkDailyReset()'s rest-day regen doesn't also fire.
+    const stratForForm=DIRECTOR_STRATEGIES[stratId];
+    const formCost=stratForForm?stratForForm.formCost:0;
+    let resultDelta=0;
+    if(result.position<=3) resultDelta=10;
+    else if(result.position<=Math.ceil(result.fieldSize*0.10)) resultDelta=4;
+    else if(result.position>=Math.floor(result.fieldSize*0.75)) resultDelta=-6;
+    state.directorForm=Math.max(20, Math.min(100, (state.directorForm??70)+resultDelta-formCost));
+    state.directorStageResolvedToday=true;
+    ds.stageIndex++;
+    let tourDone=false;
+    if(ds.stageIndex>=stages.length){
+      tourDone=true;
+      state.directorCareer.toursDirected=(state.directorCareer.toursDirected||0)+1;
+      const tourGcPoints=ds.stageResults.reduce((sum,r)=>{
+        const st=stages[r.stageIndex];
+        const table=(st&&Array.isArray(st.gcPoints))?st.gcPoints:[];
+        return sum+(table[Math.min(r.position-1,table.length-1)]||0);
+      },0);
+      const tier=GC_TIERS.find(t=>tourGcPoints>=t.minPoints)||GC_TIERS[GC_TIERS.length-1];
+      const tierIdx=GC_TIERS.indexOf(tier);
+      // GC Podium or better — GC_TIERS is ordered best-first, so tierIdx 0 is
+      // Champion and 1 is Podium, the SAME tierIdx<=1 test completeRace()'s
+      // gcPodiums counter already uses.
+      if(tierIdx<=1) state.directorCareer.gcPodiumsAsDirector=(state.directorCareer.gcPodiumsAsDirector||0)+1;
+    }
+    saveGame(); updateUI();
+    const tourName=(CALENDAR_EVENTS.find(e=>e.id===tourId)||{}).name||tourId;
+    showToast(`${icn(stage.icon)} ${tourName} — ${stage.name}: ${ordinal(result.position)} of ${result.fieldSize}${tourDone?` — tour complete!`:''}`);
+    if(currentTab==='race') renderDirectorCalendar();
+  });
+}
 // sensitivity (deliberately separate from the 4 category RACE_TYPES, so a
 // real high-mountain stage can be more extreme than a regular Hill Climb).
 // Specialisation bonuses are matched by stage TERRAIN SHAPE rather than a
@@ -21812,6 +22552,58 @@ function equipPartColor(part,id){
 // onclick handlers keep working untouched.
 function equipKitColor(id){ equipPartColor('kit',id); }
 
+// fix319 — THE single mutation funnel for gravel gear, one buy/equip pair
+// per slot, mirroring buyBike/equipBike, buyWheels/equipWheels and
+// buyKit/equipKit exactly (no prestige lock check — see the GRAVEL_BIKES
+// comment for why one isn't needed here). renderPrivateerLadder() is the
+// only render call site since gravel gear cards live in that one panel, not
+// the Gear tab's medallion hub — see the changelog header for why.
+function buyGravelBike(id){
+  const b=GRAVEL_BIKES.find(x=>x.id===id); if(!b||state.gravelGear.ownedBikes.has(id)) return;
+  if(state.money<b.price) return;
+  state.money-=b.price; state.gravelGear.ownedBikes.add(id);
+  equipGravelBike(id); saveGame(); updateUI();
+  showToast(`${icn('bike-photo')} ${b.name} — ready to race gravel!`);
+}
+function equipGravelBike(id){
+  if(!state.gravelGear.ownedBikes.has(id)) return;
+  state.gravelGear.equippedBike=id; saveGame();
+  if(currentTab==='race') renderPrivateerLadder();
+}
+function buyGravelWheels(id){
+  const w=GRAVEL_WHEELS.find(x=>x.id===id); if(!w||state.gravelGear.ownedWheels.has(id)) return;
+  if(state.money<w.price) return;
+  state.money-=w.price; state.gravelGear.ownedWheels.add(id);
+  equipGravelWheels(id); saveGame(); updateUI();
+  showToast(`${icn('circle-blue')} ${w.name} — fitted and ready!`);
+}
+function equipGravelWheels(id){
+  if(!state.gravelGear.ownedWheels.has(id)) return;
+  state.gravelGear.equippedWheels=id; saveGame();
+  if(currentTab==='race') renderPrivateerLadder();
+}
+function buyGravelTyres(id){
+  const t=GRAVEL_TYRES.find(x=>x.id===id); if(!t||state.gravelGear.ownedTyres.has(id)) return;
+  if(state.money<t.price) return;
+  state.money-=t.price; state.gravelGear.ownedTyres.add(id);
+  equipGravelTyres(id); saveGame(); updateUI();
+  showToast(`${icn('wrench')} ${t.name} — fitted and ready!`);
+}
+function equipGravelTyres(id){
+  if(!state.gravelGear.ownedTyres.has(id)) return;
+  state.gravelGear.equippedTyres=id; saveGame();
+  if(currentTab==='race') renderPrivateerLadder();
+}
+// The single flat additive equipment bonus every gravel result reads —
+// mirrors getEquipmentBonusForRace()'s role but with the single-stat model
+// GRAVEL_BIKES/WHEELS/TYRES use instead of the aero/climb split.
+function getGravelEquipmentBonus(){
+  const bike  =GRAVEL_BIKES.find(b=>b.id===state.gravelGear.equippedBike)    ||GRAVEL_BIKES[0];
+  const wheels=GRAVEL_WHEELS.find(w=>w.id===state.gravelGear.equippedWheels)||GRAVEL_WHEELS[0];
+  const tyres =GRAVEL_TYRES.find(t=>t.id===state.gravelGear.equippedTyres)  ||GRAVEL_TYRES[0];
+  return (bike.gravelWatts||0)+(wheels.gravelWatts||0)+(tyres.gravelWatts||0);
+}
+
 // fix293 (7): the locked-swatch explainer. READ-ONLY — it writes nothing, it
 // equips nothing, and it is the only handler a locked swatch can reach. Sited
 // directly beneath equipPartColor() so the two halves of the lockout are read
@@ -22137,6 +22929,25 @@ function handlePrestige(){
   // DELIBERATELY absent from this reset list — they are career totals, same
   // as raceWinsByType and totalRaces. Do not "tidy" them in.
   state.seasonAchievements = { gtWon:new Set(), nationalsWon:false };
+  // fix319 — same reset as checkCalendarSeasonReset() above; privateerCareer
+  // is deliberately absent from this list, same rule as relics/VP/earlyOrders
+  // documented in this function's header comment.
+  state.privateerSeason = {
+    qualifierPlacement:null, qualifierPassed:false,
+    nationalsPlacement:null, nationalsPassed:false,
+    worldsPlacement:null,    worldsPassed:false,
+    lifetimeGpPlacement:null,lifetimeGpWon:false,
+  };
+  // fix320 — same reset as checkCalendarSeasonReset() above; directorCareer
+  // is deliberately absent from this list, same rule as privateerCareer/
+  // relics/VP/earlyOrders documented in this function's header comment.
+  state.directorSeason = {
+    tour_de_france: { stageIndex:0, strategyChoice:null, resolveAt:null, stageResults:[] },
+    giro_d_italia:  { stageIndex:0, strategyChoice:null, resolveAt:null, stageResults:[] },
+    vuelta_espana:  { stageIndex:0, strategyChoice:null, resolveAt:null, stageResults:[] },
+  };
+  // fix321 — Squad Form, same reset boundary as directorSeason just above (decision 5).
+  state.directorForm = 70;
   state.prestigeMult=next; state.maxEnergy=newMax; state.energy=newMax;
   state.todayEnergyAllocation=newMax; // fresh season starts at full allocation, no fatigue carried over
   // FTP reset: zero every attribute back to its starting level/xp. Bikes, wheels,
@@ -28167,7 +28978,21 @@ function renderWeatherBanner(){
 // early return (the fix17 hard-lock bug) is upstream of this and is untouched.
 // Cheap when nothing changed: the signature guard inside renderHubBanner() means
 // a tick where money, FTP and floored energy are all unchanged does no DOM work.
-function renderRaceTab(){ renderWeatherBanner(); renderRivalCard(); renderRaceSetupCard(); renderCategoryCard(); renderCategoryProgress(); /* fix234 */ renderSeriesCard(); renderActiveRaceBlock(); renderRaceResultBlock(); renderRaceEntry(); /* fix160 */ renderClubRaces(); renderRaceTypes(); renderRaceHistory(); renderHubBanner('race'); }
+// fix319 — branches on legacyPath, per the plan. tab.classList.toggle is
+// idempotent so calling this every tick/render costs nothing extra; it's
+// the single site that flips #tab-race between the painted road-race hub
+// and the plain Privateer ladder panel (see the CSS toggle rule and the
+// changelog header for why no new painted art was needed for this).
+function renderRaceTab(){
+  const tab=document.getElementById('tab-race');
+  if(tab) tab.classList.toggle('privateer-active', state.legacyPath==='privateer');
+  // fix320 — same idempotent toggle pattern fix319 established for Privateer;
+  // the single site that flips #tab-race between the painted road-race hub
+  // and the plain Director calendar panel.
+  if(tab) tab.classList.toggle('director-active', state.legacyPath==='director');
+  if(state.legacyPath==='privateer'){ renderPrivateerLadder(); renderHubBanner('race'); return; }
+  if(state.legacyPath==='director'){ renderDirectorCalendar(); renderHubBanner('race'); return; }
+  renderWeatherBanner(); renderRivalCard(); renderRaceSetupCard(); renderCategoryCard(); renderCategoryProgress(); /* fix234 */ renderSeriesCard(); renderActiveRaceBlock(); renderRaceResultBlock(); renderRaceEntry(); /* fix160 */ renderClubRaces(); renderRaceTypes(); renderRaceHistory(); renderHubBanner('race'); }
 
 function renderRivalCard(){
   const wrap=document.getElementById('rival-wrap');
@@ -30856,7 +31681,7 @@ function renderRiderSection(){
   });
   if(riderSection==='form'){ renderRiderStats(); renderAttrCards(); }
   if(riderSection==='power'){ renderFtpChart(); }
-  if(riderSection==='path'){ renderSpecialisation(); renderPrestige(); }
+  if(riderSection==='path'){ renderSpecialisation(); renderPrestige(); renderLegacyFork(); }
   if(riderSection==='career'){ renderStats(); renderRelicShelf(); }
   // 'save' is static markup — nothing to render.
 }
@@ -31364,6 +32189,255 @@ function renderPrestige(){
          first deciding what a mid-season change does to a part-filled XP bar. -->
     <div class="prestige-info" style="margin-top:.5rem">${icn(difficultyDef().icon)} Difficulty: <strong>${difficultyDef().name}</strong> — choose again at the start of each new season.</div>
   </div>`;
+}
+
+// fix318: Prestige Fork offer card. Three render states, checked in order:
+//   1. legacyPath set          -> "path chosen" placeholder (Coming soon)
+//   2. legacyForkAvailable     -> the two-tap choice offer
+//   3. neither                 -> area left empty (see the HTML comment above
+//                                  #legacy-fork-area for why nothing renders)
+// Reuses .prestige-card/.prestige-btn/.prestige-btn-confirm/.prestige-info
+// verbatim — no new CSS added. This card's body is explicitly NOT the bespoke
+// ceremony from design decision #3; see chooseLegacyPath()'s comment.
+function renderLegacyFork(){
+  const area=document.getElementById('legacy-fork-area'); if(!area) return;
+  if(state.legacyPath){
+    const isPriv=state.legacyPath==='privateer';
+    // fix319: Privateer copy updated now that the path has real content — was
+    // "Coming soon" for both paths since fix318.
+    // fix320: Director copy updated the same way, now that Race Day
+    // Auto-Resolve has landed.
+    const body = isPriv
+      ? `You committed to this path in Season ${state.legacyForkSeason??'?'}. The road GT calendar has stopped for good — head to the Race tab for the Privateer Ladder.`
+      : `You committed to this path in Season ${state.legacyForkSeason??'?'}. You no longer race personally — head to the Race tab to arm a Strategy Slider and let your squad ride the Grand Tours for you.`;
+    area.innerHTML=`<div class="prestige-card">
+      <div class="prestige-info" style="color:var(--amber-txt);font-weight:700;margin-bottom:4px">${icn(isPriv?'mountain-bike':'handshake')} ${isPriv?'The Privateer':'The Directeur Sportif'}</div>
+      <div class="prestige-info">${body}</div>
+    </div>`;
+    return;
+  }
+  if(!state.legacyForkAvailable){ area.innerHTML=''; return; }
+  const btn=(path,label,icon)=>legacyForkConfirmPending===path
+    ? `<button class="prestige-btn prestige-btn-confirm" onclick="chooseLegacyPath('${path}')">⚠️ Confirm — this cannot be undone · tap again</button>`
+    : `<button class="prestige-btn" onclick="chooseLegacyPath('${path}')">${icn(icon)} ${label}</button>`;
+  area.innerHTML=`<div class="prestige-card">
+    <div class="prestige-info" style="color:var(--amber-txt);font-weight:700;margin-bottom:4px">${icn('ribbon')} Legacy unlocked — Season ${state.legacyForkSeason??state.season}</div>
+    <div class="prestige-info" style="margin-bottom:8px">You've won all three Grand Tours in one season. Choose how the rest of your career plays out — this is permanent, and nothing you've earned is taken away.</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${btn('privateer','Go Privateer','mountain-bike')}
+      ${btn('director','Become Directeur Sportif','handshake')}
+    </div>
+  </div>`;
+}
+
+// Mirrors handlePrestige()'s two-tap shape exactly (prestigeConfirmPending /
+// prestigeConfirmTimer above), one pending PATH instead of one boolean so the
+// two buttons arm independently — tapping Privateer must not leave Director
+// armed. Guarded on legacyPath already set (stray double-dispatch is a no-op)
+// and on legacyForkAvailable (defensive — the button should not exist
+// otherwise). Sets state.legacyPath exactly once, ever: append-only, never
+// mutated again after this call, per the schema comment above.
+function chooseLegacyPath(path){
+  if(state.legacyPath) return;
+  if(!state.legacyForkAvailable) return;
+  if(legacyForkConfirmPending!==path){
+    legacyForkConfirmPending=path;
+    clearTimeout(legacyForkConfirmTimer);
+    legacyForkConfirmTimer=setTimeout(()=>{
+      legacyForkConfirmPending=null;
+      if(currentTab==='rider') renderLegacyFork();
+    }, 4000);
+    if(currentTab==='rider') renderLegacyFork();
+    return;
+  }
+  clearTimeout(legacyForkConfirmTimer);
+  legacyForkConfirmPending=null;
+  state.legacyPath=path;
+  saveGame();
+  showToast(`${icn(path==='privateer'?'mountain-bike':'handshake')} You are now on the ${path==='privateer'?'Privateer':'Directeur Sportif'} path.`);
+  if(currentTab==='rider') renderLegacyFork();
+}
+
+// fix319 — lightweight equip-card builder for gravel gear: same CSS classes
+// as buildEquipCard() (equip-card/equip-head/equip-model/equip-desc/
+// equip-badges/tier-badge/equip-action-col/equip-btn/equip-price — all
+// pre-existing, no new CSS), but a single stat bar instead of aero/climb,
+// since gravel gear has one combined stat (gravelWatts). Kept separate from
+// buildEquipCard() rather than extending its signature, so the three
+// already-correct road-gear call sites are not touched by this. Returns an
+// HTML string (not a DOM node) since renderPrivateerLadder() assembles one
+// big innerHTML string rather than appending nodes one at a time.
+function buildGravelEquipCardHtml(item, owned, equipped, buyFn, equipFn){
+  const tierCls='tier-'+item.tier, tierLabel=['','I','II','III','IV','V'][item.tier]||'';
+  const priceStr=item.price===0?'Free':fmtMoney(item.price);
+  const pct=Math.max(0,Math.min(100,Math.round((item.gravelWatts/GRAVEL_GEAR_MAX_STAT)*100)));
+  const statBar=`<div class="stat-bar-row"><span class="stat-bar-lbl">Power</span><div class="stat-bar-outer"><div class="stat-bar-inner" style="width:${pct}%;background:var(--blue-txt)"></div></div><span class="stat-bar-val" style="color:var(--blue-txt)">${item.gravelWatts>0?'+':''}${item.gravelWatts}w</span></div>`;
+  let actionHtml;
+  if(equipped) actionHtml=`<div class="equip-price owned">${priceStr}</div><button class="equip-btn btn-equipped">${icn('check')} Equipped</button>`;
+  else if(owned) actionHtml=`<div class="equip-price owned">Owned</div><button class="equip-btn btn-equip" onclick="${equipFn}('${item.id}')">Equip</button>`;
+  else if(item.price<=state.money) actionHtml=`<div class="equip-price affordable">${priceStr}</div><button class="equip-btn btn-buy" onclick="${buyFn}('${item.id}')">Buy</button>`;
+  else actionHtml=`<div class="equip-price">${priceStr}</div><button class="equip-btn btn-locked">${icn('lock')} Buy</button>`;
+  return `<div class="equip-card${equipped?' equipped':owned?' owned':item.price<=state.money?' affordable':' cant-afford'}">
+    <div class="equip-head">
+      <div class="equip-main">
+        <div class="equip-model">${item.name}</div>
+        <div class="equip-desc">${item.desc}</div>
+        <div class="equip-badges"><span class="tier-badge ${tierCls}">Tier ${tierLabel}</span></div>
+        <div class="stat-bars">${statBar}</div>
+      </div>
+      <div class="equip-action-col">${actionHtml}</div>
+    </div>
+  </div>`;
+}
+function buildGravelGearSectionHtml(){
+  const bikesHtml=GRAVEL_BIKES.map(b=>buildGravelEquipCardHtml(b, state.gravelGear.ownedBikes.has(b.id), state.gravelGear.equippedBike===b.id, 'buyGravelBike','equipGravelBike')).join('');
+  const wheelsHtml=GRAVEL_WHEELS.map(w=>buildGravelEquipCardHtml(w, state.gravelGear.ownedWheels.has(w.id), state.gravelGear.equippedWheels===w.id, 'buyGravelWheels','equipGravelWheels')).join('');
+  const tyresHtml=GRAVEL_TYRES.map(t=>buildGravelEquipCardHtml(t, state.gravelGear.ownedTyres.has(t.id), state.gravelGear.equippedTyres===t.id, 'buyGravelTyres','equipGravelTyres')).join('');
+  return `<div class="section-lbl" style="margin-top:.4rem">Bikes</div>${bikesHtml}
+    <div class="section-lbl" style="margin-top:.4rem">Wheels</div>${wheelsHtml}
+    <div class="section-lbl" style="margin-top:.4rem">Tyres</div>${tyresHtml}`;
+}
+
+// fix319 — Privateer path (CIM-plan-fix319-privateer-v1.md). Renders BOTH
+// the four-rung ladder and the gravel gear equip cards into one panel — see
+// the changelog header for why this lives outside the Gear tab's five-
+// medallion hub. Pure render — writes no state, same discipline as every
+// other render* function in the file (fix17 tick contract).
+function renderPrivateerLadder(){
+  const wrap=document.getElementById('privateer-ladder-wrap'); if(!wrap) return;
+  const ps=state.privateerSeason, pc=state.privateerCareer;
+  const rungHtml = PRIVATEER_LADDER.map(rung=>{
+    const locked = rung.prereqKey && !ps[rung.prereqKey];
+    const passed = ps[rung.passedKey];
+    const placement = ps[rung.placementKey];
+    const cdKey='priv_'+rung.id;
+    const onCooldown = state.raceCooldowns[cdKey] && Date.now()<state.raceCooldowns[cdKey];
+    const statusHtml = passed
+      ? `<div class="equip-price owned">${icn('check')} Secured — ${ordinal(placement)}</div>`
+      : locked
+        ? `<div class="equip-price">${icn('lock')} Clear the rung above first</div>`
+        : `<div class="equip-price">Best this season: ${placement?ordinal(placement):'—'} &middot; need top ${rung.threshold}</div>`;
+    const btnHtml = locked
+      ? `<button class="equip-btn btn-locked">${icn('lock')} Locked</button>`
+      : passed
+        ? `<button class="equip-btn btn-equipped">${icn('check')} Secured</button>`
+        : onCooldown
+          ? `<button class="equip-btn btn-locked">${icn('bolt')} Recovering</button>`
+          : `<button class="equip-btn btn-buy" onclick="enterPrivateerRace('${rung.id}')">${icn('flag')} Enter &middot; ${fmtMoney(rung.entryFee)}</button>`;
+    return `<div class="equip-card${locked?' prestige-locked':passed?' equipped':''}">
+      <div class="equip-head">
+        <div class="equip-main">
+          <div class="equip-model">${icn(rung.icon)} ${rung.name}</div>
+          <div class="equip-desc">Top ${rung.threshold} of ${rung.fieldSize} to advance. Entry ${fmtMoney(rung.entryFee)}, ${rung.energyCost} energy.</div>
+          ${statusHtml}
+        </div>
+        <div class="equip-action-col">${btnHtml}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const careerHtml = `<div class="prestige-card">
+    <div class="prestige-info" style="color:var(--amber-txt);font-weight:700;margin-bottom:4px">${icn('trophy')} Career Privateer Record</div>
+    <div class="prestige-info">Nationals wins: ${pc.nationalsWins} &middot; Worlds wins: ${pc.worldsWins} &middot; Lifetime GP wins: ${pc.lifetimeGpWins}</div>
+  </div>`;
+
+  wrap.innerHTML = `<div class="section-lbl" style="display:flex;align-items:center;gap:6px">Privateer Ladder <button class="info-btn" onclick="openInfo('privateerLadder')">ⓘ</button></div>
+    ${careerHtml}
+    ${rungHtml}
+    <div class="section-lbl" style="margin-top:.9rem">Gravel Gear</div>
+    ${buildGravelGearSectionHtml()}`;
+}
+
+// fix320 — Director path (CIM-plan-fix320-director-v1.md). One card per
+// GT-calendar tour (the three GRAND_TOUR_STAGES keys — tour_de_suisse has no
+// stage list, see the state-schema comment for why it's out of scope). Pure
+// render — writes no state, same discipline as every other render* function
+// in the file (fix17 tick contract). No element `id` on the per-card countdown
+// span — a `.director-countdown[data-tour]` selector instead, per the fix222
+// duplicate-id lesson — patched by directorTickCountdowns() from gameTick().
+function renderDirectorCalendar(){
+  const wrap=document.getElementById('director-calendar-wrap'); if(!wrap) return;
+  const dc=state.directorCareer;
+  const toursHtml=Object.keys(state.directorSeason).map(tourId=>{
+    const stages=GRAND_TOUR_STAGES[tourId]||[];
+    const ev=CALENDAR_EVENTS.find(e=>e.id===tourId);
+    const ds=state.directorSeason[tourId];
+    const tourName=ev?ev.name:tourId;
+    const tourIcon=ev?ev.icon:'flag';
+    const done=ds.stageIndex>=stages.length;
+    const armed=!!ds.resolveAt;
+    const cost=DIRECTOR_STAGE_VP_COST[tourId]||10;
+    let bodyHtml;
+    if(done){
+      bodyHtml=`<div class="equip-price owned">${icn('check')} Season complete — ${stages.length}/${stages.length} stages raced</div>`;
+    } else {
+      const stage=stages[ds.stageIndex];
+      const stageHtml=`<div class="equip-desc">Stage ${ds.stageIndex+1}/${stages.length}: ${stage.name} — ${stage.place} (${stage.terrain})</div>`;
+      let actionHtml;
+      if(armed){
+        const secsLeft=Math.max(0,Math.ceil((ds.resolveAt-Date.now())/1000));
+        const stratName=(DIRECTOR_STRATEGIES[ds.strategyChoice]||{}).name||'Armed';
+        actionHtml=`<div class="equip-price">${icn('bolt')} ${stratName} — resolving in <span class="director-countdown" data-tour="${tourId}">${secsLeft}s</span></div>`;
+      } else {
+        actionHtml=`<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+          ${Object.values(DIRECTOR_STRATEGIES).map(s=>`<button class="equip-btn btn-buy" onclick="armDirectorStrategy('${tourId}','${s.id}')">${icn(s.icon)} ${s.name} &middot; ${cost} VP</button>`).join('')}
+        </div>`;
+      }
+      bodyHtml=stageHtml+actionHtml;
+    }
+    const historyHtml = ds.stageResults.length
+      ? `<div class="equip-desc" style="margin-top:6px">${ds.stageResults.map(r=>`${ordinal(r.position)} &middot; ${fmtMoney(r.prize)}`).join(' &nbsp;|&nbsp; ')}</div>`
+      : '';
+    return `<div class="equip-card${done?' equipped':''}">
+      <div class="equip-head">
+        <div class="equip-main">
+          <div class="equip-model">${icn(tourIcon)} ${tourName}</div>
+          ${bodyHtml}
+          ${historyHtml}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const careerHtml = `<div class="prestige-card">
+    <div class="prestige-info" style="color:var(--amber-txt);font-weight:700;margin-bottom:4px">${icn('trophy')} Career Directeur Record</div>
+    <div class="prestige-info">Tours directed: ${dc.toursDirected} &middot; GC podiums: ${dc.gcPodiumsAsDirector}</div>
+  </div>`;
+
+  // fix321 — Squad Form meter (CIM-plan-fix321-squad-form-v1.md). Squad-wide
+  // (decision 4), shown ONCE here above the per-tour cards, never duplicated
+  // per card. Read-only render — no state writes, same discipline as every
+  // other render* function. Reuses the existing .energy-bar-outer/-inner
+  // classes rather than inventing new CSS.
+  const form=state.directorForm??70;
+  const formPct=Math.max(0,Math.min(100,form));
+  const formCol = form>=70 ? 'var(--green-txt)' : (form>=40 ? 'var(--amber-txt)' : 'var(--red-txt)');
+  const formHtml = `<div class="prestige-card">
+    <div class="prestige-info" style="display:flex;align-items:center;gap:6px;font-weight:700;margin-bottom:4px">${icn('battery')} Squad Form — ${Math.round(form)}/100 <button class="info-btn" onclick="openInfo('squadForm')">ⓘ</button></div>
+    <div class="energy-bar-outer" style="height:8px"><div class="energy-bar-inner" style="width:${formPct}%;background:${formCol}"></div></div>
+  </div>`;
+
+  wrap.innerHTML = `<div class="section-lbl" style="display:flex;align-items:center;gap:6px">Director Calendar <button class="info-btn" onclick="openInfo('directorCalendar')">ⓘ</button></div>
+    ${formHtml}
+    ${careerHtml}
+    ${toursHtml}`;
+}
+
+// fix320 — light per-tick text patch, same "guarded textContent writes only,
+// no innerHTML" discipline as rsTickBuffPills()/the fix254 countdown pattern.
+// Self-guards on tab AND legacyPath, so this is one comparison on every other
+// tab/path and never triggers a rebuild — renderDirectorCalendar() already
+// repaints the full countdown text on any real state change (arm/resolve).
+function directorTickCountdowns(){
+  if(currentTab!=='race' || state.legacyPath!=='director') return;
+  Object.keys(state.directorSeason).forEach(tourId=>{
+    const ds=state.directorSeason[tourId];
+    if(!ds || !ds.resolveAt) return;
+    const el=document.querySelector('.director-countdown[data-tour="'+tourId+'"]');
+    if(!el) return;
+    const secsLeft=Math.max(0,Math.ceil((ds.resolveAt-Date.now())/1000));
+    el.textContent=secsLeft+'s';
+  });
 }
 
 // fix121: Grand Tour relic shelf — owned relics show icon/name/effect; unowned
@@ -35765,13 +36839,17 @@ function wsRefreshTuningCardsAfford(){
 
 // FIX 1: buildEquipCard — removed spurious third stat-bar block that caused duplicate
 // aero bars on kit items (fired when maxAero was defined AND maxClimb was undefined)
-function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,climbWatts,owned,equipped,onBuy,onEquip,maxAero,maxClimb,prestigeLocked,minPrestige,careerLocked,careerHow}){
+function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,climbWatts,owned,equipped,onBuy,onEquip,maxAero,maxClimb,prestigeLocked,minPrestige,careerLocked,careerHow,privateerLocked}){
   const div=document.createElement('div');
   // fix301: careerLocked takes the same visual slot as prestigeLocked. Ordered
   // FIRST so a price:null item never falls through to the `price<=state.money`
   // test, which reads null as 0 and would paint an unreachable frame as
   // 'affordable'.
-  div.className='equip-card'+(equipped?' equipped':'')+(careerLocked?' prestige-locked':prestigeLocked?' prestige-locked':owned?' owned':price!==null&&price<=state.money?' affordable':' cant-afford');
+  // fix319: privateerLocked is checked in the same className expression,
+  // ahead of careerLocked — road gear is retired for the whole rest of the
+  // save once a player forks to Privateer, so it outranks every other lock
+  // reason. Reuses the EXISTING 'prestige-locked' visual class, per the plan.
+  div.className='equip-card'+(equipped?' equipped':'')+(privateerLocked?' prestige-locked':careerLocked?' prestige-locked':prestigeLocked?' prestige-locked':owned?' owned':price!==null&&price<=state.money?' affordable':' cant-afford');
 
   const tierCls=`tier-${tier}`, tierLabel=['','I','II','III','IV','V'][tier];
   const typeLabels={allrounder:'All-rounder',aero:'Aero',climbing:'Climbing',tt:'Time Trial',standard:'Standard',racing:'Racing',deep:'Deep Section',disc:'Disc',road:'Road',skinsuit:'Skinsuit',lightweight:'Lightweight',endurance:'Endurance'};
@@ -35795,6 +36873,11 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
   // (removed duplicate aero block that was here — was firing on kits alongside block 1)
 
   let actionHtml='';
+  // fix319: privateerLocked is checked before EVERYTHING, including the
+  // career lock — see the className comment above for why.
+  if(privateerLocked){
+    actionHtml=`<div class="equip-price">${icn('lock')} Retired &middot; Privateer path</div><button class="equip-btn btn-locked">${icn('lock')} Locked</button>`;
+  } else
   // fix301: career lock is checked before EVERYTHING, including the prestige
   // lock. A career item is minPrestige 0 so the two can never both be true
   // today, but the ordering is what makes that safe to change later.
@@ -35835,8 +36918,14 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
   // card has no buy button to bind, and this makes sure nothing binds one even
   // if a future branch above emits it. Equip binding is unchanged and still
   // keyed on `owned`, which is exactly what the goal collect grants.
-  if(!careerLocked&&!prestigeLocked&&!owned&&price!==null&&price<=state.money) div.querySelector('[data-buy]')?.addEventListener('click', ()=>{ onBuy(); burstCard(div); });
-  if(!careerLocked&&!prestigeLocked&&owned&&!equipped)           div.querySelector('[data-equip]')?.addEventListener('click', onEquip);
+  // fix301: `price!==null` is the hard lockout at the binding layer — a career
+  // card has no buy button to bind, and this makes sure nothing binds one even
+  // if a future branch above emits it. Equip binding is unchanged and still
+  // keyed on `owned`, which is exactly what the goal collect grants.
+  // fix319: privateerLocked added to both guards, same reasoning as the
+  // className/actionHtml branches above.
+  if(!privateerLocked&&!careerLocked&&!prestigeLocked&&!owned&&price!==null&&price<=state.money) div.querySelector('[data-buy]')?.addEventListener('click', ()=>{ onBuy(); burstCard(div); });
+  if(!privateerLocked&&!careerLocked&&!prestigeLocked&&owned&&!equipped)           div.querySelector('[data-equip]')?.addEventListener('click', onEquip);
   return div;
 }
 
@@ -35996,6 +37085,7 @@ function renderBikeShop(){
       owned:state.ownedBikes.has(b.id), equipped:state.equippedBike===b.id,
       prestigeLocked:itemPrestigeLocked(b), minPrestige:b.minPrestige||0,
       careerLocked:itemCareerLocked(b), careerHow:careerHowFor(b),
+      privateerLocked: state.legacyPath==='privateer',
       onBuy:()=>buyBike(b.id),
       // FIX 6: Replaced boolean short-circuit trick with a proper if statement
       onEquip:()=>{ equipBike(b.id); renderBikeShop(); if(currentTab==='race') renderRaceSetupCard(); }
@@ -36017,6 +37107,7 @@ function renderBikeShop(){
       owned:true, equipped:state.equippedBike===b.id,
       prestigeLocked:false, minPrestige:0,
       careerLocked:false, careerHow:'',
+      privateerLocked: state.legacyPath==='privateer',
       onBuy:()=>{},
       onEquip:()=>{ equipRdBike(b.id); renderBikeShop(); if(currentTab==='race') renderRaceSetupCard(); }
     });
@@ -36039,6 +37130,7 @@ function renderBikeShop(){
       owned:state.ownedTTBikes.has(b.id), equipped:state.equippedTTBike===b.id,
       prestigeLocked:itemPrestigeLocked(b), minPrestige:b.minPrestige||0,
       careerLocked:itemCareerLocked(b), careerHow:careerHowFor(b),
+      privateerLocked: state.legacyPath==='privateer',
       onBuy:()=>buyTTBike(b.id),
       onEquip:()=>{ equipTTBike(b.id); renderBikeShop(); if(currentTab==='race') renderRaceSetupCard(); }
     });
@@ -36058,6 +37150,7 @@ function renderWheelShop(){
       owned:state.ownedWheels.has(w.id), equipped:state.equippedWheels===w.id,
       prestigeLocked:itemPrestigeLocked(w), minPrestige:w.minPrestige||0,
       careerLocked:itemCareerLocked(w), careerHow:careerHowFor(w),
+      privateerLocked: state.legacyPath==='privateer',
       onBuy:()=>buyWheels(w.id), onEquip:()=>{ equipWheels(w.id); renderWheelShop(); }
     });
     list.appendChild(card);
@@ -36157,6 +37250,7 @@ function renderKitShop(){
       owned:state.ownedKits.has(k.id), equipped:state.equippedKit===k.id,
       prestigeLocked:itemPrestigeLocked(k), minPrestige:k.minPrestige||0,
       careerLocked:itemCareerLocked(k), careerHow:careerHowFor(k),
+      privateerLocked: state.legacyPath==='privateer',
       onBuy:()=>buyKit(k.id), onEquip:()=>{ equipKit(k.id); renderKitShop(); }
     });
     list.appendChild(card);
@@ -36889,6 +37983,16 @@ let sponsorActionPending=null;  // 'terminate' | 'lateral:id' | 'sign:tierIdx:id
 let sponsorActionTimer=null;    // handle to auto-cancel sponsor pending after 4s
 let prestigeConfirmPending=false; // true while waiting for the second tap to start a new season
 let prestigeConfirmTimer=null;    // handle to auto-cancel pending confirm after 4s
+// fix318: mirrors the pair above, but holds WHICH path is pending rather than
+// a boolean — the offer has two independent buttons and arming one must not
+// leave the other armed. This is a functional stand-in for the bespoke
+// point-of-no-return ceremony the plan calls for (design decision #3),
+// deliberately reusing the same two-tap amber pattern as New Season so
+// legacyPath can actually be set and tested now; a later fix swaps
+// renderLegacyFork()'s body for the real ceremony without touching the
+// schema or gate logic in checkLegacyForkEligibility() above.
+let legacyForkConfirmPending=null; // null | 'privateer' | 'director'
+let legacyForkConfirmTimer=null;
 let restoreConfirmPending=false;  // true while waiting for the second tap to overwrite the save
 let restoreConfirmTimer=null;     // handle to auto-cancel the restore confirm after 4s
 let deleteConfirmPending=false;   // true while waiting for the second tap to wipe the save
@@ -37353,6 +38457,27 @@ function saveGame(){
         gtWon:[...state.seasonAchievements.gtWon],
         nationalsWon:!!state.seasonAchievements.nationalsWon,
       },
+      // fix318 — Prestige Fork gate, plain primitives, no Set/Map involved.
+      legacyPath:state.legacyPath,
+      legacyForkAvailable:!!state.legacyForkAvailable,
+      legacyForkSeason:state.legacyForkSeason,
+      // fix319 — Privateer path. privateerSeason/Career are plain-primitive
+      // objects (no Set/Map), written whole; gravelGear's three owned fields
+      // ARE Sets and must be spread, exactly like ownedBikes above.
+      privateerSeason: state.privateerSeason,
+      privateerCareer: state.privateerCareer,
+      // fix320 — Director path. Both plain-primitive objects (no Set/Map),
+      // written whole, same as privateerSeason/Career above.
+      directorSeason: state.directorSeason,
+      directorCareer: state.directorCareer,
+      // fix321 — Squad Form. Plain number/boolean, written whole like the two fields above.
+      directorForm: state.directorForm,
+      directorStageResolvedToday: state.directorStageResolvedToday,
+      gravelGear: {
+        ownedBikes:[...state.gravelGear.ownedBikes],     equippedBike:state.gravelGear.equippedBike,
+        ownedWheels:[...state.gravelGear.ownedWheels],   equippedWheels:state.gravelGear.equippedWheels,
+        ownedTyres:[...state.gravelGear.ownedTyres],     equippedTyres:state.gravelGear.equippedTyres,
+      },
       winsSincePrestige:state.winsSincePrestige,
       specialisation:state.specialisation,
       energyInventory:state.energyInventory,
@@ -37565,6 +38690,91 @@ function loadGame(){
         nationalsWon: _sa.nationalsWon ?? false,
       };
     }
+    // fix318 — per-sub-key guards, same tourProgress-lesson discipline as
+    // seasonAchievements just above. Plain primitives, so each guard is a
+    // simple `?? `/type coercion rather than a field-by-field rebuild —
+    // but each field is still guarded independently, on purpose: a
+    // legacyPath value should never be trusted to imply anything about
+    // legacyForkAvailable/Season, or vice versa.
+    state.legacyPath          = d.legacyPath          ?? null;
+    state.legacyForkAvailable = !!d.legacyForkAvailable;
+    state.legacyForkSeason    = d.legacyForkSeason     ?? null;
+    // fix319 — per-sub-key guards, same tourProgress-lesson discipline as
+    // seasonAchievements/legacyPath above. privateerSeason is rebuilt field
+    // by field like seasonAchievements (a future fix adding an eighth field
+    // must not silently orphan it behind a truthy top-level guard).
+    // privateerCareer is three plain counters, each its own ?? guard.
+    // gravelGear's owned fields are rebuilt as Sets (JSON round-trips them to
+    // arrays, exactly like ownedBikes) with the starter item as the
+    // pre-fix319-save fallback so an existing save never boots with an empty
+    // gravel slot.
+    {
+      const _ps = d.privateerSeason || {};
+      state.privateerSeason = {
+        qualifierPlacement: _ps.qualifierPlacement ?? null,
+        qualifierPassed:    !!_ps.qualifierPassed,
+        nationalsPlacement: _ps.nationalsPlacement ?? null,
+        nationalsPassed:    !!_ps.nationalsPassed,
+        worldsPlacement:    _ps.worldsPlacement ?? null,
+        worldsPassed:       !!_ps.worldsPassed,
+        lifetimeGpPlacement:_ps.lifetimeGpPlacement ?? null,
+        lifetimeGpWon:      !!_ps.lifetimeGpWon,
+      };
+    }
+    {
+      const _pc = d.privateerCareer || {};
+      state.privateerCareer = {
+        lifetimeGpWins: _pc.lifetimeGpWins ?? 0,
+        worldsWins:     _pc.worldsWins     ?? 0,
+        nationalsWins:  _pc.nationalsWins  ?? 0,
+      };
+    }
+    {
+      const _gg = d.gravelGear || {};
+      state.gravelGear = {
+        ownedBikes:    new Set(Array.isArray(_gg.ownedBikes)  ? _gg.ownedBikes  : ['gravel_starter']),
+        equippedBike:  _gg.equippedBike   ?? 'gravel_starter',
+        ownedWheels:   new Set(Array.isArray(_gg.ownedWheels) ? _gg.ownedWheels : ['gravel_wheels_starter']),
+        equippedWheels:_gg.equippedWheels ?? 'gravel_wheels_starter',
+        ownedTyres:    new Set(Array.isArray(_gg.ownedTyres)  ? _gg.ownedTyres  : ['gravel_tyres_starter']),
+        equippedTyres: _gg.equippedTyres  ?? 'gravel_tyres_starter',
+      };
+    }
+    // fix320 — per-sub-key guards, same tourProgress-lesson discipline as
+    // privateerSeason/Career above. directorSeason is rebuilt tour by tour and,
+    // within each tour, field by field — a save from fix319 or earlier carries
+    // no directorSeason at all, so every sub-key heals from undefined the same
+    // way a save from fix320 itself that lost a field would. stageResults is
+    // rebuilt via Array.isArray, never trusted bare, matching the raceTelemetry
+    // guard just below this block. directorCareer is two plain counters, each
+    // its own ?? guard.
+    {
+      const _dsRaw = d.directorSeason || {};
+      state.directorSeason = {};
+      ['tour_de_france','giro_d_italia','vuelta_espana'].forEach(tourId=>{
+        const _t = _dsRaw[tourId] || {};
+        state.directorSeason[tourId] = {
+          stageIndex:      _t.stageIndex      ?? 0,
+          strategyChoice:  _t.strategyChoice  ?? null,
+          resolveAt:       _t.resolveAt       ?? null,
+          stageResults:    Array.isArray(_t.stageResults) ? _t.stageResults : [],
+        };
+      });
+    }
+    {
+      const _dc = d.directorCareer || {};
+      state.directorCareer = {
+        toursDirected:       _dc.toursDirected       ?? 0,
+        gcPodiumsAsDirector: _dc.gcPodiumsAsDirector  ?? 0,
+      };
+    }
+    // fix321 — Squad Form (see CIM-plan-fix321-squad-form-v1.md). Own
+    // top-level field, own `??` guard — NOT nested under directorSeason or
+    // directorCareer, per the plan's explicit tourProgress-lesson call-out.
+    // A save from fix320 or earlier carries no directorForm at all and heals
+    // to the 70 baseline via this guard.
+    state.directorForm = d.directorForm ?? 70;
+    state.directorStageResolvedToday = d.directorStageResolvedToday ?? false;
     // fix270 (§4): per-sub-key guard, the tourProgress lesson again. This one is
     // a bare array rather than an object, so the guard is a type check and not a
     // field-by-field rebuild — but the principle is identical: never trust the
@@ -37982,6 +39192,9 @@ function gameTick(){
   // per-tick rebuild; the class work inside is behind the shown-set signature
   // and does not run on a tick where only the figure moved.
   else if(currentTab==='skills'){ rsTickBuffPills(); renderSkillsHubLocks(); } // fix174: was 'train'
+  // fix320 — same per-tick text-patch shape as rsTickBuffPills() just above;
+  // self-guards on tab AND legacyPath so this is one comparison everywhere else.
+  directorTickCountdowns();
   // Passive sponsor income. Capped at SPONSOR_OFFLINE_CAP_SEC because delta can
   // now legitimately be hours rather than 100ms.
   if(D.sponsorPerSec>0) earnMoney(D.sponsorPerSec*Math.min(delta,SPONSOR_OFFLINE_CAP_SEC));
@@ -38755,6 +39968,31 @@ const INFO_TEXTS = {
     title: 'Specialism',
     body: ()=>`Pick the kind of rider you want to be. A specialism needs certain fitness attributes at a minimum level before you can claim it, and once claimed it permanently boosts the races and training zones that suit that style.<br><br>
       Climbers own the mountains, sprinters own bunch finishes, and a rouleur is dangerous everywhere — especially against the clock. Choose the one that matches the races you actually want to win.`
+  },
+  // fix318 (Prestige Fork gate)
+  legacyFork: {
+    title: 'Legacy',
+    body: ()=>`Win all three Grand Tours as GC Champion in the same season and a new choice opens up: go it alone as a Privateer, chasing glory outside the peloton — or step off the bike and into the team car as a Directeur Sportif, building and managing a roster of your own.<br><br>
+      Nothing you've earned is ever taken away — the choice carries every stat, relic and piece of gear you've built forward with you. But it is permanent, so choose the path you actually want to live in.`
+  },
+  // fix319 — Privateer Ladder panel's ⓘ.
+  privateerLadder: {
+    title: 'Privateer Ladder',
+    body: ()=>`Four rungs, cleared in order: Qualifier (top 5), Nationals (top 3), Worlds (top 1), then the Lifetime Grand Prix (top 1). Each rung unlocks the next once you've placed inside its threshold.<br><br>
+      Nationals, Worlds and the Lifetime GP each carry their own permanent career counter — every win adds to it for good, even though your season placement resets every season so you can chase it again.<br><br>
+      Gravel racing runs on its own gear: bikes, wheels and tyres bought and equipped right here, separate from your road bike setup. Road gear is retired now that you've gone Privateer — you won't need it again.`
+  },
+  // fix320 — Director Calendar panel's ⓘ.
+  directorCalendar: {
+    title: 'Director Calendar',
+    body: ()=>`You no longer race personally — arm a Strategy Slider for each Grand Tour stage and your squad rides it for you. Protect the GC plays it safe, Send the Breakaway swings for the fences, Sprint Train sets up the bunch kick.<br><br>
+      Each stage entry costs VP and takes a little while to resolve — check back for the result. Your road gear still counts: the squad reads the exact same bike, wheel and kit bonuses your personal rider card shows.`
+  },
+  squadForm: {
+    title: 'Squad Form',
+    body: ()=>`One meter for the whole squad, shared across all three Grand Tours — racing the Giro while still tired from the Tour is the point. Higher Form means better expected placements AND more consistent results; low Form means worse AND swingier.<br><br>
+      Every stage costs Form to run — Send the Breakaway costs the most, Protect the GC the least — but a strong placement claws it back, and a great one can push Form higher than where it started. A bad result compounds the fatigue.<br><br>
+      Rest days help: if your squad doesn't race a stage on a given day, Form drifts back toward its 70 baseline. It can't drop below 20 — a tired squad can still start a stage, just not usefully — and resets to 70 at the start of each new season.`
   },
   attributes: {
     title: 'Attributes',
