@@ -14257,7 +14257,11 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
      #fz-area except .fz-road and the two panels is transient. -->
 <div id="fz-overlay" class="fz-overlay" style="display:none">
   <div class="fz-head">
-    <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Feed Zone</span>
+    <!-- fix324: id'd so fzApplyTheme() can retitle this as "Radio Scramble" for
+         the Director reskin. Default innerHTML below matches the original
+         fix151 markup byte-for-byte, so a normal Workshop open (fzTheme
+         'default') is visually unchanged. -->
+    <span id="fz-head-label"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Feed Zone</span>
     <button id="fz-quit-btn" class="fz-quit" onclick="requestQuitFeedZone()">Quit</button>
   </div>
   <div class="fz-board">
@@ -14265,31 +14269,33 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
          mini-games. Decorative only. -->
     <div class="rs-hero"><div class="rs-hero-img fz"></div></div>
     <div class="fz-row">
-      <span>Time: <span id="fz-time">30</span>s</span>
-      <span>Carbs: <span id="fz-score">0</span>g</span>
+      <span><span id="fz-time-label">Time</span>: <span id="fz-time">30</span>s</span>
+      <span><span id="fz-score-label">Carbs</span>: <span id="fz-score">0</span><span id="fz-score-suffix">g</span></span>
     </div>
     <div id="fz-area" class="fz-area">
       <div class="fz-road"></div>
       <div id="fz-panel-start" class="fz-panel show">
-        <h3>Feed Zone Scramble</h3>
-        <p>Thirty seconds of soigneurs. Grab the gels and bidons as they come past — leave the debris on the road.</p>
+        <h3 id="fz-start-title">Feed Zone Scramble</h3>
+        <p id="fz-start-copy">Thirty seconds of soigneurs. Grab the gels and bidons as they come past — leave the debris on the road.</p>
         <div id="fz-consumable-picker" style="margin:8px 0 2px"></div>
-        <button class="fz-action" onclick="fzStart()">Start scramble</button>
+        <button id="fz-start-btn" class="fz-action" onclick="fzStart()">Start scramble</button>
       </div>
       <div id="fz-panel-end" class="fz-panel">
         <h3 id="fz-end-title">Zone cleared</h3>
         <p id="fz-end-copy">You picked up <span id="fz-final">0</span>g of carbs.</p>
-        <button class="fz-action" onclick="fzStart()">Ride it again</button>
-        <button class="fz-action" style="background:var(--bg2);color:var(--txt2)" onclick="closeFeedZone()">Back to skills</button>
+        <button id="fz-end-retry-btn" class="fz-action" onclick="fzStart()">Ride it again</button>
+        <button id="fz-end-back-btn" class="fz-action" style="background:var(--bg2);color:var(--txt2)" onclick="closeFeedZone()">Back to skills</button>
       </div>
     </div>
     <div class="fz-legend">
-      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-gel"></use></svg> Gel +10g</span>
-      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Bidon +5g</span>
-      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-tack"></use></svg> Debris &minus;15g</span>
+      <span id="fz-legend-good1"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-gel"></use></svg> Gel +10g</span>
+      <span id="fz-legend-good2"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Bidon +5g</span>
+      <span id="fz-legend-hazard"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-tack"></use></svg> Debris &minus;15g</span>
     </div>
     <!-- fix256: reward brief. Static copy; nothing binds to it. -->
-    <div class="mg-brief"><b>Feed Zone</b>Collect energy items on the fly to boost rider energy regeneration for 30 minutes.</div>
+    <!-- fix324: fz-brief-title/-copy let fzApplyTheme() retext this for the
+         Director reskin — content only, .mg-brief/b styling untouched. -->
+    <div class="mg-brief"><b id="fz-brief-title">Feed Zone</b><span id="fz-brief-copy">Collect energy items on the fly to boost rider energy regeneration for 30 minutes.</span></div>
   </div>
 </div>
 
@@ -14410,7 +14416,9 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
      "tidy" them into the stylesheet; fix246's ported maths reads them. -->
 <div id="bt-overlay" class="bt-overlay" style="display:none">
   <div class="bt-head">
-    <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Bidon Toss</span>
+    <!-- fix325: id added so btApplyTheme() can retarget the head label per
+         theme, same pattern as #fz-head-label at fix324. -->
+    <span id="bt-head-label"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Bidon Toss</span>
     <button id="bt-quit-btn" class="bt-quit" onclick="requestQuitBidonToss()">Quit</button>
   </div>
   <div class="bt-board">
@@ -14451,10 +14459,12 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
            exists now, so the start panel starts the run. Label changed with it
            so the button no longer says one thing and does another. -->
       <div id="bt-panel-start" class="bt-panel show">
-        <h3>Bidon Toss</h3>
-        <p>Ten spent bidons and a roadside full of outstretched hands. Flick upward from the bottle, judge the crosswind, and let it go.</p>
+        <!-- fix325: ids added so btApplyTheme() can retarget start-panel
+             text per theme, same pattern as #fz-start-title/copy/btn. -->
+        <h3 id="bt-start-title">Bidon Toss</h3>
+        <p id="bt-start-copy">Ten spent bidons and a roadside full of outstretched hands. Flick upward from the bottle, judge the crosswind, and let it go.</p>
         <div id="bt-consumable-picker" style="margin:8px 0 2px"></div>
-        <button class="bt-action" onclick="btStart()">Start throwing</button>
+        <button id="bt-start-btn" class="bt-action" onclick="btStart()">Start throwing</button>
       </div>
       <div id="bt-panel-end" class="bt-panel">
         <h3 id="bt-end-title">Bidons away</h3>
@@ -14462,16 +14472,22 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
         <!-- fix246: "Throw again" now re-enters btStart() directly, bypassing
              the hub, exactly as fz's "Ride it again" does. btStart() re-checks
              rsCanStart('bt') itself for that reason — see the fix155 note. -->
-        <button class="bt-action" onclick="btStart()">Throw again</button>
-        <button class="bt-action" style="background:var(--bg2);color:var(--txt2)" onclick="closeBidonToss()">Back to skills</button>
+        <!-- fix325: ids added so btEnd() can hide/repoint these per theme,
+             same pattern as #fz-end-retry-btn/#fz-end-back-btn at fix324. -->
+        <button id="bt-end-retry-btn" class="bt-action" onclick="btStart()">Throw again</button>
+        <button id="bt-end-back-btn" class="bt-action" style="background:var(--bg2);color:var(--txt2)" onclick="closeBidonToss()">Back to skills</button>
       </div>
     </div>
+    <!-- fix325: ids added to the two legend spans so btApplyTheme() can
+         retarget them per theme, same pattern as #fz-legend-good1/good2. -->
     <div class="bt-legend">
-      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Ten throws a run</span>
-      <span><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-wind"></use></svg> The wind builds</span>
+      <span id="bt-legend-1"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> Ten throws a run</span>
+      <span id="bt-legend-2"><svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-wind"></use></svg> The wind builds</span>
     </div>
-    <!-- fix256: reward brief. Static copy; nothing binds to it. -->
-    <div class="mg-brief"><b>Bidon Toss</b>Time water bottle throws accurately to spectators to please the crowd and get a sponsor cash payout.</div>
+    <!-- fix256: reward brief. Static copy; nothing binds to it.
+         fix325: ids added so btApplyTheme() can retarget it per theme, same
+         pattern as #fz-brief-title/#fz-brief-copy. -->
+    <div class="mg-brief"><b id="bt-brief-title">Bidon Toss</b><span id="bt-brief-copy">Time water bottle throws accurately to spectators to please the crowd and get a sponsor cash payout.</span></div>
   </div>
 </div>
 
@@ -17479,6 +17495,73 @@ const DIRECTOR_STAGE_VP_COST = { tour_de_france:15, giro_d_italia:12, vuelta_esp
 // Fixed cooldown per stage entry, in PRIVATEER_LADDER's cooldownMs range —
 // plan decision #3: "existing cadence, existing tick", no offline-progress model.
 const DIRECTOR_RESOLVE_MS = 100000;
+// fix324 — Race Radio Scramble, Stage 1 (CIM-plan-fix324-race-radio-scramble-v1.md).
+// Flat cost to attempt, spent upfront through spendVP() regardless of outcome
+// (locked decision #4) — cheaper than any DIRECTOR_STAGE_VP_COST tour entry,
+// since this is optional flavour layered on an already-VP-gated stage, not a
+// second stage entry. PROVISIONAL default of 8 raised to 2 per MSK's call.
+const DIRECTOR_RADIO_VP_COST = 2;
+
+// fix322 — Team Logistics Hub, Part 1 (CIM-plan-fix322-team-logistics-hub-v1.md).
+// Fixed squad, no hire/fire (decision 1) — a static table the same way
+// DIRECTOR_STRATEGIES is, NOT per-save state. Keyed by the same tt/hill/road
+// terrain bucket directorStageRaceTypeId() already derives (decision 2) — no
+// new terrain taxonomy. boostWeightKey names which weighted component of
+// simulateDirectorStageResult()'s playerBase this rider's specialty boosts
+// (ftp or sprint) when they're the one leading that terrain; boostMult is a
+// flat multiplier on that component only. leadsLabel is UI-display-only, not
+// read by the sim. Names/icon/boostMult are PROVISIONAL flavor-and-balance
+// values, confirmed by MSK to proceed with defaults — tunable later without
+// touching schema, same as DIRECTOR_STRATEGIES' formCost numbers.
+const DIRECTOR_ROSTER = {
+  hill: { name:'Elena Marchetti', specialty:'Climber',        icon:'mountain',  boostWeightKey:'ftp',    boostMult:1.15, leadsLabel:'Mountain stages' },
+  road: { name:'Jamie Cole',      specialty:'Sprinter',       icon:'bolt',      boostWeightKey:'sprint', boostMult:1.15, leadsLabel:'Flat stages' },
+  tt:   { name:'Marcus Webb',     specialty:'Time-Trialist',  icon:'stopwatch', boostWeightKey:'ftp',    boostMult:1.15, leadsLabel:'Time Trials' },
+};
+
+// fix323 — Team Facilities (CIM-plan-fix323-team-facilities-v1.md). Static
+// tiered table, same category as DIRECTOR_ROSTER/DIRECTOR_STRATEGIES — NOT
+// per-save state (state.teamFacilities below stores only the tier INDEX each
+// facility has reached). Replaces getEquipmentBonusForRace() as Director's
+// "equipment" read (decision 1: replace, not stack) — Team Bus feeds the
+// climb-weighted component, Performance Lab feeds the aero-weighted
+// component, weighted through the same EQUIP_WEIGHTS[raceTypeId] split
+// getEquipmentBonusForRace() already uses (see getFacilityBonusForRace()
+// below). Gated by minPrestige the same way BIKES/WHEELS are (decision 2).
+// PROVISIONAL price/watts numbers — flavour-and-balance pass, confirmed
+// "use as-is" by MSK, tunable later without touching schema.
+const TEAM_FACILITIES = {
+  bus: [
+    {id:'bus1', tier:1, price:2000,  watts:8,  minPrestige:1, desc:'A hired minibus and a mechanic on call. The basics of squad support.'},
+    {id:'bus2', tier:2, price:6000,  watts:16, minPrestige:2, desc:'A proper team bus — riders arrive rested, not road-worn.'},
+    {id:'bus3', tier:3, price:13000, watts:26, minPrestige:3, desc:'Dedicated soigneurs and feed staff travel with the squad full-time.'},
+    {id:'bus4', tier:4, price:22000, watts:38, minPrestige:5, desc:'A rolling service course — repairs and recovery happen en route.'},
+    {id:'bus5', tier:5, price:35000, watts:52, minPrestige:6, desc:'A full WorldTour-grade bus, kitchen and treatment room included.'},
+  ],
+  lab: [
+    {id:'lab1', tier:1, price:2200,  watts:8,  minPrestige:1, desc:'A rented wind tunnel slot once a season. A start on real data.'},
+    {id:'lab2', tier:2, price:6500,  watts:17, minPrestige:2, desc:'A small in-house data team crunching power files after every stage.'},
+    {id:'lab3', tier:3, price:14000, watts:27, minPrestige:3, desc:'An altitude camp partnership feeding the squad\u2019s periodisation plan.'},
+    {id:'lab4', tier:4, price:24000, watts:40, minPrestige:5, desc:'A dedicated performance lab — CFD modelling on every position change.'},
+    {id:'lab5', tier:5, price:38000, watts:55, minPrestige:6, desc:'A full sports-science division, on par with the best WorldTour outfits.'},
+  ],
+};
+
+// fix327 — Medical Wing (CIM-plan-fix327-medical-wing-v1.md). Squad-wide
+// setback risk read directly off state.directorForm — NOT per-rider,
+// DIRECTOR_ROSTER stays a static registry untouched by this fix. PROVISIONAL
+// balance numbers (threshold/penalty/recovery length), tunable later without
+// touching schema, same category as DIRECTOR_STRATEGIES.formCost. Expedite
+// costs are locked, deliberately punishing per MSK's call: 25 VP OR 35% of
+// CURRENT state.money (not a flat cash figure — scales with the player's
+// bankroll so it stays painful at any point in a run).
+const MEDICAL_FORM_THRESHOLD = 30;     // directorForm below this arms a setback
+const MEDICAL_SETBACK_PENALTY = -0.12; // flat watts multiplier while active
+const MEDICAL_RECOVERY_STAGES = 3;     // passive stages to clear, decremented
+                                        // once per stage resolved
+const MEDICAL_EXPEDITE_VP_COST = 25;   // flat VP to clear instantly
+const MEDICAL_EXPEDITE_CASH_PCT = 0.35; // % of state.money, computed at spend
+                                         // time — NOT stored, always read live
 
 // Accessories provide no passive £/s income — that role belongs exclusively to the
 // Sponsors tab where weekly objectives gate every payout. These are one-time
@@ -18514,7 +18597,17 @@ const state = {
     giro_d_italia:  { stageIndex:0, strategyChoice:null, resolveAt:null, stageResults:[] },
     vuelta_espana:  { stageIndex:0, strategyChoice:null, resolveAt:null, stageResults:[] },
   },
-  directorCareer: { toursDirected:0, gcPodiumsAsDirector:0 },
+  // fix325 — Race Radio Scramble chain reward (CIM-plan-fix325-race-radio-
+  // scramble-stage2-v1.md §5). Own top-level sibling of directorSeason
+  // (not nested inside a ds entry) so it can be reset at the same two
+  // season-boundary sites without touching stageIndex/stageResults — same
+  // SEASON-scoped, never-a-top-level-load-guard discipline as directorSeason
+  // itself. One boolean sub-key per GRAND_TOUR_STAGES key.
+  directorRadioBoost: { tour_de_france:false, giro_d_italia:false, vuelta_espana:false },
+  // fix326 adds stagesResolved (cumulative career counter, see plan §3) —
+  // never reset at season boundary or prestige, same as the fields already here.
+  // fix327 adds setbacksSuffered, same permanent/append-only discipline.
+  directorCareer: { toursDirected:0, gcPodiumsAsDirector:0, stagesResolved:0, setbacksSuffered:0 },
   // fix321 — Squad Form (CIM-plan-fix321-squad-form-v1.md). Squad-wide,
   // NOT per-tour (decision 4) — one Directeur, one meter, shared across all
   // three GT-calendar tours. Own top-level field, own load guard above; own
@@ -18529,6 +18622,25 @@ const state = {
   // itself, just the "did a stage resolve today" plumbing the plan flagged
   // as an implementation detail.
   directorStageResolvedToday: false,
+  // fix323 — Team Facilities (CIM-plan-fix323-team-facilities-v1.md). Tier
+  // INDEX per facility (0 = not yet purchased), not an id — closer to
+  // state.attributes.<x>.level than to the BIKES/WHEELS owned-set model,
+  // since a squad only ever has one bus and one lab. Own top-level field,
+  // own per-sub-key `??` load guard below (tourProgress-lesson discipline).
+  teamFacilities: {bus:0, lab:0},
+  // fix326 — Staff Efficiency Tests (plan §3). Rolling ±% modifier per
+  // facility ladder, read by getFacilityBonusForRace(). Own top-level
+  // field, PERMANENT like teamFacilities itself — never reset at season
+  // boundary or prestige (see loadGame() guard for the fuller rationale).
+  staffTestModifier: {bus:0, lab:0},
+  // fix327 — Medical Wing (plan §3). Squad-wide setback state, read off
+  // directorForm. UNLIKE staffTestModifier/teamFacilities this is NOT
+  // permanent — it resets at prestige (same boundary directorForm itself
+  // resets at) since a setback shouldn't survive a Form reset to baseline.
+  // Season rollover does NOT clear it (mirrors directorForm staying
+  // season-persistent). Own top-level field, own per-sub-key `??` load guard
+  // below (tourProgress-lesson discipline).
+  medicalSetback: { active:false, stagesRemaining:0 },
   // Gravel gear — separate inventory/equip slots from road BIKES/WHEELS/KITS,
   // shape mirrors the road gear state per the plan. Starter items owned+
   // equipped by default (same "free tier-1 default" pattern as
@@ -18824,6 +18936,32 @@ function getEquipmentBonusForRace(raceTypeId){
   // stat and the race-card preview always agree with what racing actually scores.
   bonus += (D.accessoryWatts||0);
   return bonus;
+}
+
+// fix323 — Team Facilities. Parallel to, and never calling,
+// getEquipmentBonusForRace() — Director-only, per decision 1 (replace, not
+// stack). No climber passive, no D.accessoryWatts read: those remain
+// personal-race concepts and stay inside getEquipmentBonusForRace() for
+// Privateer/pre-fork players, who never call this function. Index 0 (not
+// yet purchased) reads as 0 watts via the `-1` guard below, so an
+// unpurchased facility contributes nothing rather than throwing on a
+// negative array index.
+function getFacilityBonusForRace(raceTypeId){
+  const w = EQUIP_WEIGHTS[raceTypeId] || {aero:0.5,climb:0.5};
+  const busTier = state.teamFacilities.bus;
+  const labTier = state.teamFacilities.lab;
+  let busWatts = busTier>0 ? (TEAM_FACILITIES.bus[busTier-1]?.watts||0) : 0;
+  let labWatts = labTier>0 ? (TEAM_FACILITIES.lab[labTier-1]?.watts||0) : 0;
+  // fix326 — Staff Efficiency Tests (plan §5). Rolling ±15% swing from the
+  // most recent test on that ladder; defaults to 0 (no swing) until the
+  // first test fires, or for a save that predates this fix. Applied here,
+  // the only function every scoring call site shares, so a swing is never
+  // computed twice or missed by a display call site.
+  busWatts *= (1 + (state.staffTestModifier?.bus||0));
+  labWatts *= (1 + (state.staffTestModifier?.lab||0));
+  // Team Bus -> climb-weighted (logistics/domestique support up mountains).
+  // Performance Lab -> aero-weighted (data-driven aero optimisation).
+  return Math.round(busWatts*w.climb + labWatts*w.aero);
 }
 
 // ─── GEAR FITNESS (fix166) ──────────────────────────────────────────────
@@ -21760,6 +21898,15 @@ function checkCalendarSeasonReset(){
   // fix321 — Squad Form is squad-wide and season-scoped (decision 4/5): reset
   // to baseline at the same boundary directorSeason just cleared at above.
   state.directorForm = 70;
+  // fix327 — Medical Wing, same reset boundary as directorForm just above:
+  // a setback shouldn't outlive the Form reset that would have cleared its
+  // own trigger condition. directorCareer.setbacksSuffered (the lifetime
+  // counter) is deliberately absent here, same "permanent counters survive
+  // the season boundary" rule directorCareer.stagesResolved/toursDirected follow.
+  state.medicalSetback = { active:false, stagesRemaining:0 };
+  // fix325 — directorRadioBoost is SEASON-scoped like directorSeason itself
+  // (plan §5): reset to all-false at the same boundary.
+  state.directorRadioBoost = { tour_de_france:false, giro_d_italia:false, vuelta_espana:false };
   saveGame();
 
   const msg = forfeitedIds.length>0
@@ -22045,27 +22192,62 @@ function directorStageRaceTypeId(stage){
 // the Pro category's own ftpMin/ftpMax band (RACE_CATEGORIES) — Director
 // players already conquered the pro peloton to reach the fork, so the squad
 // races other pro-level outfits, not a bespoke elite band invented for this.
-function simulateDirectorStageResult(tourId, stageIndex, strategyId){
+function simulateDirectorStageResult(tourId, stageIndex, strategyId, boosted){
   const stages=GRAND_TOUR_STAGES[tourId]||[]; const stage=stages[stageIndex]; if(!stage) return null;
   const strat=DIRECTOR_STRATEGIES[strategyId]; if(!strat) return null;
   const w=strat.weights;
   const rs=getRiderStats();
   const normVO2=Math.max(0,(rs.vo2max-30)/55*100);
   const normSprint=Math.max(0,(rs.sprintPower-300)/1700*100);
-  const playerBase=w.ftp*rs.ftp+w.vo2*normVO2+w.sprint*normSprint;
+  // fix322 — Team Logistics Hub, Part 1 (CIM-plan-fix322-team-logistics-hub-v1.md).
+  // DIRECTOR_ROSTER read moved up so raceTypeId is known before playerBase is
+  // built (equipBonus below reuses this same raceTypeId — no duplicate calc).
+  // The matching named rider's boostMult applies to ONLY their specialty's
+  // weighted component (ftp or sprint) before strat.weights combine them —
+  // getRiderStats() stays the sole underlying baseline (decision 3: roster is
+  // additive depth, not a new progression system). Squad Form (fix321) is
+  // untouched — formMult/formVarianceMult below still apply to the combined
+  // score afterward, two independent layers on the same formula.
+  const raceTypeId=directorStageRaceTypeId(stage);
+  const roster=DIRECTOR_ROSTER[raceTypeId];
+  const ftpForBase=(roster&&roster.boostWeightKey==='ftp')?rs.ftp*roster.boostMult:rs.ftp;
+  const sprintForBase=(roster&&roster.boostWeightKey==='sprint')?normSprint*roster.boostMult:normSprint;
+  const playerBase=w.ftp*ftpForBase+w.vo2*normVO2+w.sprint*sprintForBase;
   const vo2Mult=1+state.attributes.vo2.level*0.04;
   // fix321 — Squad Form reads (plan decision 1: "both" a score multiplier AND
   // a variance-tightening factor). Stacks multiplicatively with the existing
   // vo2Mult/strat.varianceMult numbers — this function's signature, AI-field
   // loop, and prize formula are all untouched. PROVISIONAL curves confirmed
   // "use as-is" by MSK.
-  const formMult=0.85+((state.directorForm??70)/100)*0.3;
-  const formVarianceMult=1.3-((state.directorForm??70)/100)*0.6;
-  const raceTypeId=directorStageRaceTypeId(stage);
-  const equipBonus=getEquipmentBonusForRace(raceTypeId);
+  // fix325 — directorRadioBoost (CIM-plan-fix325-race-radio-scramble-stage2-
+  // v1.md §4). A cleared two-stage Race Radio chain hands ONE stage a
+  // single-use "effective Form" bump rather than touching state.directorForm's
+  // real baseline — the SAME formMult/formVarianceMult lines fix321 already
+  // owns, just computed off effectiveForm instead of the raw meter, which is
+  // what makes this "one stage played at Form 100" rather than two
+  // independently-tuned fudge factors. +27 effective-Form points is a flat
+  // PROVISIONAL number (≈+0.08 to formMult at the 70 baseline, matching
+  // fix324's original proposal), tunable later without touching the caller.
+  const effectiveForm = boosted
+    ? Math.min(100, (state.directorForm??70)+27)
+    : (state.directorForm??70);
+  const formMult=0.85+(effectiveForm/100)*0.3;
+  const formVarianceMult=1.3-(effectiveForm/100)*0.6;
+  // fix323 — Team Facilities replaces the fix320-era getEquipmentBonusForRace()
+  // placeholder (the same flat personal-road-gear bonus a Privateer/personal-
+  // race player gets). Director now reads squad facilities instead — see
+  // getFacilityBonusForRace() above. Every other line in this function
+  // (AI-field loop, prize formula, Form/roster reads) is untouched.
+  const equipBonus=getFacilityBonusForRace(raceTypeId);
   const variance=Math.max(10,playerBase*0.12)*strat.varianceMult*formVarianceMult;
   let playerScore=playerBase*vo2Mult*formMult+equipBonus+(Math.random()-0.5)*variance*2;
   playerScore*=(1+(D.raceDayPct||0));
+  // fix327 — Medical Wing (plan §2 decision 3). Flat watts penalty while a
+  // setback is active, applied as a multiplier on the TOTAL squad score
+  // (not folded into playerBase/equipBonus individually) since the setback
+  // is a squad-wide condition, not a facility- or roster-specific one.
+  // READ-only here — the only write site is checkMedicalWing().
+  if(state.medicalSetback && state.medicalSetback.active) playerScore*=(1+MEDICAL_SETBACK_PENALTY);
   const proCat=RACE_CATEGORIES.find(c=>c.id==='pro');
   const [ftpMin,ftpMax]=proCat?[proCat.ftpMin,proCat.ftpMax]:[430,550];
   const ev=CALENDAR_EVENTS.find(e=>e.id===tourId);
@@ -22100,9 +22282,54 @@ function armDirectorStrategy(tourId, strategyId){
   if(!spendVP(cost, 'director_stage_entry:'+tourId)){ showToast(`${icn('lock')} Need ${cost} VP`); return; }
   ds.strategyChoice=strategyId;
   ds.resolveAt=Date.now()+DIRECTOR_RESOLVE_MS;
+  // fix324: fresh stage window, fresh gate — a clear from a PREVIOUS window
+  // must never carry forward into this one.
+  ds.radioStage1Cleared=false;
   saveGame(); updateUI();
   showToast(`${icn(strat.icon)} ${strat.name} armed — resolving shortly`);
   if(currentTab==='race') renderDirectorCalendar();
+}
+
+// fix324 — Race Radio Scramble, Stage 1 ("Radio Scramble", a themed reskin of
+// Feed Zone Scramble — CIM-plan-fix324-race-radio-scramble-v1.md). Optional,
+// skippable, offered only during a stage's live DIRECTOR_RESOLVE_MS cooldown
+// window (locked decision #3 — same window armDirectorStrategy() just opened,
+// mirrors its own resolveAt check). VP is spent HERE, upfront, through the
+// existing spendVP() funnel, whether the run that follows is won or lost
+// (locked decision #4) — the overlay's own Start button costs nothing further.
+// A cleared gate cannot be re-bought this window; Stage 2 (fix325) is what
+// eventually reads and consumes ds.radioStage1Cleared.
+function armDirectorRadioScramble(tourId){
+  if(state.legacyPath!=='director') return;
+  const ds=state.directorSeason[tourId]; if(!ds) return;
+  if(!ds.resolveAt){ showToast(`${icn('lock')} No stage awaiting result right now`); return; }
+  if(ds.radioStage1Cleared){ showToast(`${icn('check')} Stage 1 already cleared for this stage`); return; }
+  if(!spendVP(DIRECTOR_RADIO_VP_COST, 'director_radio_scramble:'+tourId)){
+    showToast(`${icn('lock')} Need ${DIRECTOR_RADIO_VP_COST} VP`); return;
+  }
+  _directorRadioTourId=tourId;
+  openFeedZone('director_radio');
+}
+
+// fix325 — Race Radio Scramble, Stage 2 ("Supply the Riders", a themed
+// reskin of Bidon Toss — CIM-plan-fix325-race-radio-scramble-stage2-v1.md).
+// Gated on ds.radioStage1Cleared (Stage 1 must clear first — locked
+// decision #2: "no partial credit") and the SAME live resolveAt window
+// armDirectorRadioScramble() checks. NO VP charge here — the one chain
+// cost was already spent upfront at Stage 1 opt-in (locked decision #4
+// covers the whole two-stage chain, not per-stage). Blocked once the
+// boost is already banked for this tour, so a cleared chain cannot be
+// re-run for a second boost inside the same window.
+function armDirectorSupplyRiders(tourId){
+  if(state.legacyPath!=='director') return;
+  const ds=state.directorSeason[tourId]; if(!ds) return;
+  if(!ds.resolveAt){ showToast(`${icn('lock')} No stage awaiting result right now`); return; }
+  if(!ds.radioStage1Cleared){ showToast(`${icn('lock')} Clear Stage 1 first`); return; }
+  if(state.directorRadioBoost && state.directorRadioBoost[tourId]){
+    showToast(`${icn('check')} Boost already banked for this stage`); return;
+  }
+  _directorRadioTourId=tourId;
+  openBidonToss('director_radio');
 }
 
 // fix320 — called from checkDailyReset(), alongside checkCalendarSeasonReset()
@@ -22114,6 +22341,119 @@ function armDirectorStrategy(tourId, strategyId){
 // gcPodiumsAsDirector — tourGcPoints is derived from stageResults+the stage's
 // own gcPoints table at completion time rather than a running counter, so the
 // schema stays exactly what the plan specifies (no extra field invented).
+// fix326 — Staff Efficiency Tests (plan §4). Sole write site for
+// directorCareer.stagesResolved and staffTestModifier. Called once per
+// stage actually resolved; every 5th call rolls an independent pass/fail
+// for each facility ladder currently at tier>0 (an unpurchased ladder is
+// skipped silently — nothing to test), weighted by that ladder's tier
+// (passChance = 0.50 + tier*0.07, provisional per plan §2.4). A pass sets
+// a rolling +15% modifier, a fail sets -15%; each new result on a ladder
+// REPLACES its previous modifier rather than stacking. Returns a short
+// summary string for the caller to fold into its own toast, or null if no
+// test fired this call (interval not reached) or nothing was eligible to
+// test (both ladders still tier 0).
+function checkStaffEfficiencyTest(){
+  state.directorCareer.stagesResolved=(state.directorCareer.stagesResolved||0)+1;
+  if(state.directorCareer.stagesResolved%5!==0) return null;
+  const LADDER_LABEL={bus:'Team Bus', lab:'Performance Lab'};
+  const results=[];
+  ['bus','lab'].forEach(key=>{
+    const tier=state.teamFacilities[key]||0;
+    if(tier<=0) return;
+    const passChance=0.50+tier*0.07;
+    const passed=Math.random()<passChance;
+    state.staffTestModifier[key]=passed?0.15:-0.15;
+    results.push(`${LADDER_LABEL[key]} ${passed?'passed':'failed'}`);
+  });
+  if(results.length===0) return null;
+  return `Staff efficiency test — ${results.join(', ')}`;
+}
+// fix327 — Medical Wing (CIM-plan-fix327-medical-wing-v1.md §4). Sole write
+// site for medicalSetback + directorCareer.setbacksSuffered, mirroring
+// checkStaffEfficiencyTest()'s pattern immediately above: called once per
+// stage actually resolved, returns a short summary string for the caller to
+// fold into its own toast (or null if nothing changed this call) rather than
+// toasting itself — checkDirectorStageResolve() fires its own toast, and two
+// showToast() calls in the same tick would clobber each other.
+// If a setback is already active, this only ever decrements its timer —
+// it does NOT re-check the Form threshold that call (one setback at a time,
+// no re-trigger/extension while one is already running). Only once no
+// setback is active does a low-Form reading arm a new one.
+function checkMedicalWing(){
+  if(state.medicalSetback.active){
+    state.medicalSetback.stagesRemaining=Math.max(0,(state.medicalSetback.stagesRemaining||0)-1);
+    if(state.medicalSetback.stagesRemaining<=0){
+      state.medicalSetback.active=false;
+      return 'Medical Wing — squad has recovered';
+    }
+    return null;
+  }
+  if((state.directorForm??70) < MEDICAL_FORM_THRESHOLD){
+    state.medicalSetback.active=true;
+    state.medicalSetback.stagesRemaining=MEDICAL_RECOVERY_STAGES;
+    state.directorCareer.setbacksSuffered=(state.directorCareer.setbacksSuffered||0)+1;
+    return 'Medical Wing — squad has picked up a setback';
+  }
+  return null;
+}
+// fix327 — Medical Wing (plan §4). Player-initiated write site for
+// medicalSetback, separate from checkMedicalWing() above (which is
+// stage-tick-initiated). These two functions are the ONLY write sites for
+// medicalSetback. Cash cost is computed LIVE off state.money at spend time
+// — NOT stored anywhere — 35% of whatever the player currently has,
+// deliberately punishing per MSK's explicit call, so it stays painful at
+// any point in a run rather than trivial late-game or impossible early-game.
+function expediteMedicalRecovery(currency){
+  if(!state.medicalSetback.active) return;
+  if(currency==='vp'){
+    if(!spendVP(MEDICAL_EXPEDITE_VP_COST, 'medical_wing_expedite')){
+      showToast(`${icn('lock')} Need ${MEDICAL_EXPEDITE_VP_COST} VP`);
+      return;
+    }
+  } else if(currency==='cash'){
+    const cost=Math.round((state.money||0)*MEDICAL_EXPEDITE_CASH_PCT);
+    if(cost<=0 || state.money<cost){
+      showToast(`${icn('lock')} Not enough cash`);
+      return;
+    }
+    state.money-=cost;
+  } else return;
+  state.medicalSetback.active=false;
+  state.medicalSetback.stagesRemaining=0;
+  saveGame(); updateUI();
+  showToast(`${icn('heart')} Medical Wing — recovery expedited`);
+  if(currentTab==='race') renderDirectorCalendar();
+}
+// Two-tap confirm, no confirm() — mirrors requestQuitFeedZone()/
+// requestQuitSlipstream() exactly, adapted for two independent currency
+// buttons that share one armed slot: arming one disarms the other, since
+// only one expedite action can be in flight at a time. renderDirectorCalendar()
+// is event-driven (arm/resolve/tab-switch), not ticked, so a DOM-held armed
+// flag survives safely between the two taps the same way it does for the
+// mini-game quit buttons.
+let _medExpediteArmed=null; // null | 'vp' | 'cash'
+let _medExpediteTimer=null;
+function requestExpediteMedicalRecovery(currency){
+  const vpBtn=document.getElementById('med-expedite-vp-btn');
+  const cashBtn=document.getElementById('med-expedite-cash-btn');
+  const resetBtns=()=>{
+    if(vpBtn){ vpBtn.textContent=`Spend ${MEDICAL_EXPEDITE_VP_COST} VP`; vpBtn.classList.remove('armed'); }
+    if(cashBtn){ cashBtn.textContent=`Spend ${fmtMoney(Math.round((state.money||0)*MEDICAL_EXPEDITE_CASH_PCT))}`; cashBtn.classList.remove('armed'); }
+  };
+  if(_medExpediteArmed!==currency){
+    _medExpediteArmed=currency;
+    resetBtns();
+    const btn=currency==='vp'?vpBtn:cashBtn;
+    if(btn){ btn.textContent='Tap again to confirm'; btn.classList.add('armed'); }
+    clearTimeout(_medExpediteTimer);
+    _medExpediteTimer=setTimeout(()=>{ _medExpediteArmed=null; resetBtns(); },3000);
+    return;
+  }
+  clearTimeout(_medExpediteTimer);
+  _medExpediteArmed=null;
+  expediteMedicalRecovery(currency);
+  resetBtns();
+}
 function checkDirectorStageResolve(){
   if(state.legacyPath!=='director') return;
   Object.keys(state.directorSeason).forEach(tourId=>{
@@ -22122,8 +22462,21 @@ function checkDirectorStageResolve(){
     if(!ds || !ds.resolveAt || Date.now()<ds.resolveAt) return;
     const stage=stages[ds.stageIndex];
     const stratId=ds.strategyChoice;
-    const result=simulateDirectorStageResult(tourId, ds.stageIndex, ds.strategyChoice);
+    // fix325 — read and consume the single-use directorRadioBoost flag HERE,
+    // the "very next checkDirectorStageResolve() call that resolves a stage
+    // for that tour" (plan §4) — before the sim call that consumes it, same
+    // single-write-site discipline as ds.radioStage1Cleared's defensive
+    // clear just below. Defaults to false for any save that predates this
+    // fix (state.directorRadioBoost may not exist yet on load).
+    const boosted = !!(state.directorRadioBoost && state.directorRadioBoost[tourId]);
+    if(state.directorRadioBoost) state.directorRadioBoost[tourId]=false;
+    const result=simulateDirectorStageResult(tourId, ds.stageIndex, ds.strategyChoice, boosted);
     ds.resolveAt=null; ds.strategyChoice=null;
+    // fix324: defensive clear — armDirectorStrategy() already resets this at
+    // the START of the next window, but clearing it HERE too means a cleared
+    // gate can never survive into a save/load boundary sitting between
+    // resolve and the next arm.
+    ds.radioStage1Cleared=false;
     if(!result || !stage){ saveGame(); return; }
     ds.stageResults.push({stageIndex:ds.stageIndex, stageName:stage.name, position:result.position, prize:result.prize});
     if(result.prize>0) earnMoney(result.prize);
@@ -22143,6 +22496,20 @@ function checkDirectorStageResolve(){
     else if(result.position>=Math.floor(result.fieldSize*0.75)) resultDelta=-6;
     state.directorForm=Math.max(20, Math.min(100, (state.directorForm??70)+resultDelta-formCost));
     state.directorStageResolvedToday=true;
+    // fix326 — Staff Efficiency Tests (plan §4). Single write site for
+    // directorCareer.stagesResolved + staffTestModifier, called once per
+    // stage actually resolved, same tick as the Form debit above. Returns a
+    // summary string (or null if the 5-stage interval didn't fire, or fired
+    // but both ladders were tier 0) rather than toasting itself — showToast()
+    // has no queue, and checkDirectorStageResolve() already fires its own
+    // toast below; two showToast() calls in the same tick would clobber
+    // each other, so the summary is folded into that single toast instead.
+    const staffTestSummary=checkStaffEfficiencyTest();
+    // fix327 — Medical Wing (plan §4). Called right after the Form debit
+    // above so the threshold check reads THIS stage's post-debit Form value,
+    // same tick as Staff Efficiency Tests. Same "return a summary, don't
+    // toast" discipline as checkStaffEfficiencyTest() just above.
+    const medicalSummary=checkMedicalWing();
     ds.stageIndex++;
     let tourDone=false;
     if(ds.stageIndex>=stages.length){
@@ -22162,7 +22529,7 @@ function checkDirectorStageResolve(){
     }
     saveGame(); updateUI();
     const tourName=(CALENDAR_EVENTS.find(e=>e.id===tourId)||{}).name||tourId;
-    showToast(`${icn(stage.icon)} ${tourName} — ${stage.name}: ${ordinal(result.position)} of ${result.fieldSize}${tourDone?` — tour complete!`:''}`);
+    showToast(`${icn(stage.icon)} ${tourName} — ${stage.name}: ${ordinal(result.position)} of ${result.fieldSize}${tourDone?` — tour complete!`:''}${staffTestSummary?` · ${staffTestSummary}`:''}${medicalSummary?` · ${medicalSummary}`:''}`);
     if(currentTab==='race') renderDirectorCalendar();
   });
 }
@@ -22697,6 +23064,26 @@ function buyAccessory(id){
   if(u.maxEnergy) b.push(`+${u.maxEnergy} max energy`);
   showToast(`${icn(u.icon)} ${u.name}${b.length?' · '+b.join(', '):''}`);
 }
+// fix323 — THE single-funnel mutation point for buying the next Team
+// Facilities tier. Mirrors buyBike()'s hard-lockout ordering: legacyPath
+// gate, then "next tier exists" (not already maxed), then minPrestige, then
+// affordability — all checked BEFORE the money debit. Single-tap: this is a
+// non-destructive spend (like buyBike()/buyAccessory()), so two-tap confirm
+// does not apply. Safe no-op on any lockout — never throws, never debits.
+function buyFacilityTier(facilityId){
+  if(state.legacyPath!=='director') return;
+  const ladder=TEAM_FACILITIES[facilityId]; if(!ladder) return;
+  const curTier=state.teamFacilities[facilityId]||0;
+  const next=ladder[curTier]; // curTier is the count owned, so this is the NEXT tier
+  if(!next) return; // already at max tier
+  if((next.minPrestige||0) > prestigeLevel()){ showToast(`${icn('lock')} Locked until Prestige ${next.minPrestige}`); return; }
+  if(state.money<next.price) return;
+  state.money-=next.price;
+  state.teamFacilities[facilityId]=curTier+1;
+  saveGame(); updateUI();
+  const label=facilityId==='bus'?'Team Bus':'Performance Lab';
+  showToast(`${icn(facilityId==='bus'?'coach':'microscope')} ${label} upgraded — Tier ${next.tier}`);
+}
 // Regenerates today's price/offer/benefit rolls if the stored market is from a
 // previous day. Cheap to call defensively from anywhere that reads market data.
 function ensureDailyMarket(){
@@ -22948,6 +23335,14 @@ function handlePrestige(){
   };
   // fix321 — Squad Form, same reset boundary as directorSeason just above (decision 5).
   state.directorForm = 70;
+  // fix327 — Medical Wing, same reset boundary as directorForm just above
+  // (plan §3/decision behind it: a setback shouldn't survive a Form reset
+  // to baseline). setbacksSuffered stays untouched, same as directorCareer's
+  // other lifetime counters throughout this function.
+  state.medicalSetback = { active:false, stagesRemaining:0 };
+  // fix325 — directorRadioBoost, same reset boundary as directorSeason/
+  // directorForm just above (plan §5).
+  state.directorRadioBoost = { tour_de_france:false, giro_d_italia:false, vuelta_espana:false };
   state.prestigeMult=next; state.maxEnergy=newMax; state.energy=newMax;
   state.todayEnergyAllocation=newMax; // fresh season starts at full allocation, no fatigue carried over
   // FTP reset: zero every attribute back to its starting level/xp. Bikes, wheels,
@@ -32378,6 +32773,21 @@ function renderDirectorCalendar(){
         const secsLeft=Math.max(0,Math.ceil((ds.resolveAt-Date.now())/1000));
         const stratName=(DIRECTOR_STRATEGIES[ds.strategyChoice]||{}).name||'Armed';
         actionHtml=`<div class="equip-price">${icn('bolt')} ${stratName} — resolving in <span class="director-countdown" data-tour="${tourId}">${secsLeft}s</span></div>`;
+        // fix324/fix325 — Race Radio Scramble entry prompts. Both stages are
+        // optional and skippable (no penalty either way — locked decision),
+        // offered only during this live resolve window (locked decision #3).
+        // Three states, checked most-complete-first: boost already banked
+        // (chain fully cleared this window) → Stage 1 cleared, Stage 2 still
+        // open → neither stage attempted yet.
+        const radioBoosted=!!(state.directorRadioBoost && state.directorRadioBoost[tourId]);
+        if(radioBoosted){
+          actionHtml += `<div class="equip-price owned">${icn('check')} Race Radio — boost banked for this stage</div>`;
+        } else if(ds.radioStage1Cleared){
+          actionHtml += `<div class="equip-price owned">${icn('check')} Radio Scramble — Stage 1 cleared</div>
+          <div style="margin-top:6px"><button class="equip-btn btn-buy" onclick="armDirectorSupplyRiders('${tourId}')">${icn('drink')} Supply the Riders</button></div>`;
+        } else {
+          actionHtml += `<div style="margin-top:6px"><button class="equip-btn btn-buy" onclick="armDirectorRadioScramble('${tourId}')">${icn('announce')} Radio Scramble &middot; ${DIRECTOR_RADIO_VP_COST} VP</button></div>`;
+        }
       } else {
         actionHtml=`<div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
           ${Object.values(DIRECTOR_STRATEGIES).map(s=>`<button class="equip-btn btn-buy" onclick="armDirectorStrategy('${tourId}','${s.id}')">${icn(s.icon)} ${s.name} &middot; ${cost} VP</button>`).join('')}
@@ -32417,8 +32827,43 @@ function renderDirectorCalendar(){
     <div class="energy-bar-outer" style="height:8px"><div class="energy-bar-inner" style="width:${formPct}%;background:${formCol}"></div></div>
   </div>`;
 
+  // fix327 — Medical Wing (CIM-plan-fix327-medical-wing-v1.md §5). Placed
+  // directly below the Squad Form meter, before the roster strip — narratively
+  // adjacent since a setback is a direct consequence of Form, not a separate
+  // screen. Nothing rendered when no setback is active (decision: no
+  // permanent "all clear" clutter, same as Staff Efficiency Tests' "no toast
+  // for an untested ladder" precedent of not showing state that isn't
+  // currently relevant). Render-only — no state writes here.
+  const medicalHtml = state.medicalSetback.active ? `<div class="prestige-card" style="border-color:var(--red-txt)">
+    <div class="prestige-info" style="display:flex;align-items:center;gap:6px;font-weight:700;margin-bottom:4px;color:var(--red-txt)">${icn('heart-break')} Medical Wing — squad setback <button class="info-btn" onclick="openInfo('medicalWing')">ⓘ</button></div>
+    <div class="equip-desc" style="margin-bottom:6px">${state.medicalSetback.stagesRemaining} stage${state.medicalSetback.stagesRemaining===1?'':'s'} to recover, or expedite below.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button id="med-expedite-vp-btn" class="equip-btn btn-buy" onclick="requestExpediteMedicalRecovery('vp')">Spend ${MEDICAL_EXPEDITE_VP_COST} VP</button>
+      <button id="med-expedite-cash-btn" class="equip-btn btn-buy" onclick="requestExpediteMedicalRecovery('cash')">Spend ${fmtMoney(Math.round((state.money||0)*MEDICAL_EXPEDITE_CASH_PCT))}</button>
+    </div>
+  </div>` : '';
+
+  // fix322 — Team Logistics Hub, Part 1 (CIM-plan-fix322-team-logistics-hub-v1.md).
+  // Read-only roster strip, no new interaction (decision 1: fixed squad, no
+  // hire/fire). Placed after the Squad Form meter and before the per-tour
+  // cards — squad-wide info first, then per-tour detail, same ordering
+  // fix321 established. DIRECTOR_ROSTER is a static registry, not save state.
+  const rosterHtml = `<div class="prestige-card">
+    <div class="prestige-info" style="display:flex;align-items:center;gap:6px;font-weight:700;margin-bottom:6px">${icn('rider')} Team Roster <button class="info-btn" onclick="openInfo('directorRoster')">ⓘ</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${Object.values(DIRECTOR_ROSTER).map(r=>`<div style="flex:1;min-width:88px;text-align:center;padding:6px;border-radius:8px;background:rgba(255,255,255,0.04)">
+        <div style="font-size:1.3em">${icn(r.icon)}</div>
+        <div style="font-weight:700;font-size:0.85em">${r.name}</div>
+        <div class="equip-desc" style="font-size:0.75em">${r.specialty}</div>
+        <div class="equip-desc" style="font-size:0.7em;opacity:0.7">${r.leadsLabel}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+
   wrap.innerHTML = `<div class="section-lbl" style="display:flex;align-items:center;gap:6px">Director Calendar <button class="info-btn" onclick="openInfo('directorCalendar')">ⓘ</button></div>
     ${formHtml}
+    ${medicalHtml}
+    ${rosterHtml}
     ${careerHtml}
     ${toursHtml}`;
 }
@@ -33715,11 +34160,88 @@ let fzTickId=null, fzSpawnId=null, fzHitTimer=null;
 const fzRafIds=new Set();
 let _fzQuitArmed=false, _fzQuitTimer=null;
 
-function openFeedZone(){
+// fix324 — Race Radio Scramble, Stage 1 (CIM-plan-fix324-race-radio-scramble-v1.md).
+// Reskin approach per the locked plan: reuse the fz-overlay DOM/CSS and every
+// FZ_* constant/fzStart()/fzSpawnItem()/fzEnd() wholesale — only text strings
+// and icn() calls change, behind this theme flag. 'default' reproduces the
+// original fix151 copy verbatim, so the Workshop-tab entry point stays
+// byte-identical in observed behaviour. fzTheme is transient (never saved) —
+// it only ever describes the overlay instance currently on screen.
+let fzTheme='default';
+// Which tour's live stage window the current Director attempt belongs to.
+// Set by armDirectorRadioScramble(), read by fzEnd() to know which ds to
+// flag, cleared by closeFeedZone(). Transient — never saved.
+let _directorRadioTourId=null;
+const FZ_THEMES={
+  default:{
+    headIcon:'drink', headLabel:'Feed Zone',
+    timeLabel:'Time', scoreLabel:'Carbs', scoreSuffix:'g',
+    startTitle:'Feed Zone Scramble',
+    startCopy:'Thirty seconds of soigneurs. Grab the gels and bidons as they come past — leave the debris on the road.',
+    startBtn:'Start scramble',
+    goodIcon1:'gel', goodLabel1:'Gel +10g',
+    goodIcon2:'drink', goodLabel2:'Bidon +5g',
+    hazardIcon:'tack', hazardLabel:'Debris &minus;15g',
+    briefTitle:'Feed Zone',
+    briefCopy:'Collect energy items on the fly to boost rider energy regeneration for 30 minutes.',
+    wonTitle:'Musette full', lostTitle:'Came up short',
+    wonCopy:(score)=>`${score}g on board. Your legs will come back quicker for the next half hour.`,
+    lostCopy:(score)=>`${score}g on board — you need ${FZ_THRESHOLD}g to ride away with anything. Go again.`,
+  },
+  director_radio:{
+    headIcon:'announce', headLabel:'Radio Scramble',
+    timeLabel:'Time', scoreLabel:'Signal', scoreSuffix:'',
+    startTitle:'Radio Scramble',
+    startCopy:'Thirty seconds of race radio. Catch the calls and signals coming through — let the static pass you by.',
+    startBtn:'Open the channel',
+    goodIcon1:'announce', goodLabel1:'Call +10',
+    goodIcon2:'bolt', goodLabel2:'Signal +5',
+    hazardIcon:'warning', hazardLabel:'Static &minus;15',
+    briefTitle:'Radio Scramble',
+    briefCopy:'Stage 1 of Race Radio. Clear the threshold to unlock the hand-off to your riders.',
+    wonTitle:'Channel clear', lostTitle:'Channel lost',
+    wonCopy:(score)=>`${score} signal locked in. Stage 1 cleared.`,
+    lostCopy:(score)=>`${score} signal — you need ${FZ_THRESHOLD} to hand off. Back to the calendar to try again.`,
+  },
+};
+// Single paint point for every theme-dependent text/icon node in the overlay.
+// Called once per open, before the start panel is shown — never mid-run, so
+// fzSpawnItem()/fzEnd() read fzTheme directly rather than re-deriving it here.
+function fzApplyTheme(){
+  const th=FZ_THEMES[fzTheme]||FZ_THEMES.default;
+  const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.innerHTML=val; };
+  const setText=(id,val)=>{ const el=document.getElementById(id); if(el) el.textContent=val; };
+  set('fz-head-label', `${icn(th.headIcon)} ${th.headLabel}`);
+  setText('fz-time-label', th.timeLabel);
+  setText('fz-score-label', th.scoreLabel);
+  setText('fz-score-suffix', th.scoreSuffix);
+  setText('fz-start-title', th.startTitle);
+  setText('fz-start-copy', th.startCopy);
+  setText('fz-start-btn', th.startBtn);
+  set('fz-legend-good1', `${icn(th.goodIcon1)} ${th.goodLabel1}`);
+  set('fz-legend-good2', `${icn(th.goodIcon2)} ${th.goodLabel2}`);
+  set('fz-legend-hazard', `${icn(th.hazardIcon)} ${th.hazardLabel}`);
+  setText('fz-brief-title', th.briefTitle);
+  setText('fz-brief-copy', th.briefCopy);
+}
+
+function openFeedZone(theme){
   const ov=document.getElementById('fz-overlay'); if(!ov) return;
+  fzTheme=(theme==='director_radio')?'director_radio':'default';
+  fzApplyTheme();
   fzResetPanels(true);
   fzScore=0; fzTimeLeft=FZ_DURATION_SEC; fzUpdateUI();
-  renderConsumablePicker('feedzone'); // fix317
+  const picker=document.getElementById('fz-consumable-picker');
+  if(fzTheme==='default'){
+    if(picker) picker.style.display='';
+    renderConsumablePicker('feedzone'); // fix317
+  } else if(picker){
+    // fix324: Director has no consumable/Extras inventory to pick from — the
+    // picker is a Privateer-side affordance (fix317), so it's hidden and left
+    // empty for the Director reskin rather than rendered against wrong state.
+    picker.innerHTML='';
+    picker.style.display='none';
+  }
   ov.style.display='flex';
   document.body.style.overflow='hidden';
 }
@@ -33752,7 +34274,11 @@ function fzStart(){
   // bypassing the hub entirely — so the lockout is re-checked at the start
   // function itself, not only at the dispatcher. Blocked runs bounce back to
   // the hub so the player can see why.
-  if(!rsCanStart('fz')){ closeFeedZone(); return; }
+  // fix324: rsCanStart('fz') enforces the ORIGINAL Feed Zone's own fz_regen
+  // buff-lock — a Rider-Skills concept that has nothing to do with the
+  // Director reskin's own (separate) gate. Checked here only for 'default' so
+  // the two entry paths can never block one another.
+  if(fzTheme!=='director_radio' && !rsCanStart('fz')){ closeFeedZone(); return; }
   fzClearHandles();
   fzClearItems();
   fzResetPanels(false);
@@ -33768,12 +34294,15 @@ function fzStart(){
 
 function fzSpawnItem(){
   const area=document.getElementById('fz-area'); if(!area||!fzActive) return;
+  // fix324: icon glyph only, per FZ_THEMES — classes/values (the spawn table
+  // and scoring math) are byte-identical to fix151 regardless of theme.
+  const th=FZ_THEMES[fzTheme]||FZ_THEMES.default;
   const el=document.createElement('div');
   const r=Math.random();
   let icon, value;
-  if(r<0.5){ el.className='fz-item fz-gel';   icon='gel';   value=10; }
-  else if(r<0.8){ el.className='fz-item fz-bidon'; icon='drink'; value=5; }
-  else { el.className='fz-item fz-tack';  icon='tack';  value=-15; }
+  if(r<0.5){ el.className='fz-item fz-gel';   icon=th.goodIcon1;   value=10; }
+  else if(r<0.8){ el.className='fz-item fz-bidon'; icon=th.goodIcon2; value=5; }
+  else { el.className='fz-item fz-tack';  icon=th.hazardIcon;  value=-15; }
   el.innerHTML=icn(icon);
   el.dataset.value=String(value);
   el.style.left=Math.random()*Math.max(0,(area.clientWidth-FZ_ITEM_SIZE))+'px';
@@ -33831,30 +34360,60 @@ function fzEnd(){
   fzClearItems();
   fzArmedConsumable=null; // fix317: one run per tap, spent whether or not it helped
   const won=fzScore>=FZ_THRESHOLD;
+  const th=FZ_THEMES[fzTheme]||FZ_THEMES.default;
 
   const title=document.getElementById('fz-end-title');
   const copy=document.getElementById('fz-end-copy');
   const fin=document.getElementById('fz-final');
   if(fin) fin.textContent=String(fzScore);
-  if(title) title.textContent=won?'Musette full':'Came up short';
-  if(copy) copy.textContent=won
-    ? `${fzScore}g on board. Your legs will come back quicker for the next half hour.`
-    : `${fzScore}g on board — you need ${FZ_THRESHOLD}g to ride away with anything. Go again.`;
+  if(title) title.textContent=won?th.wonTitle:th.lostTitle;
+  if(copy) copy.textContent=won?th.wonCopy(fzScore):th.lostCopy(fzScore);
   fzResetPanels(false);
   const endPanel=document.getElementById('fz-panel-end');
   if(endPanel) endPanel.classList.add('show');
 
+  // fix324: the Director reskin charges VP per attempt (locked decision #4 —
+  // upfront, on opt-in, non-refundable), so a free in-overlay "Ride it again"
+  // would undercut that. The retry button is hidden for that theme; the
+  // player returns to the calendar card (armDirectorRadioScramble) to pay and
+  // attempt again. Re-pointed here rather than via a second static button,
+  // per the plan's "swap text/icn() calls behind a theme flag" approach.
+  const retryBtn=document.getElementById('fz-end-retry-btn');
+  const backBtn=document.getElementById('fz-end-back-btn');
+  if(fzTheme==='director_radio'){
+    if(retryBtn) retryBtn.style.display='none';
+    if(backBtn){ backBtn.style.display=''; backBtn.textContent='Back to calendar'; backBtn.onclick=closeFeedZone; }
+  } else {
+    if(retryBtn){ retryBtn.style.display=''; retryBtn.textContent='Ride it again'; retryBtn.onclick=fzStart; }
+    if(backBtn){ backBtn.style.display=''; backBtn.textContent='Back to skills'; backBtn.onclick=closeFeedZone; }
+  }
+
   try{
-    const store=rsStore();
-    if(store.bestScores.fz==null||fzScore>store.bestScores.fz) store.bestScores.fz=fzScore;
-    store.lastPlayed.fz=Date.now();
-    // fix299: the drill_fz daily. Sited on the lastPlayed stamp, which is this
-    // file's existing definition of "a drill was ridden", so the task and the
-    // hub's last-played display can never disagree about whether it happened.
-    // Marked on COMPLETION, not on a win — the task says ride it, not win it.
-    markTaskProgress('drill_fz');
-    if(won) grantBuff('fz_regen', FZ_BUFF_MULT, FZ_BUFF_MS); // grantBuff saves
-    else saveGame();
+    if(fzTheme==='director_radio'){
+      // fix324: own write, own reward — no rsStore()/bestScores/drill_fz/
+      // fz_regen touched at all (those are the original Feed Zone's Rider-
+      // Skills bookkeeping and have nothing to do with this reskin). A win
+      // sets the Stage 1 gate flag on the tour's live ds; Stage 2's read of
+      // it lands in fix325. A loss changes nothing further — the VP already
+      // spent at opt-in is already gone.
+      if(won && _directorRadioTourId){
+        const ds=state.directorSeason[_directorRadioTourId];
+        if(ds) ds.radioStage1Cleared=true;
+      }
+      saveGame();
+    } else {
+      const store=rsStore();
+      if(store.bestScores.fz==null||fzScore>store.bestScores.fz) store.bestScores.fz=fzScore;
+      store.lastPlayed.fz=Date.now();
+      // fix299: the drill_fz daily. Sited on the lastPlayed stamp, which is
+      // this file's existing definition of "a drill was ridden", so the task
+      // and the hub's last-played display can never disagree about whether it
+      // happened. Marked on COMPLETION, not on a win — the task says ride it,
+      // not win it.
+      markTaskProgress('drill_fz');
+      if(won) grantBuff('fz_regen', FZ_BUFF_MULT, FZ_BUFF_MS); // grantBuff saves
+      else saveGame();
+    }
   }catch(e){
     console.warn('fzEnd: post-game save failed', e);
   }
@@ -33863,7 +34422,15 @@ function fzEnd(){
   // the try/catch guarantees this line is reached even if the save throws
   // (fix116), and running it after all DOM work means nothing rebuilds the
   // popup out from under it (fix126).
-  if(won) rsShowSuccessPop('fz');
+  // fix324: the Rider-Skills medallion pop (RS_WIN_COPY/RS_WIN_IMG keyed on
+  // 'fz') carries the ORIGINAL game's copy and photo — wrong for this theme.
+  // The in-overlay end panel above already carries themed win copy, so the
+  // Director reskin's celebration stops there; the calendar card is repainted
+  // instead so the cleared-gate badge shows the moment the player backs out.
+  if(won){
+    if(fzTheme==='director_radio'){ if(currentTab==='race') renderDirectorCalendar(); }
+    else rsShowSuccessPop('fz');
+  }
 }
 
 // Two-tap confirm, no confirm() — mirrors requestQuitGutOverlay().
@@ -33902,6 +34469,18 @@ function closeFeedZone(){
   clearTimeout(_fzQuitTimer); _fzQuitTimer=null;
   const btn=document.getElementById('fz-quit-btn');
   if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
+  // fix324: the Radio Scramble reskin was opened FROM the Race tab's Director
+  // calendar, not the Skills hub — closing it (via Back/Quit) has to return
+  // there instead of falling into openRiderSkillsHub(). Theme is reset to
+  // 'default' here so a stray leftover flag can never theme a future normal
+  // Workshop Feed Zone open.
+  if(fzTheme==='director_radio'){
+    fzTheme='default';
+    _directorRadioTourId=null;
+    showTab('race');
+    if(typeof renderDirectorCalendar==='function') renderDirectorCalendar();
+    return;
+  }
   openRiderSkillsHub();
 }
 
@@ -34880,8 +35459,62 @@ function btRenderWind(){
   if(mag>0.05) band.classList.add('bump');
 }
 
-function openBidonToss(){
+// fix325 — Race Radio Scramble, Stage 2 (CIM-plan-fix325-race-radio-scramble-
+// stage2-v1.md). Reskin approach mirrors fix324's fzTheme/FZ_THEMES/
+// fzApplyTheme() exactly: reuse the bt-overlay DOM/CSS and every BT_*
+// constant/btStart()/btEvaluateThrow()/btEnd() wholesale — only text strings
+// and the head icon's implicit label change, behind this theme flag.
+// 'default' reproduces the original fix245/fix246 copy verbatim, so the
+// Workshop-tab entry point stays byte-identical in observed behaviour.
+// btTheme is transient (never saved) — it only ever describes the overlay
+// instance currently on screen. _directorRadioTourId (fix324) is reused
+// as-is: both stages of one chain track the same live tour.
+let btTheme='default';
+const BT_THEMES={
+  default:{
+    headLabel:'Bidon Toss',
+    startTitle:'Bidon Toss',
+    startCopy:'Ten spent bidons and a roadside full of outstretched hands. Flick upward from the bottle, judge the crosswind, and let it go.',
+    startBtn:'Start throwing',
+    legend1:'Ten throws a run', legend2:'The wind builds',
+    briefTitle:'Bidon Toss',
+    briefCopy:'Time water bottle throws accurately to spectators to please the crowd and get a sponsor cash payout.',
+    wonTitle:'Every hand filled', wonTitleAlt:'The roadside is roaring',
+    lostTitle:'Bidons away',
+  },
+  director_radio:{
+    headLabel:'Supply the Riders',
+    startTitle:'Supply the Riders',
+    startCopy:'Ten bidons, ten riders reaching back from the peloton. Flick upward from the car, judge the crosswind, and get it into their hands.',
+    startBtn:'Start the hand-offs',
+    legend1:'Ten throws a run', legend2:'The wind builds',
+    briefTitle:'Supply the Riders',
+    briefCopy:'Stage 2 of Race Radio. Clear the threshold to lock in the boost for your next stage result.',
+    wonTitle:'Every rider supplied', wonTitleAlt:'Every rider supplied',
+    lostTitle:'Riders left short',
+  },
+};
+// Single paint point for every theme-dependent text node in the overlay.
+// Called once per open, before the start panel is shown — never mid-run,
+// same discipline as fzApplyTheme().
+function btApplyTheme(){
+  const th=BT_THEMES[btTheme]||BT_THEMES.default;
+  const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.innerHTML=val; };
+  const setText=(id,val)=>{ const el=document.getElementById(id); if(el) el.textContent=val; };
+  set('bt-head-label', `<svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> ${th.headLabel}`);
+  setText('bt-start-title', th.startTitle);
+  setText('bt-start-copy', th.startCopy);
+  setText('bt-start-btn', th.startBtn);
+  set('bt-legend-1', `<svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-drink"></use></svg> ${th.legend1}`);
+  set('bt-legend-2', `<svg class="icn" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><use href="#icn-wind"></use></svg> ${th.legend2}`);
+  setText('bt-brief-title', th.briefTitle);
+  setText('bt-brief-copy', th.briefCopy);
+}
+
+function openBidonToss(theme){
   const ov=document.getElementById('bt-overlay'); if(!ov) return;
+  btTheme=(theme==='director_radio')?'director_radio':'default';
+  btApplyTheme();
   btResetPanels(true);
   btThrows=0; btScore=0; btWind=0; btThrowBudget=BT_THROWS; btUpdateUI();
   // fix246: loop state is reset here too, not only in btStart(), so a board
@@ -34889,7 +35522,16 @@ function openBidonToss(){
   // half-finished drag.
   btStreak=0; btDragging=false; btMsgUntil=0;
   btBottle.reset();
-  renderConsumablePicker('bidontoss'); // fix317
+  const picker=document.getElementById('bt-consumable-picker');
+  if(btTheme==='default'){
+    if(picker) picker.style.display='';
+    renderConsumablePicker('bidontoss'); // fix317
+  } else if(picker){
+    // fix325: Director has no consumable/Extras inventory to pick from —
+    // same treatment fix324 gave #fz-consumable-picker for Stage 1.
+    picker.innerHTML='';
+    picker.style.display='none';
+  }
   ov.style.display='flex';
   document.body.style.overflow='hidden';
   // ONE frame, behind the start panel, so the board is a road and a fan rather
@@ -34940,6 +35582,20 @@ function closeBidonToss(){
   clearTimeout(_btQuitTimer); _btQuitTimer=null;
   const btn=document.getElementById('bt-quit-btn');
   if(btn){ btn.textContent='Quit'; btn.classList.remove('armed'); }
+  // fix325: the Supply the Riders reskin was opened FROM the Race tab's
+  // Director calendar, not the Skills hub — closing it (via Back/Quit) has
+  // to return there instead of falling into openRiderSkillsHub(). Theme is
+  // reset to 'default' here so a stray leftover flag can never theme a
+  // future normal Workshop Bidon Toss open. Mirrors closeFeedZone()'s
+  // fix324 branch exactly; _directorRadioTourId is the SAME transient var
+  // Stage 1 already owns, shared across both stages of one chain.
+  if(btTheme==='director_radio'){
+    btTheme='default';
+    _directorRadioTourId=null;
+    showTab('race');
+    if(typeof renderDirectorCalendar==='function') renderDirectorCalendar();
+    return;
+  }
   openRiderSkillsHub();
 }
 
@@ -35235,7 +35891,11 @@ function btStart(){
   // function itself. Blocked runs bounce back to the hub so the player can see
   // why. (The dispatcher's own check arrives with the 'bt' branch at fix249;
   // this one stands on its own until then and is not removed when it does.)
-  if(!rsCanStart('bt')){ closeBidonToss(); return; }
+  // fix325: rsCanStart('bt') enforces the ORIGINAL Bidon Toss's own bt_hype
+  // buff-lock — a Rider-Skills concept unrelated to the Director reskin's
+  // own (separate) gate. Checked here only for 'default', same one-line
+  // pattern fix324 applied to fzStart()'s rsCanStart('fz') check.
+  if(btTheme!=='director_radio' && !rsCanStart('bt')){ closeBidonToss(); return; }
   btClearHandles();
   btResetPanels(false);
   btActive=true;
@@ -35390,12 +36050,63 @@ function btEnd(){
   const title=document.getElementById('bt-end-title');
   const copy=document.getElementById('bt-end-copy');
   const fin=document.getElementById('bt-final');
+  const th=BT_THEMES[btTheme]||BT_THEMES.default;
   if(fin) fin.textContent=String(btScore);
-  if(title) title.textContent = btScore>=btThrowBudget ? 'Every hand filled' : 'Bidons away';
+  if(title) title.textContent = btScore>=btThrowBudget ? th.wonTitle : th.lostTitle;
   if(copy) copy.textContent = `You landed ${btScore} of ${btThrowBudget}.`; // fix317: was BT_THROWS
   btResetPanels(false);
   const endPanel=document.getElementById('bt-panel-end');
   if(endPanel) endPanel.classList.add('show');
+
+  // fix325: the Director reskin charges no per-attempt VP for Stage 2 (the
+  // one chain cost is already spent upfront at Stage 1 opt-in — plan §2),
+  // but the retry button is still hidden here so both stages share one exit
+  // shape: retry always routes back through the calendar card, same as
+  // fix324 did for Stage 1's #fz-end-retry-btn.
+  const retryBtn=document.getElementById('bt-end-retry-btn');
+  const backBtn=document.getElementById('bt-end-back-btn');
+  if(btTheme==='director_radio'){
+    if(retryBtn) retryBtn.style.display='none';
+    if(backBtn){ backBtn.style.display=''; backBtn.textContent='Back to calendar'; backBtn.onclick=closeBidonToss; }
+  } else {
+    if(retryBtn){ retryBtn.style.display=''; retryBtn.textContent='Throw again'; retryBtn.onclick=btStart; }
+    if(backBtn){ backBtn.style.display=''; backBtn.textContent='Back to skills'; backBtn.onclick=closeBidonToss; }
+  }
+
+  if(btTheme==='director_radio'){
+    // fix325: own write, own reward — no rsStore()/bestScores/drill_bt/
+    // bt_hype touched at all (those are the original Bidon Toss's Rider-
+    // Skills bookkeeping and have nothing to do with this reskin). Reuses
+    // Bidon Toss's own existing pass bar (BT_HYPE_THRESHOLD, 6/10) rather
+    // than inventing a new number, same principle as Stage 1 reusing
+    // FZ_THRESHOLD outright. A win sets the single-use directorRadioBoost
+    // flag on the tour's live ds — checkDirectorStageResolve() is what
+    // reads and consumes it (plan §4). A loss changes nothing further:
+    // ds.radioStage1Cleared is deliberately NOT revoked, so the player can
+    // attempt Stage 2 again for free within the same still-live cooldown
+    // window (the one VP cost was already spent at Stage 1 opt-in).
+    const pct=btScore/BT_THROWS;
+    const won=pct>=BT_HYPE_THRESHOLD;
+    if(title) title.textContent = won ? th.wonTitle : th.lostTitle;
+    if(copy) copy.textContent = won
+      ? `You got ${btScore} of ${btThrowBudget} through. Boost locked in for this stage's result.`
+      : `You got ${btScore} of ${btThrowBudget} through — you need ${Math.ceil(BT_HYPE_THRESHOLD*BT_THROWS)} to lock in the boost. Back to the calendar to try again.`;
+    try{
+      if(won && _directorRadioTourId){
+        if(!state.directorRadioBoost) state.directorRadioBoost={};
+        state.directorRadioBoost[_directorRadioTourId]=true;
+      }
+      saveGame();
+    }catch(e){
+      console.warn('btEnd: director save failed', e);
+    }
+    // fix325: same reasoning as fzEnd()'s director branch — the in-overlay
+    // end panel above already carries themed win copy, so the celebration
+    // stops there (rsShowSuccessPop('bt') carries the ORIGINAL game's copy/
+    // photo, wrong for this theme); the calendar card is repainted instead.
+    if(won){ if(currentTab==='race') renderDirectorCalendar(); }
+    return;
+  }
 
   // fix247: everything below is credit, and all of it is behind the panel.
   // fix317: btAward()'s pct is deliberately STILL btScore/BT_THROWS (the
@@ -35407,8 +36118,8 @@ function btEnd(){
   try{
     const res=btAward(btScore/BT_THROWS);
     if(title) title.textContent = res.won
-      ? (btScore>=btThrowBudget ? 'Every hand filled' : 'The roadside is roaring')
-      : 'Bidons away';
+      ? (btScore>=btThrowBudget ? th.wonTitle : th.wonTitleAlt)
+      : th.lostTitle;
     if(copy){
       const paid = res.cash>0 ? `+${fmtMoney(res.cash)} in the tin.` : 'Nothing left in the tin this half hour.';
       copy.textContent = res.won
@@ -36839,7 +37550,7 @@ function wsRefreshTuningCardsAfford(){
 
 // FIX 1: buildEquipCard — removed spurious third stat-bar block that caused duplicate
 // aero bars on kit items (fired when maxAero was defined AND maxClimb was undefined)
-function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,climbWatts,owned,equipped,onBuy,onEquip,maxAero,maxClimb,prestigeLocked,minPrestige,careerLocked,careerHow,privateerLocked}){
+function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,climbWatts,owned,equipped,onBuy,onEquip,maxAero,maxClimb,prestigeLocked,minPrestige,careerLocked,careerHow,privateerLocked,directorLocked}){
   const div=document.createElement('div');
   // fix301: careerLocked takes the same visual slot as prestigeLocked. Ordered
   // FIRST so a price:null item never falls through to the `price<=state.money`
@@ -36849,7 +37560,12 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
   // ahead of careerLocked — road gear is retired for the whole rest of the
   // save once a player forks to Privateer, so it outranks every other lock
   // reason. Reuses the EXISTING 'prestige-locked' visual class, per the plan.
-  div.className='equip-card'+(equipped?' equipped':'')+(privateerLocked?' prestige-locked':careerLocked?' prestige-locked':prestigeLocked?' prestige-locked':owned?' owned':price!==null&&price<=state.money?' affordable':' cant-afford');
+  // fix323: directorLocked reuses the same slot/class, same reasoning — road
+  // gear is retired for Director players, who read Team Facilities instead
+  // (see getFacilityBonusForRace()). privateerLocked/directorLocked can never
+  // both be true (legacyPath is one value), so their order relative to each
+  // other doesn't matter; both are checked ahead of careerLocked.
+  div.className='equip-card'+(equipped?' equipped':'')+(privateerLocked?' prestige-locked':directorLocked?' prestige-locked':careerLocked?' prestige-locked':prestigeLocked?' prestige-locked':owned?' owned':price!==null&&price<=state.money?' affordable':' cant-afford');
 
   const tierCls=`tier-${tier}`, tierLabel=['','I','II','III','IV','V'][tier];
   const typeLabels={allrounder:'All-rounder',aero:'Aero',climbing:'Climbing',tt:'Time Trial',standard:'Standard',racing:'Racing',deep:'Deep Section',disc:'Disc',road:'Road',skinsuit:'Skinsuit',lightweight:'Lightweight',endurance:'Endurance'};
@@ -36877,6 +37593,11 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
   // career lock — see the className comment above for why.
   if(privateerLocked){
     actionHtml=`<div class="equip-price">${icn('lock')} Retired &middot; Privateer path</div><button class="equip-btn btn-locked">${icn('lock')} Locked</button>`;
+  } else
+  // fix323: directorLocked, same rank as privateerLocked above — road gear is
+  // retired for the rest of the save once a player forks to Director.
+  if(directorLocked){
+    actionHtml=`<div class="equip-price">${icn('lock')} Retired &middot; Director path</div><button class="equip-btn btn-locked">${icn('lock')} Locked</button>`;
   } else
   // fix301: career lock is checked before EVERYTHING, including the prestige
   // lock. A career item is minPrestige 0 so the two can never both be true
@@ -36924,8 +37645,9 @@ function buildEquipCard({icon,brand,model,name,tier,type,desc,price,aeroWatts,cl
   // keyed on `owned`, which is exactly what the goal collect grants.
   // fix319: privateerLocked added to both guards, same reasoning as the
   // className/actionHtml branches above.
-  if(!privateerLocked&&!careerLocked&&!prestigeLocked&&!owned&&price!==null&&price<=state.money) div.querySelector('[data-buy]')?.addEventListener('click', ()=>{ onBuy(); burstCard(div); });
-  if(!privateerLocked&&!careerLocked&&!prestigeLocked&&owned&&!equipped)           div.querySelector('[data-equip]')?.addEventListener('click', onEquip);
+  // fix323: directorLocked added alongside privateerLocked, same reasoning.
+  if(!privateerLocked&&!directorLocked&&!careerLocked&&!prestigeLocked&&!owned&&price!==null&&price<=state.money) div.querySelector('[data-buy]')?.addEventListener('click', ()=>{ onBuy(); burstCard(div); });
+  if(!privateerLocked&&!directorLocked&&!careerLocked&&!prestigeLocked&&owned&&!equipped)           div.querySelector('[data-equip]')?.addEventListener('click', onEquip);
   return div;
 }
 
@@ -37086,6 +37808,7 @@ function renderBikeShop(){
       prestigeLocked:itemPrestigeLocked(b), minPrestige:b.minPrestige||0,
       careerLocked:itemCareerLocked(b), careerHow:careerHowFor(b),
       privateerLocked: state.legacyPath==='privateer',
+      directorLocked: state.legacyPath==='director', // fix323
       onBuy:()=>buyBike(b.id),
       // FIX 6: Replaced boolean short-circuit trick with a proper if statement
       onEquip:()=>{ equipBike(b.id); renderBikeShop(); if(currentTab==='race') renderRaceSetupCard(); }
@@ -37108,6 +37831,7 @@ function renderBikeShop(){
       prestigeLocked:false, minPrestige:0,
       careerLocked:false, careerHow:'',
       privateerLocked: state.legacyPath==='privateer',
+      directorLocked: state.legacyPath==='director', // fix323
       onBuy:()=>{},
       onEquip:()=>{ equipRdBike(b.id); renderBikeShop(); if(currentTab==='race') renderRaceSetupCard(); }
     });
@@ -37131,6 +37855,7 @@ function renderBikeShop(){
       prestigeLocked:itemPrestigeLocked(b), minPrestige:b.minPrestige||0,
       careerLocked:itemCareerLocked(b), careerHow:careerHowFor(b),
       privateerLocked: state.legacyPath==='privateer',
+      directorLocked: state.legacyPath==='director', // fix323
       onBuy:()=>buyTTBike(b.id),
       onEquip:()=>{ equipTTBike(b.id); renderBikeShop(); if(currentTab==='race') renderRaceSetupCard(); }
     });
@@ -37151,6 +37876,7 @@ function renderWheelShop(){
       prestigeLocked:itemPrestigeLocked(w), minPrestige:w.minPrestige||0,
       careerLocked:itemCareerLocked(w), careerHow:careerHowFor(w),
       privateerLocked: state.legacyPath==='privateer',
+      directorLocked: state.legacyPath==='director', // fix323
       onBuy:()=>buyWheels(w.id), onEquip:()=>{ equipWheels(w.id); renderWheelShop(); }
     });
     list.appendChild(card);
@@ -37251,6 +37977,7 @@ function renderKitShop(){
       prestigeLocked:itemPrestigeLocked(k), minPrestige:k.minPrestige||0,
       careerLocked:itemCareerLocked(k), careerHow:careerHowFor(k),
       privateerLocked: state.legacyPath==='privateer',
+      directorLocked: state.legacyPath==='director', // fix323
       onBuy:()=>buyKit(k.id), onEquip:()=>{ equipKit(k.id); renderKitShop(); }
     });
     list.appendChild(card);
@@ -37416,6 +38143,82 @@ function renderAccessoryShop(){
     if(clickable) div.addEventListener('click',()=>{ buyAccessory(u.id); burstCard(div); });
     list.appendChild(div);
   });
+
+  // fix323 — Team Facilities. Appended after the ACCESSORIES list, per plan
+  // decision 5 (no new sub-tab). Director-only visibility — HIDDEN, not
+  // greyed, for Privateer/pre-fork players, since facilities are meaningless
+  // outside the Director path (mirrors decision 1's "Director-only swap").
+  // Reuses buildEquipCard()'s single-stat variant: Bus supplies maxClimb
+  // only, Lab supplies maxAero only — no dual aero/climb bars on a squad
+  // asset that only ever feeds one weighted component each.
+  if(state.legacyPath==='director'){
+    const h2f=document.createElement('div'); h2f.className='section-lbl'; h2f.style.marginTop='.9rem';
+    h2f.style.display='flex'; h2f.style.alignItems='center'; h2f.style.gap='6px';
+    h2f.innerHTML=`Team Facilities — squad infrastructure <button class="info-btn" onclick="event.stopPropagation();openInfo('teamFacilities')">ⓘ</button>`;
+    list.appendChild(h2f);
+    // Headroom above the top tier's watts (52/55), same "just shy of full"
+    // scale-calibration principle renderBikeShop() already documents.
+    const facMaxClimb=55, facMaxAero=58;
+    const buildFacilityCard=(facilityId,label,statKey,maxStat)=>{
+      const ladder=TEAM_FACILITIES[facilityId];
+      const curTier=state.teamFacilities[facilityId]||0;
+      const maxed=curTier>=ladder.length;
+      const next=maxed?null:ladder[curTier];
+      const cur=curTier>0?ladder[curTier-1]:null;
+      const desc = maxed
+        ? `Fully upgraded. ${cur.desc}`
+        : curTier>0
+          ? `Currently Tier ${curTier} of ${ladder.length}. Next: ${next.desc}`
+          : `Not yet built. ${next.desc}`;
+      const args={
+        name:`${label} — Tier ${maxed?ladder.length:curTier} of ${ladder.length}`,
+        tier: maxed?ladder.length:next.tier,
+        desc,
+        // Maxed: shows what the final tier cost (an owned/equipped card, no
+        // further action). Not maxed: next tier's real price, feeding the
+        // normal affordable/locked branches unchanged.
+        price: maxed?cur.price:next.price,
+        owned: maxed, equipped: maxed,
+        prestigeLocked: !maxed && (next.minPrestige||0)>prestigeLevel(),
+        minPrestige: maxed?0:(next.minPrestige||0),
+        careerLocked:false, careerHow:'',
+        privateerLocked:false, directorLocked:false,
+        onBuy:()=>buyFacilityTier(facilityId),
+        onEquip:()=>{},
+      };
+      const statWatts = maxed?cur.watts:next.watts;
+      if(statKey==='climb'){ args.climbWatts=statWatts; args.maxClimb=maxStat; }
+      else { args.aeroWatts=statWatts; args.maxAero=maxStat; }
+      return buildEquipCard(args);
+    };
+    list.appendChild(buildFacilityCard('bus','Team Bus','climb',facMaxClimb));
+    // fix326 — Staff Efficiency Tests (plan §6). Read-only reflection of the
+    // rolling modifier, appended right after each facility's own card —
+    // NOT inside buildEquipCard() itself (that function is shared with
+    // gear/bike cards elsewhere and stays untouched). No tap target, no
+    // state write — render functions must never write state. Nothing is
+    // shown while the modifier is 0 (no test has fired yet, or this ladder
+    // hasn't been tested this cycle).
+    const busMod=state.staffTestModifier?.bus||0;
+    if(busMod!==0){
+      const busModLine=document.createElement('div');
+      busModLine.className='muted-note';
+      busModLine.style.cssText='margin:-6px 0 8px;padding:0 4px;font-size:.85em;';
+      busModLine.style.color=busMod>0?'var(--good,#4caf50)':'var(--warn,#e57373)';
+      busModLine.textContent=`Efficiency: ${busMod>0?'+':''}${Math.round(busMod*100)}%`;
+      list.appendChild(busModLine);
+    }
+    list.appendChild(buildFacilityCard('lab','Performance Lab','aero',facMaxAero));
+    const labMod=state.staffTestModifier?.lab||0;
+    if(labMod!==0){
+      const labModLine=document.createElement('div');
+      labModLine.className='muted-note';
+      labModLine.style.cssText='margin:-6px 0 8px;padding:0 4px;font-size:.85em;';
+      labModLine.style.color=labMod>0?'var(--good,#4caf50)':'var(--warn,#e57373)';
+      labModLine.textContent=`Efficiency: ${labMod>0?'+':''}${Math.round(labMod*100)}%`;
+      list.appendChild(labModLine);
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -38473,6 +39276,19 @@ function saveGame(){
       // fix321 — Squad Form. Plain number/boolean, written whole like the two fields above.
       directorForm: state.directorForm,
       directorStageResolvedToday: state.directorStageResolvedToday,
+      // fix325 — Race Radio Scramble chain reward. Plain object, one boolean
+      // per tourId, written whole like directorForm/directorSeason above.
+      directorRadioBoost: state.directorRadioBoost,
+      // fix323 — Team Facilities. Plain object, two numeric tier indices, no
+      // Set/Map involved — written whole like directorForm above.
+      teamFacilities: {bus:state.teamFacilities.bus, lab:state.teamFacilities.lab},
+      // fix326 — Staff Efficiency Tests. Plain object, two numeric ±%
+      // modifiers, no Set/Map involved — written whole like teamFacilities above.
+      staffTestModifier: {bus:state.staffTestModifier.bus, lab:state.staffTestModifier.lab},
+      // fix327 — Medical Wing. Plain object, one boolean + one numeric
+      // countdown, no Set/Map involved — written whole like teamFacilities/
+      // staffTestModifier above.
+      medicalSetback: {active:state.medicalSetback.active, stagesRemaining:state.medicalSetback.stagesRemaining},
       gravelGear: {
         ownedBikes:[...state.gravelGear.ownedBikes],     equippedBike:state.gravelGear.equippedBike,
         ownedWheels:[...state.gravelGear.ownedWheels],   equippedWheels:state.gravelGear.equippedWheels,
@@ -38758,6 +39574,10 @@ function loadGame(){
           strategyChoice:  _t.strategyChoice  ?? null,
           resolveAt:       _t.resolveAt       ?? null,
           stageResults:    Array.isArray(_t.stageResults) ? _t.stageResults : [],
+          // fix324: own sub-key, own guard — same tourProgress-lesson
+          // discipline as every other field here. A save from fix323 or
+          // earlier carries no radioStage1Cleared at all and heals to false.
+          radioStage1Cleared: !!_t.radioStage1Cleared,
         };
       });
     }
@@ -38766,6 +39586,17 @@ function loadGame(){
       state.directorCareer = {
         toursDirected:       _dc.toursDirected       ?? 0,
         gcPodiumsAsDirector: _dc.gcPodiumsAsDirector  ?? 0,
+        // fix326 — Staff Efficiency Tests (plan §3). Cumulative, permanent
+        // counter of every Director stage resolved across the whole career,
+        // same per-sub-key `??` discipline as its siblings above. A save
+        // from fix325 or earlier carries no stagesResolved at all and heals
+        // to 0.
+        stagesResolved:      _dc.stagesResolved       ?? 0,
+        // fix327 — Medical Wing (plan §3). Cumulative, permanent counter of
+        // every setback suffered across the whole career, same per-sub-key
+        // `??` discipline as its siblings above. A save from fix326 or
+        // earlier carries no setbacksSuffered at all and heals to 0.
+        setbacksSuffered:    _dc.setbacksSuffered     ?? 0,
       };
     }
     // fix321 — Squad Form (see CIM-plan-fix321-squad-form-v1.md). Own
@@ -38775,6 +39606,43 @@ function loadGame(){
     // to the 70 baseline via this guard.
     state.directorForm = d.directorForm ?? 70;
     state.directorStageResolvedToday = d.directorStageResolvedToday ?? false;
+    // fix325 — Race Radio Scramble chain reward (plan §5). Own top-level
+    // field, own per-tourId `??` guard — NOT nested under directorSeason,
+    // same explicit "own top-level field" call-out fix321's directorForm
+    // got. A save from fix324 or earlier carries no directorRadioBoost at
+    // all and every tourId heals to false via this guard.
+    {
+      const _drbRaw = d.directorRadioBoost || {};
+      state.directorRadioBoost = {};
+      ['tour_de_france','giro_d_italia','vuelta_espana'].forEach(tourId=>{
+        state.directorRadioBoost[tourId] = !!_drbRaw[tourId];
+      });
+    }
+    // fix323 — Team Facilities. Per-sub-key `??` guard, tourProgress-lesson
+    // discipline — a save from fix322 or earlier carries no teamFacilities at
+    // all and heals to {bus:0, lab:0} field by field, never a single
+    // top-level guard on the parent object.
+    {
+      const _tf = d.teamFacilities || {};
+      state.teamFacilities = { bus: _tf.bus ?? 0, lab: _tf.lab ?? 0 };
+    }
+    // fix326 — Staff Efficiency Tests (plan §3). Rolling ±% modifier per
+    // facility ladder, own top-level field — NOT nested under
+    // teamFacilities — per-sub-key `??` guard, tourProgress-lesson
+    // discipline. A save from fix325 or earlier carries no
+    // staffTestModifier at all and every ladder heals to 0 (no swing).
+    {
+      const _stm = d.staffTestModifier || {};
+      state.staffTestModifier = { bus: _stm.bus ?? 0, lab: _stm.lab ?? 0 };
+    }
+    // fix327 — Medical Wing (plan §3). Squad-wide setback state, own
+    // top-level field, per-sub-key `??` guard, tourProgress-lesson
+    // discipline. A save from fix326 or earlier carries no medicalSetback at
+    // all and heals to {active:false, stagesRemaining:0} — no setback.
+    {
+      const _ms = d.medicalSetback || {};
+      state.medicalSetback = { active: !!_ms.active, stagesRemaining: _ms.stagesRemaining ?? 0 };
+    }
     // fix270 (§4): per-sub-key guard, the tourProgress lesson again. This one is
     // a bare array rather than an object, so the guard is a type check and not a
     // field-by-field rebuild — but the principle is identical: never trust the
@@ -39993,6 +40861,25 @@ const INFO_TEXTS = {
     body: ()=>`One meter for the whole squad, shared across all three Grand Tours — racing the Giro while still tired from the Tour is the point. Higher Form means better expected placements AND more consistent results; low Form means worse AND swingier.<br><br>
       Every stage costs Form to run — Send the Breakaway costs the most, Protect the GC the least — but a strong placement claws it back, and a great one can push Form higher than where it started. A bad result compounds the fatigue.<br><br>
       Rest days help: if your squad doesn't race a stage on a given day, Form drifts back toward its 70 baseline. It can't drop below 20 — a tired squad can still start a stage, just not usefully — and resets to 70 at the start of each new season.`
+  },
+  // fix322 — Team Logistics Hub, Part 1 panel's ⓘ.
+  directorRoster: {
+    title: 'Team Roster',
+    body: ()=>`A fixed three-rider squad — no scouting, no hire or fire. Each rider leads whichever stage matches their specialty: your Climber takes the mountains, your Sprinter takes the flat stages, your Time-Trialist takes the TTs.<br><br>
+      Whoever's leading gets a boost to the part of the score their specialty covers — but your underlying attributes, equipment and prestige still set the baseline for every rider. Think of it as depth added on top of what your training already built, not a separate roster to manage.`
+  },
+  // fix323 — Team Facilities. Gear ▸ Extras section header's ⓘ, Director-only.
+  teamFacilities: {
+    title: 'Team Facilities',
+    body: ()=>`Once you're directing a squad, personal road gear (bikes, wheels, kit) is retired — your riders race on the team's own equipment, not yours. Team Facilities replace it.<br><br>
+      Team Bus upgrades your squad's climbing support; Performance Lab upgrades your squad's aero optimisation. Each is a simple tier ladder — buy the next tier with cash, gated by Prestige — and each tier permanently raises the matching stage bonus. There's no owning-and-swapping like bikes: your squad only ever has one bus and one lab, so buying a tier always supersedes the one before it.<br><br>
+      Every 5 stages your squad races, each facility gets an efficiency test — the higher the tier, the better its odds. A pass swings that facility's bonus up for a while; a fail swings it down. The result sticks until the next test replaces it, so a run of bad luck won't linger forever.`
+  },
+  // fix327 — Medical Wing panel's ⓘ, shown only while a setback is active.
+  medicalWing: {
+    title: 'Medical Wing',
+    body: ()=>`Run your Squad Form too low and the squad picks up a setback — a flat penalty to every stage's watts output until it clears. It clears on its own after a few stages of racing, no action needed.<br><br>
+      Can't wait? Spend VP or a hefty cut of your current cash to clear it immediately. Both are steep on purpose — the real fix is managing Form before it gets this low, not paying your way out every time.`
   },
   attributes: {
     title: 'Attributes',
