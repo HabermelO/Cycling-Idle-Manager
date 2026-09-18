@@ -10421,6 +10421,34 @@ body.train-sheet-live{overflow:hidden;}
 }
 #home-profile-body .profile-name-save:focus-visible{outline:3px solid #fff;outline-offset:2px;}
 
+/* fix328 — DEV_MODE_ENABLED. Values copied from .profile-name-input /
+   .profile-name-save above rather than a shared class, since #dev-pw-overlay
+   is not #home-profile-body and those rules are scoped to that container. */
+#dev-pw-overlay .dev-pw-row{display:flex;align-items:center;gap:8px;margin-top:10px;}
+#dev-pw-overlay .dev-pw-input{
+  flex:1 1 auto;min-width:0;
+  padding:0 10px;min-height:34px;
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:var(--bg);color:var(--txt);
+  font-size:16px;font-weight:700;font-family:inherit;
+}
+#dev-pw-overlay .dev-pw-input:focus-visible{outline:3px solid #fff;outline-offset:2px;}
+#dev-pw-overlay .dev-pw-submit{
+  flex:0 0 auto;
+  padding:0 14px;min-height:34px;
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:var(--bg3);color:var(--txt);
+  font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;
+}
+#dev-pw-overlay .dev-pw-submit:active{transform:scale(.97);}
+#dev-pw-overlay .dev-pw-error{margin-top:8px;font-size:12px;font-weight:700;color:var(--red-txt);min-height:1em;}
+/* Standalone rather than joining the #info-card-title,#ws-cap-title shared
+   selector above — this modal has its own ids specifically to avoid any
+   getElementById collision with #info-overlay, so its styling stays
+   separate too rather than reaching back into that shared rule. */
+#dev-pw-title{font-size:15px;font-weight:800;color:var(--txt);margin:0 1.75rem 8px 0;letter-spacing:-.01em;}
+#dev-pw-body{font-size:13px;color:var(--txt2);line-height:1.55;}
+
 /* SIX TILES, AND SIX IS A CEILING (plan §3.2). Two columns, because a third
    column puts "£123.45M" on two lines at 360px. */
 #home-profile-body .profile-tiles{
@@ -14575,6 +14603,15 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════
 const SAVE_KEY     = 'cycling-idle-v4';
+// fix328 — DEV_MODE_ENABLED. Its own localStorage key, deliberately separate
+// from SAVE_KEY: existence of this key IS "dev mode is active" (see the Dev
+// Mode block near renderSettings() for the full design). saveGame()/
+// loadGame() are NEVER edited for this — the dev session's live progress
+// persists through the ordinary SAVE_KEY exactly like any real session; this
+// key only ever holds the ONE pre-entry snapshot, written once at entry and
+// consumed once at exit. Strip this line along with every other
+// DEV_MODE_ENABLED block before soft-launch.
+const DEV_SNAPSHOT_KEY = 'cycling-idle-dev-snapshot-v1';
 const DAILY_ENERGY = 100, MAX_ENERGY_CAP = 150;
 // fix158: superseded — const ENERGY_REGEN_RATE = 1/600; // 1 energy per 10 minutes = 6 per hour
 // fix158: regen doubled. Refill speed only — daily ceiling (todayEnergyAllocation) unchanged.
@@ -25636,6 +25673,27 @@ function renderSettings(){
   // used by the version row directly above, so nothing is orphaned.
 
   if(_setVerCache === null) readCacheVersion();
+
+  // fix328 — DEV_MODE_ENABLED. Appended after the version row, same reason
+  // that row is appended after SETTINGS_ROWS: this is not a preference, and
+  // it is the only thing in this sheet gated on a runtime flag instead of
+  // always present. Renders NOTHING when inactive — the long-press trigger
+  // lives on the version row above and needs no visible affordance of its
+  // own (design decision: discreet). While active, the controls ARE always
+  // visible here without needing to rediscover the long-press, which is the
+  // whole point of making exit easy to find.
+  if(_devModeActive){
+    const _exitArmed = (Date.now() - _devExitArmAt) < DEV_EXIT_ARM_MS;
+    const _grantDisabled = state.legacyPath ? ' disabled style="opacity:.5"' : '';
+    body.insertAdjacentHTML('beforeend',
+      `<div class="set-row" style="border:1px solid var(--red-txt);border-radius:var(--radius);padding:8px;margin-top:8px">
+         <div class="set-row-lbl" style="color:var(--red-txt);font-weight:800">🔧 DEV MODE ACTIVE</div>
+         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+           <button class="set-ver-btn"${_grantDisabled} onclick="devGrantTripleGT()">Grant triple GT (test fork)</button>
+           <button class="set-ver-btn${_exitArmed?' armed':''}" onclick="devExitTap()">${_exitArmed?'Tap again to exit + restore':'Exit dev mode'}</button>
+         </div>
+       </div>`);
+  }
 }
 
 // ═══════════ fix263: THE SHOP, TRADING (vp-shop-plan-v1 §3.2, §6) ═══════
@@ -26454,6 +26512,210 @@ function applySettings(){
   ] || 0;
   document.documentElement.style.setProperty('--dimmer-a', _da);
 }
+
+// ═══════════ fix328 — DEV_MODE_ENABLED: SNAPSHOT SANDBOX ═══════════════
+// (CIM-plan-devmode-v1.md). Every symbol in every block tagged
+// DEV_MODE_ENABLED across this file — this one, the renderSettings() row
+// additions, the long-press listener setup near BOOT, and the password
+// modal markup/CSS near #info-overlay — is meant to be grep'd for and
+// stripped as one pass before soft-launch. Tag-based removal, the same way
+// every other fix in this file is findable by its own "// fixNNN" comments;
+// there is no single contiguous byte range a file this size could hold one
+// in, so this matches the codebase's existing convention rather than
+// inventing a new one.
+//
+// WHAT THIS BUYS: reaching post-triple-GT states (the Prestige Fork choice,
+// and specifically the Directeur Sportif path fix320-327 live behind) for
+// testing, without grinding a season for real.
+//
+// DESIGN, IN ONE PARAGRAPH: long-press the version readout in Settings opens
+// a password modal. The correct password snapshots the ENTIRE state object
+// — generically, not a curated field list, so nothing here needs updating
+// as state grows — into its own localStorage key (DEV_SNAPSHOT_KEY, see its
+// definition beside SAVE_KEY). While active, play is completely normal: real
+// funnels, real saveGame()/loadGame() calls, survives closing the app,
+// because the dev session's progress simply IS the ordinary save. A
+// single-tap dev action grants the real triple-GT trigger condition and
+// calls the REAL checkLegacyForkEligibility() funnel — so the actual fork UI
+// fires, no synthetic bypass. Exit is two-tap, restores the snapshot in
+// place, calls the EXISTING saveGame() to persist it properly, then reloads
+// the page — the same reload-on-confirm pattern settingsUpdateTap() already
+// uses two-tap for above — so every hub/cache rebuilds from a clean boot
+// rather than being hand-patched mid-session.
+//
+// saveGame(), loadGame(), checkLegacyForkEligibility() and
+// renderLegacyFork() are NEVER edited by this fix — only called. state gets
+// no new persisted field; dev-active status is derived from whether
+// DEV_SNAPSHOT_KEY exists, never trusted from memory across a reload.
+
+// Set/Map-aware generic clone. JSON alone turns a Set/Map into {} on the way
+// out and can't reconstruct one on the way in — and state has many Sets
+// (ownedBikes, relics, gtWon, gravelGear.owned*, and more). Tagging the
+// instance type in a replacer/reviver pair means this needs no per-field
+// list and stays correct as new Set/Map fields are added to state later —
+// the exact drift the tourProgress lesson warns against, avoided here by
+// being generic instead of enumerated.
+function devSerializeState(obj){
+  return JSON.stringify(obj, (k, v) => {
+    if(v instanceof Set) return { __devType:'Set', v:[...v] };
+    if(v instanceof Map) return { __devType:'Map', v:[...v] };
+    return v;
+  });
+}
+function devDeserializeState(str){
+  return JSON.parse(str, (k, v) => {
+    if(v && typeof v === 'object' && v.__devType === 'Set') return new Set(v.v);
+    if(v && typeof v === 'object' && v.__devType === 'Map') return new Map(v.v);
+    return v;
+  });
+}
+
+// Derived from the key's presence, re-checked at every script run — never
+// trusted from a module variable across a reload, since a reload is exactly
+// what happens after both entry (implicitly, via ordinary play resuming) and
+// exit (explicitly, via location.reload() below).
+let _devModeActive = !!localStorage.getItem(DEV_SNAPSHOT_KEY);
+let _devPwArmed = false; // guards the modal's own submit, not a two-tap — see devPwSubmit()
+
+// Long-press timing/threshold — module-level so the delegated listener
+// (installed once near BOOT) and this file's other long-press-adjacent code
+// agree on one number.
+const DEV_LONGPRESS_MS = 1400;
+let _devLongPressTimer = null;
+
+function devOpenPwModal(){
+  if(_devModeActive) return; // already active — nothing to arm, see design decision 4
+  const overlay = document.getElementById('dev-pw-overlay');
+  const input = document.getElementById('dev-pw-input');
+  const err = document.getElementById('dev-pw-error');
+  if(!overlay || !input) return;
+  err.textContent = '';
+  input.value = '';
+  overlay.style.display = 'flex';
+  setTimeout(()=>input.focus(), 50);
+}
+function devClosePwModal(ev){
+  if(ev) ev.stopPropagation();
+  const overlay = document.getElementById('dev-pw-overlay');
+  if(overlay) overlay.style.display = 'none';
+}
+// The one entry point. Correct password + not already active -> snapshot +
+// activate. Correct password while already active -> no-op (protects the
+// original pre-entry snapshot from being overwritten by a second entry,
+// design decision 4). Wrong password -> inline error, modal stays open; this
+// is a discreet gate, not real security, so no lockout.
+function devPwSubmit(){
+  const input = document.getElementById('dev-pw-input');
+  const err = document.getElementById('dev-pw-error');
+  if(!input) return;
+  const val = input.value;
+  if(val !== 'DevDevDev'){
+    if(err) err.textContent = 'Incorrect.';
+    return;
+  }
+  if(_devModeActive){
+    devClosePwModal();
+    return;
+  }
+  try{
+    localStorage.setItem(DEV_SNAPSHOT_KEY, devSerializeState(state));
+  }catch(e){
+    console.warn('[CIM] Dev mode snapshot failed:', e);
+    if(err) err.textContent = 'Snapshot failed — see console.';
+    return;
+  }
+  _devModeActive = true;
+  devClosePwModal();
+  showToast('🔧 Dev mode ON — snapshot saved');
+  renderSettings();
+}
+
+// Single-tap: not consequential in the persisting sense, since the whole
+// dev session is already disposable by construction (the snapshot exists).
+// Two-tap stays reserved for the one action that actually discards real
+// progress — devExitTap() below. Disabled/no-op once state.legacyPath is
+// already set, mirroring checkLegacyForkEligibility()'s own early-out —
+// there is nothing left to grant.
+function devGrantTripleGT(){
+  if(!_devModeActive) return;
+  if(state.legacyPath) { showToast('Fork already resolved on this save'); return; }
+  PERFECT_SEASON_TOURS.forEach(id => state.seasonAchievements.gtWon.add(id));
+  checkLegacyForkEligibility();
+  renderSettings();
+}
+
+// Two-tap arm/confirm, same SET_UPD_ARM_MS-style pattern settingsUpdateTap()
+// uses for its own reload-triggering action — this one discards real
+// dev-session progress, so it gets the same treatment.
+let _devExitArmAt = 0;
+const DEV_EXIT_ARM_MS = 3000;
+function devExitTap(){
+  if(!_devModeActive) return;
+  const now = Date.now();
+  if(now - _devExitArmAt >= DEV_EXIT_ARM_MS){
+    _devExitArmAt = now;
+    renderSettings();
+    setTimeout(()=>{
+      if(Date.now() - _devExitArmAt >= DEV_EXIT_ARM_MS && _devExitArmAt !== 0){
+        _devExitArmAt = 0; renderSettings();
+      }
+    }, DEV_EXIT_ARM_MS + 60);
+    return;
+  }
+  _devExitArmAt = 0;
+  devRestoreAndExit();
+}
+// The one restore path. Reads the snapshot, mutates the live `state` object
+// IN PLACE (state is declared `const`, so this can never be a reassignment —
+// delete every own key, then Object.assign from the snapshot), calls the
+// EXISTING saveGame() funnel so the restored state is persisted through its
+// normal whitelist (self-correcting against saveGame()'s real schema rather
+// than trusting the generic clone's shape directly), clears the snapshot
+// key, clears the active flag, then reloads. The reload is deliberate: boot
+// (loadGame() -> applySettings() -> the one-time boot toasts/migrations ->
+// hub renders) is the only place already proven to rebuild every cache
+// correctly from a fresh state, and patching every hub's render function in
+// place post-restore would be new, untested surface for a feature that's
+// temporary by design.
+function devRestoreAndExit(){
+  const raw = localStorage.getItem(DEV_SNAPSHOT_KEY);
+  if(!raw){ _devModeActive = false; renderSettings(); return; }
+  let snapshot;
+  try{
+    snapshot = devDeserializeState(raw);
+  }catch(e){
+    console.warn('[CIM] Dev mode restore failed to parse snapshot:', e);
+    showToast('🔧 Dev mode restore failed — snapshot unreadable, left in place');
+    return;
+  }
+  Object.keys(state).forEach(k => delete state[k]);
+  Object.assign(state, snapshot);
+  saveGame();
+  localStorage.removeItem(DEV_SNAPSHOT_KEY);
+  _devModeActive = false;
+  location.reload();
+}
+
+// Delegated long-press on the version readout. NOT bound directly to the
+// row's own node — renderSettings() rebuilds #home-settings-body wholesale
+// on every call (same reason _setStageArmAt lives in a module variable, not
+// the DOM), so a listener attached to that node would need rebinding on
+// every render. Delegating from document, checked once at BOOT, sidesteps
+// that entirely. Pointer events (not separate touch/mouse listeners) so this
+// behaves the same on the mobile PWA target and a desktop browser tab.
+function devInstallLongPress(){
+  const clear = () => { clearTimeout(_devLongPressTimer); _devLongPressTimer = null; };
+  document.addEventListener('pointerdown', (e) => {
+    const target = e.target.closest && e.target.closest('.set-ver-val');
+    if(!target) return;
+    clear();
+    _devLongPressTimer = setTimeout(() => { devOpenPwModal(); }, DEV_LONGPRESS_MS);
+  });
+  document.addEventListener('pointerup', clear);
+  document.addEventListener('pointercancel', clear);
+  document.addEventListener('pointerleave', clear, true);
+}
+// ═══════════ END fix328 DEV_MODE_ENABLED (core functions) ═══════════════
 
 // Banner. MIRRORS updateHeader() — it does not call it, and updateHeader() is
 // not modified, so the two read the same sources and can never disagree.
@@ -40384,6 +40646,11 @@ document.addEventListener('visibilitychange',()=>{
 // BOOT
 // ═══════════════════════════════════════════════════════════
 loadGame();
+// fix328 — DEV_MODE_ENABLED. Installed once at boot, delegated from
+// document, independent of loadGame()/applySettings() below — the long-press
+// trigger has nothing to do with the save that was just loaded, only with
+// finding the version row once Settings is eventually opened.
+devInstallLongPress();
 // fix257: settings pushed to the DOM once at boot, immediately after the load
 // that populated them. A stub in this fix, so this is a no-op today; it is sited
 // now so that fix258's and fix259's branches need no boot edit of their own.
@@ -41035,6 +41302,28 @@ function closeInfo(ev){
     <button class="info-close" onclick="closeInfo()">✕</button>
     <div id="info-card-title"></div>
     <div id="info-card-body"></div>
+  </div>
+</div>
+
+<!-- fix328 — DEV_MODE_ENABLED. Own overlay, not an INFO_TEXTS entry (this one
+     needs a live text input, which openInfo()'s body-thunk render can't
+     hold). Reuses .info-overlay/.info-card/.info-close wholesale — same
+     bottom-sheet look, no new modal chrome to design. Backdrop tap dismisses
+     (this is a discreet gate, not a destructive action, so no two-tap-free
+     restriction here the way fix290 removed it from the workshop cap modal). -->
+<div id="dev-pw-overlay" class="info-overlay" style="display:none" onclick="devClosePwModal(event)">
+  <div class="info-card" onclick="event.stopPropagation()">
+    <button class="info-close" onclick="devClosePwModal()">✕</button>
+    <div id="dev-pw-title">Dev access</div>
+    <div id="dev-pw-body">
+      <div class="dev-pw-row">
+        <input type="password" id="dev-pw-input" class="dev-pw-input"
+               placeholder="Password" autocomplete="off" spellcheck="false"
+               onkeydown="if(event.key==='Enter') devPwSubmit()">
+        <button class="dev-pw-submit" onclick="devPwSubmit()">Go</button>
+      </div>
+      <div id="dev-pw-error" class="dev-pw-error"></div>
+    </div>
   </div>
 </div>
 
